@@ -18,6 +18,10 @@ else
         {
             <li>
                 <strong>@book.Title</strong> by @book.Author
+                @if (book.Year is int year)
+                {
+                    <span> (@year)</span>
+                }
                 <label>
                     Status
                     <select @bind:get="book.Status" @bind:set="status => UpdateStatus(book.Id, status)">
@@ -63,6 +67,10 @@ else
         Rating
         <InputNumber @bind-Value="draft.Rating" />
     </label>
+    <label>
+        Year
+        <InputNumber @bind-Value="draft.Year" />
+    </label>
 
     <button type="submit">Add</button>
 </EditForm>
@@ -99,6 +107,7 @@ else
             Author = draft.Author.Trim(),
             Status = draft.Status,
             Rating = draft.Rating,
+            Year = draft.Year,
         });
         await db.SaveChangesAsync();
 
@@ -106,6 +115,7 @@ else
         draft.Author = "";
         draft.Status = BookStatus.Want;
         draft.Rating = null;
+        draft.Year = null;
         await LoadAsync();
     }
 

@@ -15,4 +15,7 @@ public sealed class NewBookModel
 
     [Range(1, 5)]
     public int? Rating { get; set; }
+
+    [Range(1000, 2100)]
+    public int? Year { get; set; }
 }

@@ -22,7 +22,7 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     {
         var created = await _client.PostAsJsonAsync(
             "/books",
-            new CreateBookRequest("The Dispossessed", "Ursula K. Le Guin", BookStatus.Finished, 5),
+            new CreateBookRequest("The Dispossessed", "Ursula K. Le Guin", BookStatus.Finished, 5, 1974),
             JsonOptions);
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
 
@@ -34,6 +34,7 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         Assert.Contains("The Dispossessed", html);
         Assert.Contains("Ursula K. Le Guin", html);
         Assert.Contains("Finished", html);
+        Assert.Contains("1974", html);
         Assert.Contains("Add a book", html);
     }
 
@@ -62,6 +63,17 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         var response = await _client.PostAsJsonAsync(
             "/books",
             new CreateBookRequest("", "Someone", BookStatus.Want, null),
+            JsonOptions);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Create_rejects_a_year_outside_range()
+    {
+        var response = await _client.PostAsJsonAsync(
+            "/books",
+            new CreateBookRequest("Undated", "Someone", BookStatus.Want, null, 999),
             JsonOptions);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -97,13 +109,14 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
 
         var updated = await _client.PutAsJsonAsync(
             $"/books/{book.Id}",
-            new UpdateBookRequest("Piranesi", "Susanna Clarke", BookStatus.Finished, 5),
+            new UpdateBookRequest("Piranesi", "Susanna Clarke", BookStatus.Finished, 5, 2020),
             JsonOptions);
         Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
 
         var afterUpdate = await updated.Content.ReadFromJsonAsync<BookResponse>(JsonOptions);
         Assert.Equal(BookStatus.Finished, afterUpdate?.Status);
         Assert.Equal(5, afterUpdate?.Rating);
+        Assert.Equal(2020, afterUpdate?.Year);
 
         var deleted = await _client.DeleteAsync($"/books/{book.Id}");
         Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);

@@ -11,7 +11,8 @@ Content-Type: application/json
 {
   "title": "A Wizard of Earthsea",
   "author": "Ursula K. Le Guin",
-  "status": "Want"
+  "status": "Want",
+  "year": 1968
 }
 
 ###

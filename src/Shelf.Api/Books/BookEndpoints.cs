@@ -49,6 +49,7 @@ public static class BookEndpoints
             Author = request.Author.Trim(),
             Status = request.Status,
             Rating = request.Rating,
+            Year = request.Year,
         };
 
         db.Books.Add(book);
@@ -72,6 +73,7 @@ public static class BookEndpoints
         book.Author = request.Author.Trim();
         book.Status = request.Status;
         book.Rating = request.Rating;
+        book.Year = request.Year;
         await db.SaveChangesAsync(cancellationToken);
         return TypedResults.Ok(BookResponse.From(book));
     }
