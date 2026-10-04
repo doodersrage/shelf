@@ -1,0 +1,31 @@
+@Shelf.Api_HostAddress = http://localhost:5041
+
+GET {{Shelf.Api_HostAddress}}/books
+Accept: application/json
+
+###
+
+POST {{Shelf.Api_HostAddress}}/books
+Content-Type: application/json
+
+{
+  "title": "A Wizard of Earthsea",
+  "author": "Ursula K. Le Guin",
+  "status": "Want"
+}
+
+###
+
+PUT {{Shelf.Api_HostAddress}}/books/1
+Content-Type: application/json
+
+{
+  "title": "The Left Hand of Darkness",
+  "author": "Ursula K. Le Guin",
+  "status": "Finished",
+  "rating": 5
+}
+
+###
+
+DELETE {{Shelf.Api_HostAddress}}/books/1
