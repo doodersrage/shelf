@@ -16,7 +16,16 @@ Open [http://localhost:5041](http://localhost:5041).
 | `/books` | The same list as JSON |
 | `/openapi/v1.json` | The OpenAPI document, in Development |
 
-The first Development run creates `shelf.db` next to the project and adds one sample book. `src/Shelf.Api/Shelf.Api.http` has requests for creating, updating, and deleting books.
+The app applies EF Core migrations on startup. That creates `shelf.db` next to the project, and the first Development run adds one sample book. `src/Shelf.Api/Shelf.Api.http` has requests for creating, updating, and deleting books.
+
+After changing the model in `ShelfDb`, add a migration whose name describes that change. For a new year column, that would be:
+
+```bash
+dotnet tool restore
+dotnet ef migrations add AddYear --project src/Shelf.Api
+```
+
+The next run applies the new migration. `dotnet ef database update --project src/Shelf.Api` applies it without starting the site.
 
 ## Tests
 
