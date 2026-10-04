@@ -1,0 +1,125 @@
+@page "/"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject IHostEnvironment Environment
+
+<PageTitle>Shelf</PageTitle>
+
+<h1>Shelf</h1>
+
+@if (books.Count == 0)
+{
+    <p>Nothing on the shelf yet.</p>
+}
+else
+{
+    <ul>
+        @foreach (var book in books)
+        {
+            <li>
+                <strong>@book.Title</strong> by @book.Author
+                <label>
+                    Status
+                    <select @bind:get="book.Status" @bind:set="status => UpdateStatus(book.Id, status)">
+                        @foreach (var status in Enum.GetValues<BookStatus>())
+                        {
+                            <option value="@status">@status</option>
+                        }
+                    </select>
+                </label>
+                @if (book.Rating is int rating)
+                {
+                    <span>@rating/5</span>
+                }
+            </li>
+        }
+    </ul>
+}
+
+<h2>Add a book</h2>
+
+<EditForm Model="draft" OnValidSubmit="AddBook">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <label>
+        Title
+        <InputText @bind-Value="draft.Title" />
+    </label>
+    <label>
+        Author
+        <InputText @bind-Value="draft.Author" />
+    </label>
+    <label>
+        Status
+        <InputSelect @bind-Value="draft.Status">
+            @foreach (var status in Enum.GetValues<BookStatus>())
+            {
+                <option value="@status">@status</option>
+            }
+        </InputSelect>
+    </label>
+    <label>
+        Rating
+        <InputNumber @bind-Value="draft.Rating" />
+    </label>
+
+    <button type="submit">Add</button>
+</EditForm>
+
+<p>
+    <a href="/books">JSON</a>
+    @if (Environment.IsDevelopment())
+    {
+        <span> · <a href="/openapi/v1.json">OpenAPI</a></span>
+    }
+</p>
+
+@code {
+    private readonly NewBookModel draft = new();
+    private List<Book> books = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        books = await db.Books.AsNoTracking().OrderBy(book => book.Title).ToListAsync();
+    }
+
+    private async Task AddBook()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.Books.Add(new Book
+        {
+            Title = draft.Title.Trim(),
+            Author = draft.Author.Trim(),
+            Status = draft.Status,
+            Rating = draft.Rating,
+        });
+        await db.SaveChangesAsync();
+
+        draft.Title = "";
+        draft.Author = "";
+        draft.Status = BookStatus.Want;
+        draft.Rating = null;
+        await LoadAsync();
+    }
+
+    private async Task UpdateStatus(int id, BookStatus status)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var book = await db.Books.FirstOrDefaultAsync(existing => existing.Id == id);
+        if (book is null)
+        {
+            return;
+        }
+
+        book.Status = status;
+        await db.SaveChangesAsync();
+        await LoadAsync();
+    }
+}

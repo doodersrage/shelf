@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Shelf.Api.Books;
+using Shelf.Api.Components;
 using Shelf.Api.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,12 +11,18 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
-builder.Services.AddDbContext<ShelfDb>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("Shelf")));
+var shelfConnection = builder.Configuration.GetConnectionString("Shelf")
+    ?? throw new InvalidOperationException("Connection string 'Shelf' is missing.");
+
+builder.Services.AddDbContextFactory<ShelfDb>(options => options.UseSqlite(shelfConnection));
+builder.Services.AddScoped(static services =>
+    services.GetRequiredService<IDbContextFactory<ShelfDb>>().CreateDbContext());
 
 builder.Services.AddValidation();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
 
 var app = builder.Build();
 
@@ -36,11 +43,21 @@ await using (var scope = app.Services.CreateAsyncScope())
     }
 }
 
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+}
+
+app.UseAntiforgery();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
+app.MapStaticAssets();
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
 app.MapBooks();
 app.Run();
 

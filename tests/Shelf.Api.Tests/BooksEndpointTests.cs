@@ -18,6 +18,26 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     private readonly HttpClient _client = factory.CreateClient();
 
     [Fact]
+    public async Task Home_page_lists_created_books()
+    {
+        var created = await _client.PostAsJsonAsync(
+            "/books",
+            new CreateBookRequest("The Dispossessed", "Ursula K. Le Guin", BookStatus.Finished, 5),
+            JsonOptions);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+        var response = await _client.GetAsync("/");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
+
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("The Dispossessed", html);
+        Assert.Contains("Ursula K. Le Guin", html);
+        Assert.Contains("Finished", html);
+        Assert.Contains("Add a book", html);
+    }
+
+    [Fact]
     public async Task Create_then_get_returns_the_book()
     {
         var created = await _client.PostAsJsonAsync(
