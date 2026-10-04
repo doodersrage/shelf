@@ -12,8 +12,12 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
-var configuredConnection = builder.Configuration.GetConnectionString("Shelf")
-    ?? throw new InvalidOperationException("Connection string 'Shelf' is missing.");
+builder.AddServiceDefaults();
+
+// Aspire injects ConnectionStrings:sqlite. Direct runs and tests use Shelf.
+var configuredConnection = builder.Configuration.GetConnectionString("sqlite")
+    ?? builder.Configuration.GetConnectionString("Shelf")
+    ?? throw new InvalidOperationException("Connection string 'sqlite' or 'Shelf' is missing.");
 var sqlite = new SqliteConnectionStringBuilder(configuredConnection);
 if (!Path.IsPathRooted(sqlite.DataSource))
 {
@@ -55,6 +59,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseAntiforgery();
+app.MapDefaultEndpoints();
 
 if (app.Environment.IsDevelopment())
 {

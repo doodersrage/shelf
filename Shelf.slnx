@@ -1,8 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Shelf.Api/Shelf.Api.csproj" />
+    <Project Path="src/Shelf.ServiceDefaults/Shelf.ServiceDefaults.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Shelf.Api.Tests/Shelf.Api.Tests.csproj" />
   </Folder>
+  <Project Path="Shelf.AppHost/Shelf.AppHost.csproj" />
 </Solution>

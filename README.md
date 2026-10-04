@@ -5,10 +5,12 @@ A small personal library on .NET 10. It tracks books you want, are reading, or h
 ## Run
 
 ```bash
-dotnet run --project src/Shelf.Api
+dotnet run --project Shelf.AppHost --launch-profile http
 ```
 
-Open [http://localhost:5041](http://localhost:5041).
+That starts the API and a dashboard with its logs, traces, and the SQLite file. The dashboard address is printed when the AppHost starts. The `http` profile is there because the local HTTPS development certificate is not fully trusted. The `https` profile is the one to use once `dotnet dev-certs https --trust` succeeds.
+
+To run the API on its own, use `dotnet run --project src/Shelf.Api` and open [http://localhost:5041](http://localhost:5041).
 
 | URL | What you get |
 | --- | --- |

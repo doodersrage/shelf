@@ -1,0 +1,21 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.6.0">
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\Shelf.Api\Shelf.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Aspire.Hosting.Sqlite" Version="13.6.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AspireUseCliBundle>true</AspireUseCliBundle>
+    <AspireCliPath Condition="'$(AspireCliPath)' == '' and Exists('$(HOME)/.dotnet/tools/aspire')">$(HOME)/.dotnet/tools/aspire</AspireCliPath>
+    <UserSecretsId>1a445a37-5c14-48de-bf9f-2a046ce5ac27</UserSecretsId>
+  </PropertyGroup>
+
+</Project>
