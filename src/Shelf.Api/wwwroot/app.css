@@ -190,6 +190,11 @@ button.loved {
     border-color: var(--accent);
 }
 
+.inscription {
+    font-style: italic;
+    max-width: 36rem;
+}
+
 .cover {
     display: block;
     width: 7rem;

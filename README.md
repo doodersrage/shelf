@@ -41,7 +41,7 @@ To run the API on its own, use `dotnet run --project src/Shelf.Api` and open [ht
 | `/settings` | The yearly goal, as JSON. |
 | `/openapi/v1.json` | The OpenAPI document, in Development. |
 
-Putting a book into Reading or Finished fills a blank start date, and Finished also fills a blank finish date. A translation can keep its original title. Tags are stored in lowercase, and an ISBN can be typed with or without hyphens. Deleting the last book that uses a tag removes that tag.
+Putting a book into Reading or Finished fills a blank start date, and Finished also fills a blank finish date. A translation can keep its original title. An inscription is the note written in the front of a copy. Tags are stored in lowercase, and an ISBN can be typed with or without hyphens. Deleting the last book that uses a tag removes that tag.
 
 The app applies EF Core migrations on startup. That creates `shelf.db` next to the project, and the first Development run adds one sample book. `src/Shelf.Api/Shelf.Api.http` has requests for creating, updating, quoting, and deleting books.
 

@@ -477,6 +477,26 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task An_inscription_is_kept_and_can_be_searched()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "The Lathe of Heaven",
+            "Ursula K. Le Guin",
+            BookStatus.Want,
+            null,
+            Inscription: "  For the one who remembers the dream.  "));
+        Assert.Equal("For the one who remembers the dream.", book.Inscription);
+
+        var found = await _client.GetFromJsonAsync<BookResponse[]>("/books?q=remembers%20the%20dream", JsonOptions);
+        Assert.Contains(found!, item => item.Id == book.Id);
+
+        var page = await _client.GetAsync($"/library/{book.Id}");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("For the one who remembers the dream.", html);
+        Assert.Contains("inscription", html);
+    }
+
+    [Fact]
     public async Task The_library_shows_covers_and_what_is_being_read()
     {
         var book = await CreateAsync(new CreateBookRequest(

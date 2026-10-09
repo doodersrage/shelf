@@ -143,6 +143,7 @@ public static class BookRules
         book.AcquiredOn = write.AcquiredOn;
         book.Translator = BlankToNull(write.Translator);
         book.OriginalTitle = BlankToNull(write.OriginalTitle);
+        book.Inscription = BlankToNull(write.Inscription);
         book.RecommendedBy = BlankToNull(write.RecommendedBy);
         book.StartedOn = write.StartedOn;
         book.FinishedOn = write.FinishedOn;
@@ -647,6 +648,7 @@ public static class BookRules
                     || (book.Location != null && book.Location.ToLower().Contains(term))
                     || (book.Translator != null && book.Translator.ToLower().Contains(term))
                     || (book.OriginalTitle != null && book.OriginalTitle.ToLower().Contains(term))
+                    || (book.Inscription != null && book.Inscription.ToLower().Contains(term))
                     || (book.RecommendedBy != null && book.RecommendedBy.ToLower().Contains(term))
                     || book.Quotes.Any(quote => quote.Text.ToLower().Contains(term)))
                 : books.Where(book =>
@@ -660,6 +662,7 @@ public static class BookRules
                     || (book.Location != null && book.Location.ToLower().Contains(term))
                     || (book.Translator != null && book.Translator.ToLower().Contains(term))
                     || (book.OriginalTitle != null && book.OriginalTitle.ToLower().Contains(term))
+                    || (book.Inscription != null && book.Inscription.ToLower().Contains(term))
                     || (book.RecommendedBy != null && book.RecommendedBy.ToLower().Contains(term))
                     || book.Quotes.Any(quote => quote.Text.ToLower().Contains(term)));
         }

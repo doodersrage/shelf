@@ -335,6 +335,7 @@ else
                     || (book.Location?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     || (book.Translator?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     || (book.OriginalTitle?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (book.Inscription?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     || (book.RecommendedBy?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     || book.Quotes.Any(quote => quote.Text.Contains(term, StringComparison.OrdinalIgnoreCase)));
             }
