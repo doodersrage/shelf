@@ -8,7 +8,7 @@
 
 @if (quotes.Count == 0)
 {
-    <p>No quotes yet.</p>
+    <EmptyState Title="No quotes yet" Text="Quotes saved on a book's page gather here, where you can search their words, the book, or the author." ActionHref="/" ActionLabel="Open the library" />
 }
 else
 {
@@ -20,7 +20,7 @@ else
     </div>
     @if (!Visible.Any())
     {
-        <p>Nothing matches.</p>
+        <p class="hint">No quote matches that search.</p>
     }
     else
     {

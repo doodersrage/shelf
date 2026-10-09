@@ -15,163 +15,151 @@
 else if (book is not null)
 {
     <p class="hint"><a href="/">Library</a></p>
-    @if (!string.IsNullOrWhiteSpace(book.CoverUrl))
-    {
-        <img class="cover" src="@book.CoverUrl" alt="" />
-    }
-    <h1>@book.Title</h1>
-    @if (!string.IsNullOrWhiteSpace(book.EbookStoredName))
-    {
-        <p><a href="/library/@book.Id/read">Read this e-book</a></p>
-    }
-    @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
-    {
-        <p><a href="/library/@book.Id/listen">Listen to this audiobook</a></p>
-        @if ((book.AudioTrack ?? 0) > 0 || (book.AudioSeconds ?? 0) > 0)
-        {
-            <p class="hint">Paused at @PausedAt(book)</p>
-        }
-    }
+    <header class="book-hero">
+        <BookCover Title="@book.Title" Url="@book.CoverUrl" Decorative="false" />
+        <div>
+            <h1>@book.Title</h1>
+            @if (!string.IsNullOrWhiteSpace(book.Subtitle))
+            {
+                <p class="hint">@book.Subtitle</p>
+            }
+            <p class="by">
+                <a href="@($"/?author={Uri.EscapeDataString(book.Author)}")">@book.Author</a>
+                @if (!string.IsNullOrWhiteSpace(book.Translator))
+                {
+                    <span class="hint"> · translated by @book.Translator</span>
+                }
+            </p>
+            @if (!string.IsNullOrWhiteSpace(book.OriginalTitle))
+            {
+                <p class="hint">Originally @book.OriginalTitle</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(book.Series))
+            {
+                <p class="hint">
+                    <a href="@($"/?series={Uri.EscapeDataString(book.Series)}")">@book.Series</a>
+                    @if (book.SeriesNumber is int number)
+                    {
+                        <span> · book @number</span>
+                    }
+                </p>
+            }
+            @if (nextVolume is not null)
+            {
+                <p class="hint">Next: <a href="/library/@nextVolume.Id">@nextVolume.Title</a></p>
+            }
+            <div class="badges">
+                <StatusBadge Status="book.Status" />
+                @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
+                {
+                    <span class="badge loan">On loan</span>
+                }
+                @if (book.Loved)
+                {
+                    <span class="badge plain">Loved</span>
+                }
+                @if (book.Rating is int rating)
+                {
+                    <span class="badge plain">@rating of 5</span>
+                }
+            </div>
+            @if (book.Queued)
+            {
+                <p class="hint">On the read-next list.</p>
+            }
+            @if (BookRules.PagesRemaining(book) is int left)
+            {
+                <p class="hint">
+                    @if (left == 0)
+                    {
+                        <span>At the last page.</span>
+                    }
+                    else
+                    {
+                        <span>@left @(left == 1 ? "page" : "pages") left</span>
+                        @if (BookRules.DaysRemaining(book) is int days)
+                        {
+                            <span> · about @days @(days == 1 ? "day" : "days")</span>
+                        }
+                    }
+                </p>
+            }
+            <div class="status-actions">
+                @switch (book.Status)
+                {
+                    case BookStatus.Want:
+                        <button type="button" class="primary" @onclick="() => MoveTo(BookStatus.Reading)">Start reading</button>
+                        break;
+                    case BookStatus.Reading:
+                        <button type="button" class="primary" @onclick="() => MoveTo(BookStatus.Finished)">Mark finished</button>
+                        <button type="button" class="quiet" @onclick="() => MoveTo(BookStatus.Abandoned)">Stop reading</button>
+                        break;
+                    case BookStatus.Finished:
+                        @if (book.FinishedOn is DateOnly finishedOn)
+                        {
+                            <span class="hint">Finished @finishedOn.ToString("MMMM d, yyyy")</span>
+                        }
+                        break;
+                    case BookStatus.Abandoned:
+                        <button type="button" class="quiet" @onclick="() => MoveTo(BookStatus.Reading)">Pick it up again</button>
+                        break;
+                }
+                @if (!string.IsNullOrWhiteSpace(book.EbookStoredName))
+                {
+                    <a class="button" href="/library/@book.Id/read">Read this e-book</a>
+                }
+                @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
+                {
+                    <a class="button" href="/library/@book.Id/listen">Listen to this audiobook</a>
+                }
+            </div>
+            @if (!string.IsNullOrWhiteSpace(book.AudioStoredName) && ((book.AudioTrack ?? 0) > 0 || (book.AudioSeconds ?? 0) > 0))
+            {
+                <p class="hint">Paused at @PausedAt(book)</p>
+            }
+        </div>
+    </header>
+
     @if (EbookMessage == "saved")
     {
-        <p class="hint">The e-book is on the shelf.</p>
+        <p class="saved" role="status">The e-book is on the shelf.</p>
     }
     else if (EbookMessage == "unsupported")
     {
-        <p class="hint">Choose an EPUB or a PDF.</p>
+        <p class="validation-message" role="alert">Choose an EPUB or a PDF.</p>
     }
     else if (EbookMessage == "large")
     {
-        <p class="hint">That file is larger than 80 MB.</p>
+        <p class="validation-message" role="alert">That file is larger than 80 MB.</p>
     }
     @if (AudioMessage == "saved")
     {
-        <p class="hint">The audiobook is on the shelf.</p>
+        <p class="saved" role="status">The audiobook is on the shelf.</p>
     }
     else if (AudioMessage == "unsupported")
     {
-        <p class="hint">Choose an audio file, or a zip of them.</p>
+        <p class="validation-message" role="alert">Choose an audio file, or a zip of them.</p>
     }
     else if (AudioMessage == "large")
     {
-        <p class="hint">That audiobook is larger than 1 GB.</p>
+        <p class="validation-message" role="alert">That audiobook is larger than 1 GB.</p>
     }
-    @if (!string.IsNullOrWhiteSpace(book.Subtitle))
-    {
-        <p class="hint">@book.Subtitle</p>
-    }
-    @if (!string.IsNullOrWhiteSpace(book.OriginalTitle))
-    {
-        <p class="hint">Originally @book.OriginalTitle</p>
-    }
+
     @if (!string.IsNullOrWhiteSpace(book.Inscription))
     {
         <p class="inscription">@book.Inscription</p>
     }
-    <p class="by">
-        <a href="@($"/?author={Uri.EscapeDataString(book.Author)}")">@book.Author</a>
-        @if (!string.IsNullOrWhiteSpace(book.Translator))
-        {
-            <span class="hint"> · translated by @book.Translator</span>
-        }
-    </p>
-    @if (!string.IsNullOrWhiteSpace(book.Series))
-    {
-        <p class="hint">
-            <a href="@($"/?series={Uri.EscapeDataString(book.Series)}")">@book.Series</a>
-            @if (book.SeriesNumber is int number)
-            {
-                <span> · @number</span>
-            }
-        </p>
-    }
-    @if (nextVolume is not null)
-    {
-        <p class="hint">Next: <a href="/library/@nextVolume.Id">@nextVolume.Title</a></p>
-    }
-    @if (book.Queued)
-    {
-        <p class="hint">On the read-next list.</p>
-    }
-    @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
-    {
-        <p>
-            Loaned to <a href="@($"/?loanedTo={Uri.EscapeDataString(book.LoanedTo)}")">@book.LoanedTo</a>@(book.BorrowerId is null ? "" : ", a reader here")
-            @if (book.LoanedOn is DateOnly loanedOn)
-            {
-                <span> since @loanedOn.ToString("MMM d, yyyy")</span>
-            }
-            @if (book.DueOn is DateOnly due)
-            {
-                <span class="@(due < Today ? "late" : null)"> due @due.ToString("MMM d, yyyy")@(due < Today ? ", overdue" : "")</span>
-            }
-            <button type="button" @onclick="ReturnLoan">Return</button>
-        </p>
-    }
-    @if (!string.IsNullOrWhiteSpace(book.Location) || book.AcquiredOn is not null || book.Acquisition is not null || book.Condition is not null)
-    {
-        <p class="hint">
-            @if (book.Acquisition is Acquisition arrived)
-            {
-                <span>@(arrived == Acquisition.Gift ? "A gift" : arrived.ToString())</span>
-            }
-            @if (!string.IsNullOrWhiteSpace(book.Location))
-            {
-                <span>@(book.Acquisition is null ? "" : " · ")</span>
-                <a href="@($"/?place={Uri.EscapeDataString(book.Location)}")">@book.Location</a>
-            }
-            @if (book.AcquiredOn is DateOnly acquired)
-            {
-                <span>@(book.Acquisition is null && string.IsNullOrWhiteSpace(book.Location) ? "" : " · ")Acquired @acquired.ToString("MMM d, yyyy")</span>
-            }
-            @if (book.Condition is CopyCondition condition)
-            {
-                <span>@(book.Acquisition is null && string.IsNullOrWhiteSpace(book.Location) && book.AcquiredOn is null ? "" : " · ")@BookRules.ConditionLabel(condition)</span>
-            }
-        </p>
-    }
-    @if (!string.IsNullOrWhiteSpace(book.RecommendedBy))
-    {
-        <p class="hint"><a href="@($"/?recommendedBy={Uri.EscapeDataString(book.RecommendedBy)}")">Recommended by @book.RecommendedBy</a></p>
-    }
-    @if (BookRules.PagesRemaining(book) is int left)
-    {
-        <p class="hint">
-            @if (left == 0)
-            {
-                <span>At the last page.</span>
-            }
-            else
-            {
-                <span>@left @(left == 1 ? "page" : "pages") left</span>
-                @if (BookRules.DaysRemaining(book) is int days)
-                {
-                    <span> · about @days @(days == 1 ? "day" : "days")</span>
-                }
-            }
-        </p>
-    }
 
-    <EditForm Model="draft" OnValidSubmit="Save">
-        <DataAnnotationsValidator />
-        <ValidationSummary />
-        @if (formErrors is { Count: > 0 })
-        {
-            <ul class="validation-errors">
-                @foreach (var message in formErrors.SelectMany(pair => pair.Value))
-                {
-                    <li>@message</li>
-                }
-            </ul>
-        }
-        <BookFields Model="draft" Detailed="true" />
-        <button type="submit">Save</button>
-        @if (saved)
-        {
-            <span class="hint">Saved.</span>
-        }
-    </EditForm>
+    <nav class="section-nav" aria-label="On this page">
+        <a href="/library/@book.Id#reading">Reading</a>
+        <a href="/library/@book.Id#lending">Lending</a>
+        <a href="/library/@book.Id#quotes">Quotes</a>
+        <a href="/library/@book.Id#highlights">Highlights</a>
+        <a href="/library/@book.Id#files">Files</a>
+        <a href="/library/@book.Id#details">Details</a>
+    </nav>
 
+    <section class="panel" id="reading">
     <h2>Reading log</h2>
     @if (book.Sessions.Count == 0)
     {
@@ -241,18 +229,84 @@ else if (book is not null)
         </div>
         <button type="submit">Add session</button>
     </EditForm>
+    </section>
 
-    @if (others.Count > 0)
+    <section class="panel" id="lending">
+        <h2>Lending</h2>
+        @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
+        {
+            <p>
+                Loaned to <a href="@($"/?loanedTo={Uri.EscapeDataString(book.LoanedTo)}")">@book.LoanedTo</a>@(book.BorrowerId is null ? "" : ", a reader here")
+                @if (book.LoanedOn is DateOnly loanedOn)
+                {
+                    <span> since @loanedOn.ToString("MMM d, yyyy")</span>
+                }
+                @if (book.DueOn is DateOnly due)
+                {
+                    <span class="@(due < Today ? "late" : null)"> · due @due.ToString("MMM d, yyyy")@(due < Today ? ", overdue" : "")</span>
+                }
+            </p>
+            <button type="button" @onclick="ReturnLoan">Mark returned</button>
+        }
+        else if (readers.Count == 0)
+        {
+            <p class="hint">Not on loan. To lend it to someone, fill in Loaned to under Details.</p>
+        }
+    else
     {
-        <h2>Also by @book.Author</h2>
-        <ul class="tag-counts">
-            @foreach (var other in others)
-            {
-                <li><a href="/library/@other.Id">@other.Title</a></li>
-            }
-        </ul>
+        <p class="hint">Lend this book to another reader here. It shows on their loans until it comes back.</p>
+        <div class="pair">
+            <label>
+                Reader
+                <select @bind="lendTo">
+                    <option value="0">Choose a reader</option>
+                    @foreach (var reader in readers)
+                    {
+                        <option value="@reader.Id">@reader.Name</option>
+                    }
+                </select>
+            </label>
+            <label>
+                Due back
+                <input type="date" @bind="lendDue" />
+            </label>
+        </div>
+        <button type="button" @onclick="LendBook" disabled="@(lendTo == 0)">Lend</button>
+        @if (lendProblem is not null)
+        {
+            <p class="validation-message" role="alert">@lendProblem</p>
+        }
     }
+        @if (!string.IsNullOrWhiteSpace(book.Location) || book.AcquiredOn is not null || book.Acquisition is not null || book.Condition is not null || !string.IsNullOrWhiteSpace(book.RecommendedBy))
+        {
+            <h3>This copy</h3>
+            <p class="hint">
+                @if (book.Acquisition is Acquisition arrived)
+                {
+                    <span>@(arrived == Acquisition.Gift ? "A gift" : arrived.ToString())</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(book.Location))
+                {
+                    <span>@(book.Acquisition is null ? "" : " · ")</span>
+                    <a href="@($"/?place={Uri.EscapeDataString(book.Location)}")">@book.Location</a>
+                }
+                @if (book.AcquiredOn is DateOnly acquired)
+                {
+                    <span>@(book.Acquisition is null && string.IsNullOrWhiteSpace(book.Location) ? "" : " · ")Acquired @acquired.ToString("MMM d, yyyy")</span>
+                }
+                @if (book.Condition is CopyCondition condition)
+                {
+                    <span>@(book.Acquisition is null && string.IsNullOrWhiteSpace(book.Location) && book.AcquiredOn is null ? "" : " · ")@BookRules.ConditionLabel(condition)</span>
+                }
+            </p>
+            @if (!string.IsNullOrWhiteSpace(book.RecommendedBy))
+            {
+                <p class="hint"><a href="@($"/?recommendedBy={Uri.EscapeDataString(book.RecommendedBy)}")">Recommended by @book.RecommendedBy</a></p>
+            }
+        }
+    </section>
 
+    <section class="panel" id="quotes">
     <h2>Quotes</h2>
     @if (book.Quotes.Count == 0)
     {
@@ -300,7 +354,9 @@ else if (book is not null)
         </label>
         <button type="submit">Add quote</button>
     </EditForm>
+    </section>
 
+    <section class="panel" id="highlights">
     <h2>Highlights</h2>
     @if (book.Highlights.Count == 0)
     {
@@ -326,35 +382,11 @@ else if (book is not null)
             }
         </ul>
     }
+    </section>
 
-    @if (readers.Count > 0 && string.IsNullOrWhiteSpace(book.LoanedTo))
-    {
-        <h2>Lend</h2>
-        <p class="hint">Lend this book to another reader here. It shows on their loans until it comes back.</p>
-        <div class="pair">
-            <label>
-                Reader
-                <select @bind="lendTo">
-                    <option value="0">Choose a reader</option>
-                    @foreach (var reader in readers)
-                    {
-                        <option value="@reader.Id">@reader.Name</option>
-                    }
-                </select>
-            </label>
-            <label>
-                Due back
-                <input type="date" @bind="lendDue" />
-            </label>
-        </div>
-        <button type="button" @onclick="LendBook" disabled="@(lendTo == 0)">Lend</button>
-        @if (lendProblem is not null)
-        {
-            <p class="validation-message" role="alert">@lendProblem</p>
-        }
-    }
-
-    <h2>E-book</h2>
+    <section class="panel" id="files">
+        <h2>Files</h2>
+    <h3>E-book</h3>
     @if (!string.IsNullOrWhiteSpace(book.EbookFileName))
     {
         <p>@book.EbookFileName</p>
@@ -368,7 +400,7 @@ else if (book is not null)
         <button type="submit">Upload</button>
     </form>
 
-    <h2>Audiobook</h2>
+    <h3>Audiobook</h3>
     @if (!string.IsNullOrWhiteSpace(book.AudioFileName))
     {
         <p>@book.AudioFileName</p>
@@ -381,8 +413,46 @@ else if (book is not null)
         </label>
         <button type="submit">Upload</button>
     </form>
+    </section>
 
-    <h2>Remove</h2>
+    <section class="panel" id="details">
+        <h2>Details</h2>
+        <details class="edit" open="@(formErrors is { Count: > 0 } || saved)">
+            <summary>Edit the catalog, notes, and loan</summary>
+    <EditForm Model="draft" OnValidSubmit="Save">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        @if (formErrors is { Count: > 0 })
+        {
+            <ul class="validation-errors">
+                @foreach (var message in formErrors.SelectMany(pair => pair.Value))
+                {
+                    <li>@message</li>
+                }
+            </ul>
+        }
+        <BookFields Model="draft" Detailed="true" />
+        <button type="submit">Save changes</button>
+        @if (saved)
+        {
+            <span class="saved" role="status">Saved.</span>
+        }
+    </EditForm>
+        </details>
+    @if (others.Count > 0)
+    {
+        <h3>Also by @book.Author</h3>
+        <ul class="tag-counts">
+            @foreach (var other in others)
+            {
+                <li><a href="/library/@other.Id">@other.Title</a></li>
+            }
+        </ul>
+    }
+    </section>
+
+    <section class="panel" id="remove">
+        <h2>Remove</h2>
     @if (!confirmingDelete)
     {
         <button type="button" class="danger" @onclick="() => confirmingDelete = true">Delete this book</button>
@@ -393,6 +463,7 @@ else if (book is not null)
         <button type="button" class="danger" @onclick="Delete">Yes, delete it</button>
         <button type="button" @onclick="() => confirmingDelete = false">Cancel</button>
     }
+    </section>
 }
 
 @code {
@@ -673,6 +744,24 @@ else if (book is not null)
         await db.SaveChangesAsync();
         sessionDraft.Clear();
         sessionErrors = null;
+        saved = false;
+        await LoadAsync();
+    }
+
+    // Want to read, then Reading, then Finished: one press each, with the dates filled as the edit form would.
+    private async Task MoveTo(BookStatus status)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var existing = await db.Books.FirstOrDefaultAsync(item => item.Id == Id);
+        if (existing is null)
+        {
+            missing = true;
+            book = null;
+            return;
+        }
+
+        BookRules.ChangeStatus(existing, status);
+        await db.SaveChangesAsync();
         saved = false;
         await LoadAsync();
     }

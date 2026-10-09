@@ -1,58 +1,58 @@
 @inherits LayoutComponentBase
 @inject IHostEnvironment Environment
 @inject IDbContextFactory<ShelfDb> DbFactory
+@inject NavigationManager Navigation
 
-<header class="site">
-    <a class="mark" href="/">Shelf</a>
-    @if (signedIn)
-    {
-    <nav>
-        <NavLink href="/" Match="NavLinkMatch.All">Library</NavLink>
-        <NavLink href="/quotes">Quotes</NavLink>
-        <NavLink href="/authors">Authors</NavLink>
-        <NavLink href="/series">Series</NavLink>
-        <NavLink href="/places">Places</NavLink>
-        <NavLink href="/copies">Copies</NavLink>
-        <NavLink href="/recommenders">Recommenders</NavLink>
-        <NavLink href="/years">Years</NavLink>
-        <NavLink href="/loans">Loans</NavLink>
-        <NavLink href="/shelves">Shelves</NavLink>
-        <NavLink href="/stats">Stats</NavLink>
-    </nav>
-    }
-</header>
-
-@if (reminders is { Any: true } due)
+@if (!signedIn)
 {
-    <p class="notice" role="status">
-        <a href="/loans">@string.Join(" · ", ReminderLines(due))</a>
-    </p>
+    <div class="app signed-out">
+        <div class="content">
+            <a class="wordmark" href="/">@Mark shelf</a>
+            <main id="main">
+                @Body
+            </main>
+        </div>
+    </div>
 }
-
-<main>
-    @Body
-</main>
-
-@if (signedIn)
+else
 {
-    <footer>
-        <a href="/account">@readerName</a>
-        <form class="inline" method="post" action="/account/signout">
-            <AntiforgeryToken />
-            <button type="submit" class="link">Sign out</button>
-        </form>
-        <span> · <a href="/books">JSON</a></span>
-        <span> · <a href="/books/export">Backup</a></span>
-        <span> · <a href="/sync">Devices</a></span>
-        @if (isAdmin)
-        {
-            <span> · <a href="/admin">Readers</a></span>
-        }
-        @if (Environment.IsDevelopment())
-        {
-            <span> · <a href="/openapi/v1.json">OpenAPI</a></span>
-        }
-    </footer>
+    <a class="skip-link" href="#main">Skip to the page</a>
+    <div class="app signed-in">
+        <aside class="sidebar" aria-label="Shelf">
+            @Sidebar
+        </aside>
+
+        <div class="content">
+            <header class="topbar">
+                <a class="wordmark" href="/">@Mark shelf</a>
+                <details class="drawer">
+                    <summary class="button" aria-label="Menu">Menu</summary>
+                    <aside class="sidebar" aria-label="Shelf menu">
+                        @Sidebar
+                    </aside>
+                </details>
+            </header>
+
+            @if (reminders is { Any: true } due)
+            {
+                <p class="notice" role="status">
+                    <a href="/loans">@string.Join(" · ", ReminderLines(due))</a>
+                </p>
+            }
+
+            <main id="main">
+                @Body
+            </main>
+        </div>
+
+        <nav class="bottom-nav" aria-label="Most used">
+            <a href="/" aria-current="@Current("/")">@Icon("M4 5h4v14H4zM10 5h4v14h-4zM16 6l3.5-.9 3 13.5-3.5.9z") Library</a>
+            <a href="/?status=Reading" aria-current="@Current("/?status=Reading")">@Icon("M4 6c3-1.5 5.5-1.5 8 0v13c-2.5-1.5-5-1.5-8 0zM12 6c2.5-1.5 5-1.5 8 0v13c-3-1.5-5.5-1.5-8 0z") Reading</a>
+            <a href="/?add=1" aria-current="@Current("/?add=1")">@Icon("M12 5v14M5 12h14") Add</a>
+            <a href="/loans" aria-current="@Current("/loans")">@Icon("M7 7h11l-3-3M17 17H6l3 3") Loans</a>
+            <a href="/stats" aria-current="@Current("/stats")">@Icon("M5 19V11M12 19V5M19 19v-6") Stats</a>
+        </nav>
+    </div>
 }
 
 <div id="blazor-error-ui" data-nosnippet>
@@ -70,6 +70,91 @@
     [CascadingParameter]
     private Task<AuthenticationState>? Authentication { get; set; }
 
+    // A plain open book of spines: the wordmark's only ornament.
+    private static readonly RenderFragment Mark = @<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+        <rect x="3" y="4" width="4" height="16" rx="1" />
+        <rect x="9" y="6" width="4" height="14" rx="1" />
+        <rect x="15.2" y="5.2" width="4" height="15" rx="1" transform="rotate(-12 17.2 12.7)" />
+    </svg>;
+
+    private RenderFragment Sidebar => @<text>
+        <a class="wordmark" href="/">@Mark shelf</a>
+        <form class="search" action="/" method="get" role="search" data-enhance>
+            <label class="visually-hidden" for="@SearchId">Search the library</label>
+            <input id="@SearchId" name="q" type="search" placeholder="Search the library" autocomplete="off" />
+        </form>
+        <a class="button primary" href="/?add=1">Add a book</a>
+        <nav class="nav-group" aria-label="Your library">
+            <h2>Your library</h2>
+            <ul>
+                <li><a href="/" aria-current="@Current("/")">Library</a></li>
+                <li><a href="/?status=Reading" aria-current="@Current("/?status=Reading")">Reading</a></li>
+                <li><a href="/?status=Want" aria-current="@Current("/?status=Want")">Want to read</a></li>
+                <li><a href="/?status=Finished" aria-current="@Current("/?status=Finished")">Finished</a></li>
+                <li>
+                    <a href="/loans" aria-current="@Current("/loans")">
+                        Loans
+                        @if (reminders is { Any: true } due)
+                        {
+                            <span class="badge plain" aria-label="@($"{Waiting(due)} waiting")">@Waiting(due)</span>
+                        }
+                    </a>
+                </li>
+                <li><a href="/shelves" aria-current="@Current("/shelves")">Shelves</a></li>
+            </ul>
+        </nav>
+        <nav class="nav-group" aria-label="Discover and reflect">
+            <h2>Discover &amp; reflect</h2>
+            <ul>
+                <li><a href="/authors" aria-current="@Current("/authors")">Authors</a></li>
+                <li><a href="/series" aria-current="@Current("/series")">Series</a></li>
+                <li><a href="/quotes" aria-current="@Current("/quotes")">Quotes</a></li>
+                <li><a href="/stats" aria-current="@Current("/stats")">Stats</a></li>
+                <li><a href="/years" aria-current="@Current("/years")">Years</a></li>
+            </ul>
+        </nav>
+        <nav class="nav-group" aria-label="Your copies">
+            <h2>Your copies</h2>
+            <ul>
+                <li><a href="/places" aria-current="@Current("/places")">Places</a></li>
+                <li><a href="/copies" aria-current="@Current("/copies")">Condition</a></li>
+                <li><a href="/recommenders" aria-current="@Current("/recommenders")">Recommenders</a></li>
+            </ul>
+        </nav>
+        <nav class="nav-group" aria-label="Settings">
+            <h2>Settings</h2>
+            <ul>
+                <li><a href="/account" aria-current="@Current("/account")">Account</a></li>
+                <li><a href="/backup" aria-current="@Current("/backup")">Backup &amp; restore</a></li>
+                <li><a href="/sync" aria-current="@Current("/sync")">Devices</a></li>
+                @if (isAdmin)
+                {
+                    <li><a href="/admin" aria-current="@Current("/admin")">Readers</a></li>
+                }
+            </ul>
+        </nav>
+        <div class="sidebar-foot">
+            <p>
+                <span class="reader-name">@readerName</span> ·
+                <form class="inline" method="post" action="/account/signout">
+                    <AntiforgeryToken />
+                    <button type="submit" class="link">Sign out</button>
+                </form>
+            </p>
+            <p>
+                <a href="/books">JSON</a>
+                @if (Environment.IsDevelopment())
+                {
+                    <span> · <a href="/openapi/v1.json">OpenAPI</a></span>
+                }
+            </p>
+        </div>
+    </text>;
+
+    // The sidebar is drawn twice, once for wide screens and once in the phone drawer, so ids stay unique.
+    private int searchCount;
+    private string SearchId => $"library-search-{++searchCount}";
+
     protected override async Task OnParametersSetAsync()
     {
         var user = Authentication is null ? null : (await Authentication).User;
@@ -82,6 +167,27 @@
             isAdmin = await ReaderRules.IsAdminAsync(db, db.ReaderId);
         }
     }
+
+    // The library's own views differ only by their query, so those links match it exactly.
+    private string? Current(string href)
+    {
+        var here = new Uri(Navigation.Uri);
+        var status = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(here.Query).TryGetValue("status", out var value) ? value.ToString() : "";
+        var adding = here.Query.Contains("add=1", StringComparison.Ordinal);
+        var matches = href switch
+        {
+            "/" => here.AbsolutePath == "/" && status.Length == 0 && !adding,
+            "/?add=1" => here.AbsolutePath == "/" && adding,
+            _ when href.StartsWith("/?status=", StringComparison.Ordinal) =>
+                here.AbsolutePath == "/" && string.Equals(status, href["/?status=".Length..], StringComparison.OrdinalIgnoreCase),
+            _ => here.AbsolutePath == href || here.AbsolutePath.StartsWith(href + "/", StringComparison.Ordinal),
+        };
+        return matches ? "page" : null;
+    }
+
+    private static RenderFragment Icon(string path) => @<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="@path" /></svg>;
+
+    private static int Waiting(Reminders due) => due.LentOverdue + due.BorrowedOverdue + due.BorrowedDueSoon + due.Asks;
 
     private static IEnumerable<string> ReminderLines(Reminders due)
     {

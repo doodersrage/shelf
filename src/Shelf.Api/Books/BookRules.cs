@@ -345,6 +345,31 @@ public static class BookRules
         return setting?.SyncAddress;
     }
 
+    public static async Task<ReaderType> GetReaderTypeAsync(ShelfDb db, CancellationToken cancellationToken = default)
+    {
+        var setting = await db.Settings.AsNoTracking().FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
+        return new ReaderType(
+            setting?.ReaderTextSize ?? ReaderType.DefaultSize,
+            setting?.ReaderLineHeight ?? ReaderType.DefaultLeading,
+            setting?.ReaderWidth ?? ReaderType.DefaultWidth).Clamped();
+    }
+
+    public static async Task SetReaderTypeAsync(ShelfDb db, ReaderType type, CancellationToken cancellationToken = default)
+    {
+        type = type.Clamped();
+        var setting = await db.Settings.FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
+        if (setting is null)
+        {
+            setting = new ShelfSetting { Id = SettingId(db) };
+            db.Settings.Add(setting);
+        }
+
+        setting.ReaderTextSize = type.Size;
+        setting.ReaderLineHeight = type.Leading;
+        setting.ReaderWidth = type.Width;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public static async Task<string?> GetSyncKeyAsync(ShelfDb db, CancellationToken cancellationToken = default)
     {
         var setting = await db.Settings.AsNoTracking().FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
@@ -659,6 +684,12 @@ public static class BookRules
             .Select(group => new RecommenderCount(group.First()!.Trim(), group.Count()))
             .OrderBy(person => person.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+
+    public static string StatusLabel(BookStatus status) => status switch
+    {
+        BookStatus.Want => "Want to read",
+        _ => status.ToString(),
+    };
 
     public static string ConditionLabel(CopyCondition condition) => condition switch
     {

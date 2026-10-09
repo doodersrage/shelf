@@ -1,0 +1,26 @@
+@* A cover at the shared 2:3 ratio, or a plain spine with the title when there is no cover. *@
+<span class="cover-frame" style="@(Width is null ? null : $"width:{Width}")">
+    @if (!string.IsNullOrWhiteSpace(Url))
+    {
+        <img src="@Url" alt="@(Decorative ? "" : $"Cover of {Title}")" loading="lazy" />
+    }
+    else
+    {
+        <span class="spine" aria-hidden="true">@Title</span>
+    }
+</span>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    public string? Url { get; set; }
+
+    [Parameter]
+    public string? Width { get; set; }
+
+    // Next to a visible title, the cover adds nothing for a screen reader.
+    [Parameter]
+    public bool Decorative { get; set; } = true;
+}

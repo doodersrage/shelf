@@ -106,6 +106,7 @@ public static class EbookEndpoints
             .OrderBy(item => item.Id)
             .ToListAsync(cancellationToken);
         html = ReaderMarks.Inject(html, marks);
+        html = ReaderMarks.Typeset(html, await BookRules.GetReaderTypeAsync(db, cancellationToken));
         http.Response.Headers.ContentSecurityPolicy = ChapterPolicy;
         return Results.Content(html, "text/html; charset=utf-8");
     }

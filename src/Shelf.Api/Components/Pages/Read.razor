@@ -57,6 +57,37 @@ else if (book is not null)
                 </label>
                 <button type="button" @onclick="Next" disabled="@(chapter >= chapters.Count - 1)">Next</button>
             </div>
+            <details>
+                <summary>Text settings</summary>
+                <div class="reader-settings">
+                    <label>
+                        Text size
+                        <select @bind="type.Size" @bind:after="SaveType">
+                            <option value="85">Smaller</option>
+                            <option value="100">Default</option>
+                            <option value="115">Larger</option>
+                            <option value="130">Large</option>
+                            <option value="150">Largest</option>
+                        </select>
+                    </label>
+                    <label>
+                        Line spacing
+                        <select @bind="type.Leading" @bind:after="SaveType">
+                            <option value="140">Snug</option>
+                            <option value="160">Comfortable</option>
+                            <option value="190">Airy</option>
+                        </select>
+                    </label>
+                    <label>
+                        Reading width
+                        <select @bind="type.Width" @bind:after="SaveType">
+                            <option value="30">Narrow</option>
+                            <option value="38">Medium</option>
+                            <option value="50">Wide</option>
+                        </select>
+                    </label>
+                </div>
+            </details>
             @if (!string.IsNullOrWhiteSpace(selectedText))
             {
                 <blockquote class="passage"><p>@selectedText</p></blockquote>
@@ -77,7 +108,7 @@ else if (book is not null)
             {
                 <p class="hint">Select a passage to highlight it.</p>
             }
-            <iframe @key="@($"{chapter}:{markRevision}")" class="reader-frame" title="@chapters[chapter].Title" src="/books/@book.Id/ebook/chapters/@chapter"></iframe>
+            <iframe @key="@($"{chapter}:{markRevision}:{typeRevision}")" class="reader-frame" title="@chapters[chapter].Title" src="/books/@book.Id/ebook/chapters/@chapter?t=@typeRevision"></iframe>
             @if (ChapterMarks.Count > 0)
             {
                 <h2>In this chapter</h2>
@@ -105,6 +136,8 @@ else if (book is not null)
     private OpenBook? open;
     private bool borrowed;
     private bool missing;
+    private TypeForm type = new();
+    private int typeRevision;
     private int chapter;
     private int markRevision;
     private IReadOnlyList<EpubChapter>? chapters;
@@ -141,13 +174,15 @@ else if (book is not null)
 
         var path = Ebooks.OpenPath(book.EbookStoredName);
         chapters = path is null ? null : EpubFile.Chapters(path);
+        var saved = await BookRules.GetReaderTypeAsync(db);
+        type = new TypeForm { Size = saved.Size, Leading = saved.Leading, Width = saved.Width };
         marks = await Lending.Marks(db, open!).AsNoTracking()
             .OrderBy(item => item.Id)
             .ToListAsync();
         if (chapters is { Count: > 0 })
         {
-            var saved = ChapterQuery ?? (await Lending.PlaceAsync(db, open!)).EbookChapter ?? 0;
-            chapter = saved >= 0 && saved < chapters.Count ? saved : 0;
+            var place = ChapterQuery ?? (await Lending.PlaceAsync(db, open!)).EbookChapter ?? 0;
+            chapter = place >= 0 && place < chapters.Count ? place : 0;
         }
     }
 
@@ -350,4 +385,19 @@ else if (book is not null)
     }
 
     private static string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
+
+    // Saved for the reader, so the next book and the next device open the same way.
+    private async Task SaveType()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await BookRules.SetReaderTypeAsync(db, new ReaderType(type.Size, type.Leading, type.Width));
+        typeRevision++;
+    }
+
+    private sealed class TypeForm
+    {
+        public int Size { get; set; } = ReaderType.DefaultSize;
+        public int Leading { get; set; } = ReaderType.DefaultLeading;
+        public int Width { get; set; } = ReaderType.DefaultWidth;
+    }
 }

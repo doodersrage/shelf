@@ -1,0 +1,27 @@
+@* What belongs here, and the one useful next step. *@
+<div class="empty">
+    <h2>@Title</h2>
+    <p>@Text</p>
+    @if (ActionHref is not null)
+    {
+        <a class="button primary" href="@ActionHref">@ActionLabel</a>
+    }
+    @ChildContent
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public string Text { get; set; } = "";
+
+    [Parameter]
+    public string? ActionHref { get; set; }
+
+    [Parameter]
+    public string? ActionLabel { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

@@ -2,176 +2,276 @@
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject IBookLookup Lookup
+@inject NavigationManager Navigation
 
-<PageTitle>Shelf</PageTitle>
+<PageTitle>Library · Shelf</PageTitle>
 
-<h1>Library</h1>
+<div class="page-head">
+    <h1>@Heading</h1>
+    @if (!adding && books.Count > 0)
+    {
+        <button type="button" class="primary" @onclick="() => adding = true">Add a book</button>
+    }
+</div>
 
-@if (ReadNext.Count > 0)
+@if (adding || books.Count == 0)
 {
-    <p class="hint read-next">Read next:
-        @foreach (var next in ReadNext)
+    <section id="add" class="panel" aria-labelledby="add-heading">
+        <h2 id="add-heading">Add a book</h2>
+        @if (books.Count == 0)
         {
-            <a href="/library/@next.Id">@next.Title</a>
+            <p class="hint">Your shelf is empty. Start with a title and an author; an ISBN lets Shelf fill in the rest from Open Library.</p>
         }
-    </p>
-}
-else if (Suggestion is Book suggestion)
-{
-    <p class="hint">From the want list: <a href="/library/@suggestion.Id">@suggestion.Title</a></p>
-}
-
-@if (books.Any(NeedsCatalog))
-{
-    <p class="hint">
-        <button type="button" @onclick="FillEmptyDetails" disabled="@filling">@(filling ? "Looking…" : "Fill empty details")</button>
-        @if (fillNote is not null)
-        {
-            <span>@fillNote</span>
-        }
-    </p>
-}
-
-<div class="filters">
-    <label>
-        Search
-        <input @bind="query" @bind:event="oninput" />
-    </label>
-    <label>
-        Status
-        <select @bind="statusFilter">
-            <option value="">All</option>
-            @foreach (var status in Enum.GetValues<BookStatus>())
+        <EditForm Model="draft" OnValidSubmit="AddBook">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            @if (formErrors is { Count: > 0 })
             {
-                <option value="@status">@status</option>
+                <ul class="validation-errors">
+                    @foreach (var message in formErrors.SelectMany(pair => pair.Value))
+                    {
+                        <li>@message</li>
+                    }
+                </ul>
             }
-        </select>
-    </label>
-    <label>
-        Sort
-        <select @bind="sort">
-            <option value="title">Title</option>
-            <option value="author">Author</option>
-            <option value="series">Series</option>
-            <option value="year">Year</option>
-            <option value="rating">Rating</option>
-            <option value="added">Recently added</option>
-        </select>
-    </label>
-</div>
-<div class="checks">
-    <label class="check">
-        <input type="checkbox" @bind="lovedOnly" />
-        Loved
-    </label>
-    <label class="check">
-        <input type="checkbox" @bind="loanedOnly" />
-        On loan
-    </label>
-    <label class="check">
-        <input type="checkbox" @bind="queuedOnly" />
-        Read next
-    </label>
-    <label class="check">
-        <input type="checkbox" @bind="fileOnly" />
-        E-book
-    </label>
-    <label class="check">
-        <input type="checkbox" @bind="audioOnly" />
-        Audiobook
-    </label>
-</div>
-
-@if (!string.IsNullOrWhiteSpace(tagFilter) || !string.IsNullOrWhiteSpace(authorFilter) || !string.IsNullOrWhiteSpace(seriesFilter) || !string.IsNullOrWhiteSpace(placeFilter) || !string.IsNullOrWhiteSpace(recommendedFilter) || !string.IsNullOrWhiteSpace(loanedFilter))
+            <BookFields Model="draft" Shelf="books" />
+            <button type="submit">Add</button>
+            @if (books.Count > 0)
+            {
+                <button type="button" class="quiet" @onclick="() => adding = false">Cancel</button>
+            }
+        </EditForm>
+    </section>
+}
+@if (addedTitle is not null)
 {
-    <p class="hint">
-        @if (!string.IsNullOrWhiteSpace(authorFilter))
+    <p class="saved" role="status">Added @addedTitle.</p>
+}
+
+@if (books.Count > 0 && IsOverview)
+{
+    @if (ReadingNow.Count > 0)
+    {
+        <h2 class="reading-now">Reading now</h2>
+        <ul class="shelf-strip">
+            @foreach (var open in ReadingNow)
+            {
+                <li class="strip-card">
+                    <BookCover Title="@open.Title" Url="@open.CoverUrl" />
+                    <div>
+                        <p class="title"><a href="/library/@open.Id">@open.Title</a></p>
+                        <p class="by">@open.Author</p>
+                        @if (open.Pages is int pages)
+                        {
+                            <progress max="@pages" value="@(open.CurrentPage ?? 0)" aria-label="@($"Page {open.CurrentPage ?? 0} of {pages}")"></progress>
+                            <p class="hint">@(open.CurrentPage ?? 0) of @(pages) pages</p>
+                        }
+                        else if (open.CurrentPage is int at)
+                        {
+                            <p class="hint">Page @at</p>
+                        }
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+
+    @if (ReadNext.Count > 0 || Suggestion is not null)
+    {
+        <h2 class="read-next">@(ReadNext.Count > 0 ? "Read next" : "From the want list")</h2>
+        <ul class="shelf-strip">
+            @foreach (var next in ReadNext.Count > 0 ? ReadNext : [Suggestion!])
+            {
+                <li class="strip-card">
+                    <BookCover Title="@next.Title" Url="@next.CoverUrl" />
+                    <div>
+                        <p class="title"><a href="/library/@next.Id">@next.Title</a></p>
+                        <p class="by">@next.Author</p>
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+
+    @if (RecentlyFinished.Count > 0)
+    {
+        <h2>Recently finished</h2>
+        <ul class="shelf-strip">
+            @foreach (var done in RecentlyFinished)
+            {
+                <li class="strip-card">
+                    <BookCover Title="@done.Title" Url="@done.CoverUrl" />
+                    <div>
+                        <p class="title"><a href="/library/@done.Id">@done.Title</a></p>
+                        <p class="by">@done.Author</p>
+                        <p class="hint">@done.FinishedOn?.ToString("MMM d, yyyy")</p>
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+
+    <h2>All books</h2>
+}
+
+@if (books.Count > 0)
+{
+    <div class="filters" role="search">
+        <label>
+            Search
+            <input type="search" @bind="query" @bind:event="oninput" placeholder="Title, author, ISBN, notes, quotes" />
+        </label>
+        <label>
+            Status
+            <select @bind="statusFilter">
+                <option value="">All</option>
+                @foreach (var status in Enum.GetValues<BookStatus>())
+                {
+                    <option value="@status">@BookRules.StatusLabel(status)</option>
+                }
+            </select>
+        </label>
+        <label>
+            Sort
+            <select @bind="sort">
+                <option value="title">Title</option>
+                <option value="author">Author</option>
+                <option value="series">Series</option>
+                <option value="year">Year</option>
+                <option value="rating">Rating</option>
+                <option value="added">Recently added</option>
+            </select>
+        </label>
+    </div>
+    <div class="toolbar">
+        <div class="segmented" role="group" aria-label="Show books as">
+            <button type="button" aria-pressed="@(!listView ? "true" : "false")" @onclick="() => listView = false">Covers</button>
+            <button type="button" aria-pressed="@(listView ? "true" : "false")" @onclick="() => listView = true">List</button>
+        </div>
+        <details>
+            <summary>More filters@(ChecksOn > 0 ? $" ({ChecksOn})" : "")</summary>
+            <div class="checks">
+                <label class="check">
+                    <input type="checkbox" @bind="lovedOnly" />
+                    Loved
+                </label>
+                <label class="check">
+                    <input type="checkbox" @bind="loanedOnly" />
+                    On loan
+                </label>
+                <label class="check">
+                    <input type="checkbox" @bind="queuedOnly" />
+                    Read next
+                </label>
+                <label class="check">
+                    <input type="checkbox" @bind="fileOnly" />
+                    E-book
+                </label>
+                <label class="check">
+                    <input type="checkbox" @bind="audioOnly" />
+                    Audiobook
+                </label>
+            </div>
+        </details>
+        @if (books.Any(NeedsCatalog))
         {
-            <span>By <strong>@authorFilter</strong></span>
+            <button type="button" class="quiet" @onclick="FillEmptyDetails" disabled="@filling">@(filling ? "Looking…" : "Fill empty details")</button>
+            @if (fillNote is not null)
+            {
+                <span class="hint" role="status">@fillNote</span>
+            }
         }
-        @if (!string.IsNullOrWhiteSpace(seriesFilter))
+        @if (Filtered)
         {
-            <span>In <strong>@seriesFilter</strong></span>
+            <button type="button" class="quiet" @onclick="ClearFilters">Clear filters</button>
         }
-        @if (!string.IsNullOrWhiteSpace(placeFilter))
-        {
-            <span>At <strong>@placeFilter</strong></span>
-        }
-        @if (!string.IsNullOrWhiteSpace(recommendedFilter))
-        {
-            <span>From <strong>@recommendedFilter</strong></span>
-        }
-        @if (!string.IsNullOrWhiteSpace(loanedFilter))
-        {
-            <span>Loaned to <strong>@loanedFilter</strong></span>
-        }
-        @if (!string.IsNullOrWhiteSpace(tagFilter))
-        {
-            <span>Tagged <strong>@tagFilter</strong></span>
-        }
-        · <a href="/">Clear</a>
-    </p>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(tagFilter) || !string.IsNullOrWhiteSpace(authorFilter) || !string.IsNullOrWhiteSpace(seriesFilter) || !string.IsNullOrWhiteSpace(placeFilter) || !string.IsNullOrWhiteSpace(recommendedFilter) || !string.IsNullOrWhiteSpace(loanedFilter))
+    {
+        <p class="active-filters">
+            @if (!string.IsNullOrWhiteSpace(authorFilter))
+            {
+                <span>By <strong>@authorFilter</strong></span>
+            }
+            @if (!string.IsNullOrWhiteSpace(seriesFilter))
+            {
+                <span>In <strong>@seriesFilter</strong></span>
+            }
+            @if (!string.IsNullOrWhiteSpace(placeFilter))
+            {
+                <span>At <strong>@placeFilter</strong></span>
+            }
+            @if (!string.IsNullOrWhiteSpace(recommendedFilter))
+            {
+                <span>From <strong>@recommendedFilter</strong></span>
+            }
+            @if (!string.IsNullOrWhiteSpace(loanedFilter))
+            {
+                <span>Loaned to <strong>@loanedFilter</strong></span>
+            }
+            @if (!string.IsNullOrWhiteSpace(tagFilter))
+            {
+                <span>Tagged <strong>@tagFilter</strong></span>
+            }
+        </p>
+    }
 }
 
 @{
     var visible = Visible.ToList();
 }
 
-@if (books.Count == 0)
+@if (books.Count > 0 && visible.Count == 0)
 {
-    <p>Nothing on the shelf yet.</p>
+    <EmptyState Title="Nothing matches" Text="No book on your shelf fits these filters and this search.">
+        <button type="button" class="primary" @onclick="ClearFilters">Clear filters</button>
+    </EmptyState>
 }
-else if (visible.Count == 0)
+else if (visible.Count > 0)
 {
-    <p>Nothing matches.</p>
-}
-else
-{
-    @if (ReadingNow.Count > 0)
+    <p class="count">@visible.Count @(visible.Count == 1 ? "book" : "books")</p>
+    @if (!listView)
     {
-        <p class="hint reading-now">
-            Reading now
-            @foreach (var open in ReadingNow)
+        <ul class="book-grid">
+            @foreach (var book in visible)
             {
-                <a href="/library/@open.Id">@open.Title</a>
+                <li class="book-card">
+                    <BookCover Title="@book.Title" Url="@book.CoverUrl" />
+                    <h3 class="title"><a href="/library/@book.Id">@book.Title</a></h3>
+                    <p class="by">@book.Author@(book.Year is int year ? $" · {year}" : "")</p>
+                    @if (book.Status == BookStatus.Reading && book.Pages is int pages)
+                    {
+                        <progress max="@pages" value="@(book.CurrentPage ?? 0)" aria-label="@($"Page {book.CurrentPage ?? 0} of {pages}")"></progress>
+                    }
+                    <div class="badges">
+                        <StatusBadge Status="book.Status" />
+                        @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
+                        {
+                            <span class="badge loan">On loan</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(book.EbookStoredName))
+                        {
+                            <span class="badge plain">E-book</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
+                        {
+                            <span class="badge plain">Audio</span>
+                        }
+                    </div>
+                </li>
             }
-        </p>
+        </ul>
     }
-    <ul class="shelf-row">
+    else
+    {
+        <ul class="book-list">
         @foreach (var book in visible)
         {
-            <li>
-                <a href="/library/@book.Id" title="@book.Title">
-                    @if (!string.IsNullOrWhiteSpace(book.CoverUrl))
-                    {
-                        <img src="@book.CoverUrl" alt="" />
-                    }
-                    else
-                    {
-                        <span class="spine">@book.Title</span>
-                    }
-                </a>
-            </li>
-        }
-    </ul>
-    <p class="count">@visible.Count @(visible.Count == 1 ? "book" : "books")</p>
-    @foreach (var book in visible)
-    {
-        <article class="@(string.IsNullOrWhiteSpace(book.CoverUrl) ? "book" : "book with-cover")">
-            @if (!string.IsNullOrWhiteSpace(book.CoverUrl))
-            {
-                <a class="card-cover" href="/library/@book.Id"><img src="@book.CoverUrl" alt="" /></a>
-            }
+            <li class="book">
+            <a href="/library/@book.Id" tabindex="-1" aria-hidden="true"><BookCover Title="@book.Title" Url="@book.CoverUrl" /></a>
             <div>
             <h2><a href="/library/@book.Id">@book.Title</a></h2>
-            @if (!string.IsNullOrWhiteSpace(book.EbookStoredName))
-            {
-                <p class="hint"><a href="/library/@book.Id/read">Read</a></p>
-            }
-            @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
-            {
-                <p class="hint"><a href="/library/@book.Id/listen">Listen</a></p>
-            }
             @if (!string.IsNullOrWhiteSpace(book.Subtitle))
             {
                 <p class="hint">@book.Subtitle</p>
@@ -182,31 +282,49 @@ else
                 {
                     <span> (@year)</span>
                 }
+                @if (!string.IsNullOrWhiteSpace(book.Series))
+                {
+                    <span> · </span>
+                    <a href="@($"/?series={Uri.EscapeDataString(book.Series)}")">@book.Series</a>
+                    @if (book.SeriesNumber is int number)
+                    {
+                        <span> @number</span>
+                    }
+                }
             </p>
             @if (!string.IsNullOrWhiteSpace(book.OriginalTitle))
             {
                 <p class="hint">Originally @book.OriginalTitle</p>
             }
-            @if (!string.IsNullOrWhiteSpace(book.Series))
-            {
-                <p class="hint">
-                    <a href="@($"/?series={Uri.EscapeDataString(book.Series)}")">@book.Series</a>
-                    @if (book.SeriesNumber is int number)
-                    {
-                        <span> · @number</span>
-                    }
-                </p>
-            }
             <p class="meta">
                 <label>
-                    Status
+                    <span class="visually-hidden">Status of @book.Title</span>
                     <select @bind:get="book.Status" @bind:set="status => UpdateStatus(book.Id, status)">
                         @foreach (var status in Enum.GetValues<BookStatus>())
                         {
-                            <option value="@status">@status</option>
+                            <option value="@status">@BookRules.StatusLabel(status)</option>
                         }
                     </select>
                 </label>
+                <button type="button" class="@(book.Loved ? "loved" : null)" aria-pressed="@(book.Loved ? "true" : "false")" @onclick="() => ToggleLoved(book.Id)">
+                    @(book.Loved ? "Loved" : "Love")
+                </button>
+                @if (book.Status == BookStatus.Want)
+                {
+                    <button type="button" class="@(book.Queued ? "queued" : null)" aria-pressed="@(book.Queued ? "true" : "false")" @onclick="() => ToggleQueued(book.Id)">
+                        @(book.Queued ? "Queued" : "Read next")
+                    </button>
+                }
+                @if (!string.IsNullOrWhiteSpace(book.EbookStoredName))
+                {
+                    <a href="/library/@book.Id/read">Read</a>
+                }
+                @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
+                {
+                    <a href="/library/@book.Id/listen">Listen</a>
+                }
+            </p>
+            <p class="meta">
                 @if (book.Format is BookFormat format)
                 {
                     <span>@format</span>
@@ -215,19 +333,10 @@ else
                 {
                     <span>@rating/5</span>
                 }
-                <button type="button" class="@(book.Loved ? "loved" : null)" @onclick="() => ToggleLoved(book.Id)">
-                    @(book.Loved ? "Loved" : "Love")
-                </button>
-                @if (book.Status == BookStatus.Want)
-                {
-                    <button type="button" class="@(book.Queued ? "queued" : null)" @onclick="() => ToggleQueued(book.Id)">
-                        @(book.Queued ? "Queued" : "Read next")
-                    </button>
-                }
                 @if (book.Status == BookStatus.Reading && book.Pages is int pages)
                 {
                     <span class="progress-wrap">
-                        <progress max="@pages" value="@(book.CurrentPage ?? 0)"></progress>
+                        <progress max="@pages" value="@(book.CurrentPage ?? 0)" aria-label="@($"Page {book.CurrentPage ?? 0} of {pages}")"></progress>
                         <span>@(book.CurrentPage ?? 0)/@pages</span>
                     </span>
                 }
@@ -259,26 +368,29 @@ else
                 {
                     <a href="@($"/?recommendedBy={Uri.EscapeDataString(book.RecommendedBy)}")">From @book.RecommendedBy</a>
                 }
-                @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
+                @if (book.Quotes.Count > 0)
                 {
+                    <span>@book.Quotes.Count @(book.Quotes.Count == 1 ? "quote" : "quotes")</span>
+                }
+            </p>
+            @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
+            {
+                <p class="meta">
+                    <span class="badge loan">On loan</span>
                     <span>
-                        Loaned to <a href="@($"/?loanedTo={Uri.EscapeDataString(book.LoanedTo)}")">@book.LoanedTo</a>
+                        to <a href="@($"/?loanedTo={Uri.EscapeDataString(book.LoanedTo)}")">@book.LoanedTo</a>
                         @if (book.LoanedOn is DateOnly loanedOn)
                         {
                             <span> since @loanedOn.ToString("MMM d, yyyy")</span>
                         }
                         @if (book.DueOn is DateOnly due)
                         {
-                            <span class="@(due < Today ? "late" : null)"> due @due.ToString("MMM d, yyyy")@(due < Today ? ", overdue" : "")</span>
+                            <span class="@(due < Today ? "late" : null)"> · due @due.ToString("MMM d, yyyy")@(due < Today ? ", overdue" : "")</span>
                         }
                     </span>
-                    <button type="button" @onclick="() => ReturnLoan(book.Id)">Return</button>
-                }
-                @if (book.Quotes.Count > 0)
-                {
-                    <span>@book.Quotes.Count @(book.Quotes.Count == 1 ? "quote" : "quotes")</span>
-                }
-            </p>
+                    <button type="button" @onclick="() => ReturnLoan(book.Id)">Mark returned</button>
+                </p>
+            }
             @if (book.Tags.Count > 0)
             {
                 <p class="tags">
@@ -289,27 +401,11 @@ else
                 </p>
             }
             </div>
-        </article>
-    }
-}
-
-<h2>Add a book</h2>
-
-<EditForm Model="draft" OnValidSubmit="AddBook">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
-    @if (formErrors is { Count: > 0 })
-    {
-        <ul class="validation-errors">
-            @foreach (var message in formErrors.SelectMany(pair => pair.Value))
-            {
-                <li>@message</li>
-            }
+            </li>
+        }
         </ul>
     }
-    <BookFields Model="draft" Shelf="books" />
-    <button type="submit">Add</button>
-</EditForm>
+}
 
 @code {
     private readonly BookFormModel draft = new();
@@ -331,6 +427,21 @@ else
     private Dictionary<string, string[]>? formErrors;
     private bool filling;
     private string? fillNote;
+    private bool adding;
+    private bool listView;
+    private string? addedTitle;
+
+    [SupplyParameterFromQuery(Name = "q")]
+    public string? Query { get; set; }
+
+    [SupplyParameterFromQuery(Name = "status")]
+    public string? Status { get; set; }
+
+    [SupplyParameterFromQuery(Name = "view")]
+    public string? View { get; set; }
+
+    [SupplyParameterFromQuery(Name = "add")]
+    public string? Add { get; set; }
 
     [SupplyParameterFromQuery(Name = "tag")]
     public string? Tag { get; set; }
@@ -358,6 +469,10 @@ else
         placeFilter = string.IsNullOrWhiteSpace(Place) ? null : Place.Trim();
         recommendedFilter = string.IsNullOrWhiteSpace(RecommendedBy) ? null : RecommendedBy.Trim();
         loanedFilter = string.IsNullOrWhiteSpace(LoanedTo) ? null : LoanedTo.Trim();
+        query = Query?.Trim() ?? "";
+        statusFilter = Enum.TryParse<BookStatus>(Status, ignoreCase: true, out var status) ? status.ToString() : "";
+        listView = string.Equals(View, "list", StringComparison.OrdinalIgnoreCase);
+        adding = Add == "1";
         await LoadAsync();
     }
 
@@ -365,7 +480,41 @@ else
 
     private Book? Suggestion => BookRules.Pick(books, BookStatus.Want, Today);
 
-    private List<Book> ReadingNow => Visible.Where(book => book.Status == BookStatus.Reading).ToList();
+    private List<Book> ReadingNow => books.Where(book => book.Status == BookStatus.Reading)
+        .OrderBy(book => book.Title, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    private List<Book> RecentlyFinished => books
+        .Where(book => book.Status == BookStatus.Finished && book.FinishedOn is not null)
+        .OrderByDescending(book => book.FinishedOn)
+        .ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase)
+        .Take(4)
+        .ToList();
+
+    private int ChecksOn => new[] { lovedOnly, loanedOnly, queuedOnly, fileOnly, audioOnly }.Count(on => on);
+
+    private bool UrlFiltered => tagFilter is not null || authorFilter is not null || seriesFilter is not null
+        || placeFilter is not null || recommendedFilter is not null || loanedFilter is not null;
+
+    private bool Filtered => !string.IsNullOrWhiteSpace(query) || statusFilter.Length > 0 || ChecksOn > 0 || UrlFiltered;
+
+    // The overview sections lead the page only while the whole shelf is in view.
+    private bool IsOverview => !Filtered;
+
+    private string Heading => Enum.TryParse<BookStatus>(statusFilter, out var status) && !UrlFiltered && string.IsNullOrWhiteSpace(query) && ChecksOn == 0
+        ? BookRules.StatusLabel(status)
+        : "Library";
+
+    private void ClearFilters()
+    {
+        query = "";
+        statusFilter = "";
+        lovedOnly = loanedOnly = queuedOnly = fileOnly = audioOnly = false;
+        if (UrlFiltered || Query is not null || Status is not null)
+        {
+            Navigation.NavigateTo(listView ? "/?view=list" : "/");
+        }
+    }
 
     private List<Book> ReadNext => books
         .Where(book => book.Status == BookStatus.Want && book.Queued)
@@ -496,8 +645,10 @@ else
         await db.SaveChangesAsync();
         await BookRules.RemoveUnusedTagsAsync(db, CancellationToken.None);
 
+        addedTitle = book.Title;
         draft.Clear();
         formErrors = null;
+        adding = false;
         await LoadAsync();
     }
 

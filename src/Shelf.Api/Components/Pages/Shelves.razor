@@ -9,7 +9,7 @@
 
 @if (shelves.Count == 0)
 {
-    <p>No other reader has opened their shelf.</p>
+    <EmptyState Title="No open shelves yet" Text="When another reader opens their shelf from their account, its titles appear here and you can ask to borrow one." ActionHref="/account" ActionLabel="Open your own shelf" />
 }
 else
 {

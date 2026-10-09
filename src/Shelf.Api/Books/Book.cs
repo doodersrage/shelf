@@ -104,6 +104,37 @@ public sealed class ShelfSetting
     public int YearlyGoal { get; set; }
     public string? SyncAddress { get; set; }
     public string? SyncKey { get; set; }
+    public int? ReaderTextSize { get; set; }
+    public int? ReaderLineHeight { get; set; }
+    public int? ReaderWidth { get; set; }
+}
+
+// How a reader likes an e-book set: text size in percent, line height in hundredths, and line length in ems.
+public sealed record ReaderType(int Size = ReaderType.DefaultSize, int Leading = ReaderType.DefaultLeading, int Width = ReaderType.DefaultWidth)
+{
+    public const int DefaultSize = 100;
+    public const int DefaultLeading = 160;
+    public const int DefaultWidth = 38;
+
+    public ReaderType Clamped() => new(Math.Clamp(Size, 80, 200), Math.Clamp(Leading, 120, 220), Math.Clamp(Width, 24, 80));
+
+    public string Css()
+    {
+        var type = Clamped();
+        var leading = (type.Leading / 100.0).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        return $$"""
+            <style id="shelf-type">
+            html { font-size: {{type.Size}}%; }
+            body { max-width: {{type.Width}}em; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
+            body, p, li, dd, blockquote { line-height: {{leading}} !important; }
+            img, svg { max-width: 100%; height: auto; }
+            @media (prefers-color-scheme: dark) {
+              html { background: #202824; color: #f1ede4; }
+              a { color: #9fc0ad; }
+            }
+            </style>
+            """;
+    }
 }
 
 public sealed class Tag

@@ -273,7 +273,7 @@ public static class BookEndpoints
         return new TempFileResult(path, "application/zip", $"shelf-backup-{DateTime.UtcNow:yyyy-MM-dd}.zip");
     }
 
-    // Like the e-book upload, this answers the form on the Stats page with a redirect back to it.
+    // Like the e-book upload, this answers the form on the Backup page with a redirect back to it.
     private static async Task<RedirectHttpResult> ImportEverything(
         IFormFile? file,
         ShelfDb db,
@@ -283,7 +283,7 @@ public static class BookEndpoints
     {
         if (file is null || file.Length == 0)
         {
-            return TypedResults.Redirect("/stats?restore=unreadable");
+            return TypedResults.Redirect("/backup?restore=unreadable");
         }
 
         var path = TempFileResult.NewPath(".zip");
@@ -305,8 +305,8 @@ public static class BookEndpoints
             }
 
             return TypedResults.Redirect(result is null
-                ? "/stats?restore=unreadable"
-                : $"/stats?restore=done&added={result.Added}&skipped={result.Skipped}&files={result.Files}");
+                ? "/backup?restore=unreadable"
+                : $"/backup?restore=done&added={result.Added}&skipped={result.Skipped}&files={result.Files}");
         }
         finally
         {

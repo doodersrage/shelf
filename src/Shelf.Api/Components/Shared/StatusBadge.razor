@@ -1,0 +1,7 @@
+@* A reading status in words, with a shape that differs by status so it never rests on color alone. *@
+<span class="badge @Status.ToString().ToLowerInvariant()">@BookRules.StatusLabel(Status)</span>
+
+@code {
+    [Parameter, EditorRequired]
+    public BookStatus Status { get; set; }
+}

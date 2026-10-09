@@ -8,7 +8,7 @@
 
 @if (years.Count == 0)
 {
-    <p>No books finished yet.</p>
+    <EmptyState Title="No books finished yet" Text="Finished books are grouped here by the year you finished them." ActionHref="/?status=Reading" ActionLabel="See what you are reading" />
 }
 else
 {

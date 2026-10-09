@@ -248,7 +248,7 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
         {
             content.Add(new ByteArrayContent(zip), "file", "backup.zip");
             var restored = await target.PostAsync("/books/import/full", content);
-            Assert.Equal("/stats", restored.RequestMessage?.RequestUri?.AbsolutePath);
+            Assert.Equal("/backup", restored.RequestMessage?.RequestUri?.AbsolutePath);
             Assert.Contains("restore=done&added=1&skipped=0&files=2", restored.RequestMessage?.RequestUri?.Query);
         }
 

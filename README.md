@@ -35,7 +35,7 @@ Set `Accounts:AllowSignUp` to `false` to stop new accounts once the first one ex
 | `/account` | Open your shelf to the other readers, change the password, or delete the account. |
 | `/shelves` | The shelves other readers have opened. `/shelves/{id}` lists one and asks to borrow a book. |
 | `/admin` | For an admin: readers, new passwords, admins, and a server snapshot. |
-| `/` | The library. Search, filter, sort, add a book, or change its status. Covers line the top, anything being read is listed first, and want-list books can be marked to read next. An uploaded EPUB, PDF, or audiobook can be opened from its card. |
+| `/` | The library. `?status=Reading`, `?q=`, `?view=list`, and `?add=1` open it on one status, a search, the list view, or the add form. Search, filter, sort, add a book, or change its status. Covers line the top, anything being read is listed first, and want-list books can be marked to read next. An uploaded EPUB, PDF, or audiobook can be opened from its card. |
 | `/library/{id}` | One book. Edit the catalog, log a reading session, keep quotes, note how the copy arrived and what condition it is in, upload an EPUB, PDF, or audiobook, open the next volume, or delete it. |
 | `/library/{id}/read` | Read that book's EPUB or PDF. In an EPUB, select a passage to highlight it and leave a note. |
 | `/library/{id}/listen` | Play that book's audiobook. A zip of tracks becomes the track list, and playback resumes where it stopped. |
@@ -48,11 +48,12 @@ Set `Accounts:AllowSignUp` to `false` to stop new accounts once the first one ex
 | `/recommenders` | Who suggested the books. |
 | `/years` | Finished books, grouped by the year they were finished. |
 | `/loans` | Who currently has a book, which loans are overdue, and the books other readers have lent you. |
-| `/stats` | Counts, the yearly goal, a reading streak, a month of reading, books finished this year, recent sessions, tags, and a JSON backup. |
+| `/stats` | The yearly goal, books finished each month, counts, a reading streak, a month of reading, recent sessions, and tags. |
+| `/backup` | Download a full or JSON backup, or restore one. |
 | `/books` | The library as JSON. Filter with `q`, `status`, `tag`, `author`, `series`, `place`, `recommendedBy`, `loanedTo`, `loved`, `loaned`, `format`, and `sort` (`title`, `author`, `series`, `year`, `rating`, `added`). |
 | `/books/{id}` | One book as JSON, including tags, quotes, and sessions. |
 | `/books/export` | The shelf as a JSON backup, with quotes, sessions, and highlights. `POST /books/import` restores one, skipping books already on the shelf. |
-| `/books/export/full` | A zip of the JSON backup with every e-book and audiobook. `POST /books/import/full` with a `file` restores one and returns to `/stats`. |
+| `/books/export/full` | A zip of the JSON backup with every e-book and audiobook. `POST /books/import/full` with a `file` restores one and returns to `/backup`. |
 | `/books/shelves` | Open shelves. `/books/shelves/{id}` lists one, `PUT /books/shelves/open {"open": true}` opens yours, and `POST /books/{id}/ask` asks to borrow. |
 | `/books/asks` | Asks you made and asks waiting on you. `POST /books/asks/{id}/lend {"dueOn": null}` lends the book, and `DELETE /books/asks/{id}` declines or takes the ask back. |
 | `/books/reminders` | Counts of overdue loans, borrowed books due soon, and asks waiting. |
@@ -77,7 +78,7 @@ Set `Accounts:AllowSignUp` to `false` to stop new accounts once the first one ex
 | `/settings` | The yearly goal, as JSON. |
 | `/openapi/v1.json` | The OpenAPI document, in Development. |
 
-Putting a book into Reading or Finished fills a blank start date, and Finished also fills a blank finish date. A translation can keep its original title. An inscription is the note written in the front of a copy. A copy can be fine, good, fair, or poor. An EPUB or PDF uploaded for a book stays with that copy and opens in the reader. In an EPUB, a selected passage can be highlighted and kept with a note. An audiobook can be one recording or a zip of tracks, and the player remembers the place it stopped. The files themselves are not part of the JSON backup; the zip backup on Stats carries them. Two shelves can trade those files from Devices: the furthest place is kept, and a passage note comes with the e-book. Each side needs the key the other one made, and the key goes over the wire with every request, so use an `https://` address for a shelf outside your own network. Tags are stored in lowercase, and an ISBN can be typed with or without hyphens. Deleting the last book that uses a tag removes that tag.
+Putting a book into Reading or Finished fills a blank start date, and Finished also fills a blank finish date. A translation can keep its original title. An inscription is the note written in the front of a copy. A copy can be fine, good, fair, or poor. An EPUB or PDF uploaded for a book stays with that copy and opens in the reader. In an EPUB, a selected passage can be highlighted and kept with a note. An audiobook can be one recording or a zip of tracks, and the player remembers the place it stopped. The files themselves are not part of the JSON backup; the zip backup on Backup & restore carries them. Two shelves can trade those files from Devices: the furthest place is kept, and a passage note comes with the e-book. Each side needs the key the other one made, and the key goes over the wire with every request, so use an `https://` address for a shelf outside your own network. Tags are stored in lowercase, and an ISBN can be typed with or without hyphens. Deleting the last book that uses a tag removes that tag.
 
 The app applies EF Core migrations on startup. That creates `shelf.db` next to the project, and the first Development run adds one sample book, which goes to the first account. Sign-in cookies are protected with keys in a `keys` folder beside the database. `src/Shelf.Api/Shelf.Api.http` has requests for creating, updating, quoting, lending, and deleting books. They need the `shelf` sign-in cookie from a browser.
 
@@ -97,6 +98,10 @@ Sign-in cookies are sealed with keys kept in a `keys` folder beside `shelf.db`, 
 Outside Development the shelf sends HSTS and redirects HTTP to HTTPS whenever it has an HTTPS port, because passwords and device keys travel with every request. Behind a reverse proxy that ends TLS, such as Caddy or nginx, set `Hosting:BehindProxy` to `true` so the shelf trusts the proxy's `X-Forwarded-Proto`, `X-Forwarded-Host`, and `X-Forwarded-For`. Only set it when the shelf cannot be reached except through that proxy.
 
 An admin's snapshot from `/admin` holds `shelf.db` and the `ebooks` and `audio` folders. To restore one, stop the shelf, unpack the zip where those live, and start it again. Readers sign in again unless the old `keys` folder is put back too.
+
+## Design
+
+[`docs/design-system.md`](docs/design-system.md) describes the look: the color, type, and spacing tokens in `wwwroot/app.css`, the self-hosted Inter and Lora fonts, the navigation, and the rules for covers, buttons, status labels, empty states, and dark mode.
 
 ## Tests
 

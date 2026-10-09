@@ -1,0 +1,104 @@
+@page "/backup"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>Backup &amp; restore · Shelf</PageTitle>
+
+<h1>Backup &amp; restore</h1>
+<p class="hint">A backup copies your shelf out and changes nothing here. A restore only adds: it never deletes or overwrites a book, and it skips any book already on your shelf.</p>
+
+<section class="panel" aria-labelledby="download-heading">
+    <h2 id="download-heading">Download a backup</h2>
+    <p>Everything on your shelf in one zip: the catalog, notes, reviews, quotes, reading log, highlights, e-books, and audiobooks.</p>
+    <a class="button primary" href="/books/export/full">Download everything</a>
+    <p class="hint">Only the catalog, without files: <a href="/books/export">download JSON</a>.</p>
+</section>
+
+<section class="panel" aria-labelledby="restore-heading">
+    <h2 id="restore-heading">Restore from a backup</h2>
+    <p>Choose a zip made by Download everything. Its books are added to your shelf with their files.</p>
+    <form action="/books/import/full" method="post" enctype="multipart/form-data" data-enhance="false">
+        <label>
+            Zip backup
+            <input type="file" name="file" accept=".zip,application/zip" required />
+        </label>
+        <p class="hint">A large backup takes a while to send. Keep this page open until it comes back with the result.</p>
+        <button type="submit" class="quiet">Restore from this zip</button>
+    </form>
+    @if (Restore == "done")
+    {
+        <p class="saved" role="status">Restored. Added @Added @(Added == 1 ? "book" : "books") with @Files @(Files == 1 ? "file" : "files"), and skipped @Skipped already on your shelf.</p>
+    }
+    else if (Restore == "unreadable")
+    {
+        <p class="validation-message" role="alert">That file is not a shelf backup zip, so nothing was added.</p>
+    }
+
+    <h3>From a JSON backup</h3>
+    <label>
+        JSON backup
+        <InputFile OnChange="ImportBackup" accept="application/json" />
+    </label>
+    @if (!string.IsNullOrWhiteSpace(importMessage))
+    {
+        <p class="@(imported ? "saved" : "validation-message")" role="status">@importMessage</p>
+    }
+</section>
+
+<p class="hint">An admin can also keep a snapshot of the whole server, every reader included, from <a href="/admin">Readers</a>.</p>
+
+@code {
+    private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new(System.Text.Json.JsonSerializerDefaults.Web)
+    {
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+    };
+
+    // A backup holds every book, quote, and session, so a large shelf runs well past a megabyte.
+    private const long MaxBackupBytes = 50L * 1024 * 1024;
+
+    private string? importMessage;
+    private bool imported;
+
+    [SupplyParameterFromQuery]
+    public string? Restore { get; set; }
+
+    [SupplyParameterFromQuery]
+    public int Added { get; set; }
+
+    [SupplyParameterFromQuery]
+    public int Skipped { get; set; }
+
+    [SupplyParameterFromQuery]
+    public int Files { get; set; }
+
+    private async Task ImportBackup(InputFileChangeEventArgs change)
+    {
+        importMessage = null;
+        imported = false;
+        if (change.File.Size > MaxBackupBytes)
+        {
+            importMessage = "That backup is larger than 50 MB, so nothing was added.";
+            return;
+        }
+
+        try
+        {
+            await using var stream = change.File.OpenReadStream(MaxBackupBytes);
+            var export = await System.Text.Json.JsonSerializer.DeserializeAsync<LibraryExport>(stream, JsonOptions);
+            if (export?.Books is null)
+            {
+                importMessage = "That file is not a shelf backup, so nothing was added.";
+                return;
+            }
+
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var result = await BookRules.ImportAsync(db, export);
+            imported = true;
+            importMessage = $"Restored. Added {result.Added} {(result.Added == 1 ? "book" : "books")}, and skipped {result.Skipped} already on your shelf.";
+        }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or IOException)
+        {
+            importMessage = "That file is not a shelf backup, so nothing was added.";
+        }
+    }
+}

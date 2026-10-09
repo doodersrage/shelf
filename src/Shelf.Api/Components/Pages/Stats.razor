@@ -8,96 +8,139 @@
 
 @if (stats is null)
 {
-    <p>Counting the shelf…</p>
+    <p class="hint">Counting the shelf…</p>
 }
 else if (stats.Total == 0)
 {
-    <p>Nothing on the shelf yet. <a href="/">Add a book</a></p>
+    <EmptyState Title="Nothing to count yet" Text="Stats fill in as you add books and log reading sessions." ActionHref="/?add=1" ActionLabel="Add a book" />
 }
 else
 {
+    <section class="panel" aria-labelledby="goal-heading">
+        <h2 id="goal-heading">@Today.Year</h2>
+        @if (stats.YearlyGoal > 0)
+        {
+            <p><strong>@stats.FinishedThisYear</strong> of @stats.YearlyGoal books finished this year</p>
+            <progress class="goal" max="@stats.YearlyGoal" value="@Math.Min(stats.FinishedThisYear, stats.YearlyGoal)" aria-label="@($"{stats.FinishedThisYear} of {stats.YearlyGoal} books finished")"></progress>
+            @if (stats.FinishedThisYear >= stats.YearlyGoal)
+            {
+                <p class="milestone">You reached this year's goal.</p>
+            }
+        }
+        else
+        {
+            <p>@stats.FinishedThisYear @(stats.FinishedThisYear == 1 ? "book" : "books") finished this year. Set a goal below if you would like one.</p>
+        }
+        @if (streak > 1)
+        {
+            <p class="hint">@streak days of reading in a row.</p>
+        }
+        else if (streak == 1)
+        {
+            <p class="hint">You read today or yesterday.</p>
+        }
+
+        <h3>Finished each month</h3>
+        <ul class="month-bars" aria-label="Books finished each month this year">
+            @for (var month = 1; month <= 12; month++)
+            {
+                var count = FinishedIn(month);
+                <li>
+                    <span class="label">@(new DateOnly(Today.Year, month, 1).ToString("MMM"))</span>
+                    <span class="bar"><span style="width:@(BarWidth(count))%"></span></span>
+                    <span class="value">@count</span>
+                </li>
+            }
+        </ul>
+
+        <EditForm Model="goal" OnValidSubmit="SaveGoal">
+            <DataAnnotationsValidator />
+            <label class="inline-date">
+                Books to finish this year
+                <InputNumber @bind-Value="goal.YearlyGoal" min="0" max="1000" />
+            </label>
+            <button type="submit">Save goal</button>
+            <ValidationMessage For="() => goal.YearlyGoal" />
+            @if (goalSaved)
+            {
+                <span class="saved" role="status">Saved.</span>
+            }
+        </EditForm>
+    </section>
+
     <div class="stats">
         <p><strong>@stats.Total</strong><span>Books</span></p>
-        <p><strong>@stats.Want</strong><span>Want</span></p>
         <p><strong>@stats.Reading</strong><span>Reading</span></p>
+        <p><strong>@stats.Want</strong><span>Want to read</span></p>
         <p><strong>@stats.Finished</strong><span>Finished</span></p>
         <p><strong>@stats.Abandoned</strong><span>Abandoned</span></p>
-        <p><strong>@(stats.AverageRating?.ToString("0.##") ?? "—")</strong><span>Average rating</span></p>
         <p><strong>@stats.PagesRead</strong><span>Pages read</span></p>
         <p><strong>@stats.FinishedThisYear</strong><span>Finished this year</span></p>
+        <p><strong>@(stats.AverageRating?.ToString("0.##") ?? "—")</strong><span>Average rating</span></p>
         <p><strong>@stats.Loved</strong><span>Loved</span></p>
         <p><strong>@stats.OnLoan</strong><span>On loan</span></p>
     </div>
 
-    @if (streak > 1)
-    {
-        <p class="hint">@streak days in a row.</p>
-    }
-    else if (streak == 1)
-    {
-        <p class="hint">One day of reading.</p>
-    }
-
-    <h2>@shown.ToString("MMMM yyyy")</h2>
-    <p>
-        <button type="button" @onclick="Earlier">Earlier</button>
-        @if (shown < ThisMonth)
-        {
-            <button type="button" @onclick="Later">Later</button>
-        }
-    </p>
-    <div class="month">
-        @foreach (var name in Weekdays)
-        {
-            <span class="weekday">@name</span>
-        }
-        @for (var blank = 0; blank < LeadingBlanks; blank++)
-        {
-            <span></span>
-        }
-        @for (var day = 1; day <= DateTime.DaysInMonth(shown.Year, shown.Month); day++)
-        {
-            var current = day;
-            if (Marked.Contains(current))
+    <section class="panel" aria-labelledby="month-heading">
+        <h2 id="month-heading">@shown.ToString("MMMM yyyy")</h2>
+        <p>
+            <button type="button" class="quiet" @onclick="Earlier">Earlier</button>
+            @if (shown < ThisMonth)
             {
-                <button type="button" class="@DayClass(current)" @onclick="() => ChooseDay(current)">@current</button>
+                <button type="button" class="quiet" @onclick="Later">Later</button>
             }
-            else
+        </p>
+        <div class="month">
+            @foreach (var name in Weekdays)
             {
-                <span class="@DayClass(current)">@current</span>
+                <span class="weekday">@name</span>
             }
+            @for (var blank = 0; blank < LeadingBlanks; blank++)
+            {
+                <span></span>
+            }
+            @for (var day = 1; day <= DateTime.DaysInMonth(shown.Year, shown.Month); day++)
+            {
+                var current = day;
+                if (Marked.Contains(current))
+                {
+                    <button type="button" class="@DayClass(current)" aria-pressed="@(chosen == new DateOnly(shown.Year, shown.Month, current) ? "true" : "false")" aria-label="@($"{new DateOnly(shown.Year, shown.Month, current):MMMM d}, read")" @onclick="() => ChooseDay(current)">@current</button>
+                }
+                else
+                {
+                    <span class="@DayClass(current)">@current</span>
+                }
+            }
+        </div>
+        @if (Marked.Count == 0)
+        {
+            <p class="hint">Nothing logged this month. Reading sessions logged on a book's page show here.</p>
         }
-    </div>
-    @if (Marked.Count == 0)
-    {
-        <p class="hint">Nothing logged this month.</p>
-    }
-    @if (chosen is DateOnly selected)
-    {
-        <p class="hint">@selected.ToString("MMMM d")</p>
-        <ul class="tag-counts">
-            @foreach (var reading in BookRules.ReadingsOn(shelf, selected))
-            {
-                <li>
-                    <a href="/library/@reading.BookId">@reading.Title</a>
-                    @if (reading.FromPage is int from && reading.ToPage is int to)
-                    {
-                        <span class="hint">@from–@to</span>
-                    }
-                    else if (reading.ToPage is int end)
-                    {
-                        <span class="hint">to @end</span>
-                    }
-                </li>
-            }
-        </ul>
-    }
-
-    @if (stats.YearlyGoal > 0)
-    {
-        <p class="hint">@stats.FinishedThisYear of @stats.YearlyGoal finished this year</p>
-        <progress max="@stats.YearlyGoal" value="@Math.Min(stats.FinishedThisYear, stats.YearlyGoal)"></progress>
-    }
+        else
+        {
+            <p class="hint">Days with a reading session are filled. Choose one to see what you read.</p>
+        }
+        @if (chosen is DateOnly selected)
+        {
+            <h3>@selected.ToString("MMMM d")</h3>
+            <ul class="tag-counts">
+                @foreach (var reading in BookRules.ReadingsOn(shelf, selected))
+                {
+                    <li>
+                        <a href="/library/@reading.BookId">@reading.Title</a>
+                        @if (reading.FromPage is int from && reading.ToPage is int to)
+                        {
+                            <span class="hint"> · @from–@to</span>
+                        }
+                        else if (reading.ToPage is int end)
+                        {
+                            <span class="hint"> · to @end</span>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    </section>
 
     @if (finished.Count > 0)
     {
@@ -124,11 +167,11 @@ else
                         <a href="/library/@session.BookId">@session.Title</a>
                         @if (session.FromPage is int from && session.ToPage is int to)
                         {
-                            <span class="hint">@from–@to</span>
+                            <span class="hint"> · @from–@to</span>
                         }
                         else if (session.ToPage is int end)
                         {
-                            <span class="hint">to @end</span>
+                            <span class="hint"> · to @end</span>
                         }
                     </span>
                     <span class="hint">@session.Date.ToString("MMM d")</span>
@@ -140,7 +183,7 @@ else
     <h2>Tags</h2>
     @if (stats.Tags.Length == 0)
     {
-        <p class="hint">No tags yet.</p>
+        <p class="hint">No tags yet. Tags added to a book's details gather here.</p>
     }
     else
     {
@@ -156,53 +199,7 @@ else
     }
 }
 
-<h2>This year</h2>
-<EditForm Model="goal" OnValidSubmit="SaveGoal">
-    <DataAnnotationsValidator />
-    <label>
-        Books to finish
-        <InputNumber @bind-Value="goal.YearlyGoal" />
-        <ValidationMessage For="() => goal.YearlyGoal" />
-    </label>
-    <button type="submit">Save goal</button>
-    @if (goalSaved)
-    {
-        <span class="hint">Saved.</span>
-    }
-</EditForm>
-
-<h2>Backup</h2>
-<p><a href="/books/export/full">Download everything</a> <span class="hint">· a zip of the catalog, notes, highlights, e-books, and audiobooks</span></p>
-<form action="/books/import/full" method="post" enctype="multipart/form-data" data-enhance="false">
-    <label>
-        Restore a zip backup
-        <input type="file" name="file" accept=".zip,application/zip" required />
-    </label>
-    <button type="submit">Restore</button>
-</form>
-@if (Restore == "done")
-{
-    <p class="hint" role="status">Added @Added @(Added == 1 ? "book" : "books") and @Files @(Files == 1 ? "file" : "files"), skipped @Skipped already on the shelf.</p>
-}
-else if (Restore == "unreadable")
-{
-    <p class="hint" role="status">That file is not a shelf backup zip.</p>
-}
-
-<p><a href="/books/export">Download the catalog as JSON</a> <span class="hint">· without the files</span></p>
-<InputFile OnChange="ImportBackup" accept="application/json" />
-@if (!string.IsNullOrWhiteSpace(importMessage))
-{
-    <p class="hint">@importMessage</p>
-}
-<p class="hint">Restoring skips books already on the shelf.</p>
-
 @code {
-    private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new(System.Text.Json.JsonSerializerDefaults.Web)
-    {
-        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
-    };
-
     private static readonly string[] Weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
     private ShelfStatsResponse? stats;
@@ -214,22 +211,6 @@ else if (Restore == "unreadable")
     private DateOnly? chosen;
     private readonly GoalFormModel goal = new();
     private bool goalSaved;
-    private string? importMessage;
-
-    [SupplyParameterFromQuery]
-    public string? Restore { get; set; }
-
-    [SupplyParameterFromQuery]
-    public int Added { get; set; }
-
-    [SupplyParameterFromQuery]
-    public int Skipped { get; set; }
-
-    [SupplyParameterFromQuery]
-    public int Files { get; set; }
-
-    // A backup holds every book, quote, and session, so a large shelf runs well past a megabyte.
-    private const long MaxBackupBytes = 50L * 1024 * 1024;
 
     protected override async Task OnInitializedAsync()
     {
@@ -304,41 +285,20 @@ else if (Restore == "unreadable")
         chosen = null;
     }
 
+    private int FinishedIn(int month) =>
+        shelf.Count(book => book.Status == BookStatus.Finished && book.FinishedOn is DateOnly done && done.Year == Today.Year && done.Month == month);
+
+    private int BarWidth(int count)
+    {
+        var most = Enumerable.Range(1, 12).Max(FinishedIn);
+        return most == 0 ? 0 : (int)Math.Round(100.0 * count / most);
+    }
+
     private async Task SaveGoal()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         await BookRules.SetGoalAsync(db, goal.YearlyGoal);
         goalSaved = true;
         await LoadAsync();
-    }
-
-    private async Task ImportBackup(InputFileChangeEventArgs change)
-    {
-        importMessage = null;
-        if (change.File.Size > MaxBackupBytes)
-        {
-            importMessage = "That backup is larger than 50 MB.";
-            return;
-        }
-
-        try
-        {
-            await using var stream = change.File.OpenReadStream(MaxBackupBytes);
-            var export = await System.Text.Json.JsonSerializer.DeserializeAsync<LibraryExport>(stream, JsonOptions);
-            if (export?.Books is null)
-            {
-                importMessage = "That file is not a shelf backup.";
-                return;
-            }
-
-            await using var db = await DbFactory.CreateDbContextAsync();
-            var result = await BookRules.ImportAsync(db, export);
-            importMessage = $"Added {result.Added}, skipped {result.Skipped}.";
-            await LoadAsync();
-        }
-        catch (Exception ex) when (ex is System.Text.Json.JsonException or IOException)
-        {
-            importMessage = "That file is not a shelf backup.";
-        }
     }
 }

@@ -8,7 +8,7 @@
 
 @if (authors.Count == 0)
 {
-    <p>No authors yet.</p>
+    <EmptyState Title="No authors yet" Text="Each author on your shelf is listed here with how many of their books you have." ActionHref="/?add=1" ActionLabel="Add a book" />
 }
 else
 {

@@ -1117,7 +1117,8 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         var html = await page.Content.ReadAsStringAsync();
         Assert.Contains("A gift", html);
 
-        var shelf = await _client.GetAsync("/");
+        // How a copy arrived shows in the list view, beside the rest of its details.
+        var shelf = await _client.GetAsync("/?view=list");
         var shelfHtml = await shelf.Content.ReadAsStringAsync();
         Assert.Contains("A gift", shelfHtml);
         Assert.Contains("Lavinia", shelfHtml);

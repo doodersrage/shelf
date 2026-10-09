@@ -20,6 +20,20 @@ public static class ReaderMarks
         return close >= 0 ? html.Insert(close, snippet) : html + snippet;
     }
 
+    // The reader's own type settings go last in the head, so they win over the book's sizes and spacing.
+    public static string Typeset(string html, ReaderType type)
+    {
+        var css = type.Css();
+        var head = html.IndexOf("</head>", StringComparison.OrdinalIgnoreCase);
+        if (head >= 0)
+        {
+            return html.Insert(head, css);
+        }
+
+        var body = html.IndexOf("<body", StringComparison.OrdinalIgnoreCase);
+        return body >= 0 ? html.Insert(body, css) : css + html;
+    }
+
     private const string Style = """
         <style>
         mark.shelf-mark { background: #f0d78c; color: inherit; }
