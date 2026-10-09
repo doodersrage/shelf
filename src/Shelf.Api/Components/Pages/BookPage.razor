@@ -280,6 +280,32 @@ else if (book is not null)
         <button type="submit">Add quote</button>
     </EditForm>
 
+    <h2>Highlights</h2>
+    @if (book.Highlights.Count == 0)
+    {
+        <p class="hint">No highlights yet.</p>
+    }
+    else
+    {
+        <ul class="quotes">
+            @foreach (var mark in book.Highlights.OrderBy(item => item.ChapterIndex).ThenBy(item => item.Id))
+            {
+                <li>
+                    <blockquote>
+                        <p>@mark.Text</p>
+                        <span class="hint">Chapter @(mark.ChapterIndex + 1)</span>
+                    </blockquote>
+                    @if (!string.IsNullOrWhiteSpace(mark.Note))
+                    {
+                        <p>@mark.Note</p>
+                    }
+                    <a href="@($"/library/{book.Id}/read?chapter={mark.ChapterIndex}")">Open</a>
+                    <button type="button" @onclick="() => RemoveHighlight(mark.Id)">Remove</button>
+                </li>
+            }
+        </ul>
+    }
+
     <h2>E-book</h2>
     @if (!string.IsNullOrWhiteSpace(book.EbookFileName))
     {
@@ -301,7 +327,7 @@ else if (book is not null)
     }
     else
     {
-        <p>This deletes the book, its quotes, its reading log, and its e-book file.</p>
+        <p>This deletes the book, its quotes, its highlights, its reading log, and its e-book file.</p>
         <button type="button" class="danger" @onclick="Delete">Yes, delete it</button>
         <button type="button" @onclick="() => confirmingDelete = false">Cancel</button>
     }
@@ -479,6 +505,20 @@ else if (book is not null)
         existing.EbookChapter = null;
         await db.SaveChangesAsync();
         await LoadAsync();
+    }
+
+    private async Task RemoveHighlight(int highlightId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var highlight = await db.Highlights.FirstOrDefaultAsync(item => item.Id == highlightId && item.BookId == Id);
+        if (highlight is null)
+        {
+            return;
+        }
+
+        db.Highlights.Remove(highlight);
+        await db.SaveChangesAsync();
+        await LoadAsync(replaceDraft: false);
     }
 
     private async Task AddSession()

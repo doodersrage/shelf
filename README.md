@@ -16,7 +16,7 @@ To run the API on its own, use `dotnet run --project src/Shelf.Api` and open [ht
 | --- | --- |
 | `/` | The library. Search, filter, sort, add a book, or change its status. Covers line the top, anything being read is listed first, and want-list books can be marked to read next. An uploaded EPUB or PDF can be opened from its card. |
 | `/library/{id}` | One book. Edit the catalog, log a reading session, keep quotes, note how the copy arrived and what condition it is in, upload an EPUB or PDF, open the next volume, or delete it. |
-| `/library/{id}/read` | Read that book's EPUB or PDF. |
+| `/library/{id}/read` | Read that book's EPUB or PDF. In an EPUB, select a passage to highlight it and leave a note. |
 | `/quotes` | Every quote, with the book it came from. Search the words, the title, or the author. |
 | `/authors` | Every author, with how many of their books are on the shelf. |
 | `/series` | Each series, in reading order. |
@@ -45,7 +45,7 @@ To run the API on its own, use `dotnet run --project src/Shelf.Api` and open [ht
 | `/settings` | The yearly goal, as JSON. |
 | `/openapi/v1.json` | The OpenAPI document, in Development. |
 
-Putting a book into Reading or Finished fills a blank start date, and Finished also fills a blank finish date. A translation can keep its original title. An inscription is the note written in the front of a copy. A copy can be fine, good, fair, or poor. An EPUB or PDF uploaded for a book stays with that copy and opens in the reader. The file itself is not part of the JSON backup. Tags are stored in lowercase, and an ISBN can be typed with or without hyphens. Deleting the last book that uses a tag removes that tag.
+Putting a book into Reading or Finished fills a blank start date, and Finished also fills a blank finish date. A translation can keep its original title. An inscription is the note written in the front of a copy. A copy can be fine, good, fair, or poor. An EPUB or PDF uploaded for a book stays with that copy and opens in the reader. In an EPUB, a selected passage can be highlighted and kept with a note. The file itself is not part of the JSON backup. Tags are stored in lowercase, and an ISBN can be typed with or without hyphens. Deleting the last book that uses a tag removes that tag.
 
 The app applies EF Core migrations on startup. That creates `shelf.db` next to the project, and the first Development run adds one sample book. `src/Shelf.Api/Shelf.Api.http` has requests for creating, updating, quoting, and deleting books.
 

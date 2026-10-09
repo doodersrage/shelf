@@ -74,6 +74,7 @@ public sealed class Book
     public DateTimeOffset AddedAt { get; set; }
     public List<Tag> Tags { get; set; } = [];
     public List<Quote> Quotes { get; set; } = [];
+    public List<Highlight> Highlights { get; set; } = [];
     public List<ReadingSession> Sessions { get; set; } = [];
 }
 
@@ -108,6 +109,19 @@ public sealed class Quote
     public Book? Book { get; set; }
     public required string Text { get; set; }
     public int? Page { get; set; }
+    public DateTimeOffset NotedAt { get; set; }
+}
+
+public sealed class Highlight
+{
+    public int Id { get; set; }
+    public int BookId { get; set; }
+    public Book? Book { get; set; }
+    public int ChapterIndex { get; set; }
+    public required string Text { get; set; }
+    public string? Note { get; set; }
+    public string? Prefix { get; set; }
+    public string? Suffix { get; set; }
     public DateTimeOffset NotedAt { get; set; }
 }
 
@@ -357,6 +371,34 @@ public sealed record BookResponse(
 public sealed record ShelfCopy(int Id, string Title, Acquisition? Acquisition);
 
 public sealed record ConditionGroup(CopyCondition Condition, ShelfCopy[] Books);
+
+public sealed record CreateHighlightRequest(
+    [Required, MaxLength(1000)] string Text,
+    int ChapterIndex,
+    [MaxLength(2000)] string? Note = null,
+    [MaxLength(80)] string? Prefix = null,
+    [MaxLength(80)] string? Suffix = null);
+
+public sealed record UpdateHighlightRequest([MaxLength(2000)] string? Note);
+
+public sealed record HighlightResponse(
+    int Id,
+    int ChapterIndex,
+    string Text,
+    string? Note,
+    string? Prefix,
+    string? Suffix,
+    DateTimeOffset NotedAt)
+{
+    public static HighlightResponse From(Highlight highlight) => new(
+        highlight.Id,
+        highlight.ChapterIndex,
+        highlight.Text,
+        highlight.Note,
+        highlight.Prefix,
+        highlight.Suffix,
+        highlight.NotedAt);
+}
 
 public sealed record AuthorCount(string Name, int Count);
 

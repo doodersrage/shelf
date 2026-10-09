@@ -1,7 +1,10 @@
 @page "/library/{Id:int}/read"
 @rendermode InteractiveServer
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject EbookStore Ebooks
+@inject IJSRuntime Js
 
 <PageTitle>@(book?.Title ?? "Shelf")</PageTitle>
 
@@ -22,6 +25,7 @@ else if (book is not null)
         else if (EbookStore.IsPdf(book.EbookStoredName))
         {
             <iframe class="reader-frame" title="@book.Title" src="/books/@book.Id/ebook/file"></iframe>
+            <p class="hint">Passages can be marked in an EPUB.</p>
         }
         else if (chapters is null)
         {
@@ -46,7 +50,45 @@ else if (book is not null)
                 </label>
                 <button type="button" @onclick="Next" disabled="@(chapter >= chapters.Count - 1)">Next</button>
             </div>
-            <iframe @key="chapter" class="reader-frame" title="@chapters[chapter].Title" src="/books/@book.Id/ebook/chapters/@chapter"></iframe>
+            @if (!string.IsNullOrWhiteSpace(selectedText))
+            {
+                <blockquote class="passage"><p>@selectedText</p></blockquote>
+                <label>
+                    Note
+                    <textarea @bind="selectedNote" @bind:event="oninput" maxlength="2000" rows="3"></textarea>
+                </label>
+                <p>
+                    <button type="button" @onclick="SaveHighlight">@(editingId is null ? "Highlight" : "Save the note")</button>
+                    <button type="button" @onclick="ClearSelection">Cancel</button>
+                </p>
+                @if (markError is not null)
+                {
+                    <p class="hint">@markError</p>
+                }
+            }
+            else
+            {
+                <p class="hint">Select a passage to highlight it.</p>
+            }
+            <iframe @key="@($"{chapter}:{markRevision}")" class="reader-frame" title="@chapters[chapter].Title" src="/books/@book.Id/ebook/chapters/@chapter"></iframe>
+            @if (ChapterMarks.Count > 0)
+            {
+                <h2>In this chapter</h2>
+                <ul class="quotes">
+                    @foreach (var mark in ChapterMarks)
+                    {
+                        <li>
+                            <blockquote><p>@mark.Text</p></blockquote>
+                            @if (!string.IsNullOrWhiteSpace(mark.Note))
+                            {
+                                <p>@mark.Note</p>
+                            }
+                            <button type="button" @onclick="() => Edit(mark)">Note</button>
+                            <button type="button" @onclick="() => RemoveMark(mark.Id)">Remove</button>
+                        </li>
+                    }
+                </ul>
+            }
         }
     </div>
 }
@@ -55,10 +97,24 @@ else if (book is not null)
     private Book? book;
     private bool missing;
     private int chapter;
+    private int markRevision;
     private IReadOnlyList<EpubChapter>? chapters;
+    private List<Highlight> marks = [];
+    private string selectedText = "";
+    private string selectedPrefix = "";
+    private string selectedSuffix = "";
+    private string selectedNote = "";
+    private int? editingId;
+    private string? markError;
+    private IJSObjectReference? reader;
+    private DotNetObjectReference<Read>? self;
+    private List<Highlight> ChapterMarks => marks.Where(mark => mark.ChapterIndex == chapter).ToList();
 
     [Parameter]
     public int Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "chapter")]
+    public int? ChapterQuery { get; set; }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -74,11 +130,52 @@ else if (book is not null)
 
         var path = Ebooks.OpenPath(book.EbookStoredName);
         chapters = path is null ? null : EpubFile.Chapters(path);
+        marks = await db.Highlights.AsNoTracking()
+            .Where(item => item.BookId == Id)
+            .OrderBy(item => item.Id)
+            .ToListAsync();
         if (chapters is { Count: > 0 })
         {
-            var saved = book.EbookChapter ?? 0;
+            var saved = ChapterQuery ?? book.EbookChapter ?? 0;
             chapter = saved >= 0 && saved < chapters.Count ? saved : 0;
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || reader is not null)
+        {
+            return;
+        }
+
+        self = DotNetObjectReference.Create(this);
+        reader = await Js.InvokeAsync<IJSObjectReference>("import", "./reader.js");
+        await reader.InvokeVoidAsync("listen", self);
+    }
+
+    [JSInvokable]
+    public void Selected(string text, string prefix, string suffix)
+    {
+        selectedText = text ?? "";
+        selectedPrefix = prefix ?? "";
+        selectedSuffix = suffix ?? "";
+        selectedNote = "";
+        editingId = null;
+        markError = null;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OpenMark(int id)
+    {
+        var mark = marks.FirstOrDefault(item => item.Id == id);
+        if (mark is null)
+        {
+            return;
+        }
+
+        Edit(mark);
+        _ = InvokeAsync(StateHasChanged);
     }
 
     private async Task Previous()
@@ -105,6 +202,7 @@ else if (book is not null)
 
     private async Task RememberChapter()
     {
+        ClearSelection();
         await using var db = await DbFactory.CreateDbContextAsync();
         var existing = await db.Books.FirstOrDefaultAsync(item => item.Id == Id);
         if (existing is null)
@@ -115,4 +213,121 @@ else if (book is not null)
         existing.EbookChapter = chapter;
         await db.SaveChangesAsync();
     }
+
+    private void Edit(Highlight mark)
+    {
+        editingId = mark.Id;
+        selectedText = mark.Text;
+        selectedPrefix = mark.Prefix ?? "";
+        selectedSuffix = mark.Suffix ?? "";
+        selectedNote = mark.Note ?? "";
+        markError = null;
+    }
+
+    private void ClearSelection()
+    {
+        selectedText = "";
+        selectedPrefix = "";
+        selectedSuffix = "";
+        selectedNote = "";
+        editingId = null;
+        markError = null;
+    }
+
+    private async Task SaveHighlight()
+    {
+        markError = null;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (editingId is int id)
+        {
+            var existing = await db.Highlights.FirstOrDefaultAsync(item => item.Id == id && item.BookId == Id);
+            if (existing is null)
+            {
+                return;
+            }
+
+            if (selectedNote.Trim().Length > 2000)
+            {
+                markError = "Keep the note to 2000 characters.";
+                return;
+            }
+
+            existing.Note = string.IsNullOrWhiteSpace(selectedNote) ? null : selectedNote.Trim();
+            await db.SaveChangesAsync();
+        }
+        else
+        {
+            var request = new CreateHighlightRequest(selectedText, chapter, selectedNote, selectedPrefix, selectedSuffix);
+            var problems = BookRules.ValidateHighlight(request);
+            if (problems is not null)
+            {
+                markError = problems.Values.SelectMany(item => item).FirstOrDefault();
+                return;
+            }
+
+            db.Highlights.Add(new Highlight
+            {
+                BookId = Id,
+                ChapterIndex = chapter,
+                Text = selectedText.Trim(),
+                Note = string.IsNullOrWhiteSpace(selectedNote) ? null : selectedNote.Trim(),
+                Prefix = selectedPrefix.Length <= 80 ? NullIfEmpty(selectedPrefix) : selectedPrefix[^80..],
+                Suffix = selectedSuffix.Length <= 80 ? NullIfEmpty(selectedSuffix) : selectedSuffix[..80],
+                NotedAt = DateTimeOffset.UtcNow,
+            });
+            await db.SaveChangesAsync();
+        }
+
+        ClearSelection();
+        markRevision++;
+        await ReloadMarks();
+    }
+
+    private async Task RemoveMark(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var existing = await db.Highlights.FirstOrDefaultAsync(item => item.Id == id && item.BookId == Id);
+        if (existing is null)
+        {
+            return;
+        }
+
+        db.Highlights.Remove(existing);
+        await db.SaveChangesAsync();
+        if (editingId == id)
+        {
+            ClearSelection();
+        }
+
+        markRevision++;
+        await ReloadMarks();
+    }
+
+    private async Task ReloadMarks()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        marks = await db.Highlights.AsNoTracking()
+            .Where(item => item.BookId == Id)
+            .OrderBy(item => item.Id)
+            .ToListAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (reader is not null)
+        {
+            try
+            {
+                await reader.InvokeVoidAsync("stop");
+                await reader.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+
+        self?.Dispose();
+    }
+
+    private static string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
 }

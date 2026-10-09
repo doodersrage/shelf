@@ -93,6 +93,33 @@ public static class BookRules
             : errors.ToDictionary(pair => pair.Key, pair => pair.Value.ToArray(), StringComparer.Ordinal);
     }
 
+    public static Dictionary<string, string[]>? ValidateHighlight(CreateHighlightRequest request)
+    {
+        var errors = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(request.Text))
+        {
+            errors[nameof(request.Text)] = ["Select a passage to highlight."];
+        }
+        else if (request.Text.Trim().Length > 1000)
+        {
+            errors[nameof(request.Text)] = ["Keep a highlight to 1000 characters."];
+        }
+
+        if (request.ChapterIndex < 0)
+        {
+            errors[nameof(request.ChapterIndex)] = ["That chapter is not in the book."];
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Note) && request.Note.Trim().Length > 2000)
+        {
+            errors[nameof(request.Note)] = ["Keep the note to 2000 characters."];
+        }
+
+        return errors.Count == 0
+            ? null
+            : errors.ToDictionary(pair => pair.Key, pair => pair.Value.ToArray(), StringComparer.Ordinal);
+    }
+
     public static Dictionary<string, string[]>? ValidateSession(CreateSessionRequest request, int? bookPages)
     {
         var errors = new Dictionary<string, List<string>>(StringComparer.Ordinal);
@@ -798,7 +825,7 @@ public static class BookRules
     }
 
     public static IQueryable<Book> WithDetails(this IQueryable<Book> books) =>
-        books.Include(book => book.Tags).Include(book => book.Quotes).Include(book => book.Sessions).AsSplitQuery();
+        books.Include(book => book.Tags).Include(book => book.Quotes).Include(book => book.Highlights).Include(book => book.Sessions).AsSplitQuery();
 
     public static string? NormalizeIsbn(string? isbn)
     {

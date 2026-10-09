@@ -8,6 +8,7 @@ public sealed class ShelfDb(DbContextOptions<ShelfDb> options) : DbContext(optio
     public DbSet<Book> Books => Set<Book>();
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<Quote> Quotes => Set<Quote>();
+    public DbSet<Highlight> Highlights => Set<Highlight>();
     public DbSet<ReadingSession> Sessions => Set<ReadingSession>();
     public DbSet<ShelfSetting> Settings => Set<ShelfSetting>();
 
@@ -46,6 +47,10 @@ public sealed class ShelfDb(DbContextOptions<ShelfDb> options) : DbContext(optio
                 .WithOne(quote => quote.Book)
                 .HasForeignKey(quote => quote.BookId)
                 .OnDelete(DeleteBehavior.Cascade);
+            book.HasMany(b => b.Highlights)
+                .WithOne(highlight => highlight.Book)
+                .HasForeignKey(highlight => highlight.BookId)
+                .OnDelete(DeleteBehavior.Cascade);
             book.HasMany(b => b.Sessions)
                 .WithOne(session => session.Book)
                 .HasForeignKey(session => session.BookId)
@@ -71,6 +76,14 @@ public sealed class ShelfDb(DbContextOptions<ShelfDb> options) : DbContext(optio
         modelBuilder.Entity<Quote>(quote =>
         {
             quote.Property(q => q.Text).HasMaxLength(1000).IsRequired();
+        });
+
+        modelBuilder.Entity<Highlight>(highlight =>
+        {
+            highlight.Property(item => item.Text).HasMaxLength(1000).IsRequired();
+            highlight.Property(item => item.Note).HasMaxLength(2000);
+            highlight.Property(item => item.Prefix).HasMaxLength(80);
+            highlight.Property(item => item.Suffix).HasMaxLength(80);
         });
     }
 }

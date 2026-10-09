@@ -36,6 +36,10 @@ public static class BookEndpoints
         books.MapDelete("/{id:int}/sessions/{sessionId:int}", DeleteSession);
         books.MapPost("/{id:int}/return", ReturnBook);
         books.MapPost("/{id:int}/enrich", EnrichBook);
+        books.MapGet("/{id:int}/highlights", EbookEndpoints.ListHighlights);
+        books.MapPost("/{id:int}/highlights", EbookEndpoints.CreateHighlight);
+        books.MapPut("/{id:int}/highlights/{highlightId:int}", EbookEndpoints.UpdateHighlight);
+        books.MapDelete("/{id:int}/highlights/{highlightId:int}", EbookEndpoints.DeleteHighlight);
         books.MapPost("/{id:int}/ebook", EbookEndpoints.Upload).DisableAntiforgery();
         books.MapDelete("/{id:int}/ebook", EbookEndpoints.Remove);
         books.MapGet("/{id:int}/ebook/file", EbookEndpoints.File);

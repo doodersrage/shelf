@@ -1215,6 +1215,58 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         }
     }
 
+    [Fact]
+    public async Task A_highlight_is_kept_with_its_note_and_painted_in_the_chapter()
+    {
+        var book = await CreateAsync(new CreateBookRequest("Always Coming Home", "Ursula K. Le Guin", BookStatus.Want, null));
+        using var content = new MultipartFormDataContent();
+        content.Add(new ByteArrayContent(SampleEpub("The word for world is forest.")), "file", "home.epub");
+        Assert.Equal(HttpStatusCode.OK, (await _client.PostAsync($"/books/{book.Id}/ebook", content)).StatusCode);
+
+        var created = await _client.PostAsJsonAsync($"/books/{book.Id}/highlights", new CreateHighlightRequest(
+            "The word for world is forest.",
+            0,
+            "See <the> forest.",
+            "not the real prefix",
+            null));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var highlight = await created.Content.ReadFromJsonAsync<HighlightResponse>(JsonOptions);
+        Assert.NotNull(highlight);
+        Assert.Equal("See <the> forest.", highlight.Note);
+
+        var chapter = await _client.GetStringAsync($"/books/{book.Id}/ebook/chapters/0");
+        Assert.Contains("shelf-marks", chapter);
+        Assert.Contains("The word for world is forest.", chapter);
+        Assert.Contains("""See \u003Cthe\u003E forest.""", chapter);
+        Assert.DoesNotContain("<the>", chapter);
+
+        var page = await _client.GetStringAsync($"/library/{book.Id}");
+        Assert.Contains("The word for world is forest.", page);
+        Assert.Contains("See &lt;the&gt; forest.", page);
+
+        var updated = await _client.PutAsJsonAsync(
+            $"/books/{book.Id}/highlights/{highlight.Id}",
+            new UpdateHighlightRequest("A quieter note."));
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var list = await _client.GetFromJsonAsync<HighlightResponse[]>($"/books/{book.Id}/highlights", JsonOptions);
+        Assert.Equal("A quieter note.", Assert.Single(list!).Note);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/books/{book.Id}/highlights/{highlight.Id}")).StatusCode);
+        var after = await _client.GetStringAsync($"/books/{book.Id}/ebook/chapters/0");
+        Assert.DoesNotContain("A quieter note.", after);
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/books/{book.Id}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_blank_highlight_is_refused()
+    {
+        var book = await CreateAsync(new CreateBookRequest("The Dispossessed", "Ursula K. Le Guin", BookStatus.Want, null));
+        var created = await _client.PostAsJsonAsync(
+            $"/books/{book.Id}/highlights",
+            new CreateHighlightRequest("  ", 0));
+        Assert.Equal(HttpStatusCode.BadRequest, created.StatusCode);
+    }
+
     private static byte[] SampleEpub(string sentence)
     {
         using var memory = new MemoryStream();

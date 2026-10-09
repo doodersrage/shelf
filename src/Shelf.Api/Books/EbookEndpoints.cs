@@ -6,7 +6,7 @@ namespace Shelf.Api.Books;
 
 public static class EbookEndpoints
 {
-    private const string ChapterPolicy = "sandbox; default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:";
+    private const string ChapterPolicy = "sandbox allow-scripts; default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'unsafe-inline'";
 
     public static async Task<IResult> Upload(
         int id,
@@ -101,6 +101,11 @@ public static class EbookEndpoints
             return TypedResults.NotFound();
         }
 
+        var marks = await db.Highlights.AsNoTracking()
+            .Where(item => item.BookId == id && item.ChapterIndex == index)
+            .OrderBy(item => item.Id)
+            .ToListAsync(cancellationToken);
+        html = ReaderMarks.Inject(html, marks);
         http.Response.Headers.ContentSecurityPolicy = ChapterPolicy;
         return Results.Content(html, "text/html; charset=utf-8");
     }
@@ -128,5 +133,117 @@ public static class EbookEndpoints
 
         http.Response.Headers.ContentSecurityPolicy = "default-src 'none'; script-src 'none'";
         return Results.File(asset.Value.Bytes, asset.Value.ContentType);
+    }
+
+    public static async Task<Results<Ok<HighlightResponse[]>, NotFound>> ListHighlights(
+        int id,
+        ShelfDb db,
+        CancellationToken cancellationToken)
+    {
+        if (!await db.Books.AnyAsync(book => book.Id == id, cancellationToken))
+        {
+            return TypedResults.NotFound();
+        }
+
+        var marks = await db.Highlights.AsNoTracking()
+            .Where(item => item.BookId == id)
+            .OrderBy(item => item.ChapterIndex)
+            .ThenBy(item => item.Id)
+            .ToListAsync(cancellationToken);
+        return TypedResults.Ok(marks.Select(HighlightResponse.From).ToArray());
+    }
+
+    public static async Task<Results<Created<HighlightResponse>, NotFound, ValidationProblem>> CreateHighlight(
+        int id,
+        CreateHighlightRequest request,
+        ShelfDb db,
+        CancellationToken cancellationToken)
+    {
+        if (!await db.Books.AnyAsync(book => book.Id == id, cancellationToken))
+        {
+            return TypedResults.NotFound();
+        }
+
+        var problems = BookRules.ValidateHighlight(request);
+        if (problems is not null)
+        {
+            return TypedResults.ValidationProblem(problems);
+        }
+
+        var highlight = new Highlight
+        {
+            BookId = id,
+            ChapterIndex = request.ChapterIndex,
+            Text = request.Text.Trim(),
+            Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
+            Prefix = Clip(request.Prefix, keepEnd: true),
+            Suffix = Clip(request.Suffix, keepEnd: false),
+            NotedAt = DateTimeOffset.UtcNow,
+        };
+        db.Highlights.Add(highlight);
+        await db.SaveChangesAsync(cancellationToken);
+        return TypedResults.Created($"/books/{id}/highlights/{highlight.Id}", HighlightResponse.From(highlight));
+    }
+
+    public static async Task<Results<Ok<HighlightResponse>, NotFound, ValidationProblem>> UpdateHighlight(
+        int id,
+        int highlightId,
+        UpdateHighlightRequest request,
+        ShelfDb db,
+        CancellationToken cancellationToken)
+    {
+        var highlight = await db.Highlights.FirstOrDefaultAsync(
+            item => item.Id == highlightId && item.BookId == id,
+            cancellationToken);
+        if (highlight is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Note) && request.Note.Trim().Length > 2000)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(request.Note)] = ["Keep the note to 2000 characters."],
+            });
+        }
+
+        highlight.Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
+        await db.SaveChangesAsync(cancellationToken);
+        return TypedResults.Ok(HighlightResponse.From(highlight));
+    }
+
+    public static async Task<Results<NoContent, NotFound>> DeleteHighlight(
+        int id,
+        int highlightId,
+        ShelfDb db,
+        CancellationToken cancellationToken)
+    {
+        var highlight = await db.Highlights.FirstOrDefaultAsync(
+            item => item.Id == highlightId && item.BookId == id,
+            cancellationToken);
+        if (highlight is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        db.Highlights.Remove(highlight);
+        await db.SaveChangesAsync(cancellationToken);
+        return TypedResults.NoContent();
+    }
+
+    private static string? Clip(string? value, bool keepEnd)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return null;
+        }
+
+        if (value.Length <= 80)
+        {
+            return value;
+        }
+
+        return keepEnd ? value[^80..] : value[..80];
     }
 }
