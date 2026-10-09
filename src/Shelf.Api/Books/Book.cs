@@ -304,6 +304,10 @@ public sealed record FinishedBook(int Id, string Title, DateOnly FinishedOn);
 
 public sealed record RecentSession(int BookId, string Title, DateOnly Date, int? FromPage, int? ToPage);
 
+public sealed record ReadingMonth(int Year, int Month, int[] Days);
+
+public sealed record DayReading(int BookId, string Title, int? FromPage, int? ToPage);
+
 public sealed record SeriesShelf(string Name, SeriesBook[] Books);
 
 public sealed record QuoteResponse(int Id, int BookId, string Text, int? Page, DateTimeOffset NotedAt)

@@ -800,6 +800,59 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public void Reading_days_are_the_distinct_days_in_that_month()
+    {
+        var days = BookRules.ReadingDays(
+            [
+                new DateOnly(2026, 10, 9),
+                new DateOnly(2026, 10, 9),
+                new DateOnly(2026, 10, 2),
+                new DateOnly(2026, 9, 30),
+            ],
+            2026,
+            10);
+        Assert.Equal([2, 9], days);
+
+        var book = new Book
+        {
+            Id = 4,
+            Title = "The Eye of the Heron",
+            Author = "Ursula K. Le Guin",
+            Sessions = [new ReadingSession { Date = new DateOnly(2026, 10, 9), FromPage = 1, ToPage = 20 }],
+        };
+        var readings = BookRules.ReadingsOn([book], new DateOnly(2026, 10, 9));
+        Assert.Equal((4, "The Eye of the Heron", 1, 20), (readings.Single().BookId, readings.Single().Title, readings.Single().FromPage, readings.Single().ToPage));
+        Assert.Empty(BookRules.ReadingsOn([book], new DateOnly(2026, 10, 8)));
+    }
+
+    [Fact]
+    public async Task Calendar_lists_the_days_a_book_was_read()
+    {
+        var book = await CreateAsync(new CreateBookRequest("The Eye of the Heron", "Ursula K. Le Guin", BookStatus.Reading, null));
+        var created = await _client.PostAsJsonAsync(
+            $"/books/{book.Id}/sessions",
+            new CreateSessionRequest(new DateOnly(2026, 3, 14), 1, 20, null),
+            JsonOptions);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+        var month = await _client.GetFromJsonAsync<ReadingMonth>("/books/calendar?year=2026&month=3", JsonOptions);
+        Assert.Equal(2026, month!.Year);
+        Assert.Equal(3, month.Month);
+        Assert.Contains(14, month.Days);
+
+        var other = await _client.GetFromJsonAsync<ReadingMonth>("/books/calendar?year=2026&month=4", JsonOptions);
+        Assert.DoesNotContain(14, other!.Days);
+
+        var bad = await _client.GetAsync("/books/calendar?year=2026&month=13");
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+
+        var page = await _client.GetAsync("/stats");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("Earlier", html);
+        Assert.Contains(DateOnly.FromDateTime(DateTime.UtcNow).ToString("MMMM yyyy"), html);
+    }
+
+    [Fact]
     public async Task Goal_can_be_replaced()
     {
         var updated = await _client.PutAsJsonAsync("/settings", new UpdateSettingsRequest(24), JsonOptions);

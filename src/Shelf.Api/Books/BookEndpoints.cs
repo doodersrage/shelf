@@ -21,6 +21,7 @@ public static class BookEndpoints
         books.MapGet("/places", ListPlaces);
         books.MapGet("/recommenders", ListRecommenders);
         books.MapGet("/quotes", ListAllQuotes);
+        books.MapGet("/calendar", GetCalendar);
         books.MapGet("/{id:int}", GetBook);
         books.MapPost("/", CreateBook);
         books.MapPut("/{id:int}", UpdateBook);
@@ -399,6 +400,24 @@ public static class BookEndpoints
     {
         var locations = await db.Books.AsNoTracking().Select(book => book.Location).ToListAsync(cancellationToken);
         return TypedResults.Ok(BookRules.Places(locations));
+    }
+
+    private static async Task<Results<Ok<ReadingMonth>, BadRequest>> GetCalendar(
+        ShelfDb db,
+        CancellationToken cancellationToken,
+        int? year = null,
+        int? month = null)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var chosenYear = year ?? today.Year;
+        var chosenMonth = month ?? today.Month;
+        if (chosenMonth is < 1 or > 12 || chosenYear is < 1 or > 9999)
+        {
+            return TypedResults.BadRequest();
+        }
+
+        var dates = await db.Sessions.AsNoTracking().Select(session => session.Date).ToListAsync(cancellationToken);
+        return TypedResults.Ok(new ReadingMonth(chosenYear, chosenMonth, BookRules.ReadingDays(dates, chosenYear, chosenMonth)));
     }
 
     private static async Task<Ok<RecommenderCount[]>> ListRecommenders(ShelfDb db, CancellationToken cancellationToken)

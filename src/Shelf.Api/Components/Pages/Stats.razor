@@ -38,6 +38,61 @@ else
         <p class="hint">One day of reading.</p>
     }
 
+    <h2>@shown.ToString("MMMM yyyy")</h2>
+    <p>
+        <button type="button" @onclick="Earlier">Earlier</button>
+        @if (shown < ThisMonth)
+        {
+            <button type="button" @onclick="Later">Later</button>
+        }
+    </p>
+    <div class="month">
+        @foreach (var name in Weekdays)
+        {
+            <span class="weekday">@name</span>
+        }
+        @for (var blank = 0; blank < LeadingBlanks; blank++)
+        {
+            <span></span>
+        }
+        @for (var day = 1; day <= DateTime.DaysInMonth(shown.Year, shown.Month); day++)
+        {
+            var current = day;
+            if (Marked.Contains(current))
+            {
+                <button type="button" class="@DayClass(current)" @onclick="() => ChooseDay(current)">@current</button>
+            }
+            else
+            {
+                <span class="@DayClass(current)">@current</span>
+            }
+        }
+    </div>
+    @if (Marked.Count == 0)
+    {
+        <p class="hint">Nothing logged this month.</p>
+    }
+    @if (chosen is DateOnly selected)
+    {
+        <p class="hint">@selected.ToString("MMMM d")</p>
+        <ul class="tag-counts">
+            @foreach (var reading in BookRules.ReadingsOn(shelf, selected))
+            {
+                <li>
+                    <a href="/library/@reading.BookId">@reading.Title</a>
+                    @if (reading.FromPage is int from && reading.ToPage is int to)
+                    {
+                        <span class="hint">@from–@to</span>
+                    }
+                    else if (reading.ToPage is int end)
+                    {
+                        <span class="hint">to @end</span>
+                    }
+                </li>
+            }
+        </ul>
+    }
+
     @if (stats.YearlyGoal > 0)
     {
         <p class="hint">@stats.FinishedThisYear of @stats.YearlyGoal finished this year</p>
@@ -130,10 +185,15 @@ else
         Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
     };
 
+    private static readonly string[] Weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
     private ShelfStatsResponse? stats;
+    private List<Book> shelf = [];
     private List<FinishedBook> finished = [];
     private List<RecentSession> lately = [];
     private int streak;
+    private DateOnly shown = new(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+    private DateOnly? chosen;
     private readonly GoalFormModel goal = new();
     private bool goalSaved;
     private string? importMessage;
@@ -148,11 +208,67 @@ else
         await using var db = await DbFactory.CreateDbContextAsync();
         stats = await BookRules.SummarizeAsync(db);
         goal.YearlyGoal = stats.YearlyGoal;
-        var books = await db.Books.AsNoTracking().Include(book => book.Sessions).ToListAsync();
+        shelf = await db.Books.AsNoTracking().Include(book => book.Sessions).ToListAsync();
         var year = DateOnly.FromDateTime(DateTime.UtcNow).Year;
-        finished = BookRules.FinishedInYear(books, year).ToList();
-        lately = BookRules.RecentSessions(books).ToList();
-        streak = BookRules.ReadingStreak(books.SelectMany(book => book.Sessions).Select(session => session.Date), DateOnly.FromDateTime(DateTime.UtcNow));
+        finished = BookRules.FinishedInYear(shelf, year).ToList();
+        lately = BookRules.RecentSessions(shelf).ToList();
+        streak = BookRules.ReadingStreak(shelf.SelectMany(book => book.Sessions).Select(session => session.Date), DateOnly.FromDateTime(DateTime.UtcNow));
+    }
+
+    private DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+
+    private DateOnly ThisMonth => new(Today.Year, Today.Month, 1);
+
+    private int LeadingBlanks => ((int)shown.DayOfWeek + 6) % 7;
+
+    private HashSet<int> Marked => BookRules.ReadingDays(
+        shelf.SelectMany(book => book.Sessions).Select(session => session.Date),
+        shown.Year,
+        shown.Month).ToHashSet();
+
+    private string DayClass(int day)
+    {
+        var date = new DateOnly(shown.Year, shown.Month, day);
+        var classes = new List<string>();
+        if (date == Today)
+        {
+            classes.Add("today");
+        }
+
+        if (Marked.Contains(day))
+        {
+            classes.Add("read");
+        }
+
+        if (chosen == date)
+        {
+            classes.Add("chosen");
+        }
+
+        return string.Join(' ', classes);
+    }
+
+    private void ChooseDay(int day)
+    {
+        var date = new DateOnly(shown.Year, shown.Month, day);
+        chosen = chosen == date ? null : date;
+    }
+
+    private void Earlier()
+    {
+        shown = shown.AddMonths(-1);
+        chosen = null;
+    }
+
+    private void Later()
+    {
+        if (shown >= ThisMonth)
+        {
+            return;
+        }
+
+        shown = shown.AddMonths(1);
+        chosen = null;
     }
 
     private async Task SaveGoal()

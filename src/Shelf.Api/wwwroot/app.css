@@ -305,6 +305,43 @@ progress::-moz-progress-bar {
     font-size: 0.85rem;
 }
 
+.month {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.2rem;
+    margin: 0.5rem 0 0.75rem;
+}
+
+.month span,
+.month button {
+    display: block;
+    text-align: center;
+    font-family: var(--sans);
+    font-size: 0.85rem;
+    margin: 0;
+    padding: 0.3rem 0;
+    border-color: transparent;
+    min-height: 1.8rem;
+}
+
+.month .weekday {
+    color: var(--muted);
+    font-size: 0.72rem;
+}
+
+.month button.read {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.month button.chosen {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.month .today {
+    font-weight: 600;
+}
+
 .tag-counts {
     list-style: none;
     padding: 0;

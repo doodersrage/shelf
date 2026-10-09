@@ -21,7 +21,7 @@ To run the API on its own, use `dotnet run --project src/Shelf.Api` and open [ht
 | `/series` | Each series, in reading order. |
 | `/places` | Where the books sit. |
 | `/recommenders` | Who suggested the books. |
-| `/stats` | Counts, the yearly goal, a reading streak, books finished this year, recent sessions, tags, and a JSON backup. |
+| `/stats` | Counts, the yearly goal, a reading streak, a month of reading, books finished this year, recent sessions, tags, and a JSON backup. |
 | `/books` | The library as JSON. Filter with `q`, `status`, `tag`, `author`, `series`, `place`, `recommendedBy`, `loved`, `loaned`, `format`, and `sort` (`title`, `author`, `series`, `year`, `rating`, `added`). |
 | `/books/{id}` | One book as JSON, including tags, quotes, and sessions. |
 | `/books/export` | The shelf as a JSON backup. `POST /books/import` restores one, skipping books already on the shelf. |
@@ -31,6 +31,7 @@ To run the API on its own, use `dotnet run --project src/Shelf.Api` and open [ht
 | `/books/series` | Each series, in reading order. |
 | `/books/places` | Where the books sit. |
 | `/books/recommenders` | Who suggested the books. |
+| `/books/calendar` | The days with a reading session. `?year=` and `?month=` pick another month. |
 | `/books/{id}/return` | Clears a loan. |
 | `/books/stats` | The same summary as JSON. |
 | `/settings` | The yearly goal, as JSON. |

@@ -530,6 +530,23 @@ public static class BookRules
         return streak;
     }
 
+    public static int[] ReadingDays(IEnumerable<DateOnly> dates, int year, int month) =>
+        dates
+            .Where(date => date.Year == year && date.Month == month)
+            .Select(date => date.Day)
+            .Distinct()
+            .OrderBy(day => day)
+            .ToArray();
+
+    public static DayReading[] ReadingsOn(IEnumerable<Book> books, DateOnly day) =>
+        books
+            .SelectMany(book => book.Sessions
+                .Where(session => session.Date == day)
+                .Select(session => new DayReading(book.Id, book.Title, session.FromPage, session.ToPage)))
+            .OrderBy(reading => reading.Title, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(reading => reading.BookId)
+            .ToArray();
+
     public static IEnumerable<QuoteListItem> MatchingQuotes(IEnumerable<QuoteListItem> quotes, string? query)
     {
         if (string.IsNullOrWhiteSpace(query))
