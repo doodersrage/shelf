@@ -56,6 +56,15 @@
         </InputSelect>
     </label>
 </div>
+<button type="button" @onclick="LookUp" disabled="@looking">@(looking ? "Looking…" : "Look up ISBN")</button>
+@if (lookupNote is not null)
+{
+    <p class="hint">@lookupNote</p>
+}
+@if (Duplicate is Book existing)
+{
+    <p class="hint">Already on the shelf: <a href="/library/@existing.Id">@existing.Title</a>.</p>
+}
 <div class="pair">
     <label>
         Series
@@ -136,4 +145,39 @@
 
     [Parameter]
     public bool Detailed { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<Book>? Shelf { get; set; }
+
+    private Book? Duplicate => Shelf?.FirstOrDefault(book =>
+        BookRules.IsSameCopy(Model.Isbn, Model.Title, Model.Author, book.Isbn, book.Title, book.Author));
+
+    [Inject]
+    public IBookLookup Lookup { get; set; } = default!;
+
+    private bool looking;
+    private string? lookupNote;
+
+    private async Task LookUp()
+    {
+        lookupNote = null;
+        if (string.IsNullOrWhiteSpace(Model.Isbn))
+        {
+            lookupNote = "Enter an ISBN first.";
+            return;
+        }
+
+        looking = true;
+        try
+        {
+            var match = await Lookup.FindAsync(Model.Isbn, CancellationToken.None);
+            lookupNote = match is null
+                ? "Nothing matched that ISBN."
+                : Model.FillBlanks(match) ? "Filled the empty fields." : "Those fields are already filled.";
+        }
+        finally
+        {
+            looking = false;
+        }
+    }
 }

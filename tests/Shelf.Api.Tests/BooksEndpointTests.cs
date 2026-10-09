@@ -4,6 +4,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Shelf.Api.Books;
 
 namespace Shelf.Api.Tests;
@@ -451,6 +453,61 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task Lookup_returns_a_catalog_match_for_a_known_isbn()
+    {
+        var match = await _client.GetFromJsonAsync<CatalogMatch>("/books/lookup?isbn=978-0-441-47812-5", JsonOptions);
+        Assert.Equal("The Left Hand of Darkness", match?.Title);
+        Assert.Equal("Ursula K. Le Guin", match?.Author);
+        Assert.Equal(1969, match?.Year);
+        Assert.Equal(304, match?.Pages);
+        Assert.Equal("English", match?.Language);
+
+        var missing = await _client.GetAsync("/books/lookup?isbn=not-an-isbn");
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+
+        var unknown = await _client.GetAsync("/books/lookup?isbn=9780000000002");
+        Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+    }
+
+    [Fact]
+    public async Task Returning_a_book_clears_the_loan()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "The Tombs of Atuan",
+            "Ursula K. Le Guin",
+            BookStatus.Reading,
+            null,
+            LoanedTo: "Tenar"));
+        Assert.Equal("Tenar", book.LoanedTo);
+        Assert.NotNull(book.LoanedOn);
+
+        var returned = await _client.PostAsync($"/books/{book.Id}/return", null);
+        Assert.Equal(HttpStatusCode.OK, returned.StatusCode);
+        var body = await returned.Content.ReadFromJsonAsync<BookResponse>(JsonOptions);
+        Assert.Null(body?.LoanedTo);
+        Assert.Null(body?.LoanedOn);
+
+        var missing = await _client.PostAsync("/books/999999/return", null);
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+    }
+
+    [Fact]
+    public void Pace_counts_pages_across_the_log()
+    {
+        var pace = BookRules.PagesPerDay(
+        [
+            new ReadingSession { Date = new DateOnly(2026, 1, 1), FromPage = 1, ToPage = 20 },
+            new ReadingSession { Date = new DateOnly(2026, 1, 3), FromPage = 21, ToPage = 40 },
+        ]);
+        Assert.Equal(19, pace);
+        Assert.Null(BookRules.PagesPerDay([]));
+
+        Assert.True(BookRules.IsSameCopy("978-0-441-47812-5", "Other", "Other", "9780441478125", "Different", "Person"));
+        Assert.True(BookRules.IsSameCopy(null, "Kindred", "Octavia E. Butler", null, "kindred", "octavia e. butler"));
+        Assert.False(BookRules.IsSameCopy(null, "", "", null, "Kindred", "Octavia E. Butler"));
+    }
+
+    [Fact]
     public async Task Goal_can_be_replaced()
     {
         var updated = await _client.PutAsJsonAsync("/settings", new UpdateSettingsRequest(24), JsonOptions);
@@ -477,6 +534,7 @@ public sealed class ShelfApiFactory : WebApplicationFactory<Program>
     {
         builder.UseSetting("ConnectionStrings:Shelf", $"Data Source={_databasePath}");
         builder.UseEnvironment("Testing");
+        builder.ConfigureTestServices(services => services.AddSingleton<IBookLookup, StubBookLookup>());
     }
 
     public override async ValueTask DisposeAsync()
@@ -499,5 +557,25 @@ public sealed class ShelfApiFactory : WebApplicationFactory<Program>
         catch (IOException)
         {
         }
+    }
+}
+
+file sealed class StubBookLookup : IBookLookup
+{
+    public Task<CatalogMatch?> FindAsync(string isbn, CancellationToken cancellationToken)
+    {
+        if (BookRules.NormalizeIsbn(isbn) != "9780441478125")
+        {
+            return Task.FromResult<CatalogMatch?>(null);
+        }
+
+        return Task.FromResult<CatalogMatch?>(new CatalogMatch(
+            "The Left Hand of Darkness",
+            "Ursula K. Le Guin",
+            1969,
+            304,
+            "Ace Books",
+            "English",
+            "https://covers.openlibrary.org/b/id/1-M.jpg"));
     }
 }

@@ -94,6 +94,41 @@ public sealed class BookFormModel
         Loved,
         LoanedOn);
 
+    public bool FillBlanks(CatalogMatch match)
+    {
+        var filled = false;
+        filled |= Assign(Title, match.Title, value => Title = value, 200);
+        filled |= Assign(Author, match.Author, value => Author = value, 200);
+        filled |= Assign(Publisher, match.Publisher, value => Publisher = value, 200);
+        filled |= Assign(Language, match.Language, value => Language = value, 40);
+        filled |= Assign(CoverUrl, match.CoverUrl, value => CoverUrl = value, 500);
+        if (Year is null && match.Year is >= 1000 and <= 2100)
+        {
+            Year = match.Year;
+            filled = true;
+        }
+
+        if (Pages is null && match.Pages is >= 1 and <= 20000)
+        {
+            Pages = match.Pages;
+            filled = true;
+        }
+
+        return filled;
+    }
+
+    private static bool Assign(string current, string? incoming, Action<string> set, int max)
+    {
+        if (!string.IsNullOrWhiteSpace(current) || string.IsNullOrWhiteSpace(incoming))
+        {
+            return false;
+        }
+
+        var trimmed = incoming.Trim();
+        set(trimmed.Length <= max ? trimmed : trimmed[..max]);
+        return true;
+    }
+
     public void Clear()
     {
         Title = "";

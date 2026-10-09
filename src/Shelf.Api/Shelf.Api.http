@@ -60,3 +60,12 @@ DELETE {{Shelf.Api_HostAddress}}/books/1/quotes/1
 ###
 
 DELETE {{Shelf.Api_HostAddress}}/books/1
+
+###
+
+GET {{Shelf.Api_HostAddress}}/books/lookup?isbn=9780441478125
+Accept: application/json
+
+###
+
+POST {{Shelf.Api_HostAddress}}/books/1/return

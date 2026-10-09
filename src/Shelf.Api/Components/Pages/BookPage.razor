@@ -33,6 +33,17 @@ else if (book is not null)
             }
         </p>
     }
+    @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
+    {
+        <p>
+            Loaned to @book.LoanedTo
+            @if (book.LoanedOn is DateOnly loanedOn)
+            {
+                <span>since @loanedOn.ToString("MMM d, yyyy")</span>
+            }
+            <button type="button" @onclick="ReturnLoan">Return</button>
+        </p>
+    }
 
     <EditForm Model="draft" OnValidSubmit="Save">
         <DataAnnotationsValidator />
@@ -84,6 +95,10 @@ else if (book is not null)
                 </li>
             }
         </ul>
+        @if (BookRules.PagesPerDay(book.Sessions) is int pace)
+        {
+            <p class="hint">About @pace @(pace == 1 ? "page" : "pages") a day.</p>
+        }
     }
 
     <EditForm Model="sessionDraft" OnValidSubmit="AddSession">
@@ -351,6 +366,23 @@ else if (book is not null)
         await db.SaveChangesAsync();
         sessionDraft.Clear();
         sessionErrors = null;
+        saved = false;
+        await LoadAsync();
+    }
+
+    private async Task ReturnLoan()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var existing = await db.Books.FirstOrDefaultAsync(item => item.Id == Id);
+        if (existing is null)
+        {
+            missing = true;
+            book = null;
+            return;
+        }
+
+        BookRules.ReturnLoan(existing);
+        await db.SaveChangesAsync();
         saved = false;
         await LoadAsync();
     }

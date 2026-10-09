@@ -375,6 +375,54 @@ public static class BookRules
         }
     }
 
+    public static void ReturnLoan(Book book)
+    {
+        book.LoanedTo = null;
+        book.LoanedOn = null;
+    }
+
+    public static int? PagesPerDay(IEnumerable<ReadingSession> sessions)
+    {
+        var logged = sessions.Where(session => session.ToPage is int).ToList();
+        if (logged.Count == 0)
+        {
+            return null;
+        }
+
+        var pages = logged.Max(session => session.ToPage ?? 0) - logged.Min(session => session.FromPage ?? 0);
+        if (pages <= 0)
+        {
+            return null;
+        }
+
+        var days = Math.Max(1, logged.Max(session => session.Date).DayNumber - logged.Min(session => session.Date).DayNumber);
+        return Math.Max(1, pages / days);
+    }
+
+    public static bool IsSameCopy(
+        string? isbn,
+        string title,
+        string author,
+        string? otherIsbn,
+        string otherTitle,
+        string otherAuthor)
+    {
+        var left = NormalizeIsbn(isbn);
+        var right = NormalizeIsbn(otherIsbn);
+        if (left is not null && left == right)
+        {
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(author))
+        {
+            return false;
+        }
+
+        return title.Trim().Equals(otherTitle.Trim(), StringComparison.OrdinalIgnoreCase)
+            && author.Trim().Equals(otherAuthor.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
     public static IQueryable<Book> Filtered(
         IQueryable<Book> books,
         string? q,

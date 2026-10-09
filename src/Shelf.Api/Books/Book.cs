@@ -313,3 +313,12 @@ public sealed record UpdateSettingsRequest([Range(0, 1000)] int YearlyGoal);
 public sealed record LibraryExport(int YearlyGoal, BookResponse[] Books);
 
 public sealed record ImportResult(int Added, int Skipped);
+
+public sealed record CatalogMatch(
+    string Title,
+    string Author,
+    int? Year,
+    int? Pages,
+    string? Publisher,
+    string? Language,
+    string? CoverUrl);

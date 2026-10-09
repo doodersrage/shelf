@@ -148,6 +148,7 @@ else
                             <span>since @loanedOn.ToString("MMM d, yyyy")</span>
                         }
                     </span>
+                    <button type="button" @onclick="() => ReturnLoan(book.Id)">Return</button>
                 }
                 @if (book.Quotes.Count > 0)
                 {
@@ -181,7 +182,7 @@ else
             }
         </ul>
     }
-    <BookFields Model="draft" />
+    <BookFields Model="draft" Shelf="books" />
     <button type="submit">Add</button>
 </EditForm>
 
@@ -323,6 +324,20 @@ else
         }
 
         book.Loved = !book.Loved;
+        await db.SaveChangesAsync();
+        await LoadAsync();
+    }
+
+    private async Task ReturnLoan(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var book = await db.Books.FirstOrDefaultAsync(existing => existing.Id == id);
+        if (book is null)
+        {
+            return;
+        }
+
+        BookRules.ReturnLoan(book);
         await db.SaveChangesAsync();
         await LoadAsync();
     }

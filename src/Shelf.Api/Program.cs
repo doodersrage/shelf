@@ -28,6 +28,13 @@ builder.Services.AddDbContextFactory<ShelfDb>(options => options.UseSqlite(sqlit
 builder.Services.AddScoped(static services =>
     services.GetRequiredService<IDbContextFactory<ShelfDb>>().CreateDbContext());
 
+builder.Services.AddHttpClient<IBookLookup, OpenLibraryLookup>(client =>
+{
+    client.BaseAddress = new Uri("https://openlibrary.org/");
+    client.Timeout = TimeSpan.FromSeconds(8);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Shelf/1.0 (personal library; +https://github.com/doodersrage/shelf)");
+});
+
 builder.Services.AddValidation();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();

@@ -14,6 +14,7 @@ public static class BookEndpoints
         books.MapGet("/stats", GetStats).WithTags("Shelf");
         books.MapGet("/export", ExportLibrary).WithTags("Shelf");
         books.MapPost("/import", ImportLibrary).WithTags("Shelf");
+        books.MapGet("/lookup", LookupIsbn);
         books.MapGet("/quotes", ListAllQuotes);
         books.MapGet("/{id:int}", GetBook);
         books.MapPost("/", CreateBook);
@@ -24,6 +25,7 @@ public static class BookEndpoints
         books.MapDelete("/{id:int}/quotes/{quoteId:int}", DeleteQuote);
         books.MapPost("/{id:int}/sessions", CreateSession);
         books.MapDelete("/{id:int}/sessions/{sessionId:int}", DeleteSession);
+        books.MapPost("/{id:int}/return", ReturnBook);
 
         app.MapGet("/settings", GetSettings).WithTags("Shelf");
         app.MapPut("/settings", UpdateSettings).WithTags("Shelf");
@@ -311,5 +313,35 @@ public static class BookEndpoints
     {
         await BookRules.SetGoalAsync(db, request.YearlyGoal, cancellationToken);
         return TypedResults.Ok(new ShelfSettingsResponse(request.YearlyGoal));
+    }
+
+    private static async Task<Results<Ok<CatalogMatch>, NotFound>> LookupIsbn(
+        string? isbn,
+        IBookLookup lookup,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(isbn))
+        {
+            return TypedResults.NotFound();
+        }
+
+        var match = await lookup.FindAsync(isbn, cancellationToken);
+        return match is null ? TypedResults.NotFound() : TypedResults.Ok(match);
+    }
+
+    private static async Task<Results<Ok<BookResponse>, NotFound>> ReturnBook(
+        int id,
+        ShelfDb db,
+        CancellationToken cancellationToken)
+    {
+        var book = await db.Books.WithDetails().FirstOrDefaultAsync(existing => existing.Id == id, cancellationToken);
+        if (book is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        BookRules.ReturnLoan(book);
+        await db.SaveChangesAsync(cancellationToken);
+        return TypedResults.Ok(BookResponse.From(book));
     }
 }
