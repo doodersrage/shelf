@@ -148,6 +148,7 @@ public static class BookRules
         book.StartedOn = write.StartedOn;
         book.FinishedOn = write.FinishedOn;
         book.Status = write.Status;
+        book.Queued = book.Status == BookStatus.Want && write.Queued;
 
         var previousLoan = book.LoanedTo;
         book.LoanedTo = BlankToNull(write.LoanedTo);
@@ -202,6 +203,11 @@ public static class BookRules
         if (status == BookStatus.Finished)
         {
             book.FinishedOn ??= today;
+        }
+
+        if (status != BookStatus.Want)
+        {
+            book.Queued = false;
         }
     }
 
@@ -442,6 +448,15 @@ public static class BookRules
     public static Book? Pick(IReadOnlyList<Book> books, BookStatus status, DateOnly day)
     {
         var candidates = books.Where(book => book.Status == status).OrderBy(book => book.Id).ToList();
+        if (status == BookStatus.Want)
+        {
+            var queued = candidates.Where(book => book.Queued).ToList();
+            if (queued.Count > 0)
+            {
+                candidates = queued;
+            }
+        }
+
         if (candidates.Count == 0)
         {
             return null;

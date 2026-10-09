@@ -684,6 +684,9 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         Assert.Equal(2, BookRules.Pick(wanted, BookStatus.Want, DateOnly.FromDayNumber(3))?.Id);
         Assert.Null(BookRules.Pick(wanted, BookStatus.Finished, DateOnly.FromDayNumber(2)));
 
+        wanted[1].Queued = true;
+        Assert.Equal(2, BookRules.Pick(wanted, BookStatus.Want, DateOnly.FromDayNumber(2))?.Id);
+
         var counts = BookRules.AuthorCounts(["Ursula K. Le Guin", "ursula k. le guin", "Octavia E. Butler"]);
         Assert.Equal(2, counts.Single(author => author.Name == "Ursula K. Le Guin").Count);
     }
@@ -1065,6 +1068,38 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         var html = await page.Content.ReadAsStringAsync();
         Assert.Contains("overdue", html);
         Assert.Contains(due.ToString("MMM d, yyyy"), html);
+    }
+
+    [Fact]
+    public async Task A_queued_want_is_shown_as_the_one_to_read_next()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "Always Coming Home",
+            "Ursula K. Le Guin",
+            BookStatus.Want,
+            null,
+            Queued: true));
+        Assert.True(book.Queued);
+
+        var page = await _client.GetAsync("/");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("Read next", html);
+        Assert.Contains("Always Coming Home", html);
+
+        var library = await _client.GetAsync($"/library/{book.Id}");
+        var libraryHtml = await library.Content.ReadAsStringAsync();
+        Assert.Contains("On the read-next list.", libraryHtml);
+
+        var updated = await _client.PutAsJsonAsync(
+            $"/books/{book.Id}",
+            new UpdateBookRequest(
+                "Always Coming Home",
+                "Ursula K. Le Guin",
+                BookStatus.Reading,
+                null,
+                Queued: true));
+        var body = await updated.Content.ReadFromJsonAsync<BookResponse>(JsonOptions);
+        Assert.False(body!.Queued);
     }
 
     [Fact]

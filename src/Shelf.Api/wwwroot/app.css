@@ -185,9 +185,14 @@ button.danger {
     border-color: var(--danger);
 }
 
-button.loved {
+button.loved,
+button.queued {
     color: var(--accent);
     border-color: var(--accent);
+}
+
+.read-next a {
+    margin-left: 0.7rem;
 }
 
 .inscription {

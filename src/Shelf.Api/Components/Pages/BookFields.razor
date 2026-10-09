@@ -126,6 +126,13 @@
         <InputCheckbox @bind-Value="Model.Loved" />
         Loved
     </label>
+    @if (Model.Status == BookStatus.Want)
+    {
+        <label class="check">
+            <InputCheckbox @bind-Value="Model.Queued" />
+            Read next
+        </label>
+    }
     <label>
         Review
         <InputTextArea @bind-Value="Model.Review" maxlength="4000" rows="4" />

@@ -51,6 +51,10 @@ else if (book is not null)
     {
         <p class="hint">Next: <a href="/library/@nextVolume.Id">@nextVolume.Title</a></p>
     }
+    @if (book.Queued)
+    {
+        <p class="hint">On the read-next list.</p>
+    }
     @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
     {
         <p>

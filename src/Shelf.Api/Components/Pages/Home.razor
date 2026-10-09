@@ -7,7 +7,16 @@
 
 <h1>Library</h1>
 
-@if (Suggestion is Book suggestion)
+@if (ReadNext.Count > 0)
+{
+    <p class="hint read-next">Read next:
+        @foreach (var next in ReadNext)
+        {
+            <a href="/library/@next.Id">@next.Title</a>
+        }
+    </p>
+}
+else if (Suggestion is Book suggestion)
 {
     <p class="hint">From the want list: <a href="/library/@suggestion.Id">@suggestion.Title</a></p>
 }
@@ -58,6 +67,10 @@
     <label class="check">
         <input type="checkbox" @bind="loanedOnly" />
         On loan
+    </label>
+    <label class="check">
+        <input type="checkbox" @bind="queuedOnly" />
+        Read next
     </label>
 </div>
 
@@ -189,6 +202,12 @@ else
                 <button type="button" class="@(book.Loved ? "loved" : null)" @onclick="() => ToggleLoved(book.Id)">
                     @(book.Loved ? "Loved" : "Love")
                 </button>
+                @if (book.Status == BookStatus.Want)
+                {
+                    <button type="button" class="@(book.Queued ? "queued" : null)" @onclick="() => ToggleQueued(book.Id)">
+                        @(book.Queued ? "Queued" : "Read next")
+                    </button>
+                }
                 @if (book.Status == BookStatus.Reading && book.Pages is int pages)
                 {
                     <span class="progress-wrap">
@@ -282,6 +301,7 @@ else
     private string? loanedFilter;
     private bool lovedOnly;
     private bool loanedOnly;
+    private bool queuedOnly;
     private Dictionary<string, string[]>? formErrors;
     private bool filling;
     private string? fillNote;
@@ -320,6 +340,11 @@ else
     private Book? Suggestion => BookRules.Pick(books, BookStatus.Want, Today);
 
     private List<Book> ReadingNow => Visible.Where(book => book.Status == BookStatus.Reading).ToList();
+
+    private List<Book> ReadNext => books
+        .Where(book => book.Status == BookStatus.Want && book.Queued)
+        .OrderBy(book => book.Title, StringComparer.OrdinalIgnoreCase)
+        .ToList();
 
     private IEnumerable<Book> Visible
     {
@@ -384,6 +409,11 @@ else
             if (lovedOnly)
             {
                 result = result.Where(book => book.Loved);
+            }
+
+            if (queuedOnly)
+            {
+                result = result.Where(book => book.Queued);
             }
 
             if (loanedOnly)
@@ -459,6 +489,20 @@ else
         }
 
         book.Loved = !book.Loved;
+        await db.SaveChangesAsync();
+        await LoadAsync();
+    }
+
+    private async Task ToggleQueued(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var book = await db.Books.FirstOrDefaultAsync(existing => existing.Id == id);
+        if (book is null || book.Status != BookStatus.Want)
+        {
+            return;
+        }
+
+        book.Queued = !book.Queued;
         await db.SaveChangesAsync();
         await LoadAsync();
     }

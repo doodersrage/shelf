@@ -44,6 +44,7 @@ public sealed class Book
     public string? CoverUrl { get; set; }
     public string? Review { get; set; }
     public bool Loved { get; set; }
+    public bool Queued { get; set; }
     public string? Location { get; set; }
     public DateOnly? AcquiredOn { get; set; }
     public string? Translator { get; set; }
@@ -120,12 +121,13 @@ public sealed record CreateBookRequest(
     [MaxLength(200)] string? OriginalTitle = null,
     [MaxLength(120)] string? RecommendedBy = null,
     [MaxLength(500)] string? Inscription = null,
-    DateOnly? DueOn = null)
+    DateOnly? DueOn = null,
+    bool Queued = false)
 {
     public BookWrite ToWrite() => BookWrite.From(
         Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
         Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn,
-        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn);
+        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued);
 }
 
 public sealed record UpdateBookRequest(
@@ -158,12 +160,13 @@ public sealed record UpdateBookRequest(
     [MaxLength(200)] string? OriginalTitle = null,
     [MaxLength(120)] string? RecommendedBy = null,
     [MaxLength(500)] string? Inscription = null,
-    DateOnly? DueOn = null)
+    DateOnly? DueOn = null,
+    bool Queued = false)
 {
     public BookWrite ToWrite() => BookWrite.From(
         Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
         Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn,
-        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn);
+        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued);
 }
 
 public sealed record BookWrite(
@@ -196,7 +199,8 @@ public sealed record BookWrite(
     string? RecommendedBy,
     string? OriginalTitle,
     string? Inscription,
-    DateOnly? DueOn)
+    DateOnly? DueOn,
+    bool Queued)
 {
     public static BookWrite From(
         string title,
@@ -228,16 +232,17 @@ public sealed record BookWrite(
         string? recommendedBy,
         string? originalTitle,
         string? inscription,
-        DateOnly? dueOn) => new(
+        DateOnly? dueOn,
+        bool queued) => new(
             title, author, status, rating, year, isbn, pages, currentPage, notes, startedOn, finishedOn, loanedTo, tags ?? [],
             subtitle, publisher, language, format, series, seriesNumber, coverUrl, review, loved, loanedOn,
-            location, acquiredOn, translator, recommendedBy, originalTitle, inscription, dueOn);
+            location, acquiredOn, translator, recommendedBy, originalTitle, inscription, dueOn, queued);
 
     public static BookWrite From(BookResponse book) => From(
         book.Title, book.Author, book.Status, book.Rating, book.Year, book.Isbn, book.Pages, book.CurrentPage, book.Notes,
         book.StartedOn, book.FinishedOn, book.LoanedTo, book.Tags, book.Subtitle, book.Publisher, book.Language, book.Format,
         book.Series, book.SeriesNumber, book.CoverUrl, book.Review, book.Loved, book.LoanedOn,
-        book.Location, book.AcquiredOn, book.Translator, book.RecommendedBy, book.OriginalTitle, book.Inscription, book.DueOn);
+        book.Location, book.AcquiredOn, book.Translator, book.RecommendedBy, book.OriginalTitle, book.Inscription, book.DueOn, book.Queued);
 }
 
 public sealed record BookResponse(
@@ -274,7 +279,8 @@ public sealed record BookResponse(
     string? RecommendedBy,
     string? OriginalTitle,
     string? Inscription,
-    DateOnly? DueOn)
+    DateOnly? DueOn,
+    bool Queued)
 {
     public static BookResponse From(Book book) => new(
         book.Id,
@@ -310,7 +316,8 @@ public sealed record BookResponse(
         book.RecommendedBy,
         book.OriginalTitle,
         book.Inscription,
-        book.DueOn);
+        book.DueOn,
+        book.Queued);
 }
 
 public sealed record AuthorCount(string Name, int Count);

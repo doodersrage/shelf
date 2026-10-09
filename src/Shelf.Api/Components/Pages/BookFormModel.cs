@@ -67,6 +67,8 @@ public sealed class BookFormModel
 
     public bool Loved { get; set; }
 
+    public bool Queued { get; set; }
+
     [MaxLength(80)]
     public string Location { get; set; } = "";
 
@@ -118,7 +120,8 @@ public sealed class BookFormModel
         RecommendedBy,
         OriginalTitle,
         Inscription,
-        DueOn);
+        DueOn,
+        Queued);
 
     public bool FillBlanks(CatalogMatch match)
     {
@@ -213,6 +216,7 @@ public sealed class BookFormModel
         CoverUrl = "";
         Review = "";
         Loved = false;
+        Queued = false;
         Location = "";
         AcquiredOn = null;
         Translator = "";
@@ -247,6 +251,7 @@ public sealed class BookFormModel
         CoverUrl = book.CoverUrl ?? "",
         Review = book.Review ?? "",
         Loved = book.Loved,
+        Queued = book.Queued,
         Location = book.Location ?? "",
         AcquiredOn = book.AcquiredOn,
         Translator = book.Translator ?? "",
