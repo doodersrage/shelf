@@ -1,0 +1,86 @@
+<label>
+    Title
+    <InputText @bind-Value="Model.Title" maxlength="200" required />
+    <ValidationMessage For="() => Model.Title" />
+</label>
+<label>
+    Author
+    <InputText @bind-Value="Model.Author" maxlength="200" required />
+    <ValidationMessage For="() => Model.Author" />
+</label>
+<div class="pair">
+    <label>
+        Year
+        <InputNumber @bind-Value="Model.Year" />
+        <ValidationMessage For="() => Model.Year" />
+    </label>
+    <label>
+        Pages
+        <InputNumber @bind-Value="Model.Pages" />
+        <ValidationMessage For="() => Model.Pages" />
+    </label>
+</div>
+<div class="pair">
+    <label>
+        Status
+        <InputSelect @bind-Value="Model.Status">
+            @foreach (var status in Enum.GetValues<BookStatus>())
+            {
+                <option value="@status">@status</option>
+            }
+        </InputSelect>
+    </label>
+    <label>
+        Rating
+        <InputNumber @bind-Value="Model.Rating" />
+        <ValidationMessage For="() => Model.Rating" />
+    </label>
+</div>
+<div class="pair">
+    <label>
+        ISBN
+        <InputText @bind-Value="Model.Isbn" maxlength="32" spellcheck="false" />
+    </label>
+    <label>
+        Tags
+        <InputText @bind-Value="Model.Tags" maxlength="400" />
+        <span class="hint">Comma separated. Stored in lowercase.</span>
+    </label>
+</div>
+@if (Detailed)
+{
+    <div class="pair">
+        <label>
+            Current page
+            <InputNumber @bind-Value="Model.CurrentPage" />
+            <ValidationMessage For="() => Model.CurrentPage" />
+        </label>
+        <label>
+            Loaned to
+            <InputText @bind-Value="Model.LoanedTo" maxlength="120" />
+        </label>
+    </div>
+    <div class="pair">
+        <label>
+            Started
+            <InputDate @bind-Value="Model.StartedOn" />
+        </label>
+        <label>
+            Finished
+            <InputDate @bind-Value="Model.FinishedOn" />
+        </label>
+    </div>
+}
+<label>
+    Notes
+    <InputTextArea @bind-Value="Model.Notes" maxlength="4000" rows="4" />
+    <ValidationMessage For="() => Model.Notes" />
+</label>
+
+@code {
+    [Parameter, EditorRequired]
+    public BookFormModel Model { get; set; } = default!;
+
+    [Parameter]
+    public bool Detailed { get; set; }
+}

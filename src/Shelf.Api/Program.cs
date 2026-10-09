@@ -48,6 +48,10 @@ await using (var scope = app.Services.CreateAsyncScope())
             Title = "The Left Hand of Darkness",
             Author = "Ursula K. Le Guin",
             Status = BookStatus.Want,
+            Year = 1969,
+            Pages = 304,
+            AddedAt = DateTimeOffset.UtcNow,
+            Tags = { new Tag { Name = "science fiction" } },
         });
         await db.SaveChangesAsync();
     }

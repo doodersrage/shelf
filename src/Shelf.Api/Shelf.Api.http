@@ -5,6 +5,16 @@ Accept: application/json
 
 ###
 
+GET {{Shelf.Api_HostAddress}}/books?q=le%20guin&status=Want&sort=year
+Accept: application/json
+
+###
+
+GET {{Shelf.Api_HostAddress}}/books/stats
+Accept: application/json
+
+###
+
 POST {{Shelf.Api_HostAddress}}/books
 Content-Type: application/json
 
@@ -12,7 +22,10 @@ Content-Type: application/json
   "title": "A Wizard of Earthsea",
   "author": "Ursula K. Le Guin",
   "status": "Want",
-  "year": 1968
+  "year": 1968,
+  "pages": 205,
+  "isbn": "0-306-40615-2",
+  "tags": ["science fiction", "novel"]
 }
 
 ###
@@ -24,8 +37,25 @@ Content-Type: application/json
   "title": "The Left Hand of Darkness",
   "author": "Ursula K. Le Guin",
   "status": "Finished",
-  "rating": 5
+  "rating": 5,
+  "year": 1969,
+  "pages": 304,
+  "tags": ["science fiction"]
 }
+
+###
+
+POST {{Shelf.Api_HostAddress}}/books/1/quotes
+Content-Type: application/json
+
+{
+  "text": "The king was pregnant.",
+  "page": 1
+}
+
+###
+
+DELETE {{Shelf.Api_HostAddress}}/books/1/quotes/1
 
 ###
 

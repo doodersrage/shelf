@@ -1,27 +1,70 @@
 @page "/"
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
-@inject IHostEnvironment Environment
 
 <PageTitle>Shelf</PageTitle>
 
-<h1>Shelf</h1>
+<h1>Library</h1>
+
+<div class="filters">
+    <label>
+        Search
+        <input @bind="query" @bind:event="oninput" />
+    </label>
+    <label>
+        Status
+        <select @bind="statusFilter">
+            <option value="">All</option>
+            @foreach (var status in Enum.GetValues<BookStatus>())
+            {
+                <option value="@status">@status</option>
+            }
+        </select>
+    </label>
+    <label>
+        Sort
+        <select @bind="sort">
+            <option value="title">Title</option>
+            <option value="author">Author</option>
+            <option value="year">Year</option>
+            <option value="rating">Rating</option>
+            <option value="added">Recently added</option>
+        </select>
+    </label>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(tagFilter))
+{
+    <p class="hint">Tagged <strong>@tagFilter</strong> · <a href="/">Clear</a></p>
+}
+
+@{
+    var visible = Visible.ToList();
+}
 
 @if (books.Count == 0)
 {
     <p>Nothing on the shelf yet.</p>
 }
+else if (visible.Count == 0)
+{
+    <p>Nothing matches.</p>
+}
 else
 {
-    <ul>
-        @foreach (var book in books)
-        {
-            <li>
-                <strong>@book.Title</strong> by @book.Author
+    <p class="count">@visible.Count @(visible.Count == 1 ? "book" : "books")</p>
+    @foreach (var book in visible)
+    {
+        <article class="book">
+            <h2><a href="/library/@book.Id">@book.Title</a></h2>
+            <p class="by">
+                @book.Author
                 @if (book.Year is int year)
                 {
-                    <span> (@year)</span>
+                    <span>(@year)</span>
                 }
+            </p>
+            <p class="meta">
                 <label>
                     Status
                     <select @bind:get="book.Status" @bind:set="status => UpdateStatus(book.Id, status)">
@@ -35,9 +78,45 @@ else
                 {
                     <span>@rating/5</span>
                 }
-            </li>
-        }
-    </ul>
+                @if (book.Status == BookStatus.Reading && book.Pages is int pages)
+                {
+                    <span class="progress-wrap">
+                        <progress max="@pages" value="@(book.CurrentPage ?? 0)"></progress>
+                        <span>@(book.CurrentPage ?? 0)/@pages</span>
+                    </span>
+                }
+                else if (book.Status == BookStatus.Reading && book.CurrentPage is int current)
+                {
+                    <span>p. @current</span>
+                }
+                else if (book.Pages is int total)
+                {
+                    <span>@total pages</span>
+                }
+                @if (book.FinishedOn is DateOnly finished)
+                {
+                    <span>Finished @finished.ToString("MMM d, yyyy")</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
+                {
+                    <span>Loaned to @book.LoanedTo</span>
+                }
+                @if (book.Quotes.Count > 0)
+                {
+                    <span>@book.Quotes.Count @(book.Quotes.Count == 1 ? "quote" : "quotes")</span>
+                }
+            </p>
+            @if (book.Tags.Count > 0)
+            {
+                <p class="tags">
+                    @foreach (var tag in book.Tags.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+                    {
+                        <a href="@($"/?tag={Uri.EscapeDataString(tag.Name)}")">@tag.Name</a>
+                    }
+                </p>
+            }
+        </article>
+    }
 }
 
 <h2>Add a book</h2>
@@ -45,77 +124,105 @@ else
 <EditForm Model="draft" OnValidSubmit="AddBook">
     <DataAnnotationsValidator />
     <ValidationSummary />
-
-    <label>
-        Title
-        <InputText @bind-Value="draft.Title" />
-    </label>
-    <label>
-        Author
-        <InputText @bind-Value="draft.Author" />
-    </label>
-    <label>
-        Status
-        <InputSelect @bind-Value="draft.Status">
-            @foreach (var status in Enum.GetValues<BookStatus>())
+    @if (formErrors is { Count: > 0 })
+    {
+        <ul class="validation-errors">
+            @foreach (var message in formErrors.SelectMany(pair => pair.Value))
             {
-                <option value="@status">@status</option>
+                <li>@message</li>
             }
-        </InputSelect>
-    </label>
-    <label>
-        Rating
-        <InputNumber @bind-Value="draft.Rating" />
-    </label>
-    <label>
-        Year
-        <InputNumber @bind-Value="draft.Year" />
-    </label>
-
+        </ul>
+    }
+    <BookFields Model="draft" />
     <button type="submit">Add</button>
 </EditForm>
 
-<p>
-    <a href="/books">JSON</a>
-    @if (Environment.IsDevelopment())
-    {
-        <span> · <a href="/openapi/v1.json">OpenAPI</a></span>
-    }
-</p>
-
 @code {
-    private readonly NewBookModel draft = new();
+    private readonly BookFormModel draft = new();
     private List<Book> books = [];
+    private string query = "";
+    private string statusFilter = "";
+    private string sort = "title";
+    private string? tagFilter;
+    private Dictionary<string, string[]>? formErrors;
 
-    protected override async Task OnInitializedAsync()
+    [SupplyParameterFromQuery(Name = "tag")]
+    public string? Tag { get; set; }
+
+    protected override async Task OnParametersSetAsync()
     {
+        tagFilter = string.IsNullOrWhiteSpace(Tag) ? null : Tag.Trim();
         await LoadAsync();
+    }
+
+    private IEnumerable<Book> Visible
+    {
+        get
+        {
+            IEnumerable<Book> result = books;
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                var term = query.Trim();
+                var isbn = BookRules.NormalizeIsbn(term);
+                result = result.Where(book =>
+                    book.Title.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || book.Author.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || (isbn is not null && book.Isbn == isbn)
+                    || (book.Isbn?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (book.Notes?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || book.Quotes.Any(quote => quote.Text.Contains(term, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (Enum.TryParse<BookStatus>(statusFilter, out var status))
+            {
+                result = result.Where(book => book.Status == status);
+            }
+
+            if (BookRules.CanonicalTag(tagFilter) is { } tagName)
+            {
+                result = result.Where(book => book.Tags.Any(tag => tag.Name == tagName));
+            }
+
+            return sort switch
+            {
+                "author" => result.OrderBy(book => book.Author, StringComparer.OrdinalIgnoreCase).ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase),
+                "year" => result.OrderByDescending(book => book.Year ?? 0).ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase),
+                "rating" => result.OrderByDescending(book => book.Rating ?? 0).ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase),
+                "added" => result.OrderByDescending(book => book.AddedAt).ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase),
+                _ => result.OrderBy(book => book.Title, StringComparer.OrdinalIgnoreCase),
+            };
+        }
     }
 
     private async Task LoadAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        books = await db.Books.AsNoTracking().OrderBy(book => book.Title).ToListAsync();
+        books = await db.Books.AsNoTracking().WithDetails().ToListAsync();
     }
 
     private async Task AddBook()
     {
-        await using var db = await DbFactory.CreateDbContextAsync();
-        db.Books.Add(new Book
+        var write = draft.ToWrite();
+        formErrors = BookRules.Validate(write);
+        if (formErrors is not null)
         {
-            Title = draft.Title.Trim(),
-            Author = draft.Author.Trim(),
-            Status = draft.Status,
-            Rating = draft.Rating,
-            Year = draft.Year,
-        });
-        await db.SaveChangesAsync();
+            return;
+        }
 
-        draft.Title = "";
-        draft.Author = "";
-        draft.Status = BookStatus.Want;
-        draft.Rating = null;
-        draft.Year = null;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var book = new Book
+        {
+            Title = write.Title.Trim(),
+            Author = write.Author.Trim(),
+        };
+        BookRules.Apply(book, write);
+        db.Books.Add(book);
+        await BookRules.SyncTagsAsync(db, book, write.Tags, CancellationToken.None);
+        await db.SaveChangesAsync();
+        await BookRules.RemoveUnusedTagsAsync(db, CancellationToken.None);
+
+        draft.Clear();
+        formErrors = null;
         await LoadAsync();
     }
 
@@ -128,7 +235,7 @@ else
             return;
         }
 
-        book.Status = status;
+        BookRules.ChangeStatus(book, status);
         await db.SaveChangesAsync();
         await LoadAsync();
     }

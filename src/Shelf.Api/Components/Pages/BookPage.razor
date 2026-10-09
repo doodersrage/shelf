@@ -1,0 +1,218 @@
+@page "/library/{Id:int}"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject NavigationManager Navigation
+
+<PageTitle>@(book?.Title ?? "Shelf")</PageTitle>
+
+@if (missing)
+{
+    <h1>Not on the shelf</h1>
+    <p>That book is not here. <a href="/">Back to the library</a></p>
+}
+else if (book is not null)
+{
+    <p class="hint"><a href="/">Library</a></p>
+    <h1>@book.Title</h1>
+    <p class="by">@book.Author</p>
+
+    <EditForm Model="draft" OnValidSubmit="Save">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        @if (formErrors is { Count: > 0 })
+        {
+            <ul class="validation-errors">
+                @foreach (var message in formErrors.SelectMany(pair => pair.Value))
+                {
+                    <li>@message</li>
+                }
+            </ul>
+        }
+        <BookFields Model="draft" Detailed="true" />
+        <button type="submit">Save</button>
+        @if (saved)
+        {
+            <span class="hint">Saved.</span>
+        }
+    </EditForm>
+
+    <h2>Quotes</h2>
+    @if (book.Quotes.Count == 0)
+    {
+        <p class="hint">No quotes yet.</p>
+    }
+    else
+    {
+        <ul class="quotes">
+            @foreach (var quote in book.Quotes.OrderBy(item => item.NotedAt).ThenBy(item => item.Id))
+            {
+                <li>
+                    <blockquote>
+                        <p>@quote.Text</p>
+                        @if (quote.Page is int page)
+                        {
+                            <span class="hint">p. @(page)</span>
+                        }
+                    </blockquote>
+                    <button type="button" @onclick="() => RemoveQuote(quote.Id)">Remove</button>
+                </li>
+            }
+        </ul>
+    }
+
+    <EditForm Model="quoteDraft" OnValidSubmit="AddQuote">
+        <DataAnnotationsValidator />
+        @if (quoteErrors is { Count: > 0 })
+        {
+            <ul class="validation-errors">
+                @foreach (var message in quoteErrors.SelectMany(pair => pair.Value))
+                {
+                    <li>@message</li>
+                }
+            </ul>
+        }
+        <label>
+            Quote
+            <InputTextArea @bind-Value="quoteDraft.Text" maxlength="1000" rows="3" />
+            <ValidationMessage For="() => quoteDraft.Text" />
+        </label>
+        <label>
+            Page
+            <InputNumber @bind-Value="quoteDraft.Page" />
+            <ValidationMessage For="() => quoteDraft.Page" />
+        </label>
+        <button type="submit">Add quote</button>
+    </EditForm>
+
+    <h2>Remove</h2>
+    @if (!confirmingDelete)
+    {
+        <button type="button" class="danger" @onclick="() => confirmingDelete = true">Delete this book</button>
+    }
+    else
+    {
+        <p>This deletes the book and its quotes.</p>
+        <button type="button" class="danger" @onclick="Delete">Yes, delete it</button>
+        <button type="button" @onclick="() => confirmingDelete = false">Cancel</button>
+    }
+}
+
+@code {
+    private Book? book;
+    private bool missing;
+    private bool saved;
+    private bool confirmingDelete;
+    private BookFormModel draft = new();
+    private readonly QuoteFormModel quoteDraft = new();
+    private Dictionary<string, string[]>? formErrors;
+    private Dictionary<string, string[]>? quoteErrors;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        saved = false;
+        confirmingDelete = false;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync(bool replaceDraft = true)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        book = await db.Books.AsNoTracking().WithDetails().FirstOrDefaultAsync(existing => existing.Id == Id);
+        missing = book is null;
+        if (book is not null && replaceDraft)
+        {
+            draft = BookFormModel.From(book);
+        }
+    }
+
+    private async Task Save()
+    {
+        saved = false;
+        var write = draft.ToWrite();
+        formErrors = BookRules.Validate(write);
+        if (formErrors is not null || book is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var existing = await db.Books.Include(item => item.Tags).FirstOrDefaultAsync(item => item.Id == Id);
+        if (existing is null)
+        {
+            missing = true;
+            book = null;
+            return;
+        }
+
+        BookRules.Apply(existing, write);
+        await BookRules.SyncTagsAsync(db, existing, write.Tags, CancellationToken.None);
+        await db.SaveChangesAsync();
+        await BookRules.RemoveUnusedTagsAsync(db, CancellationToken.None);
+        formErrors = null;
+        saved = true;
+        await LoadAsync();
+    }
+
+    private async Task AddQuote()
+    {
+        quoteErrors = BookRules.ValidateQuote(quoteDraft.Text, quoteDraft.Page, draft.Pages);
+        if (quoteErrors is not null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var existing = await db.Books.AnyAsync(item => item.Id == Id);
+        if (!existing)
+        {
+            missing = true;
+            book = null;
+            return;
+        }
+
+        db.Quotes.Add(new Quote
+        {
+            BookId = Id,
+            Text = quoteDraft.Text.Trim(),
+            Page = quoteDraft.Page,
+            NotedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        quoteDraft.Clear();
+        quoteErrors = null;
+        saved = false;
+        await LoadAsync(replaceDraft: false);
+    }
+
+    private async Task RemoveQuote(int quoteId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var quote = await db.Quotes.FirstOrDefaultAsync(item => item.Id == quoteId && item.BookId == Id);
+        if (quote is null)
+        {
+            return;
+        }
+
+        db.Quotes.Remove(quote);
+        await db.SaveChangesAsync();
+        saved = false;
+        await LoadAsync(replaceDraft: false);
+    }
+
+    private async Task Delete()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var existing = await db.Books.FirstOrDefaultAsync(item => item.Id == Id);
+        if (existing is not null)
+        {
+            db.Books.Remove(existing);
+            await db.SaveChangesAsync();
+            await BookRules.RemoveUnusedTagsAsync(db, CancellationToken.None);
+        }
+
+        Navigation.NavigateTo("/");
+    }
+}

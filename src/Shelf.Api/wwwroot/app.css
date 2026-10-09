@@ -1,61 +1,333 @@
+:root {
+    color-scheme: light;
+    --ink: #1c1916;
+    --muted: #6e675f;
+    --rule: #e0d9cf;
+    --paper: #f6f3ee;
+    --accent: #6b3a2a;
+    --danger: #8a1f11;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: dark;
+        --ink: #f3efe8;
+        --muted: #b7b0a6;
+        --rule: #3a342c;
+        --paper: #171512;
+        --accent: #e0b7a4;
+        --danger: #f0b4a8;
+    }
+}
+
 html, body {
-    background: #fff;
-    color: #1a1a1a;
-    font-family: sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
     line-height: 1.5;
 }
 
 body {
-    max-width: 40rem;
-    margin: 2rem auto;
-    padding: 0 1rem;
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem 3rem;
+}
+
+h1, h2, .mark {
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
 }
 
 h1 {
-    font-size: 1.5rem;
+    font-size: 2rem;
+    margin: 0 0 1rem;
 }
 
 h2 {
-    font-size: 1.15rem;
-    margin-top: 2rem;
+    font-size: 1.35rem;
+    margin: 2.25rem 0 0.75rem;
 }
 
 a {
-    color: #0645ad;
+    color: var(--accent);
+}
+
+p {
+    margin: 0.4rem 0;
+}
+
+.site {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem 1rem;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.mark {
+    color: inherit;
+    font-size: 1.15rem;
+    text-decoration: none;
+}
+
+nav {
+    font-family: var(--sans);
+    font-size: 0.95rem;
+}
+
+nav a {
+    color: inherit;
+    margin-left: 1rem;
+    text-decoration: none;
+}
+
+nav a:hover,
+nav a.active {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+footer {
+    font-family: var(--sans);
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 3rem;
+    border-top: 1px solid var(--rule);
+    padding-top: 0.8rem;
+}
+
+footer a {
+    color: inherit;
+}
+
+.filters {
+    display: grid;
+    grid-template-columns: 1.4fr 0.8fr 0.9fr;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 1rem;
+}
+
+label, input, select, textarea, button, .meta, .hint, .count, .stats span {
+    font-family: var(--sans);
 }
 
 label {
     display: block;
-    margin: 0.6rem 0;
+    margin: 0.7rem 0;
+    font-size: 0.92rem;
 }
 
-input, select, button {
+label input,
+label select,
+label textarea {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    box-sizing: border-box;
+}
+
+input, select, textarea, button {
     font: inherit;
+    color: inherit;
+    background: transparent;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 0.35rem 0.5rem;
 }
 
-label input, label select {
-    margin-left: 0.4rem;
+textarea {
+    resize: vertical;
 }
 
 button {
-    margin-top: 0.6rem;
+    border-color: var(--ink);
+    margin: 0.6rem 0.4rem 0.6rem 0;
+    cursor: pointer;
 }
 
-li {
+button:hover {
+    background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+button.danger {
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
+.hint, .count, .by, .meta {
+    color: var(--muted);
+}
+
+.hint {
+    font-size: 0.85rem;
+}
+
+.count {
+    font-size: 0.85rem;
+    margin-bottom: 0.2rem;
+}
+
+.book {
+    border-top: 1px solid var(--rule);
+    padding: 0.95rem 0 1.05rem;
+}
+
+.book h2 {
+    font-size: 1.35rem;
+    margin: 0;
+}
+
+.book h2 a {
+    color: inherit;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
+}
+
+.meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.9rem;
+    align-items: center;
+    font-size: 0.92rem;
+}
+
+.meta label {
+    margin: 0;
+}
+
+.meta select {
+    display: inline-block;
+    width: auto;
+    margin: 0 0 0 0.35rem;
+}
+
+.tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.7rem;
+    margin: 0.35rem 0 0;
+    font-family: var(--sans);
+    font-size: 0.85rem;
+}
+
+.progress-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+progress {
+    appearance: none;
+    width: 6.5rem;
+    height: 0.4rem;
+    border: 0;
+    background: var(--rule);
+}
+
+progress::-webkit-progress-bar {
+    background: var(--rule);
+}
+
+progress::-webkit-progress-value {
+    background: var(--accent);
+}
+
+progress::-moz-progress-bar {
+    background: var(--accent);
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.stats p {
+    margin: 0;
+    border-top: 1px solid var(--rule);
+    padding-top: 0.45rem;
+}
+
+.stats strong {
+    display: block;
+    font-family: var(--serif);
+    font-size: 1.7rem;
+    font-weight: 500;
+    color: var(--ink);
+}
+
+.stats span {
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.tag-counts {
+    list-style: none;
+    padding: 0;
     margin: 0.4rem 0;
 }
 
+.tag-counts li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    border-top: 1px solid var(--rule);
+    padding: 0.35rem 0;
+    font-family: var(--sans);
+}
+
+.quotes {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.quotes li {
+    margin: 0.8rem 0 1.1rem;
+}
+
+blockquote {
+    margin: 0 0 0.35rem;
+    padding-left: 0.9rem;
+    border-left: 2px solid var(--rule);
+}
+
+blockquote p {
+    margin: 0;
+}
+
 .validation-errors {
-    color: #8a1f11;
+    color: var(--danger);
     padding-left: 1.2rem;
 }
 
 .validation-message {
-    color: #8a1f11;
+    color: var(--danger);
+    font-family: var(--sans);
+    font-size: 0.85rem;
+}
+
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 
 #blazor-error-ui {
-    background: #ffffe0;
+    background: var(--paper);
+    color: var(--ink);
     bottom: 0;
     box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
     display: none;
@@ -64,6 +336,7 @@ li {
     position: fixed;
     width: 100%;
     z-index: 1000;
+    font-family: var(--sans);
 }
 
 #blazor-error-ui .dismiss {
@@ -71,4 +344,15 @@ li {
     position: absolute;
     right: 0.75rem;
     top: 0.5rem;
+}
+
+@media (max-width: 40rem) {
+    .filters,
+    .pair {
+        grid-template-columns: 1fr;
+    }
+
+    .stats {
+        grid-template-columns: 1fr 1fr;
+    }
 }

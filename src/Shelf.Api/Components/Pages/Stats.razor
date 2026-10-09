@@ -1,0 +1,57 @@
+@page "/stats"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>Stats · Shelf</PageTitle>
+
+<h1>Stats</h1>
+
+@if (stats is null)
+{
+    <p>Counting the shelf…</p>
+}
+else if (stats.Total == 0)
+{
+    <p>Nothing on the shelf yet. <a href="/">Add a book</a></p>
+}
+else
+{
+    <div class="stats">
+        <p><strong>@stats.Total</strong><span>Books</span></p>
+        <p><strong>@stats.Want</strong><span>Want</span></p>
+        <p><strong>@stats.Reading</strong><span>Reading</span></p>
+        <p><strong>@stats.Finished</strong><span>Finished</span></p>
+        <p><strong>@stats.Abandoned</strong><span>Abandoned</span></p>
+        <p><strong>@(stats.AverageRating?.ToString("0.##") ?? "—")</strong><span>Average rating</span></p>
+        <p><strong>@stats.PagesRead</strong><span>Pages read</span></p>
+        <p><strong>@stats.FinishedThisYear</strong><span>Finished this year</span></p>
+    </div>
+
+    <h2>Tags</h2>
+    @if (stats.Tags.Length == 0)
+    {
+        <p class="hint">No tags yet.</p>
+    }
+    else
+    {
+        <ul class="tag-counts">
+            @foreach (var tag in stats.Tags)
+            {
+                <li>
+                    <a href="@($"/?tag={Uri.EscapeDataString(tag.Name)}")">@tag.Name</a>
+                    <span class="hint">@tag.Count</span>
+                </li>
+            }
+        </ul>
+    }
+}
+
+@code {
+    private ShelfStatsResponse? stats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        stats = await BookRules.SummarizeAsync(db);
+    }
+}
