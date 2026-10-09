@@ -18,6 +18,13 @@ public enum BookFormat
     Audiobook,
 }
 
+public enum Acquisition
+{
+    Bought,
+    Gift,
+    Found,
+}
+
 public sealed class Book
 {
     public int Id { get; set; }
@@ -47,6 +54,7 @@ public sealed class Book
     public bool Queued { get; set; }
     public string? Location { get; set; }
     public DateOnly? AcquiredOn { get; set; }
+    public Acquisition? Acquisition { get; set; }
     public string? Translator { get; set; }
     public string? OriginalTitle { get; set; }
     public string? Inscription { get; set; }
@@ -122,12 +130,13 @@ public sealed record CreateBookRequest(
     [MaxLength(120)] string? RecommendedBy = null,
     [MaxLength(500)] string? Inscription = null,
     DateOnly? DueOn = null,
-    bool Queued = false)
+    bool Queued = false,
+    Acquisition? Acquisition = null)
 {
     public BookWrite ToWrite() => BookWrite.From(
         Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
         Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn,
-        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued);
+        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition);
 }
 
 public sealed record UpdateBookRequest(
@@ -161,12 +170,13 @@ public sealed record UpdateBookRequest(
     [MaxLength(120)] string? RecommendedBy = null,
     [MaxLength(500)] string? Inscription = null,
     DateOnly? DueOn = null,
-    bool Queued = false)
+    bool Queued = false,
+    Acquisition? Acquisition = null)
 {
     public BookWrite ToWrite() => BookWrite.From(
         Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
         Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn,
-        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued);
+        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition);
 }
 
 public sealed record BookWrite(
@@ -200,7 +210,8 @@ public sealed record BookWrite(
     string? OriginalTitle,
     string? Inscription,
     DateOnly? DueOn,
-    bool Queued)
+    bool Queued,
+    Acquisition? Acquisition)
 {
     public static BookWrite From(
         string title,
@@ -233,16 +244,17 @@ public sealed record BookWrite(
         string? originalTitle,
         string? inscription,
         DateOnly? dueOn,
-        bool queued) => new(
+        bool queued,
+        Acquisition? acquisition) => new(
             title, author, status, rating, year, isbn, pages, currentPage, notes, startedOn, finishedOn, loanedTo, tags ?? [],
             subtitle, publisher, language, format, series, seriesNumber, coverUrl, review, loved, loanedOn,
-            location, acquiredOn, translator, recommendedBy, originalTitle, inscription, dueOn, queued);
+            location, acquiredOn, translator, recommendedBy, originalTitle, inscription, dueOn, queued, acquisition);
 
     public static BookWrite From(BookResponse book) => From(
         book.Title, book.Author, book.Status, book.Rating, book.Year, book.Isbn, book.Pages, book.CurrentPage, book.Notes,
         book.StartedOn, book.FinishedOn, book.LoanedTo, book.Tags, book.Subtitle, book.Publisher, book.Language, book.Format,
         book.Series, book.SeriesNumber, book.CoverUrl, book.Review, book.Loved, book.LoanedOn,
-        book.Location, book.AcquiredOn, book.Translator, book.RecommendedBy, book.OriginalTitle, book.Inscription, book.DueOn, book.Queued);
+        book.Location, book.AcquiredOn, book.Translator, book.RecommendedBy, book.OriginalTitle, book.Inscription, book.DueOn, book.Queued, book.Acquisition);
 }
 
 public sealed record BookResponse(
@@ -280,7 +292,8 @@ public sealed record BookResponse(
     string? OriginalTitle,
     string? Inscription,
     DateOnly? DueOn,
-    bool Queued)
+    bool Queued,
+    Acquisition? Acquisition)
 {
     public static BookResponse From(Book book) => new(
         book.Id,
@@ -317,7 +330,8 @@ public sealed record BookResponse(
         book.OriginalTitle,
         book.Inscription,
         book.DueOn,
-        book.Queued);
+        book.Queued,
+        book.Acquisition);
 }
 
 public sealed record AuthorCount(string Name, int Count);

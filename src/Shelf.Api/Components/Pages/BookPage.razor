@@ -70,16 +70,21 @@ else if (book is not null)
             <button type="button" @onclick="ReturnLoan">Return</button>
         </p>
     }
-    @if (!string.IsNullOrWhiteSpace(book.Location) || book.AcquiredOn is not null)
+    @if (!string.IsNullOrWhiteSpace(book.Location) || book.AcquiredOn is not null || book.Acquisition is not null)
     {
         <p class="hint">
+            @if (book.Acquisition is Acquisition arrived)
+            {
+                <span>@(arrived == Acquisition.Gift ? "A gift" : arrived.ToString())</span>
+            }
             @if (!string.IsNullOrWhiteSpace(book.Location))
             {
+                <span>@(book.Acquisition is null ? "" : " · ")</span>
                 <a href="@($"/?place={Uri.EscapeDataString(book.Location)}")">@book.Location</a>
             }
             @if (book.AcquiredOn is DateOnly acquired)
             {
-                <span>@(string.IsNullOrWhiteSpace(book.Location) ? "" : " · ")Acquired @acquired.ToString("MMM d, yyyy")</span>
+                <span>@(book.Acquisition is null && string.IsNullOrWhiteSpace(book.Location) ? "" : " · ")Acquired @acquired.ToString("MMM d, yyyy")</span>
             }
         </p>
     }

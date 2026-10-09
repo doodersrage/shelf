@@ -227,6 +227,10 @@ else
                 {
                     <span>Finished @finished.ToString("MMM d, yyyy")</span>
                 }
+                @if (book.Acquisition is Acquisition arrived)
+                {
+                    <span>@(arrived == Acquisition.Gift ? "A gift" : arrived.ToString())</span>
+                }
                 @if (!string.IsNullOrWhiteSpace(book.Location))
                 {
                     <a href="@($"/?place={Uri.EscapeDataString(book.Location)}")">@book.Location</a>

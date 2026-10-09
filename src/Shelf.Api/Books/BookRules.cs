@@ -141,6 +141,7 @@ public static class BookRules
         book.Loved = write.Loved;
         book.Location = BlankToNull(write.Location);
         book.AcquiredOn = write.AcquiredOn;
+        book.Acquisition = write.Acquisition;
         book.Translator = BlankToNull(write.Translator);
         book.OriginalTitle = BlankToNull(write.OriginalTitle);
         book.Inscription = BlankToNull(write.Inscription);

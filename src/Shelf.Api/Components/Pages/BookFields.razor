@@ -157,6 +157,16 @@
             <InputDate @bind-Value="Model.AcquiredOn" />
         </label>
     </div>
+    <label>
+        How it arrived
+        <InputSelect @bind-Value="Model.Arrival">
+            <option value="">—</option>
+            @foreach (var arrived in Enum.GetValues<Acquisition>())
+            {
+                <option value="@arrived">@arrived</option>
+            }
+        </InputSelect>
+    </label>
     <div class="pair">
         <label>
             Translator

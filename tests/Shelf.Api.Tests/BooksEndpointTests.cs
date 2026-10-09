@@ -1103,6 +1103,27 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task A_copy_remembers_how_it_arrived()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "Lavinia",
+            "Ursula K. Le Guin",
+            BookStatus.Want,
+            null,
+            Acquisition: Acquisition.Gift));
+        Assert.Equal(Acquisition.Gift, book.Acquisition);
+
+        var page = await _client.GetAsync($"/library/{book.Id}");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("A gift", html);
+
+        var shelf = await _client.GetAsync("/");
+        var shelfHtml = await shelf.Content.ReadAsStringAsync();
+        Assert.Contains("A gift", shelfHtml);
+        Assert.Contains("Lavinia", shelfHtml);
+    }
+
+    [Fact]
     public async Task An_original_title_is_kept_and_can_be_searched()
     {
         var book = await CreateAsync(new CreateBookRequest(

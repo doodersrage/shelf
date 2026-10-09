@@ -74,6 +74,8 @@ public sealed class BookFormModel
 
     public DateOnly? AcquiredOn { get; set; }
 
+    public string Arrival { get; set; } = "";
+
     [MaxLength(200)]
     public string OriginalTitle { get; set; } = "";
 
@@ -121,7 +123,8 @@ public sealed class BookFormModel
         OriginalTitle,
         Inscription,
         DueOn,
-        Queued);
+        Queued,
+        Enum.TryParse<Acquisition>(Arrival, out var acquisition) ? acquisition : null);
 
     public bool FillBlanks(CatalogMatch match)
     {
@@ -219,6 +222,7 @@ public sealed class BookFormModel
         Queued = false;
         Location = "";
         AcquiredOn = null;
+        Arrival = "";
         Translator = "";
         OriginalTitle = "";
         Inscription = "";
@@ -254,6 +258,7 @@ public sealed class BookFormModel
         Queued = book.Queued,
         Location = book.Location ?? "",
         AcquiredOn = book.AcquiredOn,
+        Arrival = book.Acquisition?.ToString() ?? "",
         Translator = book.Translator ?? "",
         OriginalTitle = book.OriginalTitle ?? "",
         Inscription = book.Inscription ?? "",
