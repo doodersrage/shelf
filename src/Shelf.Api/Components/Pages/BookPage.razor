@@ -96,14 +96,14 @@ else if (book is not null)
     @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
     {
         <p>
-            Loaned to <a href="@($"/?loanedTo={Uri.EscapeDataString(book.LoanedTo)}")">@book.LoanedTo</a>@(book.BorrowerId is null ? "" : ", a reader here,")
+            Loaned to <a href="@($"/?loanedTo={Uri.EscapeDataString(book.LoanedTo)}")">@book.LoanedTo</a>@(book.BorrowerId is null ? "" : ", a reader here")
             @if (book.LoanedOn is DateOnly loanedOn)
             {
-                <span>since @loanedOn.ToString("MMM d, yyyy")</span>
+                <span> since @loanedOn.ToString("MMM d, yyyy")</span>
             }
             @if (book.DueOn is DateOnly due)
             {
-                <span class="@(due < Today ? "late" : null)">due @due.ToString("MMM d, yyyy")@(due < Today ? ", overdue" : "")</span>
+                <span class="@(due < Today ? "late" : null)"> due @due.ToString("MMM d, yyyy")@(due < Today ? ", overdue" : "")</span>
             }
             <button type="button" @onclick="ReturnLoan">Return</button>
         </p>
