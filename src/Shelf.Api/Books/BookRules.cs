@@ -345,6 +345,22 @@ public static class BookRules
         return setting?.SyncAddress;
     }
 
+    public static async Task<bool> GetLibraryAsListAsync(ShelfDb db, CancellationToken cancellationToken = default) =>
+        await db.Settings.AsNoTracking().AnyAsync(item => item.Id == db.ReaderId && item.LibraryAsList, cancellationToken);
+
+    public static async Task SetLibraryAsListAsync(ShelfDb db, bool asList, CancellationToken cancellationToken = default)
+    {
+        var setting = await db.Settings.FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
+        if (setting is null)
+        {
+            setting = new ShelfSetting { Id = SettingId(db) };
+            db.Settings.Add(setting);
+        }
+
+        setting.LibraryAsList = asList;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public static async Task<ReaderType> GetReaderTypeAsync(ShelfDb db, CancellationToken cancellationToken = default)
     {
         var setting = await db.Settings.AsNoTracking().FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);

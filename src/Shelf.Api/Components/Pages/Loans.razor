@@ -6,9 +6,16 @@
 
 <h1>Loans</h1>
 
+@if (Quiet)
+{
+    <EmptyState Title="Nothing is on loan" Text="Books you lend, to a reader here or to anyone else, are listed by who has them. Books other readers lend you, and the ones you ask for, show here too." ActionHref="/shelves" ActionLabel="Browse the open shelves" />
+}
+else
+{
+<h2>Lent out</h2>
 @if (people.Count == 0)
 {
-    <EmptyState Title="Nothing is on loan" Text="Books you lend, to a reader here or to anyone else, are listed by who has them." ActionHref="/" ActionLabel="Open the library" />
+    <p class="hint">Nothing of yours is on loan.</p>
 }
 else
 {
@@ -43,7 +50,7 @@ else
                         Due back
                         <input type="date" @bind="dueDates[ask.Id]" />
                     </label>
-                    <button type="button" @onclick="() => LendAsk(ask.Id)">Lend it</button>
+                    <button type="button" class="primary" @onclick="() => LendAsk(ask.Id)">Lend it</button>
                 }
                 <button type="button" @onclick="() => DropAsk(ask.Id)">Decline</button>
             </li>
@@ -58,7 +65,7 @@ else
 <h2>Borrowed</h2>
 @if (borrowed.Count == 0)
 {
-    <p class="hint">No other reader has lent you a book.</p>
+    <p class="hint">No other reader has lent you a book. <a href="/shelves">Browse the open shelves</a> to ask for one.</p>
 }
 else
 {
@@ -107,7 +114,7 @@ else
         }
     </ul>
 }
-<p class="hint"><a href="/shelves">Browse the open shelves</a> to ask for a book.</p>
+}
 
 @code {
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
@@ -115,6 +122,8 @@ else
     private LoanAsks asks = new([], []);
     private readonly Dictionary<int, DateOnly?> dueDates = [];
     private string? askProblem;
+
+    private bool Quiet => people.Count == 0 && borrowed.Count == 0 && asks.Incoming.Length == 0 && asks.Outgoing.Length == 0;
 
     private List<LoanCount> people = [];
     private List<BorrowedBook> borrowed = [];

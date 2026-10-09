@@ -296,6 +296,69 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.Contains(archive.Entries, entry => entry.FullName.StartsWith("ebooks/", StringComparison.Ordinal) && entry.FullName.EndsWith(".epub", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task The_library_opens_as_a_reader_last_left_it()
+    {
+        var reader = await factory.SignUpAsync("Sparrow");
+        await CreateAsync(reader, new CreateBookRequest("A Listed Book", "Someone", BookStatus.Want, null));
+        Assert.Contains("book-grid", await reader.GetStringAsync("/"));
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(await factory.ReaderIdAsync("Sparrow"));
+            await BookRules.SetLibraryAsListAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), true);
+        }
+
+        Assert.Contains("book-list", await reader.GetStringAsync("/"));
+        Assert.Contains("book-grid", await reader.GetStringAsync("/?view=covers"));
+        Assert.DoesNotContain("book-grid", await _admin.GetStringAsync("/?view=list"));
+    }
+
+    [Fact]
+    public async Task The_reader_sets_type_the_way_each_reader_chose()
+    {
+        var book = await CreateAsync(_admin, new CreateBookRequest("Set In Type", "Someone", BookStatus.Reading, null));
+        using (var content = new MultipartFormDataContent())
+        {
+            content.Add(new ByteArrayContent(BooksEndpointTests.SampleEpub("Well set.")), "file", "type.epub");
+            await _admin.PostAsync($"/books/{book.Id}/ebook", content);
+        }
+
+        var plain = await _admin.GetStringAsync($"/books/{book.Id}/ebook/chapters/0");
+        Assert.Contains("font-size: 100%", plain);
+        Assert.Contains("prefers-color-scheme: dark", plain);
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(factory.ReaderId);
+            await BookRules.SetReaderTypeAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), new ReaderType(130, 190, 500));
+        }
+
+        var set = await _admin.GetStringAsync($"/books/{book.Id}/ebook/chapters/0");
+        Assert.Contains("font-size: 130%", set);
+        Assert.Contains("line-height: 1.9", set);
+        Assert.Contains("max-width: 80em", set);
+        Assert.Contains("Well set.", set);
+
+        // The reader drops the sidebar for a slim bar and the text settings.
+        var page = await _admin.GetStringAsync($"/library/{book.Id}/read");
+        Assert.Contains("focus-bar", page);
+        Assert.DoesNotContain("Your library", page);
+        Assert.Contains("Text settings", page);
+        Assert.Contains("Your library", await _admin.GetStringAsync($"/library/{book.Id}"));
+    }
+
+    [Fact]
+    public async Task Large_uploads_report_their_progress()
+    {
+        var book = await CreateAsync(_admin, new CreateBookRequest("Uploaded Slowly", "Someone", BookStatus.Want, null));
+        var page = await _admin.GetStringAsync($"/library/{book.Id}");
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(page, "data-upload(?!-)").Count);
+        Assert.Contains("data-upload-progress", page);
+        Assert.Contains("data-upload", await _admin.GetStringAsync("/backup"));
+        Assert.Contains("upload", await _admin.GetStringAsync("/upload.js"));
+    }
+
     private static async Task<BookResponse> CreateAsync(HttpClient client, CreateBookRequest request)
     {
         var response = await client.PostAsJsonAsync("/books", request, JsonOptions);

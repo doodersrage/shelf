@@ -68,7 +68,7 @@ The current link is marked with `aria-current="page"`. The library's views share
 | Status badge | `StatusBadge`: the words *Want to read*, *Reading*, *Finished*, or *Abandoned*, each with a different small shape (empty ring, half ring, full dot, diamond), so status never depends on color. *On loan* is a tan-tinted badge with a square. |
 | Search and filters | Search, status, and sort stay visible. The rest sits under **More filters**, with a count of how many are on. **Clear filters** appears whenever anything narrows the list. |
 | Forms | A visible label on every field, errors in red beside the form, a green *Saved.* after saving. |
-| Panels | A surface with a rule border and a 12px radius groups one kind of information. |
+| Panels | A surface with a rule border and a 12px radius groups one kind of information. Settings pages put each setting in its own panel, and fields stop at 40rem however wide the page is. |
 | Empty states | `EmptyState`: what belongs here, and one next step. |
 | Destructive actions | Say what will be lost, then ask again. Account and reader deletion also name what happens to loans. |
 | Notice | One line under the top bar for overdue loans, books due soon, and waiting asks, linking to Loans. |
@@ -78,7 +78,9 @@ The current link is marked with `aria-current="page"`. The library's views share
 - **Library:** Reading now, Read next (or one pick from the want list), and Recently finished lead the page while nothing is filtered. Below them, all books in a cover grid, or a compact list with status, love, read-next, and return controls.
 - **Book:** the cover, title, author, series, and status lead, with one direct next step: *Start reading*, then *Mark finished*. Below it, separate panels for the reading log, lending, quotes, highlights, files, details (folded away), and removal.
 - **Stats:** the year's goal and a finished-per-month chart come first, then the counts, the month of reading, and recent sessions. Reaching the goal is noted once, quietly.
-- **Reader:** the chapter in a calm frame, with text size, line spacing, and reading width under **Text settings**. They are kept per reader and applied to the chapter, which also follows dark mode. The place is restored without asking.
+- **Reader and player:** the sidebar, reminders, and bottom bar step aside for a slim bar with the wordmark and a way back. The chapter sits in a calm frame, with text size, line spacing, and reading width under **Text settings**. They are kept per reader and applied to the chapter, which also follows dark mode. The place is restored without asking.
+- **Library view:** Covers or List is remembered for each reader; a `?view=` link still wins.
+- **Uploads:** e-book, audiobook, and backup forms carry `data-upload`. `wwwroot/upload.js` sends them with a progress bar and an honest status line, then follows the server's redirect to the result. Without the script they post the ordinary way.
 - **Backup & restore:** downloading is a solid green action that changes nothing. Restoring is a quiet action, says plainly that it only adds books, and reports exactly what it did.
 
 ## Accessibility

@@ -11,6 +11,7 @@
 <h1>@Reader.Name</h1>
 <p class="hint">Your notes, reviews, quotes, and highlights are yours alone. Other readers see a book of yours only when it is lent to them, or by its title on an open shelf.</p>
 
+<section class="panel">
 <h2>Your shelf</h2>
 <label class="check">
     <input type="checkbox" checked="@shelfOpen" @onchange="ChangeShelfOpen" />
@@ -18,6 +19,9 @@
 </label>
 <p class="hint">Asks wait on your <a href="/loans">Loans</a> page until you lend the book or decline.</p>
 
+</section>
+
+<section class="panel">
 <h2>Change the password</h2>
 <EditForm Model="form" OnValidSubmit="ChangePassword">
     <label>
@@ -40,9 +44,15 @@
     }
 </EditForm>
 
+</section>
+
+<section class="panel">
 <h2>Devices</h2>
 <p class="hint"><a href="/sync">Make a key</a> for another shelf to trade e-books and audiobooks with yours.</p>
 
+</section>
+
+<section class="panel">
 <h2>Delete the account</h2>
 @if (!confirmingRemove)
 {
@@ -62,6 +72,7 @@ else
         <p class="validation-message" role="alert">@ReaderRules.Describe(shownRemove)</p>
     }
 }
+</section>
 
 @code {
     private readonly PasswordForm form = new();

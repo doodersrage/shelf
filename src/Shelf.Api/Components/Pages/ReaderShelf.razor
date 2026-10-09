@@ -13,32 +13,42 @@ else
 {
     <p class="hint"><a href="/shelves">Shelves</a></p>
     <h1>@owner's shelf</h1>
+    <p class="hint">Ask for a book and it waits on @owner's Loans page until they lend it or decline. You see titles here, never their notes.</p>
     @if (books.Count == 0)
     {
         <p class="hint">Nothing on it yet.</p>
     }
     else
     {
-        <ul class="quotes">
+        <ul class="book-grid">
             @foreach (var book in books)
             {
-                <li>
-                    <strong>@book.Title</strong>
-                    <span class="hint"> · @book.Author@(book.Year is int year ? $" · {year}" : "")@(book.HasEbook ? " · e-book" : "")@(book.HasAudio ? " · audiobook" : "")</span>
-                    <p>
-                        @if (book.Asked)
-                        {
-                            <span class="hint">Asked. </span>
-                        }
-                        else
-                        {
-                            <button type="button" @onclick="() => Ask(book.Id)">Ask to borrow</button>
-                        }
+                <li class="book-card">
+                    <BookCover Title="@book.Title" Url="@book.CoverUrl" />
+                    <h3 class="title">@book.Title</h3>
+                    <p class="by">@book.Author@(book.Year is int year ? $" · {year}" : "")</p>
+                    <div class="badges">
                         @if (book.OnLoan)
                         {
-                            <span class="hint">On loan now.</span>
+                            <span class="badge loan">On loan</span>
                         }
-                    </p>
+                        @if (book.HasEbook)
+                        {
+                            <span class="badge plain">E-book</span>
+                        }
+                        @if (book.HasAudio)
+                        {
+                            <span class="badge plain">Audio</span>
+                        }
+                    </div>
+                    @if (book.Asked)
+                    {
+                        <p class="saved">Asked</p>
+                    }
+                    else
+                    {
+                        <button type="button" @onclick="() => Ask(book.Id)" aria-label="@($"Ask to borrow {book.Title}")">Ask to borrow</button>
+                    }
                 </li>
             }
         </ul>

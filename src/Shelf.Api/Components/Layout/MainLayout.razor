@@ -14,6 +14,19 @@
         </div>
     </div>
 }
+else if (Focused)
+{
+    @* Reading and listening get the whole window: no sidebar, no reminders, just a way back. *@
+    <div class="app focus">
+        <header class="focus-bar">
+            <a class="wordmark" href="/">@Mark shelf</a>
+            <a href="/">Library</a>
+        </header>
+        <main id="main" class="focus-main">
+            @Body
+        </main>
+    </div>
+}
 else
 {
     <a class="skip-link" href="#main">Skip to the page</a>
@@ -167,6 +180,9 @@ else
             isAdmin = await ReaderRules.IsAdminAsync(db, db.ReaderId);
         }
     }
+
+    private bool Focused => System.Text.RegularExpressions.Regex.IsMatch(
+        new Uri(Navigation.Uri).AbsolutePath, "^/library/[0-9]+/(read|listen)$");
 
     // The library's own views differ only by their query, so those links match it exactly.
     private string? Current(string href)

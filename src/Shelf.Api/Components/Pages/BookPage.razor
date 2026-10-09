@@ -392,11 +392,13 @@ else if (book is not null)
         <p>@book.EbookFileName</p>
         <button type="button" @onclick="RemoveEbook">Remove the file</button>
     }
-    <form action="/books/@book.Id/ebook" method="post" enctype="multipart/form-data" data-enhance="false">
+    <form action="/books/@book.Id/ebook" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
         <label>
             EPUB or PDF, up to 80 MB
             <input type="file" name="file" accept=".epub,.pdf,application/epub+zip,application/pdf" required />
         </label>
+        <progress data-upload-progress max="100" hidden></progress>
+        <p class="hint" data-upload-status role="status" hidden></p>
         <button type="submit">Upload</button>
     </form>
 
@@ -406,11 +408,13 @@ else if (book is not null)
         <p>@book.AudioFileName</p>
         <button type="button" @onclick="RemoveAudio">Remove the recording</button>
     }
-    <form action="/books/@book.Id/audio" method="post" enctype="multipart/form-data" data-enhance="false">
+    <form action="/books/@book.Id/audio" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
         <label>
             Audio or a zip of tracks, up to 1 GB
             <input type="file" name="file" accept=".mp3,.m4a,.m4b,.aac,.ogg,.opus,.wav,.flac,.zip,audio/*" multiple required />
         </label>
+        <progress data-upload-progress max="100" hidden></progress>
+        <p class="hint" data-upload-status role="status" hidden></p>
         <button type="submit">Upload</button>
     </form>
     </section>

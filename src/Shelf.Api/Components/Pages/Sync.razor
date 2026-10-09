@@ -10,6 +10,7 @@
 <h1>Devices</h1>
 <p>Another shelf can trade e-books and audiobooks with yours. The place you stopped, and the notes on a passage, come along. The furthest place is the one that stays.</p>
 
+<section class="panel">
 <h2>This shelf's key</h2>
 <p class="hint">The other shelf needs this key to reach your books. Anyone with it can read and add to your e-books and audiobooks, so keep it as you would a password.</p>
 @if (newKey is not null)
@@ -25,6 +26,9 @@ else if (hasKey)
     <button type="button" @onclick="MakeKey">@(hasKey ? "Make a new key" : "Make a key")</button>
 </p>
 
+</section>
+
+<section class="panel">
 <h2>Another shelf</h2>
 <EditForm Model="form" OnValidSubmit="Save">
     <label>
@@ -35,7 +39,7 @@ else if (hasKey)
         Key from the other shelf
         <InputText @bind-Value="form.Key" maxlength="100" type="password" autocomplete="off" />
     </label>
-    <button type="submit">Save</button>
+    <button type="submit" class="quiet">Save</button>
     @if (saved)
     {
         <span class="hint">Saved.</span>
@@ -44,7 +48,7 @@ else if (hasKey)
 <p class="hint">Use an https:// address when the other shelf is not on your own network, so the key is not sent in the clear.</p>
 
 <p>
-    <button type="button" @onclick="SyncNow" disabled="@busy">Sync now</button>
+    <button type="button" class="primary" @onclick="SyncNow" disabled="@busy">@(busy ? "Syncing…" : "Sync now")</button>
 </p>
 
 @if (lines is not null)
@@ -56,6 +60,7 @@ else if (hasKey)
         }
     </ul>
 }
+</section>
 
 @code {
     private readonly AddressForm form = new();

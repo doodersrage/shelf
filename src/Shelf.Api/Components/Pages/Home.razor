@@ -145,8 +145,8 @@
     </div>
     <div class="toolbar">
         <div class="segmented" role="group" aria-label="Show books as">
-            <button type="button" aria-pressed="@(!listView ? "true" : "false")" @onclick="() => listView = false">Covers</button>
-            <button type="button" aria-pressed="@(listView ? "true" : "false")" @onclick="() => listView = true">List</button>
+            <button type="button" aria-pressed="@(!listView ? "true" : "false")" @onclick="() => ShowAsList(false)">Covers</button>
+            <button type="button" aria-pressed="@(listView ? "true" : "false")" @onclick="() => ShowAsList(true)">List</button>
         </div>
         <details>
             <summary>More filters@(ChecksOn > 0 ? $" ({ChecksOn})" : "")</summary>
@@ -471,9 +471,19 @@ else if (visible.Count > 0)
         loanedFilter = string.IsNullOrWhiteSpace(LoanedTo) ? null : LoanedTo.Trim();
         query = Query?.Trim() ?? "";
         statusFilter = Enum.TryParse<BookStatus>(Status, ignoreCase: true, out var status) ? status.ToString() : "";
-        listView = string.Equals(View, "list", StringComparison.OrdinalIgnoreCase);
         adding = Add == "1";
         await LoadAsync();
+
+        // A ?view= link wins; otherwise the library opens the way this reader last left it.
+        if (View is null)
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            listView = await BookRules.GetLibraryAsListAsync(db);
+        }
+        else
+        {
+            listView = string.Equals(View, "list", StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
@@ -504,6 +514,13 @@ else if (visible.Count > 0)
     private string Heading => Enum.TryParse<BookStatus>(statusFilter, out var status) && !UrlFiltered && string.IsNullOrWhiteSpace(query) && ChecksOn == 0
         ? BookRules.StatusLabel(status)
         : "Library";
+
+    private async Task ShowAsList(bool asList)
+    {
+        listView = asList;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await BookRules.SetLibraryAsListAsync(db, asList);
+    }
 
     private void ClearFilters()
     {

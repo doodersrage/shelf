@@ -17,12 +17,14 @@
 <section class="panel" aria-labelledby="restore-heading">
     <h2 id="restore-heading">Restore from a backup</h2>
     <p>Choose a zip made by Download everything. Its books are added to your shelf with their files.</p>
-    <form action="/books/import/full" method="post" enctype="multipart/form-data" data-enhance="false">
+    <form action="/books/import/full" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
         <label>
             Zip backup
             <input type="file" name="file" accept=".zip,application/zip" required />
         </label>
         <p class="hint">A large backup takes a while to send. Keep this page open until it comes back with the result.</p>
+        <progress data-upload-progress max="100" hidden></progress>
+        <p class="hint" data-upload-status role="status" hidden></p>
         <button type="submit" class="quiet">Restore from this zip</button>
     </form>
     @if (Restore == "done")

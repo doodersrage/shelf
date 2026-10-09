@@ -1488,3 +1488,62 @@ blockquote .hint {
 .drawer .sidebar > .wordmark {
     display: none;
 }
+
+progress[data-upload-progress] {
+    display: block;
+    width: 100%;
+    max-width: 28rem;
+    height: 0.6rem;
+    margin: var(--space-2) 0;
+}
+
+progress[hidden] {
+    display: none;
+}
+
+/* Reading and listening: one calm column with a slim bar above it. */
+.focus-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-6);
+    border-bottom: 1px solid var(--color-rule);
+    font-size: var(--text-sm);
+}
+
+.focus-bar .wordmark {
+    font-size: 1.2rem;
+}
+
+.focus-main {
+    max-width: 64rem;
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-6) var(--space-12);
+}
+
+@media (max-width: 40rem) {
+    .focus-bar,
+    .focus-main {
+        padding-left: var(--space-4);
+        padding-right: var(--space-4);
+    }
+}
+
+/* Fields stay a readable length even on a wide page. */
+label > input:not([type=checkbox]):not([type=radio]):not([type=file]),
+label > select,
+label > textarea {
+    max-width: 40rem;
+}
+
+.panel .quotes li:first-child {
+    border-top: 0;
+}
+
+/* A card's own action lines up along the row, whatever badges sit above it. */
+.book-card > button,
+.book-card > .saved {
+    margin-top: auto;
+    align-self: flex-start;
+}
