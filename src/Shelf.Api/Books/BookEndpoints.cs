@@ -24,6 +24,7 @@ public static class BookEndpoints
         books.MapGet("/calendar", GetCalendar);
         books.MapGet("/years", ListYears);
         books.MapGet("/loans", ListLoans);
+        books.MapGet("/copies", ListCopies);
         books.MapGet("/{id:int}", GetBook);
         books.MapPost("/", CreateBook);
         books.MapPut("/{id:int}", UpdateBook);
@@ -35,6 +36,11 @@ public static class BookEndpoints
         books.MapDelete("/{id:int}/sessions/{sessionId:int}", DeleteSession);
         books.MapPost("/{id:int}/return", ReturnBook);
         books.MapPost("/{id:int}/enrich", EnrichBook);
+        books.MapPost("/{id:int}/ebook", EbookEndpoints.Upload).DisableAntiforgery();
+        books.MapDelete("/{id:int}/ebook", EbookEndpoints.Remove);
+        books.MapGet("/{id:int}/ebook/file", EbookEndpoints.File);
+        books.MapGet("/{id:int}/ebook/chapters/{index:int}", EbookEndpoints.Chapter);
+        books.MapGet("/{id:int}/ebook/assets/{*path}", EbookEndpoints.Asset);
 
         app.MapGet("/settings", GetSettings).WithTags("Shelf");
         app.MapPut("/settings", UpdateSettings).WithTags("Shelf");
@@ -134,6 +140,7 @@ public static class BookEndpoints
     private static async Task<Results<NoContent, NotFound>> DeleteBook(
         int id,
         ShelfDb db,
+        EbookStore store,
         CancellationToken cancellationToken)
     {
         var book = await db.Books.FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
@@ -142,6 +149,7 @@ public static class BookEndpoints
             return TypedResults.NotFound();
         }
 
+        store.Delete(book.EbookStoredName);
         db.Books.Remove(book);
         await db.SaveChangesAsync(cancellationToken);
         await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
@@ -455,6 +463,22 @@ public static class BookEndpoints
             .ToListAsync(cancellationToken);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         return TypedResults.Ok(BookRules.Loans(loans.Select(loan => (loan.LoanedTo, loan.DueOn)), today));
+    }
+
+    private static async Task<Ok<ConditionGroup[]>> ListCopies(ShelfDb db, CancellationToken cancellationToken)
+    {
+        var books = await db.Books.AsNoTracking()
+            .Where(book => book.Condition != null)
+            .Select(book => new Book
+            {
+                Id = book.Id,
+                Title = book.Title,
+                Author = book.Author,
+                Condition = book.Condition,
+                Acquisition = book.Acquisition,
+            })
+            .ToListAsync(cancellationToken);
+        return TypedResults.Ok(BookRules.ByCondition(books));
     }
 
     private static async Task<Ok<FinishedYear[]>> ListYears(ShelfDb db, CancellationToken cancellationToken)

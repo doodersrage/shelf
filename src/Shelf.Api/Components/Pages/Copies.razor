@@ -1,0 +1,52 @@
+@page "/copies"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>Copies · Shelf</PageTitle>
+
+<h1>Copies</h1>
+
+@if (groups.Count == 0)
+{
+    <p>No copy has a condition yet.</p>
+}
+else
+{
+    @foreach (var group in groups)
+    {
+        <h2>@BookRules.ConditionLabel(group.Condition)</h2>
+        <ul class="tag-counts">
+            @foreach (var copy in group.Books)
+            {
+                <li>
+                    <a href="/library/@copy.Id">@copy.Title</a>
+                    @if (copy.Acquisition is Acquisition arrived)
+                    {
+                        <span class="hint">@(arrived == Acquisition.Gift ? "A gift" : arrived.ToString())</span>
+                    }
+                </li>
+            }
+        </ul>
+    }
+}
+
+@code {
+    private List<ConditionGroup> groups = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var books = await db.Books.AsNoTracking()
+            .Where(book => book.Condition != null)
+            .Select(book => new Book
+            {
+                Id = book.Id,
+                Title = book.Title,
+                Author = book.Author,
+                Condition = book.Condition,
+                Acquisition = book.Acquisition,
+            })
+            .ToListAsync();
+        groups = BookRules.ByCondition(books).ToList();
+    }
+}

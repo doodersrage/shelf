@@ -1,0 +1,118 @@
+@page "/library/{Id:int}/read"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject EbookStore Ebooks
+
+<PageTitle>@(book?.Title ?? "Shelf")</PageTitle>
+
+@if (missing)
+{
+    <h1>Not on the shelf</h1>
+    <p>That book is not here. <a href="/">Back to the library</a></p>
+}
+else if (book is not null)
+{
+    <div class="reader">
+        <p class="hint"><a href="/library/@book.Id">@book.Title</a></p>
+        <h1>@book.Title</h1>
+        @if (string.IsNullOrWhiteSpace(book.EbookStoredName))
+        {
+            <p>This book has no e-book file. <a href="/library/@book.Id">Add one</a></p>
+        }
+        else if (EbookStore.IsPdf(book.EbookStoredName))
+        {
+            <iframe class="reader-frame" title="@book.Title" src="/books/@book.Id/ebook/file"></iframe>
+        }
+        else if (chapters is null)
+        {
+            <p>This EPUB could not be opened.</p>
+        }
+        else if (chapters.Count == 0)
+        {
+            <p>This EPUB has no chapters.</p>
+        }
+        else
+        {
+            <div class="reader-nav">
+                <button type="button" @onclick="Previous" disabled="@(chapter == 0)">Previous</button>
+                <label>
+                    Chapter
+                    <select @bind="chapter" @bind:after="RememberChapter">
+                        @foreach (var item in chapters)
+                        {
+                            <option value="@item.Index">@item.Title</option>
+                        }
+                    </select>
+                </label>
+                <button type="button" @onclick="Next" disabled="@(chapter >= chapters.Count - 1)">Next</button>
+            </div>
+            <iframe @key="chapter" class="reader-frame" title="@chapters[chapter].Title" src="/books/@book.Id/ebook/chapters/@chapter"></iframe>
+        }
+    </div>
+}
+
+@code {
+    private Book? book;
+    private bool missing;
+    private int chapter;
+    private IReadOnlyList<EpubChapter>? chapters;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        book = await db.Books.AsNoTracking().FirstOrDefaultAsync(item => item.Id == Id);
+        missing = book is null;
+        chapters = null;
+        chapter = 0;
+        if (book is null || !EbookStore.IsEpub(book.EbookStoredName))
+        {
+            return;
+        }
+
+        var path = Ebooks.OpenPath(book.EbookStoredName);
+        chapters = path is null ? null : EpubFile.Chapters(path);
+        if (chapters is { Count: > 0 })
+        {
+            var saved = book.EbookChapter ?? 0;
+            chapter = saved >= 0 && saved < chapters.Count ? saved : 0;
+        }
+    }
+
+    private async Task Previous()
+    {
+        if (chapter == 0)
+        {
+            return;
+        }
+
+        chapter--;
+        await RememberChapter();
+    }
+
+    private async Task Next()
+    {
+        if (chapters is null || chapter >= chapters.Count - 1)
+        {
+            return;
+        }
+
+        chapter++;
+        await RememberChapter();
+    }
+
+    private async Task RememberChapter()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var existing = await db.Books.FirstOrDefaultAsync(item => item.Id == Id);
+        if (existing is null)
+        {
+            return;
+        }
+
+        existing.EbookChapter = chapter;
+        await db.SaveChangesAsync();
+    }
+}

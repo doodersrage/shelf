@@ -14,12 +14,14 @@ To run the API on its own, use `dotnet run --project src/Shelf.Api` and open [ht
 
 | URL | What you get |
 | --- | --- |
-| `/` | The library. Search, filter, sort, add a book, or change its status. Covers line the top, anything being read is listed first, and want-list books can be marked to read next. |
-| `/library/{id}` | One book. Edit the catalog, log a reading session, keep quotes, note how the copy arrived, open the next volume, or delete it. |
+| `/` | The library. Search, filter, sort, add a book, or change its status. Covers line the top, anything being read is listed first, and want-list books can be marked to read next. An uploaded EPUB or PDF can be opened from its card. |
+| `/library/{id}` | One book. Edit the catalog, log a reading session, keep quotes, note how the copy arrived and what condition it is in, upload an EPUB or PDF, open the next volume, or delete it. |
+| `/library/{id}/read` | Read that book's EPUB or PDF. |
 | `/quotes` | Every quote, with the book it came from. Search the words, the title, or the author. |
 | `/authors` | Every author, with how many of their books are on the shelf. |
 | `/series` | Each series, in reading order. |
 | `/places` | Where the books sit. |
+| `/copies` | Copies grouped by condition, from fine to poor. |
 | `/recommenders` | Who suggested the books. |
 | `/years` | Finished books, grouped by the year they were finished. |
 | `/loans` | Who currently has a book, and which loans are overdue. |
@@ -32,16 +34,18 @@ To run the API on its own, use `dotnet run --project src/Shelf.Api` and open [ht
 | `/books/authors` | Authors and how many of their books are on the shelf. |
 | `/books/series` | Each series, in reading order. |
 | `/books/places` | Where the books sit. |
+| `/books/copies` | Copies grouped by condition, from fine to poor. |
 | `/books/recommenders` | Who suggested the books. |
 | `/books/calendar` | The days with a reading session. `?year=` and `?month=` pick another month. |
 | `/books/years` | Finished books, grouped by the year they were finished. |
 | `/books/loans` | Who currently has a book, and how many of those loans are overdue. |
 | `/books/{id}/return` | Clears a loan. |
+| `/books/{id}/ebook` | `POST` an EPUB or PDF (up to 80 MB). `DELETE` removes it. `/books/{id}/ebook/file` returns the file, and an EPUB's chapters are at `/books/{id}/ebook/chapters/{index}`. |
 | `/books/stats` | The same summary as JSON. |
 | `/settings` | The yearly goal, as JSON. |
 | `/openapi/v1.json` | The OpenAPI document, in Development. |
 
-Putting a book into Reading or Finished fills a blank start date, and Finished also fills a blank finish date. A translation can keep its original title. An inscription is the note written in the front of a copy. Tags are stored in lowercase, and an ISBN can be typed with or without hyphens. Deleting the last book that uses a tag removes that tag.
+Putting a book into Reading or Finished fills a blank start date, and Finished also fills a blank finish date. A translation can keep its original title. An inscription is the note written in the front of a copy. A copy can be fine, good, fair, or poor. An EPUB or PDF uploaded for a book stays with that copy and opens in the reader. The file itself is not part of the JSON backup. Tags are stored in lowercase, and an ISBN can be typed with or without hyphens. Deleting the last book that uses a tag removes that tag.
 
 The app applies EF Core migrations on startup. That creates `shelf.db` next to the project, and the first Development run adds one sample book. `src/Shelf.Api/Shelf.Api.http` has requests for creating, updating, quoting, and deleting books.
 

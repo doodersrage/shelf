@@ -1124,6 +1124,145 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task Copies_group_books_by_their_condition()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "Lavinia",
+            "Ursula K. Le Guin",
+            BookStatus.Want,
+            null,
+            Acquisition: Acquisition.Gift,
+            Condition: CopyCondition.Good));
+        Assert.Equal(CopyCondition.Good, book.Condition);
+
+        var groups = await _client.GetFromJsonAsync<ConditionGroup[]>("/books/copies", JsonOptions);
+        var good = groups!.Single(group => group.Condition == CopyCondition.Good);
+        Assert.Contains(good.Books, item => item.Id == book.Id && item.Acquisition == Acquisition.Gift);
+
+        var page = await _client.GetAsync("/copies");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("Good copy", html);
+        Assert.Contains("Lavinia", html);
+    }
+
+    [Fact]
+    public async Task An_uploaded_epub_can_be_read_by_chapter()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "The Word for World Is Forest",
+            "Ursula K. Le Guin",
+            BookStatus.Want,
+            null));
+
+        using var content = new MultipartFormDataContent();
+        var file = new ByteArrayContent(SampleEpub("The word for world is forest."));
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/epub+zip");
+        content.Add(file, "file", "forest.epub");
+        var uploaded = await _client.PostAsync($"/books/{book.Id}/ebook", content);
+        Assert.Equal(HttpStatusCode.OK, uploaded.StatusCode);
+        var html = await uploaded.Content.ReadAsStringAsync();
+        Assert.Contains("Read this e-book", html);
+        Assert.Contains("forest.epub", html);
+
+        var chapter = await _client.GetAsync($"/books/{book.Id}/ebook/chapters/0");
+        Assert.Equal(HttpStatusCode.OK, chapter.StatusCode);
+        Assert.Contains("The word for world is forest.", await chapter.Content.ReadAsStringAsync());
+
+        var reader = await _client.GetAsync($"/library/{book.Id}/read");
+        var readerHtml = await reader.Content.ReadAsStringAsync();
+        Assert.Contains("Previous", readerHtml);
+        Assert.Contains("Chapter One", readerHtml);
+
+        var removed = await _client.DeleteAsync($"/books/{book.Id}/ebook");
+        Assert.Equal(HttpStatusCode.NoContent, removed.StatusCode);
+        var gone = await _client.GetAsync($"/books/{book.Id}/ebook/chapters/0");
+        Assert.Equal(HttpStatusCode.NotFound, gone.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_file_that_is_not_an_epub_or_pdf_is_refused()
+    {
+        var book = await CreateAsync(new CreateBookRequest("Notes", "Someone", BookStatus.Want, null));
+        using var content = new MultipartFormDataContent();
+        content.Add(new ByteArrayContent("hello"u8.ToArray()), "file", "notes.txt");
+        var uploaded = await _client.PostAsync($"/books/{book.Id}/ebook", content);
+        var html = await uploaded.Content.ReadAsStringAsync();
+        Assert.Contains("Choose an EPUB or a PDF.", html);
+        var stored = await _client.GetFromJsonAsync<BookResponse>($"/books/{book.Id}", JsonOptions);
+        Assert.Null(stored?.EbookFileName);
+    }
+
+    [Fact]
+    public void An_epub_spine_becomes_chapters()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"shelf-epub-{Guid.NewGuid():N}.epub");
+        try
+        {
+            File.WriteAllBytes(path, SampleEpub("Opened from the spine."));
+            var chapters = EpubFile.Chapters(path);
+            Assert.NotNull(chapters);
+            Assert.Equal("Chapter One", chapters[0].Title);
+            var html = EpubFile.ChapterHtml(path, 0, "/books/1/ebook/assets");
+            Assert.Contains("Opened from the spine.", html);
+            Assert.Contains("""<base href="/books/1/ebook/assets/OEBPS/" />""", html);
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
+
+    private static byte[] SampleEpub(string sentence)
+    {
+        using var memory = new MemoryStream();
+        using (var zip = new System.IO.Compression.ZipArchive(memory, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            Write(zip, "META-INF/container.xml", """
+                <?xml version="1.0"?>
+                <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+                  <rootfiles>
+                    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+                  </rootfiles>
+                </container>
+                """);
+            Write(zip, "OEBPS/content.opf", """
+                <?xml version="1.0"?>
+                <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id">
+                  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+                    <dc:title>Sample</dc:title>
+                  </metadata>
+                  <manifest>
+                    <item id="c1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+                  </manifest>
+                  <spine>
+                    <itemref idref="c1"/>
+                  </spine>
+                </package>
+                """);
+            Write(zip, "OEBPS/chapter1.xhtml", $"""
+                <?xml version="1.0"?>
+                <html xmlns="http://www.w3.org/1999/xhtml">
+                  <head><title>Chapter One</title></head>
+                  <body><p>{sentence}</p></body>
+                </html>
+                """);
+        }
+
+        return memory.ToArray();
+
+        static void Write(System.IO.Compression.ZipArchive zip, string name, string text)
+        {
+            var entry = zip.CreateEntry(name);
+            using var stream = entry.Open();
+            using var writer = new StreamWriter(stream);
+            writer.Write(text);
+        }
+    }
+
+    [Fact]
     public async Task An_original_title_is_kept_and_can_be_searched()
     {
         var book = await CreateAsync(new CreateBookRequest(
@@ -1165,10 +1304,12 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
 public sealed class ShelfApiFactory : WebApplicationFactory<Program>
 {
     private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"shelf-{Guid.NewGuid():N}.db");
+    private readonly string _ebookRoot = Path.Combine(Path.GetTempPath(), $"shelf-ebooks-{Guid.NewGuid():N}");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("ConnectionStrings:Shelf", $"Data Source={_databasePath}");
+        builder.UseSetting("EbookStore:Root", _ebookRoot);
         builder.UseEnvironment("Testing");
         builder.ConfigureTestServices(services => services.AddSingleton<IBookLookup, StubBookLookup>());
     }
@@ -1179,6 +1320,10 @@ public sealed class ShelfApiFactory : WebApplicationFactory<Program>
         TryDelete(_databasePath);
         TryDelete(_databasePath + "-wal");
         TryDelete(_databasePath + "-shm");
+        if (Directory.Exists(_ebookRoot))
+        {
+            Directory.Delete(_ebookRoot, recursive: true);
+        }
     }
 
     private static void TryDelete(string path)

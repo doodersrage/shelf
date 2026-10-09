@@ -195,6 +195,26 @@ button.queued {
     margin-left: 0.7rem;
 }
 
+body:has(.reader) {
+    max-width: 68rem;
+}
+
+.reader-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 0.8rem;
+    margin: 0.6rem 0 1rem;
+}
+
+.reader-frame {
+    display: block;
+    width: 100%;
+    height: min(75vh, 48rem);
+    border: 1px solid var(--rule);
+    background: #fff;
+}
+
 .inscription {
     font-style: italic;
     max-width: 36rem;

@@ -72,6 +72,10 @@ else if (Suggestion is Book suggestion)
         <input type="checkbox" @bind="queuedOnly" />
         Read next
     </label>
+    <label class="check">
+        <input type="checkbox" @bind="fileOnly" />
+        E-book
+    </label>
 </div>
 
 @if (!string.IsNullOrWhiteSpace(tagFilter) || !string.IsNullOrWhiteSpace(authorFilter) || !string.IsNullOrWhiteSpace(seriesFilter) || !string.IsNullOrWhiteSpace(placeFilter) || !string.IsNullOrWhiteSpace(recommendedFilter) || !string.IsNullOrWhiteSpace(loanedFilter))
@@ -156,6 +160,10 @@ else
             }
             <div>
             <h2><a href="/library/@book.Id">@book.Title</a></h2>
+            @if (!string.IsNullOrWhiteSpace(book.EbookStoredName))
+            {
+                <p class="hint"><a href="/library/@book.Id/read">Read</a></p>
+            }
             @if (!string.IsNullOrWhiteSpace(book.Subtitle))
             {
                 <p class="hint">@book.Subtitle</p>
@@ -230,6 +238,10 @@ else
                 @if (book.Acquisition is Acquisition arrived)
                 {
                     <span>@(arrived == Acquisition.Gift ? "A gift" : arrived.ToString())</span>
+                }
+                @if (book.Condition is CopyCondition condition)
+                {
+                    <span>@BookRules.ConditionLabel(condition)</span>
                 }
                 @if (!string.IsNullOrWhiteSpace(book.Location))
                 {
@@ -306,6 +318,7 @@ else
     private bool lovedOnly;
     private bool loanedOnly;
     private bool queuedOnly;
+    private bool fileOnly;
     private Dictionary<string, string[]>? formErrors;
     private bool filling;
     private string? fillNote;
@@ -418,6 +431,11 @@ else
             if (queuedOnly)
             {
                 result = result.Where(book => book.Queued);
+            }
+
+            if (fileOnly)
+            {
+                result = result.Where(book => !string.IsNullOrWhiteSpace(book.EbookStoredName));
             }
 
             if (loanedOnly)

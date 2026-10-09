@@ -25,6 +25,14 @@ public enum Acquisition
     Found,
 }
 
+public enum CopyCondition
+{
+    Fine,
+    Good,
+    Fair,
+    Poor,
+}
+
 public sealed class Book
 {
     public int Id { get; set; }
@@ -55,6 +63,10 @@ public sealed class Book
     public string? Location { get; set; }
     public DateOnly? AcquiredOn { get; set; }
     public Acquisition? Acquisition { get; set; }
+    public CopyCondition? Condition { get; set; }
+    public string? EbookFileName { get; set; }
+    public string? EbookStoredName { get; set; }
+    public int? EbookChapter { get; set; }
     public string? Translator { get; set; }
     public string? OriginalTitle { get; set; }
     public string? Inscription { get; set; }
@@ -131,12 +143,13 @@ public sealed record CreateBookRequest(
     [MaxLength(500)] string? Inscription = null,
     DateOnly? DueOn = null,
     bool Queued = false,
-    Acquisition? Acquisition = null)
+    Acquisition? Acquisition = null,
+    CopyCondition? Condition = null)
 {
     public BookWrite ToWrite() => BookWrite.From(
         Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
         Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn,
-        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition);
+        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition, Condition);
 }
 
 public sealed record UpdateBookRequest(
@@ -171,12 +184,13 @@ public sealed record UpdateBookRequest(
     [MaxLength(500)] string? Inscription = null,
     DateOnly? DueOn = null,
     bool Queued = false,
-    Acquisition? Acquisition = null)
+    Acquisition? Acquisition = null,
+    CopyCondition? Condition = null)
 {
     public BookWrite ToWrite() => BookWrite.From(
         Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
         Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn,
-        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition);
+        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition, Condition);
 }
 
 public sealed record BookWrite(
@@ -211,7 +225,8 @@ public sealed record BookWrite(
     string? Inscription,
     DateOnly? DueOn,
     bool Queued,
-    Acquisition? Acquisition)
+    Acquisition? Acquisition,
+    CopyCondition? Condition)
 {
     public static BookWrite From(
         string title,
@@ -245,16 +260,17 @@ public sealed record BookWrite(
         string? inscription,
         DateOnly? dueOn,
         bool queued,
-        Acquisition? acquisition) => new(
+        Acquisition? acquisition,
+        CopyCondition? condition) => new(
             title, author, status, rating, year, isbn, pages, currentPage, notes, startedOn, finishedOn, loanedTo, tags ?? [],
             subtitle, publisher, language, format, series, seriesNumber, coverUrl, review, loved, loanedOn,
-            location, acquiredOn, translator, recommendedBy, originalTitle, inscription, dueOn, queued, acquisition);
+            location, acquiredOn, translator, recommendedBy, originalTitle, inscription, dueOn, queued, acquisition, condition);
 
     public static BookWrite From(BookResponse book) => From(
         book.Title, book.Author, book.Status, book.Rating, book.Year, book.Isbn, book.Pages, book.CurrentPage, book.Notes,
         book.StartedOn, book.FinishedOn, book.LoanedTo, book.Tags, book.Subtitle, book.Publisher, book.Language, book.Format,
         book.Series, book.SeriesNumber, book.CoverUrl, book.Review, book.Loved, book.LoanedOn,
-        book.Location, book.AcquiredOn, book.Translator, book.RecommendedBy, book.OriginalTitle, book.Inscription, book.DueOn, book.Queued, book.Acquisition);
+        book.Location, book.AcquiredOn, book.Translator, book.RecommendedBy, book.OriginalTitle, book.Inscription, book.DueOn, book.Queued, book.Acquisition, book.Condition);
 }
 
 public sealed record BookResponse(
@@ -293,7 +309,9 @@ public sealed record BookResponse(
     string? Inscription,
     DateOnly? DueOn,
     bool Queued,
-    Acquisition? Acquisition)
+    Acquisition? Acquisition,
+    CopyCondition? Condition,
+    string? EbookFileName)
 {
     public static BookResponse From(Book book) => new(
         book.Id,
@@ -331,8 +349,14 @@ public sealed record BookResponse(
         book.Inscription,
         book.DueOn,
         book.Queued,
-        book.Acquisition);
+        book.Acquisition,
+        book.Condition,
+        book.EbookFileName);
 }
+
+public sealed record ShelfCopy(int Id, string Title, Acquisition? Acquisition);
+
+public sealed record ConditionGroup(CopyCondition Condition, ShelfCopy[] Books);
 
 public sealed record AuthorCount(string Name, int Count);
 

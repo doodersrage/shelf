@@ -34,6 +34,9 @@ public sealed class ShelfDb(DbContextOptions<ShelfDb> options) : DbContext(optio
             book.Property(b => b.RecommendedBy).HasMaxLength(120);
             book.Property(b => b.Format).HasConversion<string>().HasMaxLength(16);
             book.Property(b => b.Acquisition).HasConversion<string>().HasMaxLength(16);
+            book.Property(b => b.Condition).HasConversion<string>().HasMaxLength(16);
+            book.Property(b => b.EbookFileName).HasMaxLength(200);
+            book.Property(b => b.EbookStoredName).HasMaxLength(48);
             book.HasIndex(b => b.Status);
             book.HasIndex(b => b.Author);
             book.HasMany(b => b.Tags)

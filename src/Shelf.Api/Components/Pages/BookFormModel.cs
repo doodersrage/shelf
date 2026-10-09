@@ -76,6 +76,8 @@ public sealed class BookFormModel
 
     public string Arrival { get; set; } = "";
 
+    public string Condition { get; set; } = "";
+
     [MaxLength(200)]
     public string OriginalTitle { get; set; } = "";
 
@@ -124,7 +126,8 @@ public sealed class BookFormModel
         Inscription,
         DueOn,
         Queued,
-        Enum.TryParse<Acquisition>(Arrival, out var acquisition) ? acquisition : null);
+        Enum.TryParse<Acquisition>(Arrival, out var acquisition) ? acquisition : null,
+        Enum.TryParse<CopyCondition>(Condition, out var condition) ? condition : null);
 
     public bool FillBlanks(CatalogMatch match)
     {
@@ -223,6 +226,7 @@ public sealed class BookFormModel
         Location = "";
         AcquiredOn = null;
         Arrival = "";
+        Condition = "";
         Translator = "";
         OriginalTitle = "";
         Inscription = "";
@@ -259,6 +263,7 @@ public sealed class BookFormModel
         Location = book.Location ?? "",
         AcquiredOn = book.AcquiredOn,
         Arrival = book.Acquisition?.ToString() ?? "",
+        Condition = book.Condition?.ToString() ?? "",
         Translator = book.Translator ?? "",
         OriginalTitle = book.OriginalTitle ?? "",
         Inscription = book.Inscription ?? "",

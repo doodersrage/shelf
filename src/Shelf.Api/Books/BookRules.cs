@@ -142,6 +142,7 @@ public static class BookRules
         book.Location = BlankToNull(write.Location);
         book.AcquiredOn = write.AcquiredOn;
         book.Acquisition = write.Acquisition;
+        book.Condition = write.Condition;
         book.Translator = BlankToNull(write.Translator);
         book.OriginalTitle = BlankToNull(write.OriginalTitle);
         book.Inscription = BlankToNull(write.Inscription);
@@ -543,6 +544,28 @@ public static class BookRules
             .GroupBy(name => name!.Trim(), StringComparer.OrdinalIgnoreCase)
             .Select(group => new RecommenderCount(group.First()!.Trim(), group.Count()))
             .OrderBy(person => person.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    public static string ConditionLabel(CopyCondition condition) => condition switch
+    {
+        CopyCondition.Fine => "Fine copy",
+        CopyCondition.Good => "Good copy",
+        CopyCondition.Fair => "Fair copy",
+        CopyCondition.Poor => "Poor copy",
+        _ => condition.ToString(),
+    };
+
+    public static ConditionGroup[] ByCondition(IEnumerable<Book> books) =>
+        books
+            .Where(book => book.Condition is not null)
+            .GroupBy(book => book.Condition!.Value)
+            .Select(group => new ConditionGroup(
+                group.Key,
+                group
+                    .OrderBy(book => book.Title, StringComparer.OrdinalIgnoreCase)
+                    .Select(book => new ShelfCopy(book.Id, book.Title, book.Acquisition))
+                    .ToArray()))
+            .OrderBy(group => (int)group.Condition)
             .ToArray();
 
     public static LoanCount[] Loans(IEnumerable<string?> names) =>

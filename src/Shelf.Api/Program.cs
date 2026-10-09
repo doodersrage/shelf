@@ -35,6 +35,13 @@ builder.Services.AddHttpClient<IBookLookup, OpenLibraryLookup>(client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("Shelf/1.0 (personal library; +https://github.com/doodersrage/shelf)");
 });
 
+builder.Services.AddSingleton<EbookStore>();
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = EbookStore.MaxBytes;
+});
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = EbookStore.MaxBytes);
+
 builder.Services.AddValidation();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();

@@ -167,6 +167,16 @@
             }
         </InputSelect>
     </label>
+    <label>
+        Condition
+        <InputSelect @bind-Value="Model.Condition">
+            <option value="">—</option>
+            @foreach (var condition in Enum.GetValues<CopyCondition>())
+            {
+                <option value="@condition">@BookRules.ConditionLabel(condition)</option>
+            }
+        </InputSelect>
+    </label>
     <div class="pair">
         <label>
             Translator
