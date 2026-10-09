@@ -106,10 +106,42 @@ else if (visible.Count == 0)
 }
 else
 {
+    @if (ReadingNow.Count > 0)
+    {
+        <p class="hint reading-now">
+            Reading now
+            @foreach (var open in ReadingNow)
+            {
+                <a href="/library/@open.Id">@open.Title</a>
+            }
+        </p>
+    }
+    <ul class="shelf-row">
+        @foreach (var book in visible)
+        {
+            <li>
+                <a href="/library/@book.Id" title="@book.Title">
+                    @if (!string.IsNullOrWhiteSpace(book.CoverUrl))
+                    {
+                        <img src="@book.CoverUrl" alt="" />
+                    }
+                    else
+                    {
+                        <span class="spine">@book.Title</span>
+                    }
+                </a>
+            </li>
+        }
+    </ul>
     <p class="count">@visible.Count @(visible.Count == 1 ? "book" : "books")</p>
     @foreach (var book in visible)
     {
-        <article class="book">
+        <article class="@(string.IsNullOrWhiteSpace(book.CoverUrl) ? "book" : "book with-cover")">
+            @if (!string.IsNullOrWhiteSpace(book.CoverUrl))
+            {
+                <a class="card-cover" href="/library/@book.Id"><img src="@book.CoverUrl" alt="" /></a>
+            }
+            <div>
             <h2><a href="/library/@book.Id">@book.Title</a></h2>
             @if (!string.IsNullOrWhiteSpace(book.Subtitle))
             {
@@ -209,6 +241,7 @@ else
                     }
                 </p>
             }
+            </div>
         </article>
     }
 }
@@ -279,6 +312,8 @@ else
     }
 
     private Book? Suggestion => BookRules.Pick(books, BookStatus.Want, DateOnly.FromDateTime(DateTime.UtcNow));
+
+    private List<Book> ReadingNow => Visible.Where(book => book.Status == BookStatus.Reading).ToList();
 
     private IEnumerable<Book> Visible
     {

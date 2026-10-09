@@ -477,6 +477,24 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task The_library_shows_covers_and_what_is_being_read()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "The Lathe of Heaven",
+            "Ursula K. Le Guin",
+            BookStatus.Reading,
+            null,
+            CoverUrl: "https://covers.openlibrary.org/b/id/9-M.jpg"));
+
+        var page = await _client.GetAsync("/");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("https://covers.openlibrary.org/b/id/9-M.jpg", html);
+        Assert.Contains("Reading now", html);
+        Assert.Contains("The Lathe of Heaven", html);
+        Assert.Contains($"/library/{book.Id}", html);
+    }
+
+    [Fact]
     public async Task Enrich_fills_empty_catalog_fields_from_a_title()
     {
         var book = await CreateAsync(new CreateBookRequest("A Wizard of Earthsea", "Ursula K. Le Guin", BookStatus.Want, null));

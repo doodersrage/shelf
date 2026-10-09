@@ -197,6 +197,56 @@ button.loved {
     margin: 0.4rem 0 1rem;
 }
 
+.reading-now a {
+    margin-left: 0.7rem;
+}
+
+.shelf-row {
+    list-style: none;
+    display: flex;
+    gap: 0.7rem;
+    margin: 0.2rem 0 1.15rem;
+    padding: 0 0 0.2rem;
+    overflow-x: auto;
+}
+
+.shelf-row a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.shelf-row img,
+.shelf-row .spine {
+    display: block;
+    width: 4.5rem;
+    height: 6.75rem;
+    object-fit: cover;
+    background: color-mix(in srgb, var(--ink) 5%, var(--paper));
+    border: 1px solid var(--rule);
+}
+
+.shelf-row .spine {
+    padding: 0.45rem 0.4rem;
+    font-size: 0.72rem;
+    line-height: 1.25;
+    box-sizing: border-box;
+}
+
+.book.with-cover {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+    column-gap: 0.95rem;
+    align-items: start;
+}
+
+.card-cover img {
+    display: block;
+    width: 4.5rem;
+    height: auto;
+    margin-top: 0.2rem;
+    border: 1px solid var(--rule);
+}
+
 .hint, .count, .by, .meta {
     color: var(--muted);
 }
