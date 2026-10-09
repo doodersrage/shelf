@@ -45,6 +45,9 @@ public static class BookEndpoints
         books.MapGet("/{id:int}/ebook/file", EbookEndpoints.File);
         books.MapGet("/{id:int}/ebook/chapters/{index:int}", EbookEndpoints.Chapter);
         books.MapGet("/{id:int}/ebook/assets/{*path}", EbookEndpoints.Asset);
+        books.MapPost("/{id:int}/audio", AudioEndpoints.Upload).DisableAntiforgery();
+        books.MapDelete("/{id:int}/audio", AudioEndpoints.Remove);
+        books.MapGet("/{id:int}/audio/tracks/{index:int}", AudioEndpoints.Track);
 
         app.MapGet("/settings", GetSettings).WithTags("Shelf");
         app.MapPut("/settings", UpdateSettings).WithTags("Shelf");
@@ -145,6 +148,7 @@ public static class BookEndpoints
         int id,
         ShelfDb db,
         EbookStore store,
+        AudioStore audio,
         CancellationToken cancellationToken)
     {
         var book = await db.Books.FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
@@ -154,6 +158,7 @@ public static class BookEndpoints
         }
 
         store.Delete(book.EbookStoredName);
+        audio.Delete(book.AudioStoredName);
         db.Books.Remove(book);
         await db.SaveChangesAsync(cancellationToken);
         await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);

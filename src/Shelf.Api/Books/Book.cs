@@ -67,6 +67,10 @@ public sealed class Book
     public string? EbookFileName { get; set; }
     public string? EbookStoredName { get; set; }
     public int? EbookChapter { get; set; }
+    public string? AudioFileName { get; set; }
+    public string? AudioStoredName { get; set; }
+    public int? AudioTrack { get; set; }
+    public int? AudioSeconds { get; set; }
     public string? Translator { get; set; }
     public string? OriginalTitle { get; set; }
     public string? Inscription { get; set; }
@@ -325,7 +329,8 @@ public sealed record BookResponse(
     bool Queued,
     Acquisition? Acquisition,
     CopyCondition? Condition,
-    string? EbookFileName)
+    string? EbookFileName,
+    string? AudioFileName)
 {
     public static BookResponse From(Book book) => new(
         book.Id,
@@ -365,7 +370,8 @@ public sealed record BookResponse(
         book.Queued,
         book.Acquisition,
         book.Condition,
-        book.EbookFileName);
+        book.EbookFileName,
+        book.AudioFileName);
 }
 
 public sealed record ShelfCopy(int Id, string Title, Acquisition? Acquisition);

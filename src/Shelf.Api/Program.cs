@@ -36,11 +36,13 @@ builder.Services.AddHttpClient<IBookLookup, OpenLibraryLookup>(client =>
 });
 
 builder.Services.AddSingleton<EbookStore>();
+builder.Services.AddSingleton<AudioStore>();
+var uploadLimit = Math.Max(EbookStore.MaxBytes, AudioStore.MaxBytes);
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = EbookStore.MaxBytes;
+    options.MultipartBodyLengthLimit = uploadLimit;
 });
-builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = EbookStore.MaxBytes);
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = uploadLimit);
 
 builder.Services.AddValidation();
 builder.Services.AddProblemDetails();

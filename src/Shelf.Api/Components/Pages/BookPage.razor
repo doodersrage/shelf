@@ -3,6 +3,7 @@
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject NavigationManager Navigation
 @inject EbookStore Ebooks
+@inject AudioStore Audio
 
 <PageTitle>@(book?.Title ?? "Shelf")</PageTitle>
 
@@ -23,6 +24,14 @@ else if (book is not null)
     {
         <p><a href="/library/@book.Id/read">Read this e-book</a></p>
     }
+    @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
+    {
+        <p><a href="/library/@book.Id/listen">Listen to this audiobook</a></p>
+        @if ((book.AudioTrack ?? 0) > 0 || (book.AudioSeconds ?? 0) > 0)
+        {
+            <p class="hint">Paused at @PausedAt(book)</p>
+        }
+    }
     @if (EbookMessage == "saved")
     {
         <p class="hint">The e-book is on the shelf.</p>
@@ -34,6 +43,18 @@ else if (book is not null)
     else if (EbookMessage == "large")
     {
         <p class="hint">That file is larger than 80 MB.</p>
+    }
+    @if (AudioMessage == "saved")
+    {
+        <p class="hint">The audiobook is on the shelf.</p>
+    }
+    else if (AudioMessage == "unsupported")
+    {
+        <p class="hint">Choose an audio file, or a zip of them.</p>
+    }
+    else if (AudioMessage == "large")
+    {
+        <p class="hint">That audiobook is larger than 1 GB.</p>
     }
     @if (!string.IsNullOrWhiteSpace(book.Subtitle))
     {
@@ -320,6 +341,20 @@ else if (book is not null)
         <button type="submit">Upload</button>
     </form>
 
+    <h2>Audiobook</h2>
+    @if (!string.IsNullOrWhiteSpace(book.AudioFileName))
+    {
+        <p>@book.AudioFileName</p>
+        <button type="button" @onclick="RemoveAudio">Remove the recording</button>
+    }
+    <form action="/books/@book.Id/audio" method="post" enctype="multipart/form-data" data-enhance="false">
+        <label>
+            Audio or a zip of tracks, up to 1 GB
+            <input type="file" name="file" accept=".mp3,.m4a,.m4b,.aac,.ogg,.opus,.wav,.flac,.zip,audio/*" multiple required />
+        </label>
+        <button type="submit">Upload</button>
+    </form>
+
     <h2>Remove</h2>
     @if (!confirmingDelete)
     {
@@ -327,7 +362,7 @@ else if (book is not null)
     }
     else
     {
-        <p>This deletes the book, its quotes, its highlights, its reading log, and its e-book file.</p>
+        <p>This deletes the book, its quotes, its highlights, its reading log, its e-book, and its audiobook.</p>
         <button type="button" class="danger" @onclick="Delete">Yes, delete it</button>
         <button type="button" @onclick="() => confirmingDelete = false">Cancel</button>
     }
@@ -354,6 +389,9 @@ else if (book is not null)
 
     [SupplyParameterFromQuery(Name = "ebook")]
     public string? EbookMessage { get; set; }
+
+    [SupplyParameterFromQuery(Name = "audio")]
+    public string? AudioMessage { get; set; }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -480,6 +518,7 @@ else if (book is not null)
         if (existing is not null)
         {
             Ebooks.Delete(existing.EbookStoredName);
+            Audio.Delete(existing.AudioStoredName);
             db.Books.Remove(existing);
             await db.SaveChangesAsync();
             await BookRules.RemoveUnusedTagsAsync(db, CancellationToken.None);
@@ -505,6 +544,33 @@ else if (book is not null)
         existing.EbookChapter = null;
         await db.SaveChangesAsync();
         await LoadAsync();
+    }
+
+    private async Task RemoveAudio()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var existing = await db.Books.FirstOrDefaultAsync(item => item.Id == Id);
+        if (existing is null)
+        {
+            missing = true;
+            book = null;
+            return;
+        }
+
+        Audio.Delete(existing.AudioStoredName);
+        existing.AudioStoredName = null;
+        existing.AudioFileName = null;
+        existing.AudioTrack = null;
+        existing.AudioSeconds = null;
+        await db.SaveChangesAsync();
+        await LoadAsync();
+    }
+
+    private static string PausedAt(Book book)
+    {
+        var seconds = Math.Max(0, book.AudioSeconds ?? 0);
+        var clock = $"{seconds / 60}:{seconds % 60:00}";
+        return (book.AudioTrack ?? 0) > 0 ? $"track {book.AudioTrack + 1}, {clock}" : clock;
     }
 
     private async Task RemoveHighlight(int highlightId)

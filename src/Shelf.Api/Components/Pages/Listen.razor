@@ -1,0 +1,190 @@
+@page "/library/{Id:int}/listen"
+@rendermode InteractiveServer
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject AudioStore Audio
+@inject IJSRuntime Js
+
+<PageTitle>@(book?.Title ?? "Shelf")</PageTitle>
+
+@if (missing)
+{
+    <h1>Not on the shelf</h1>
+    <p>That book is not here. <a href="/">Back to the library</a></p>
+}
+else if (book is not null)
+{
+    <div class="player">
+        <p class="hint"><a href="/library/@book.Id">@book.Title</a></p>
+        <h1>@book.Title</h1>
+        @if (tracks.Count == 0)
+        {
+            <p>This book has no audiobook. <a href="/library/@book.Id">Add one</a></p>
+        }
+        else
+        {
+            @if (tracks.Count > 1)
+            {
+                <div class="reader-nav">
+                    <button type="button" @onclick="Previous" disabled="@(track == 0)">Previous</button>
+                    <label>
+                        Track
+                        <select @bind="track" @bind:after="ChooseTrack">
+                            @foreach (var item in tracks)
+                            {
+                                <option value="@item.Index">@item.Title</option>
+                            }
+                        </select>
+                    </label>
+                    <button type="button" @onclick="Next" disabled="@(track >= tracks.Count - 1)">Next</button>
+                </div>
+            }
+            else
+            {
+                <p class="hint">@tracks[0].Title</p>
+            }
+            <audio @key="track" @ref="player" controls preload="metadata" src="/books/@book.Id/audio/tracks/@track"></audio>
+        }
+    </div>
+}
+
+@code {
+    private Book? book;
+    private bool missing;
+    private int track;
+    private int resumeSeconds;
+    private int boundTrack = -1;
+    private IReadOnlyList<AudioTrack> tracks = [];
+    private ElementReference player;
+    private IJSObjectReference? module;
+    private DotNetObjectReference<Listen>? self;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        book = await db.Books.AsNoTracking().FirstOrDefaultAsync(item => item.Id == Id);
+        missing = book is null;
+        tracks = [];
+        track = 0;
+        resumeSeconds = 0;
+        boundTrack = -1;
+        if (book is null || string.IsNullOrWhiteSpace(book.AudioStoredName))
+        {
+            return;
+        }
+
+        tracks = Audio.Tracks(book.AudioStoredName);
+        if (tracks.Count == 0)
+        {
+            return;
+        }
+
+        var saved = book.AudioTrack ?? 0;
+        track = saved >= 0 && saved < tracks.Count ? saved : 0;
+        resumeSeconds = Math.Max(0, book.AudioSeconds ?? 0);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (tracks.Count == 0 || boundTrack == track)
+        {
+            return;
+        }
+
+        if (module is null)
+        {
+            self = DotNetObjectReference.Create(this);
+            module = await Js.InvokeAsync<IJSObjectReference>("import", "./player.js");
+        }
+
+        boundTrack = track;
+        await module.InvokeVoidAsync("attach", player, self);
+        if (resumeSeconds > 0)
+        {
+            await module.InvokeVoidAsync("seek", player, resumeSeconds);
+        }
+    }
+
+    [JSInvokable]
+    public Task Progress(int seconds) => Remember(track, Math.Max(0, seconds));
+
+    [JSInvokable]
+    public async Task Ended()
+    {
+        if (track >= tracks.Count - 1)
+        {
+            await Remember(track, 0);
+            return;
+        }
+
+        track++;
+        resumeSeconds = 0;
+        boundTrack = -1;
+        await Remember(track, 0);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task Previous()
+    {
+        if (track == 0)
+        {
+            return;
+        }
+
+        track--;
+        await ChooseTrack();
+    }
+
+    private async Task Next()
+    {
+        if (track >= tracks.Count - 1)
+        {
+            return;
+        }
+
+        track++;
+        await ChooseTrack();
+    }
+
+    private async Task ChooseTrack()
+    {
+        resumeSeconds = 0;
+        boundTrack = -1;
+        await Remember(track, 0);
+    }
+
+    private async Task Remember(int index, int seconds)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var existing = await db.Books.FirstOrDefaultAsync(item => item.Id == Id);
+        if (existing is null)
+        {
+            return;
+        }
+
+        existing.AudioTrack = index;
+        existing.AudioSeconds = seconds;
+        await db.SaveChangesAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is not null)
+        {
+            try
+            {
+                await module.InvokeVoidAsync("detach");
+                await module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+
+        self?.Dispose();
+    }
+}

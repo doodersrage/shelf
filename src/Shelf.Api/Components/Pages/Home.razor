@@ -76,6 +76,10 @@ else if (Suggestion is Book suggestion)
         <input type="checkbox" @bind="fileOnly" />
         E-book
     </label>
+    <label class="check">
+        <input type="checkbox" @bind="audioOnly" />
+        Audiobook
+    </label>
 </div>
 
 @if (!string.IsNullOrWhiteSpace(tagFilter) || !string.IsNullOrWhiteSpace(authorFilter) || !string.IsNullOrWhiteSpace(seriesFilter) || !string.IsNullOrWhiteSpace(placeFilter) || !string.IsNullOrWhiteSpace(recommendedFilter) || !string.IsNullOrWhiteSpace(loanedFilter))
@@ -163,6 +167,10 @@ else
             @if (!string.IsNullOrWhiteSpace(book.EbookStoredName))
             {
                 <p class="hint"><a href="/library/@book.Id/read">Read</a></p>
+            }
+            @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
+            {
+                <p class="hint"><a href="/library/@book.Id/listen">Listen</a></p>
             }
             @if (!string.IsNullOrWhiteSpace(book.Subtitle))
             {
@@ -319,6 +327,7 @@ else
     private bool loanedOnly;
     private bool queuedOnly;
     private bool fileOnly;
+    private bool audioOnly;
     private Dictionary<string, string[]>? formErrors;
     private bool filling;
     private string? fillNote;
@@ -436,6 +445,11 @@ else
             if (fileOnly)
             {
                 result = result.Where(book => !string.IsNullOrWhiteSpace(book.EbookStoredName));
+            }
+
+            if (audioOnly)
+            {
+                result = result.Where(book => !string.IsNullOrWhiteSpace(book.AudioStoredName));
             }
 
             if (loanedOnly)

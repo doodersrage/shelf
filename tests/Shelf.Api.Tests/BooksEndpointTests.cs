@@ -1267,6 +1267,79 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         Assert.Equal(HttpStatusCode.BadRequest, created.StatusCode);
     }
 
+    [Fact]
+    public async Task An_uploaded_recording_can_be_played()
+    {
+        var book = await CreateAsync(new CreateBookRequest("The Farthest Shore", "Ursula K. Le Guin", BookStatus.Want, null));
+        using var content = new MultipartFormDataContent();
+        content.Add(new ByteArrayContent("a quiet shore"u8.ToArray()), "file", "shore.mp3");
+        var uploaded = await _client.PostAsync($"/books/{book.Id}/audio", content);
+        var html = await uploaded.Content.ReadAsStringAsync();
+        Assert.Contains("The audiobook is on the shelf.", html);
+        Assert.Contains("Listen to this audiobook", html);
+        Assert.Contains("shore.mp3", html);
+
+        var stored = await _client.GetFromJsonAsync<BookResponse>($"/books/{book.Id}", JsonOptions);
+        Assert.Equal("shore.mp3", stored?.AudioFileName);
+        Assert.Equal(BookFormat.Audiobook, stored?.Format);
+
+        var track = await _client.GetAsync($"/books/{book.Id}/audio/tracks/0");
+        Assert.Equal(HttpStatusCode.OK, track.StatusCode);
+        Assert.Equal("audio/mpeg", track.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("a quiet shore", await track.Content.ReadAsStringAsync());
+
+        var player = await _client.GetStringAsync($"/library/{book.Id}/listen");
+        Assert.Contains($"/books/{book.Id}/audio/tracks/0", player);
+        Assert.Contains("shore.mp3", player);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/books/{book.Id}/audio")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/books/{book.Id}/audio/tracks/0")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/books/{book.Id}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_zip_of_tracks_plays_in_order()
+    {
+        var book = await CreateAsync(new CreateBookRequest("Tehanu", "Ursula K. Le Guin", BookStatus.Want, null));
+        using var memory = new MemoryStream();
+        using (var zip = new System.IO.Compression.ZipArchive(memory, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            WriteEntry(zip, "part/02-b.mp3", "second");
+            WriteEntry(zip, "part/01-a.mp3", "first");
+        }
+
+        using var content = new MultipartFormDataContent();
+        content.Add(new ByteArrayContent(memory.ToArray()), "file", "tehanu.zip");
+        Assert.Equal(HttpStatusCode.OK, (await _client.PostAsync($"/books/{book.Id}/audio", content)).StatusCode);
+
+        Assert.Equal("first", await _client.GetStringAsync($"/books/{book.Id}/audio/tracks/0"));
+        Assert.Equal("second", await _client.GetStringAsync($"/books/{book.Id}/audio/tracks/1"));
+        var player = await _client.GetStringAsync($"/library/{book.Id}/listen");
+        Assert.Contains("01-a.mp3", player);
+        Assert.Contains("02-b.mp3", player);
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/books/{book.Id}/audio/tracks/2")).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_file_that_is_not_audio_is_refused()
+    {
+        var book = await CreateAsync(new CreateBookRequest("The Other Wind", "Ursula K. Le Guin", BookStatus.Want, null));
+        using var content = new MultipartFormDataContent();
+        content.Add(new ByteArrayContent("hello"u8.ToArray()), "file", "notes.txt");
+        var uploaded = await _client.PostAsync($"/books/{book.Id}/audio", content);
+        var html = await uploaded.Content.ReadAsStringAsync();
+        Assert.Contains("Choose an audio file, or a zip of them.", html);
+        var stored = await _client.GetFromJsonAsync<BookResponse>($"/books/{book.Id}", JsonOptions);
+        Assert.Null(stored?.AudioFileName);
+    }
+
+    private static void WriteEntry(System.IO.Compression.ZipArchive zip, string name, string text)
+    {
+        var entry = zip.CreateEntry(name);
+        using var writer = new StreamWriter(entry.Open());
+        writer.Write(text);
+    }
+
     private static byte[] SampleEpub(string sentence)
     {
         using var memory = new MemoryStream();
@@ -1357,11 +1430,13 @@ public sealed class ShelfApiFactory : WebApplicationFactory<Program>
 {
     private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"shelf-{Guid.NewGuid():N}.db");
     private readonly string _ebookRoot = Path.Combine(Path.GetTempPath(), $"shelf-ebooks-{Guid.NewGuid():N}");
+    private readonly string _audioRoot = Path.Combine(Path.GetTempPath(), $"shelf-audio-{Guid.NewGuid():N}");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("ConnectionStrings:Shelf", $"Data Source={_databasePath}");
         builder.UseSetting("EbookStore:Root", _ebookRoot);
+        builder.UseSetting("AudioStore:Root", _audioRoot);
         builder.UseEnvironment("Testing");
         builder.ConfigureTestServices(services => services.AddSingleton<IBookLookup, StubBookLookup>());
     }
@@ -1375,6 +1450,11 @@ public sealed class ShelfApiFactory : WebApplicationFactory<Program>
         if (Directory.Exists(_ebookRoot))
         {
             Directory.Delete(_ebookRoot, recursive: true);
+        }
+
+        if (Directory.Exists(_audioRoot))
+        {
+            Directory.Delete(_audioRoot, recursive: true);
         }
     }
 
