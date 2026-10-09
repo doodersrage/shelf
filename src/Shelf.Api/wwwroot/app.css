@@ -252,6 +252,10 @@ button.loved {
     border: 1px solid var(--rule);
 }
 
+.late {
+    color: var(--danger);
+}
+
 .hint, .count, .by, .meta {
     color: var(--muted);
 }

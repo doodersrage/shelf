@@ -43,6 +43,8 @@ public sealed class BookFormModel
 
     public DateOnly? LoanedOn { get; set; }
 
+    public DateOnly? DueOn { get; set; }
+
     [MaxLength(200)]
     public string Publisher { get; set; } = "";
 
@@ -115,7 +117,8 @@ public sealed class BookFormModel
         Translator,
         RecommendedBy,
         OriginalTitle,
-        Inscription);
+        Inscription,
+        DueOn);
 
     public bool FillBlanks(CatalogMatch match)
     {
@@ -201,6 +204,7 @@ public sealed class BookFormModel
         FinishedOn = null;
         LoanedTo = "";
         LoanedOn = null;
+        DueOn = null;
         Publisher = "";
         Language = "";
         Format = "";
@@ -234,6 +238,7 @@ public sealed class BookFormModel
         FinishedOn = book.FinishedOn,
         LoanedTo = book.LoanedTo ?? "",
         LoanedOn = book.LoanedOn,
+        DueOn = book.DueOn,
         Publisher = book.Publisher ?? "",
         Language = book.Language ?? "",
         Format = book.Format?.ToString() ?? "",

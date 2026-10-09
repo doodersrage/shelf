@@ -450,8 +450,11 @@ public static class BookEndpoints
 
     private static async Task<Ok<LoanCount[]>> ListLoans(ShelfDb db, CancellationToken cancellationToken)
     {
-        var names = await db.Books.AsNoTracking().Select(book => book.LoanedTo).ToListAsync(cancellationToken);
-        return TypedResults.Ok(BookRules.Loans(names));
+        var loans = await db.Books.AsNoTracking()
+            .Select(book => new { book.LoanedTo, book.DueOn })
+            .ToListAsync(cancellationToken);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        return TypedResults.Ok(BookRules.Loans(loans.Select(loan => (loan.LoanedTo, loan.DueOn)), today));
     }
 
     private static async Task<Ok<FinishedYear[]>> ListYears(ShelfDb db, CancellationToken cancellationToken)

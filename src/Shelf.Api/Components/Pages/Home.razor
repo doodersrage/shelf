@@ -224,6 +224,10 @@ else
                         {
                             <span>since @loanedOn.ToString("MMM d, yyyy")</span>
                         }
+                        @if (book.DueOn is DateOnly due)
+                        {
+                            <span class="@(due < Today ? "late" : null)">due @due.ToString("MMM d, yyyy")@(due < Today ? ", overdue" : "")</span>
+                        }
                     </span>
                     <button type="button" @onclick="() => ReturnLoan(book.Id)">Return</button>
                 }
@@ -311,7 +315,9 @@ else
         await LoadAsync();
     }
 
-    private Book? Suggestion => BookRules.Pick(books, BookStatus.Want, DateOnly.FromDateTime(DateTime.UtcNow));
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+
+    private Book? Suggestion => BookRules.Pick(books, BookStatus.Want, Today);
 
     private List<Book> ReadingNow => Visible.Where(book => book.Status == BookStatus.Reading).ToList();
 

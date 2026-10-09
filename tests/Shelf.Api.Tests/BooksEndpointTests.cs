@@ -576,15 +576,18 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
             "Ursula K. Le Guin",
             BookStatus.Reading,
             null,
-            LoanedTo: "Tenar"));
+            LoanedTo: "Tenar",
+            DueOn: new DateOnly(2026, 10, 1)));
         Assert.Equal("Tenar", book.LoanedTo);
         Assert.NotNull(book.LoanedOn);
+        Assert.Equal(new DateOnly(2026, 10, 1), book.DueOn);
 
         var returned = await _client.PostAsync($"/books/{book.Id}/return", null);
         Assert.Equal(HttpStatusCode.OK, returned.StatusCode);
         var body = await returned.Content.ReadFromJsonAsync<BookResponse>(JsonOptions);
         Assert.Null(body?.LoanedTo);
         Assert.Null(body?.LoanedOn);
+        Assert.Null(body?.DueOn);
 
         var missing = await _client.PostAsync("/books/999999/return", null);
         Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
@@ -1023,6 +1026,45 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         var people = BookRules.Loans(["  Tenar  ", "tenar", "  ", null, "Ged"]);
         Assert.Equal(["Ged", "Tenar"], people.Select(person => person.Name));
         Assert.Equal(2, people.Single(person => person.Name == "Tenar").Count);
+    }
+
+    [Fact]
+    public void An_overdue_loan_is_counted_for_that_person()
+    {
+        var today = new DateOnly(2026, 10, 9);
+        var people = BookRules.Loans(
+            [
+                ("Tenar", new DateOnly(2026, 10, 1)),
+                ("Tenar", new DateOnly(2026, 10, 20)),
+                ("Ged", null),
+            ],
+            today);
+
+        Assert.Equal(1, people.Single(person => person.Name == "Tenar").Overdue);
+        Assert.Equal(2, people.Single(person => person.Name == "Tenar").Count);
+        Assert.Equal(0, people.Single(person => person.Name == "Ged").Overdue);
+    }
+
+    [Fact]
+    public async Task A_loan_due_date_shows_on_the_loans_page()
+    {
+        var due = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-2);
+        var book = await CreateAsync(new CreateBookRequest(
+            "Changing Planes",
+            "Ursula K. Le Guin",
+            BookStatus.Reading,
+            null,
+            LoanedTo: "Shevek",
+            DueOn: due));
+        Assert.Equal(due, book.DueOn);
+
+        var people = await _client.GetFromJsonAsync<LoanCount[]>("/books/loans", JsonOptions);
+        Assert.Contains(people!, person => person.Name == "Shevek" && person.Overdue >= 1);
+
+        var page = await _client.GetAsync($"/library/{book.Id}");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("overdue", html);
+        Assert.Contains(due.ToString("MMM d, yyyy"), html);
     }
 
     [Fact]

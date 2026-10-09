@@ -59,6 +59,10 @@ else if (book is not null)
             {
                 <span>since @loanedOn.ToString("MMM d, yyyy")</span>
             }
+            @if (book.DueOn is DateOnly due)
+            {
+                <span class="@(due < Today ? "late" : null)">due @due.ToString("MMM d, yyyy")@(due < Today ? ", overdue" : "")</span>
+            }
             <button type="button" @onclick="ReturnLoan">Return</button>
         </p>
     }
@@ -260,6 +264,8 @@ else if (book is not null)
 }
 
 @code {
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+
     private Book? book;
     private bool missing;
     private bool saved;

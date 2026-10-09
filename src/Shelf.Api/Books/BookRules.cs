@@ -154,6 +154,7 @@ public static class BookRules
         if (book.LoanedTo is null)
         {
             book.LoanedOn = null;
+            book.DueOn = null;
         }
         else
         {
@@ -162,6 +163,8 @@ public static class BookRules
             {
                 book.LoanedOn = today;
             }
+
+            book.DueOn = write.DueOn;
         }
 
         if (book.AddedAt == default)
@@ -385,6 +388,7 @@ public static class BookRules
     {
         book.LoanedTo = null;
         book.LoanedOn = null;
+        book.DueOn = null;
     }
 
     public static int? PagesPerDay(IEnumerable<ReadingSession> sessions)
@@ -526,10 +530,16 @@ public static class BookRules
             .ToArray();
 
     public static LoanCount[] Loans(IEnumerable<string?> names) =>
-        names
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .GroupBy(name => name!.Trim(), StringComparer.OrdinalIgnoreCase)
-            .Select(group => new LoanCount(group.First()!.Trim(), group.Count()))
+        Loans(names.Select(name => (name, (DateOnly?)null)), DateOnly.MaxValue);
+
+    public static LoanCount[] Loans(IEnumerable<(string? Name, DateOnly? Due)> loans, DateOnly today) =>
+        loans
+            .Where(loan => !string.IsNullOrWhiteSpace(loan.Name))
+            .GroupBy(loan => loan.Name!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => new LoanCount(
+                group.First().Name!.Trim(),
+                group.Count(),
+                group.Count(loan => loan.Due is DateOnly due && due < today)))
             .OrderBy(person => person.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 

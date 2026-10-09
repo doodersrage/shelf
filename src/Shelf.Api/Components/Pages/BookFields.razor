@@ -114,10 +114,14 @@
             <InputDate @bind-Value="Model.LoanedOn" />
         </label>
         <label>
-            Cover address
-            <InputText @bind-Value="Model.CoverUrl" maxlength="500" spellcheck="false" />
+            Due back
+            <InputDate @bind-Value="Model.DueOn" />
         </label>
     </div>
+    <label>
+        Cover address
+        <InputText @bind-Value="Model.CoverUrl" maxlength="500" spellcheck="false" />
+    </label>
     <label class="check">
         <InputCheckbox @bind-Value="Model.Loved" />
         Loved

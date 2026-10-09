@@ -18,6 +18,10 @@ else
             <li>
                 <a href="@($"/?loanedTo={Uri.EscapeDataString(person.Name)}")">@person.Name</a>
                 <span class="hint">@person.Count @(person.Count == 1 ? "book" : "books")</span>
+                @if (person.Overdue > 0)
+                {
+                    <span class="late">@person.Overdue overdue</span>
+                }
             </li>
         }
     </ul>
@@ -29,7 +33,11 @@ else
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        var names = await db.Books.AsNoTracking().Select(book => book.LoanedTo).ToListAsync();
-        people = BookRules.Loans(names).ToList();
+        var loans = await db.Books.AsNoTracking()
+            .Select(book => new { book.LoanedTo, book.DueOn })
+            .ToListAsync();
+        people = BookRules.Loans(
+            loans.Select(loan => (loan.LoanedTo, loan.DueOn)),
+            DateOnly.FromDateTime(DateTime.UtcNow)).ToList();
     }
 }
