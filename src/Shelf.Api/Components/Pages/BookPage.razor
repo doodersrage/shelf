@@ -22,6 +22,10 @@ else if (book is not null)
     {
         <p class="hint">@book.Subtitle</p>
     }
+    @if (!string.IsNullOrWhiteSpace(book.OriginalTitle))
+    {
+        <p class="hint">Originally @book.OriginalTitle</p>
+    }
     <p class="by">
         <a href="@($"/?author={Uri.EscapeDataString(book.Author)}")">@book.Author</a>
         @if (!string.IsNullOrWhiteSpace(book.Translator))

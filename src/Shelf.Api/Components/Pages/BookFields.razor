@@ -8,6 +8,10 @@
     <InputText @bind-Value="Model.Subtitle" maxlength="200" />
 </label>
 <label>
+    Original title
+    <InputText @bind-Value="Model.OriginalTitle" maxlength="200" />
+</label>
+<label>
     Author
     <InputText @bind-Value="Model.Author" maxlength="200" required />
     <ValidationMessage For="() => Model.Author" />

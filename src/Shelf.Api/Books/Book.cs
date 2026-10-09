@@ -46,6 +46,7 @@ public sealed class Book
     public string? Location { get; set; }
     public DateOnly? AcquiredOn { get; set; }
     public string? Translator { get; set; }
+    public string? OriginalTitle { get; set; }
     public string? RecommendedBy { get; set; }
     public DateTimeOffset AddedAt { get; set; }
     public List<Tag> Tags { get; set; } = [];
@@ -114,12 +115,13 @@ public sealed record CreateBookRequest(
     [MaxLength(80)] string? Location = null,
     DateOnly? AcquiredOn = null,
     [MaxLength(200)] string? Translator = null,
+    [MaxLength(200)] string? OriginalTitle = null,
     [MaxLength(120)] string? RecommendedBy = null)
 {
     public BookWrite ToWrite() => BookWrite.From(
         Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
         Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn,
-        Location, AcquiredOn, Translator, RecommendedBy);
+        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle);
 }
 
 public sealed record UpdateBookRequest(
@@ -149,12 +151,13 @@ public sealed record UpdateBookRequest(
     [MaxLength(80)] string? Location = null,
     DateOnly? AcquiredOn = null,
     [MaxLength(200)] string? Translator = null,
+    [MaxLength(200)] string? OriginalTitle = null,
     [MaxLength(120)] string? RecommendedBy = null)
 {
     public BookWrite ToWrite() => BookWrite.From(
         Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
         Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn,
-        Location, AcquiredOn, Translator, RecommendedBy);
+        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle);
 }
 
 public sealed record BookWrite(
@@ -184,7 +187,8 @@ public sealed record BookWrite(
     string? Location,
     DateOnly? AcquiredOn,
     string? Translator,
-    string? RecommendedBy)
+    string? RecommendedBy,
+    string? OriginalTitle)
 {
     public static BookWrite From(
         string title,
@@ -213,16 +217,17 @@ public sealed record BookWrite(
         string? location,
         DateOnly? acquiredOn,
         string? translator,
-        string? recommendedBy) => new(
+        string? recommendedBy,
+        string? originalTitle) => new(
             title, author, status, rating, year, isbn, pages, currentPage, notes, startedOn, finishedOn, loanedTo, tags ?? [],
             subtitle, publisher, language, format, series, seriesNumber, coverUrl, review, loved, loanedOn,
-            location, acquiredOn, translator, recommendedBy);
+            location, acquiredOn, translator, recommendedBy, originalTitle);
 
     public static BookWrite From(BookResponse book) => From(
         book.Title, book.Author, book.Status, book.Rating, book.Year, book.Isbn, book.Pages, book.CurrentPage, book.Notes,
         book.StartedOn, book.FinishedOn, book.LoanedTo, book.Tags, book.Subtitle, book.Publisher, book.Language, book.Format,
         book.Series, book.SeriesNumber, book.CoverUrl, book.Review, book.Loved, book.LoanedOn,
-        book.Location, book.AcquiredOn, book.Translator, book.RecommendedBy);
+        book.Location, book.AcquiredOn, book.Translator, book.RecommendedBy, book.OriginalTitle);
 }
 
 public sealed record BookResponse(
@@ -256,7 +261,8 @@ public sealed record BookResponse(
     string? Location,
     DateOnly? AcquiredOn,
     string? Translator,
-    string? RecommendedBy)
+    string? RecommendedBy,
+    string? OriginalTitle)
 {
     public static BookResponse From(Book book) => new(
         book.Id,
@@ -289,7 +295,8 @@ public sealed record BookResponse(
         book.Location,
         book.AcquiredOn,
         book.Translator,
-        book.RecommendedBy);
+        book.RecommendedBy,
+        book.OriginalTitle);
 }
 
 public sealed record AuthorCount(string Name, int Count);

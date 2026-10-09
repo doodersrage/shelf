@@ -106,6 +106,10 @@ else
                     <span> (@year)</span>
                 }
             </p>
+            @if (!string.IsNullOrWhiteSpace(book.OriginalTitle))
+            {
+                <p class="hint">Originally @book.OriginalTitle</p>
+            }
             @if (!string.IsNullOrWhiteSpace(book.Series))
             {
                 <p class="hint">
@@ -272,6 +276,7 @@ else
                     || (book.Notes?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     || (book.Location?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     || (book.Translator?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (book.OriginalTitle?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     || (book.RecommendedBy?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     || book.Quotes.Any(quote => quote.Text.Contains(term, StringComparison.OrdinalIgnoreCase)));
             }

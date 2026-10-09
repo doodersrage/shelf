@@ -71,6 +71,9 @@ public sealed class BookFormModel
     public DateOnly? AcquiredOn { get; set; }
 
     [MaxLength(200)]
+    public string OriginalTitle { get; set; } = "";
+
+    [MaxLength(200)]
     public string Translator { get; set; } = "";
 
     [MaxLength(120)]
@@ -107,7 +110,8 @@ public sealed class BookFormModel
         Location,
         AcquiredOn,
         Translator,
-        RecommendedBy);
+        RecommendedBy,
+        OriginalTitle);
 
     public bool FillBlanks(CatalogMatch match)
     {
@@ -171,6 +175,7 @@ public sealed class BookFormModel
         Location = "";
         AcquiredOn = null;
         Translator = "";
+        OriginalTitle = "";
         RecommendedBy = "";
         Tags = "";
     }
@@ -202,6 +207,7 @@ public sealed class BookFormModel
         Location = book.Location ?? "",
         AcquiredOn = book.AcquiredOn,
         Translator = book.Translator ?? "",
+        OriginalTitle = book.OriginalTitle ?? "",
         RecommendedBy = book.RecommendedBy ?? "",
         Tags = string.Join(", ", book.Tags.Select(tag => tag.Name).OrderBy(name => name, StringComparer.OrdinalIgnoreCase)),
     };

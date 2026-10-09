@@ -853,6 +853,26 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task An_original_title_is_kept_and_can_be_searched()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "The Telling",
+            "Ursula K. Le Guin",
+            BookStatus.Want,
+            null,
+            OriginalTitle: "  Aka  "));
+        Assert.Equal("Aka", book.OriginalTitle);
+
+        var found = await _client.GetFromJsonAsync<BookResponse[]>("/books?q=aka", JsonOptions);
+        Assert.Contains(found!, item => item.Id == book.Id);
+
+        var page = await _client.GetAsync($"/library/{book.Id}");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("Originally", html);
+        Assert.Contains("Aka", html);
+    }
+
+    [Fact]
     public async Task Goal_can_be_replaced()
     {
         var updated = await _client.PutAsJsonAsync("/settings", new UpdateSettingsRequest(24), JsonOptions);
