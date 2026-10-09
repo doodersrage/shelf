@@ -349,6 +349,32 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
     }
 
     [Fact]
+    public async Task A_pdf_opens_in_the_shelf_reader_at_the_saved_page()
+    {
+        var book = await CreateAsync(_admin, new CreateBookRequest("A Plain Pdf", "Someone", BookStatus.Reading, null));
+        using (var content = new MultipartFormDataContent())
+        {
+            content.Add(new ByteArrayContent("%PDF-1.4 sample"u8.ToArray()), "file", "plain.pdf");
+            await _admin.PostAsync($"/books/{book.Id}/ebook", content);
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(factory.ReaderId);
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            await Lending.KeepPlaceAsync(db, (await Lending.OpenAsync(db, book.Id))!, place => place.EbookChapter = 4);
+        }
+
+        var page = await _admin.GetStringAsync($"/library/{book.Id}/read");
+        Assert.Contains("pdf-viewer", page);
+        Assert.Contains("Fit the width", page);
+        Assert.Contains("page 5", page);
+        Assert.DoesNotContain("<iframe", page);
+        Assert.Equal(HttpStatusCode.OK, (await _admin.GetAsync("/pdf-reader.js")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await _admin.GetAsync("/lib/pdfjs/pdf.worker.min.mjs")).StatusCode);
+    }
+
+    [Fact]
     public async Task Large_uploads_report_their_progress()
     {
         var book = await CreateAsync(_admin, new CreateBookRequest("Uploaded Slowly", "Someone", BookStatus.Want, null));

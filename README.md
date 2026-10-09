@@ -37,7 +37,7 @@ Set `Accounts:AllowSignUp` to `false` to stop new accounts once the first one ex
 | `/admin` | For an admin: readers, new passwords, admins, and a server snapshot. |
 | `/` | The library. `?status=Reading`, `?q=`, `?view=list`, and `?add=1` open it on one status, a search, the list view, or the add form. Search, filter, sort, add a book, or change its status. Covers line the top, anything being read is listed first, and want-list books can be marked to read next. An uploaded EPUB, PDF, or audiobook can be opened from its card. |
 | `/library/{id}` | One book. Edit the catalog, log a reading session, keep quotes, note how the copy arrived and what condition it is in, upload an EPUB, PDF, or audiobook, open the next volume, or delete it. |
-| `/library/{id}/read` | Read that book's EPUB or PDF. In an EPUB, select a passage to highlight it and leave a note. |
+| `/library/{id}/read` | Read that book's EPUB or PDF, at your own text size, and back where you stopped. In an EPUB, select a passage to highlight it and leave a note, and set line spacing and width too. |
 | `/library/{id}/listen` | Play that book's audiobook. A zip of tracks becomes the track list, and playback resumes where it stopped. |
 | `/sync` | Trade e-books and audiobooks with another shelf. The furthest stopping place, and notes on a passage, come along. Make a key here for the other shelf, and enter the key it made for you. |
 | `/quotes` | Every quote, with the book it came from. Search the words, the title, or the author. |

@@ -25,7 +25,7 @@ else
             {
                 <li class="book-card">
                     <BookCover Title="@book.Title" Url="@book.CoverUrl" />
-                    <h3 class="title">@book.Title</h3>
+                    <h2 class="title">@book.Title</h2>
                     <p class="by">@book.Author@(book.Year is int year ? $" · {year}" : "")</p>
                     <div class="badges">
                         @if (book.OnLoan)

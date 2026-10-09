@@ -31,8 +31,27 @@ else if (book is not null)
         }
         else if (EbookStore.IsPdf(book.EbookStoredName))
         {
-            <iframe class="reader-frame" title="@book.Title" src="/books/@book.Id/ebook/file"></iframe>
-            <p class="hint">Passages can be marked in an EPUB.</p>
+            <div class="reader-nav">
+                <button type="button" @onclick="() => ShowPdfPage(pdfIndex - 1)" disabled="@(pdfIndex <= 0)">Previous</button>
+                <span class="hint" aria-live="polite">@(pdfPages == 0 ? "Opening…" : $"Page {pdfIndex + 1} of {pdfPages}")</span>
+                <button type="button" @onclick="() => ShowPdfPage(pdfIndex + 1)" disabled="@(pdfPages == 0 || pdfIndex >= pdfPages - 1)">Next</button>
+                <label>
+                    Text size
+                    <select @bind="type.Size" @bind:after="SaveType">
+                        <option value="85">Smaller</option>
+                        <option value="100">Fit the width</option>
+                        <option value="115">Larger</option>
+                        <option value="130">Large</option>
+                        <option value="150">Largest</option>
+                    </select>
+                </label>
+            </div>
+            <div class="pdf-viewer" @ref="pdfHost" tabindex="0" role="region" aria-label="@($"{book.Title}, page {pdfIndex + 1}. Use the arrow keys to turn pages.")"></div>
+            @if (pdfFailed)
+            {
+                <p class="validation-message" role="alert">This PDF could not be drawn here. <a href="/books/@book.Id/ebook/file">Open the file itself</a></p>
+            }
+            <p class="hint">A PDF keeps its own layout, so only its size changes. Passages can be marked in an EPUB. <a href="/books/@book.Id/ebook/file">Open the file itself</a></p>
         }
         else if (chapters is null)
         {
@@ -137,6 +156,11 @@ else if (book is not null)
     private bool borrowed;
     private bool missing;
     private TypeForm type = new();
+    private ElementReference pdfHost;
+    private IJSObjectReference? pdf;
+    private int pdfIndex;
+    private int pdfPages;
+    private bool pdfFailed;
     private int typeRevision;
     private int chapter;
     private int markRevision;
@@ -167,6 +191,13 @@ else if (book is not null)
         missing = book is null;
         chapters = null;
         chapter = 0;
+        if (open is not null)
+        {
+            var saved = await BookRules.GetReaderTypeAsync(db);
+            type = new TypeForm { Size = saved.Size, Leading = saved.Leading, Width = saved.Width };
+            pdfIndex = Math.Max(0, (await Lending.PlaceAsync(db, open)).EbookChapter ?? 0);
+        }
+
         if (book is null || !EbookStore.IsEpub(book.EbookStoredName))
         {
             return;
@@ -174,8 +205,7 @@ else if (book is not null)
 
         var path = Ebooks.OpenPath(book.EbookStoredName);
         chapters = path is null ? null : EpubFile.Chapters(path);
-        var saved = await BookRules.GetReaderTypeAsync(db);
-        type = new TypeForm { Size = saved.Size, Leading = saved.Leading, Width = saved.Width };
+
         marks = await Lending.Marks(db, open!).AsNoTracking()
             .OrderBy(item => item.Id)
             .ToListAsync();
@@ -188,12 +218,27 @@ else if (book is not null)
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (pdf is null && !pdfFailed && book is not null && EbookStore.IsPdf(book.EbookStoredName))
+        {
+            self ??= DotNetObjectReference.Create(this);
+            try
+            {
+                pdf = await Js.InvokeAsync<IJSObjectReference>("import", "./pdf-reader.js");
+                await pdf.InvokeAsync<int>("open", pdfHost, $"/books/{book.Id}/ebook/file", pdfIndex, type.Size, self);
+            }
+            catch (JSException)
+            {
+                pdfFailed = true;
+                StateHasChanged();
+            }
+        }
+
         if (!firstRender || reader is not null)
         {
             return;
         }
 
-        self = DotNetObjectReference.Create(this);
+        self ??= DotNetObjectReference.Create(this);
         reader = await Js.InvokeAsync<IJSObjectReference>("import", "./reader.js");
         await reader.InvokeVoidAsync("listen", self);
     }
@@ -369,6 +414,18 @@ else if (book is not null)
 
     public async ValueTask DisposeAsync()
     {
+        if (pdf is not null)
+        {
+            try
+            {
+                await pdf.InvokeVoidAsync("close");
+                await pdf.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+
         if (reader is not null)
         {
             try
@@ -392,6 +449,34 @@ else if (book is not null)
         await using var db = await DbFactory.CreateDbContextAsync();
         await BookRules.SetReaderTypeAsync(db, new ReaderType(type.Size, type.Leading, type.Width));
         typeRevision++;
+        if (pdf is not null)
+        {
+            await pdf.InvokeVoidAsync("zoom", type.Size);
+        }
+    }
+
+    private async Task ShowPdfPage(int index)
+    {
+        if (pdf is not null)
+        {
+            await pdf.InvokeVoidAsync("show", index);
+        }
+    }
+
+    // The PDF module reports each page it shows; the place is kept as for an EPUB chapter.
+    [JSInvokable]
+    public async Task PdfShown(int index, int total)
+    {
+        var moved = index != pdfIndex;
+        pdfIndex = index;
+        pdfPages = total;
+        if (moved && open is not null)
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            await Lending.KeepPlaceAsync(db, open, place => place.EbookChapter = index);
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private sealed class TypeForm
