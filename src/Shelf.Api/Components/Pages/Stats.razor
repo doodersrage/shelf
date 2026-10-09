@@ -25,7 +25,15 @@ else
         <p><strong>@(stats.AverageRating?.ToString("0.##") ?? "—")</strong><span>Average rating</span></p>
         <p><strong>@stats.PagesRead</strong><span>Pages read</span></p>
         <p><strong>@stats.FinishedThisYear</strong><span>Finished this year</span></p>
+        <p><strong>@stats.Loved</strong><span>Loved</span></p>
+        <p><strong>@stats.OnLoan</strong><span>On loan</span></p>
     </div>
+
+    @if (stats.YearlyGoal > 0)
+    {
+        <p class="hint">@stats.FinishedThisYear of @stats.YearlyGoal finished this year</p>
+        <progress max="@stats.YearlyGoal" value="@Math.Min(stats.FinishedThisYear, stats.YearlyGoal)"></progress>
+    }
 
     <h2>Tags</h2>
     @if (stats.Tags.Length == 0)
@@ -46,12 +54,81 @@ else
     }
 }
 
+<h2>This year</h2>
+<EditForm Model="goal" OnValidSubmit="SaveGoal">
+    <DataAnnotationsValidator />
+    <label>
+        Books to finish
+        <InputNumber @bind-Value="goal.YearlyGoal" />
+        <ValidationMessage For="() => goal.YearlyGoal" />
+    </label>
+    <button type="submit">Save goal</button>
+    @if (goalSaved)
+    {
+        <span class="hint">Saved.</span>
+    }
+</EditForm>
+
+<h2>Backup</h2>
+<p><a href="/books/export">Download JSON</a></p>
+<InputFile OnChange="ImportBackup" accept="application/json" />
+@if (!string.IsNullOrWhiteSpace(importMessage))
+{
+    <p class="hint">@importMessage</p>
+}
+
 @code {
+    private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new(System.Text.Json.JsonSerializerDefaults.Web)
+    {
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+    };
+
     private ShelfStatsResponse? stats;
+    private readonly GoalFormModel goal = new();
+    private bool goalSaved;
+    private string? importMessage;
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
         await using var db = await DbFactory.CreateDbContextAsync();
         stats = await BookRules.SummarizeAsync(db);
+        goal.YearlyGoal = stats.YearlyGoal;
+    }
+
+    private async Task SaveGoal()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await BookRules.SetGoalAsync(db, goal.YearlyGoal);
+        goalSaved = true;
+        await LoadAsync();
+    }
+
+    private async Task ImportBackup(InputFileChangeEventArgs change)
+    {
+        importMessage = null;
+        try
+        {
+            await using var stream = change.File.OpenReadStream(1_000_000);
+            var export = await System.Text.Json.JsonSerializer.DeserializeAsync<LibraryExport>(stream, JsonOptions);
+            if (export?.Books is null)
+            {
+                importMessage = "That file is not a shelf backup.";
+                return;
+            }
+
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var result = await BookRules.ImportAsync(db, export);
+            importMessage = $"Added {result.Added}, skipped {result.Skipped}.";
+            await LoadAsync();
+        }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or IOException)
+        {
+            importMessage = "That file is not a shelf backup.";
+        }
     }
 }

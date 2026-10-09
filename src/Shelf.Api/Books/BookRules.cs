@@ -48,6 +48,16 @@ public static class BookRules
             Add(nameof(write.CurrentPage), "Current page is past the end of the book.");
         }
 
+        if (write.SeriesNumber is not null && string.IsNullOrWhiteSpace(write.Series))
+        {
+            Add(nameof(write.Series), "A series number needs a series name.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(write.CoverUrl) && !IsCoverUrl(write.CoverUrl))
+        {
+            Add(nameof(write.CoverUrl), "Cover address must start with http:// or https://.");
+        }
+
         var tags = CanonicalTags(write.Tags);
         if (tags.Count > MaxTags)
         {
@@ -83,6 +93,29 @@ public static class BookRules
             : errors.ToDictionary(pair => pair.Key, pair => pair.Value.ToArray(), StringComparer.Ordinal);
     }
 
+    public static Dictionary<string, string[]>? ValidateSession(CreateSessionRequest request, int? bookPages)
+    {
+        var errors = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        if (request.FromPage is { } from && request.ToPage is { } to && to < from)
+        {
+            errors[nameof(request.ToPage)] = ["The session ends before it starts."];
+        }
+
+        if (request.ToPage is { } end && bookPages is { } pages && end > pages)
+        {
+            errors[nameof(request.ToPage)] = ["That page is past the end of the book."];
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Note) && request.Note.Trim().Length > 500)
+        {
+            errors[nameof(request.Note)] = ["Keep the session note to 500 characters."];
+        }
+
+        return errors.Count == 0
+            ? null
+            : errors.ToDictionary(pair => pair.Key, pair => pair.Value.ToArray(), StringComparer.Ordinal);
+    }
+
     public static void Apply(Book book, BookWrite write)
     {
         var created = book.Id == 0;
@@ -97,10 +130,33 @@ public static class BookRules
         book.Pages = write.Pages;
         book.CurrentPage = write.CurrentPage;
         book.Notes = BlankToNull(write.Notes);
-        book.LoanedTo = BlankToNull(write.LoanedTo);
+        book.Subtitle = BlankToNull(write.Subtitle);
+        book.Publisher = BlankToNull(write.Publisher);
+        book.Language = BlankToNull(write.Language);
+        book.Format = write.Format;
+        book.Series = BlankToNull(write.Series);
+        book.SeriesNumber = book.Series is null ? null : write.SeriesNumber;
+        book.CoverUrl = BlankToNull(write.CoverUrl);
+        book.Review = BlankToNull(write.Review);
+        book.Loved = write.Loved;
         book.StartedOn = write.StartedOn;
         book.FinishedOn = write.FinishedOn;
         book.Status = write.Status;
+
+        var previousLoan = book.LoanedTo;
+        book.LoanedTo = BlankToNull(write.LoanedTo);
+        if (book.LoanedTo is null)
+        {
+            book.LoanedOn = null;
+        }
+        else
+        {
+            book.LoanedOn = write.LoanedOn;
+            if (book.LoanedOn is null && !string.Equals(previousLoan, book.LoanedTo, StringComparison.Ordinal))
+            {
+                book.LoanedOn = today;
+            }
+        }
 
         if (book.AddedAt == default)
         {
@@ -177,8 +233,16 @@ public static class BookRules
     public static async Task<ShelfStatsResponse> SummarizeAsync(ShelfDb db, CancellationToken cancellationToken = default)
     {
         var rows = await db.Books.AsNoTracking()
-            .Select(book => new StatRow(book.Status, book.Rating, book.Pages, book.CurrentPage, book.FinishedOn))
+            .Select(book => new StatRow(
+                book.Status,
+                book.Rating,
+                book.Pages,
+                book.CurrentPage,
+                book.FinishedOn,
+                book.Loved,
+                book.LoanedTo != null))
             .ToListAsync(cancellationToken);
+        var goal = await GetGoalAsync(db, cancellationToken);
 
         var tags = await db.Tags.AsNoTracking()
             .Where(tag => tag.Books.Any())
@@ -197,10 +261,129 @@ public static class BookRules
             ratings.Count == 0 ? null : Math.Round(ratings.Average(), 2),
             rows.Sum(PagesRead),
             rows.Count(row => row.Status == BookStatus.Finished && row.FinishedOn?.Year == year),
-            tags.OrderByDescending(tag => tag.Count).ThenBy(tag => tag.Name, StringComparer.Ordinal).ToArray());
+            tags.OrderByDescending(tag => tag.Count).ThenBy(tag => tag.Name, StringComparer.Ordinal).ToArray(),
+            rows.Count(row => row.Loved),
+            rows.Count(row => row.OnLoan),
+            goal);
     }
 
-    public static IQueryable<Book> Filtered(IQueryable<Book> books, string? q, BookStatus? status, string? tag)
+    public static async Task<int> GetGoalAsync(ShelfDb db, CancellationToken cancellationToken = default)
+    {
+        var setting = await db.Settings.AsNoTracking().FirstOrDefaultAsync(item => item.Id == ShelfSettingId, cancellationToken);
+        return setting?.YearlyGoal ?? 0;
+    }
+
+    public static async Task SetGoalAsync(ShelfDb db, int goal, CancellationToken cancellationToken = default)
+    {
+        var setting = await db.Settings.FirstOrDefaultAsync(item => item.Id == ShelfSettingId, cancellationToken);
+        if (setting is null)
+        {
+            db.Settings.Add(new ShelfSetting { Id = ShelfSettingId, YearlyGoal = goal });
+        }
+        else
+        {
+            setting.YearlyGoal = goal;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public static async Task<ImportResult> ImportAsync(ShelfDb db, LibraryExport export, CancellationToken cancellationToken = default)
+    {
+        var existing = await db.Books.AsNoTracking()
+            .Select(book => new ExistingBook(book.Title, book.Author, book.Isbn))
+            .ToListAsync(cancellationToken);
+        var seen = existing.Select(Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var added = 0;
+        var skipped = 0;
+
+        foreach (var source in export.Books)
+        {
+            var write = BookWrite.From(source);
+            if (Validate(write) is not null || !seen.Add(Key(new ExistingBook(write.Title, write.Author, NormalizeIsbn(write.Isbn)))))
+            {
+                skipped++;
+                continue;
+            }
+
+            var book = new Book
+            {
+                Title = write.Title.Trim(),
+                Author = write.Author.Trim(),
+            };
+            Apply(book, write);
+            if (source.AddedAt != default)
+            {
+                book.AddedAt = source.AddedAt;
+            }
+
+            foreach (var quote in source.Quotes)
+            {
+                if (string.IsNullOrWhiteSpace(quote.Text))
+                {
+                    continue;
+                }
+
+                book.Quotes.Add(new Quote
+                {
+                    Text = quote.Text.Trim(),
+                    Page = quote.Page,
+                    NotedAt = quote.NotedAt == default ? DateTimeOffset.UtcNow : quote.NotedAt,
+                });
+            }
+
+            foreach (var session in source.Sessions)
+            {
+                book.Sessions.Add(new ReadingSession
+                {
+                    Date = session.Date,
+                    FromPage = session.FromPage,
+                    ToPage = session.ToPage,
+                    Note = string.IsNullOrWhiteSpace(session.Note) ? null : session.Note.Trim(),
+                });
+            }
+
+            db.Books.Add(book);
+            await SyncTagsAsync(db, book, write.Tags, cancellationToken);
+            added++;
+        }
+
+        if (added > 0)
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            await RemoveUnusedTagsAsync(db, cancellationToken);
+        }
+
+        if (export.YearlyGoal > 0 && await GetGoalAsync(db, cancellationToken) == 0)
+        {
+            await SetGoalAsync(db, export.YearlyGoal, cancellationToken);
+        }
+
+        return new ImportResult(added, skipped);
+    }
+
+    public static void AdvanceProgress(Book book, int? toPage)
+    {
+        if (toPage is not { } page)
+        {
+            return;
+        }
+
+        if (book.CurrentPage is null || page > book.CurrentPage)
+        {
+            book.CurrentPage = page;
+        }
+    }
+
+    public static IQueryable<Book> Filtered(
+        IQueryable<Book> books,
+        string? q,
+        BookStatus? status,
+        string? tag,
+        string? author = null,
+        bool? loved = null,
+        bool? loaned = null,
+        BookFormat? format = null)
     {
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -210,15 +393,47 @@ public static class BookRules
                 ? books.Where(book =>
                     book.Title.Contains(term)
                     || book.Author.Contains(term)
+                    || (book.Subtitle != null && book.Subtitle.Contains(term))
+                    || (book.Series != null && book.Series.Contains(term))
+                    || (book.Publisher != null && book.Publisher.Contains(term))
                     || (book.Isbn != null && book.Isbn.Contains(term))
                     || (book.Notes != null && book.Notes.Contains(term))
+                    || (book.Review != null && book.Review.Contains(term))
                     || book.Quotes.Any(quote => quote.Text.Contains(term)))
                 : books.Where(book =>
                     book.Title.Contains(term)
                     || book.Author.Contains(term)
+                    || (book.Subtitle != null && book.Subtitle.Contains(term))
+                    || (book.Series != null && book.Series.Contains(term))
                     || book.Isbn == isbn
                     || (book.Notes != null && book.Notes.Contains(term))
+                    || (book.Review != null && book.Review.Contains(term))
                     || book.Quotes.Any(quote => quote.Text.Contains(term)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(author))
+        {
+            var name = author.Trim().ToLower();
+            books = books.Where(book => book.Author.ToLower() == name);
+        }
+
+        if (loved is { } lovedOnly)
+        {
+            books = books.Where(book => book.Loved == lovedOnly);
+        }
+
+        if (loaned == true)
+        {
+            books = books.Where(book => book.LoanedTo != null);
+        }
+        else if (loaned == false)
+        {
+            books = books.Where(book => book.LoanedTo == null);
+        }
+
+        if (format is { } selectedFormat)
+        {
+            books = books.Where(book => book.Format == selectedFormat);
         }
 
         if (status is { } selected)
@@ -243,6 +458,10 @@ public static class BookRules
             "year" => books.OrderByDescending(book => book.Year),
             "rating" => books.OrderByDescending(book => book.Rating),
             "added" => books.OrderByDescending(book => book.AddedAt),
+            "series" => books
+                .OrderBy(book => book.Series == null)
+                .ThenBy(book => book.Series, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(book => book.SeriesNumber ?? int.MaxValue),
             _ => books.OrderBy(book => book.Title, StringComparer.OrdinalIgnoreCase),
         };
 
@@ -250,7 +469,7 @@ public static class BookRules
     }
 
     public static IQueryable<Book> WithDetails(this IQueryable<Book> books) =>
-        books.Include(book => book.Tags).Include(book => book.Quotes).AsSplitQuery();
+        books.Include(book => book.Tags).Include(book => book.Quotes).Include(book => book.Sessions).AsSplitQuery();
 
     public static string? NormalizeIsbn(string? isbn)
     {
@@ -308,8 +527,28 @@ public static class BookRules
         return collapsed.ToLowerInvariant();
     }
 
+    private const int ShelfSettingId = 1;
+
     private static string? BlankToNull(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static bool IsCoverUrl(string value)
+    {
+        var trimmed = value.Trim();
+        return trimmed.Length <= 500
+            && Uri.TryCreate(trimmed, UriKind.Absolute, out var uri)
+            && uri.Scheme is "http" or "https";
+    }
+
+    private static string Key(ExistingBook book)
+    {
+        if (!string.IsNullOrWhiteSpace(book.Isbn))
+        {
+            return "isbn:" + book.Isbn;
+        }
+
+        return "title:" + book.Title.Trim().ToLowerInvariant() + "\n" + book.Author.Trim().ToLowerInvariant();
+    }
 
     private static int PagesRead(StatRow row) => row.Status switch
     {
@@ -318,5 +557,14 @@ public static class BookRules
         _ => 0,
     };
 
-    private sealed record StatRow(BookStatus Status, int? Rating, int? Pages, int? CurrentPage, DateOnly? FinishedOn);
+    private sealed record StatRow(
+        BookStatus Status,
+        int? Rating,
+        int? Pages,
+        int? CurrentPage,
+        DateOnly? FinishedOn,
+        bool Loved,
+        bool OnLoan);
+
+    private sealed record ExistingBook(string Title, string Author, string? Isbn);
 }

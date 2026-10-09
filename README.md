@@ -1,6 +1,6 @@
 # Shelf
 
-A personal library on .NET 10. It tracks books you want, are reading, have finished, or have set aside, along with tags, notes, loans, reading progress, and quotes.
+A personal library on .NET 10. It keeps the catalog, the reading log, the quotes, loans, and a yearly goal, and it can back the whole shelf up as JSON.
 
 ## Run
 
@@ -14,12 +14,15 @@ To run the API on its own, use `dotnet run --project src/Shelf.Api` and open [ht
 
 | URL | What you get |
 | --- | --- |
-| `/` | The library. Search, filter by status or tag, sort, add a book, or change its status. |
-| `/library/{id}` | One book. Edit it, track the current page, keep quotes, or delete it. |
-| `/stats` | Counts, pages read, books finished this year, and tags. |
-| `/books` | The library as JSON. Filter with `q`, `status`, `tag`, and `sort` (`title`, `author`, `year`, `rating`, `added`). |
-| `/books/{id}` | One book as JSON, including its tags and quotes. |
+| `/` | The library. Search, filter, sort, add a book, or change its status. |
+| `/library/{id}` | One book. Edit the catalog, log a reading session, keep quotes, or delete it. |
+| `/quotes` | Every quote, with the book it came from. |
+| `/stats` | Counts, the yearly goal, tags, and a JSON backup. |
+| `/books` | The library as JSON. Filter with `q`, `status`, `tag`, `author`, `loved`, `loaned`, `format`, and `sort` (`title`, `author`, `series`, `year`, `rating`, `added`). |
+| `/books/{id}` | One book as JSON, including tags, quotes, and sessions. |
+| `/books/export` | The shelf as a JSON backup. `POST /books/import` restores one, skipping books already on the shelf. |
 | `/books/stats` | The same summary as JSON. |
+| `/settings` | The yearly goal, as JSON. |
 | `/openapi/v1.json` | The OpenAPI document, in Development. |
 
 Putting a book into Reading or Finished fills a blank start date, and Finished also fills a blank finish date. Tags are stored in lowercase, and an ISBN can be typed with or without hyphens. Deleting the last book that uses a tag removes that tag.

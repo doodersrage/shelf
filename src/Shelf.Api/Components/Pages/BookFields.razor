@@ -4,6 +4,10 @@
     <ValidationMessage For="() => Model.Title" />
 </label>
 <label>
+    Subtitle
+    <InputText @bind-Value="Model.Subtitle" maxlength="200" />
+</label>
+<label>
     Author
     <InputText @bind-Value="Model.Author" maxlength="200" required />
     <ValidationMessage For="() => Model.Author" />
@@ -42,11 +46,42 @@
         <InputText @bind-Value="Model.Isbn" maxlength="32" spellcheck="false" />
     </label>
     <label>
-        Tags
-        <InputText @bind-Value="Model.Tags" maxlength="400" />
-        <span class="hint">Comma separated. Stored in lowercase.</span>
+        Format
+        <InputSelect @bind-Value="Model.Format">
+            <option value="">—</option>
+            @foreach (var format in Enum.GetValues<BookFormat>())
+            {
+                <option value="@format">@format</option>
+            }
+        </InputSelect>
     </label>
 </div>
+<div class="pair">
+    <label>
+        Series
+        <InputText @bind-Value="Model.Series" maxlength="200" />
+    </label>
+    <label>
+        Number in series
+        <InputNumber @bind-Value="Model.SeriesNumber" />
+        <ValidationMessage For="() => Model.SeriesNumber" />
+    </label>
+</div>
+<div class="pair">
+    <label>
+        Publisher
+        <InputText @bind-Value="Model.Publisher" maxlength="200" />
+    </label>
+    <label>
+        Language
+        <InputText @bind-Value="Model.Language" maxlength="40" />
+    </label>
+</div>
+<label>
+    Tags
+    <InputText @bind-Value="Model.Tags" maxlength="400" />
+    <span class="hint">Comma separated. Stored in lowercase.</span>
+</label>
 @if (Detailed)
 {
     <div class="pair">
@@ -60,6 +95,24 @@
             <InputText @bind-Value="Model.LoanedTo" maxlength="120" />
         </label>
     </div>
+    <div class="pair">
+        <label>
+            Loaned on
+            <InputDate @bind-Value="Model.LoanedOn" />
+        </label>
+        <label>
+            Cover address
+            <InputText @bind-Value="Model.CoverUrl" maxlength="500" spellcheck="false" />
+        </label>
+    </div>
+    <label class="check">
+        <InputCheckbox @bind-Value="Model.Loved" />
+        Loved
+    </label>
+    <label>
+        Review
+        <InputTextArea @bind-Value="Model.Review" maxlength="4000" rows="4" />
+    </label>
     <div class="pair">
         <label>
             Started

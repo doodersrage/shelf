@@ -13,8 +13,26 @@
 else if (book is not null)
 {
     <p class="hint"><a href="/">Library</a></p>
+    @if (!string.IsNullOrWhiteSpace(book.CoverUrl))
+    {
+        <img class="cover" src="@book.CoverUrl" alt="" />
+    }
     <h1>@book.Title</h1>
-    <p class="by">@book.Author</p>
+    @if (!string.IsNullOrWhiteSpace(book.Subtitle))
+    {
+        <p class="hint">@book.Subtitle</p>
+    }
+    <p class="by"><a href="@($"/?author={Uri.EscapeDataString(book.Author)}")">@book.Author</a></p>
+    @if (!string.IsNullOrWhiteSpace(book.Series))
+    {
+        <p class="hint">
+            @book.Series
+            @if (book.SeriesNumber is int number)
+            {
+                <span> · @number</span>
+            }
+        </p>
+    }
 
     <EditForm Model="draft" OnValidSubmit="Save">
         <DataAnnotationsValidator />
@@ -35,6 +53,83 @@ else if (book is not null)
             <span class="hint">Saved.</span>
         }
     </EditForm>
+
+    <h2>Reading log</h2>
+    @if (book.Sessions.Count == 0)
+    {
+        <p class="hint">No sessions yet.</p>
+    }
+    else
+    {
+        <ul class="tag-counts">
+            @foreach (var session in book.Sessions.OrderByDescending(item => item.Date).ThenByDescending(item => item.Id))
+            {
+                <li>
+                    <span>
+                        @session.Date.ToString("MMM d, yyyy")
+                        @if (session.FromPage is int from && session.ToPage is int to)
+                        {
+                            <span> · @from–@to</span>
+                        }
+                        else if (session.ToPage is int end)
+                        {
+                            <span> · to @end</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(session.Note))
+                        {
+                            <span> · @session.Note</span>
+                        }
+                    </span>
+                    <button type="button" @onclick="() => RemoveSession(session.Id)">Remove</button>
+                </li>
+            }
+        </ul>
+    }
+
+    <EditForm Model="sessionDraft" OnValidSubmit="AddSession">
+        <DataAnnotationsValidator />
+        @if (sessionErrors is { Count: > 0 })
+        {
+            <ul class="validation-errors">
+                @foreach (var message in sessionErrors.SelectMany(pair => pair.Value))
+                {
+                    <li>@message</li>
+                }
+            </ul>
+        }
+        <div class="pair">
+            <label>
+                Date
+                <InputDate @bind-Value="sessionDraft.Date" />
+            </label>
+            <label>
+                Note
+                <InputText @bind-Value="sessionDraft.Note" maxlength="500" />
+            </label>
+        </div>
+        <div class="pair">
+            <label>
+                From page
+                <InputNumber @bind-Value="sessionDraft.FromPage" />
+            </label>
+            <label>
+                To page
+                <InputNumber @bind-Value="sessionDraft.ToPage" />
+            </label>
+        </div>
+        <button type="submit">Add session</button>
+    </EditForm>
+
+    @if (others.Count > 0)
+    {
+        <h2>Also by @book.Author</h2>
+        <ul class="tag-counts">
+            @foreach (var other in others)
+            {
+                <li><a href="/library/@other.Id">@other.Title</a></li>
+            }
+        </ul>
+    }
 
     <h2>Quotes</h2>
     @if (book.Quotes.Count == 0)
@@ -91,7 +186,7 @@ else if (book is not null)
     }
     else
     {
-        <p>This deletes the book and its quotes.</p>
+        <p>This deletes the book, its quotes, and its reading log.</p>
         <button type="button" class="danger" @onclick="Delete">Yes, delete it</button>
         <button type="button" @onclick="() => confirmingDelete = false">Cancel</button>
     }
@@ -104,8 +199,11 @@ else if (book is not null)
     private bool confirmingDelete;
     private BookFormModel draft = new();
     private readonly QuoteFormModel quoteDraft = new();
+    private readonly SessionFormModel sessionDraft = new();
+    private List<OtherBook> others = [];
     private Dictionary<string, string[]>? formErrors;
     private Dictionary<string, string[]>? quoteErrors;
+    private Dictionary<string, string[]>? sessionErrors;
 
     [Parameter]
     public int Id { get; set; }
@@ -122,6 +220,13 @@ else if (book is not null)
         await using var db = await DbFactory.CreateDbContextAsync();
         book = await db.Books.AsNoTracking().WithDetails().FirstOrDefaultAsync(existing => existing.Id == Id);
         missing = book is null;
+        others = book is null
+            ? []
+            : await db.Books.AsNoTracking()
+                .Where(item => item.Author == book.Author && item.Id != book.Id)
+                .OrderBy(item => item.Title)
+                .Select(item => new OtherBook(item.Id, item.Title))
+                .ToListAsync();
         if (book is not null && replaceDraft)
         {
             draft = BookFormModel.From(book);
@@ -215,4 +320,55 @@ else if (book is not null)
 
         Navigation.NavigateTo("/");
     }
+
+    private async Task AddSession()
+    {
+        var request = new CreateSessionRequest(sessionDraft.Date, sessionDraft.FromPage, sessionDraft.ToPage, sessionDraft.Note);
+        sessionErrors = BookRules.ValidateSession(request, draft.Pages);
+        if (sessionErrors is not null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var existing = await db.Books.FirstOrDefaultAsync(item => item.Id == Id);
+        if (existing is null)
+        {
+            missing = true;
+            book = null;
+            return;
+        }
+
+        db.Sessions.Add(new ReadingSession
+        {
+            BookId = Id,
+            Date = request.Date ?? DateOnly.FromDateTime(DateTime.UtcNow),
+            FromPage = request.FromPage,
+            ToPage = request.ToPage,
+            Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
+        });
+        BookRules.AdvanceProgress(existing, request.ToPage);
+        await db.SaveChangesAsync();
+        sessionDraft.Clear();
+        sessionErrors = null;
+        saved = false;
+        await LoadAsync();
+    }
+
+    private async Task RemoveSession(int sessionId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var session = await db.Sessions.FirstOrDefaultAsync(item => item.Id == sessionId && item.BookId == Id);
+        if (session is null)
+        {
+            return;
+        }
+
+        db.Sessions.Remove(session);
+        await db.SaveChangesAsync();
+        saved = false;
+        await LoadAsync(replaceDraft: false);
+    }
+
+    private sealed record OtherBook(int Id, string Title);
 }

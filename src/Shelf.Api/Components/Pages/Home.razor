@@ -26,16 +26,37 @@
         <select @bind="sort">
             <option value="title">Title</option>
             <option value="author">Author</option>
+            <option value="series">Series</option>
             <option value="year">Year</option>
             <option value="rating">Rating</option>
             <option value="added">Recently added</option>
         </select>
     </label>
 </div>
+<div class="checks">
+    <label class="check">
+        <input type="checkbox" @bind="lovedOnly" />
+        Loved
+    </label>
+    <label class="check">
+        <input type="checkbox" @bind="loanedOnly" />
+        On loan
+    </label>
+</div>
 
-@if (!string.IsNullOrWhiteSpace(tagFilter))
+@if (!string.IsNullOrWhiteSpace(tagFilter) || !string.IsNullOrWhiteSpace(authorFilter))
 {
-    <p class="hint">Tagged <strong>@tagFilter</strong> · <a href="/">Clear</a></p>
+    <p class="hint">
+        @if (!string.IsNullOrWhiteSpace(authorFilter))
+        {
+            <span>By <strong>@authorFilter</strong></span>
+        }
+        @if (!string.IsNullOrWhiteSpace(tagFilter))
+        {
+            <span>Tagged <strong>@tagFilter</strong></span>
+        }
+        · <a href="/">Clear</a>
+    </p>
 }
 
 @{
@@ -57,13 +78,27 @@ else
     {
         <article class="book">
             <h2><a href="/library/@book.Id">@book.Title</a></h2>
+            @if (!string.IsNullOrWhiteSpace(book.Subtitle))
+            {
+                <p class="hint">@book.Subtitle</p>
+            }
             <p class="by">
-                @book.Author
+                <a href="@($"/?author={Uri.EscapeDataString(book.Author)}")">@book.Author</a>
                 @if (book.Year is int year)
                 {
-                    <span>(@year)</span>
+                    <span> (@year)</span>
                 }
             </p>
+            @if (!string.IsNullOrWhiteSpace(book.Series))
+            {
+                <p class="hint">
+                    @book.Series
+                    @if (book.SeriesNumber is int number)
+                    {
+                        <span> · @number</span>
+                    }
+                </p>
+            }
             <p class="meta">
                 <label>
                     Status
@@ -74,10 +109,17 @@ else
                         }
                     </select>
                 </label>
+                @if (book.Format is BookFormat format)
+                {
+                    <span>@format</span>
+                }
                 @if (book.Rating is int rating)
                 {
                     <span>@rating/5</span>
                 }
+                <button type="button" class="@(book.Loved ? "loved" : null)" @onclick="() => ToggleLoved(book.Id)">
+                    @(book.Loved ? "Loved" : "Love")
+                </button>
                 @if (book.Status == BookStatus.Reading && book.Pages is int pages)
                 {
                     <span class="progress-wrap">
@@ -99,7 +141,13 @@ else
                 }
                 @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
                 {
-                    <span>Loaned to @book.LoanedTo</span>
+                    <span>
+                        Loaned to @book.LoanedTo
+                        @if (book.LoanedOn is DateOnly loanedOn)
+                        {
+                            <span>since @loanedOn.ToString("MMM d, yyyy")</span>
+                        }
+                    </span>
                 }
                 @if (book.Quotes.Count > 0)
                 {
@@ -144,14 +192,21 @@ else
     private string statusFilter = "";
     private string sort = "title";
     private string? tagFilter;
+    private string? authorFilter;
+    private bool lovedOnly;
+    private bool loanedOnly;
     private Dictionary<string, string[]>? formErrors;
 
     [SupplyParameterFromQuery(Name = "tag")]
     public string? Tag { get; set; }
 
+    [SupplyParameterFromQuery(Name = "author")]
+    public string? Author { get; set; }
+
     protected override async Task OnParametersSetAsync()
     {
         tagFilter = string.IsNullOrWhiteSpace(Tag) ? null : Tag.Trim();
+        authorFilter = string.IsNullOrWhiteSpace(Author) ? null : Author.Trim();
         await LoadAsync();
     }
 
@@ -167,6 +222,8 @@ else
                 result = result.Where(book =>
                     book.Title.Contains(term, StringComparison.OrdinalIgnoreCase)
                     || book.Author.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || (book.Subtitle?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (book.Series?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     || (isbn is not null && book.Isbn == isbn)
                     || (book.Isbn?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     || (book.Notes?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
@@ -183,9 +240,25 @@ else
                 result = result.Where(book => book.Tags.Any(tag => tag.Name == tagName));
             }
 
+            if (!string.IsNullOrWhiteSpace(authorFilter))
+            {
+                result = result.Where(book => book.Author.Equals(authorFilter, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (lovedOnly)
+            {
+                result = result.Where(book => book.Loved);
+            }
+
+            if (loanedOnly)
+            {
+                result = result.Where(book => !string.IsNullOrWhiteSpace(book.LoanedTo));
+            }
+
             return sort switch
             {
                 "author" => result.OrderBy(book => book.Author, StringComparer.OrdinalIgnoreCase).ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase),
+                "series" => result.OrderBy(book => book.Series == null).ThenBy(book => book.Series, StringComparer.OrdinalIgnoreCase).ThenBy(book => book.SeriesNumber ?? int.MaxValue).ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase),
                 "year" => result.OrderByDescending(book => book.Year ?? 0).ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase),
                 "rating" => result.OrderByDescending(book => book.Rating ?? 0).ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase),
                 "added" => result.OrderByDescending(book => book.AddedAt).ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase),
@@ -236,6 +309,20 @@ else
         }
 
         BookRules.ChangeStatus(book, status);
+        await db.SaveChangesAsync();
+        await LoadAsync();
+    }
+
+    private async Task ToggleLoved(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var book = await db.Books.FirstOrDefaultAsync(existing => existing.Id == id);
+        if (book is null)
+        {
+            return;
+        }
+
+        book.Loved = !book.Loved;
         await db.SaveChangesAsync();
         await LoadAsync();
     }

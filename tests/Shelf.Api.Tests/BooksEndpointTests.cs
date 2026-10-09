@@ -311,6 +311,154 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         Assert.Contains("Finished this year", statsHtml);
     }
 
+    [Fact]
+    public async Task Catalog_fields_round_trip_and_reject_a_broken_cover()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "The Tombs of Atuan",
+            "Ursula K. Le Guin",
+            BookStatus.Want,
+            null,
+            1971,
+            Subtitle: "The Earthsea Cycle",
+            Publisher: "Atheneum",
+            Language: "English",
+            Format: BookFormat.Hardcover,
+            Series: "Earthsea",
+            SeriesNumber: 2,
+            Loved: true));
+
+        Assert.Equal("The Earthsea Cycle", book.Subtitle);
+        Assert.Equal(BookFormat.Hardcover, book.Format);
+        Assert.Equal("Earthsea", book.Series);
+        Assert.Equal(2, book.SeriesNumber);
+        Assert.True(book.Loved);
+        Assert.Empty(book.Sessions);
+
+        var numbered = await _client.PostAsJsonAsync(
+            "/books",
+            new CreateBookRequest("Orphan Volume", "Someone", BookStatus.Want, null, SeriesNumber: 3),
+            JsonOptions);
+        Assert.Equal(HttpStatusCode.BadRequest, numbered.StatusCode);
+
+        var cover = await _client.PostAsJsonAsync(
+            "/books",
+            new CreateBookRequest("No Cover", "Someone", BookStatus.Want, null, CoverUrl: "ftp://covers.example/a.jpg"),
+            JsonOptions);
+        Assert.Equal(HttpStatusCode.BadRequest, cover.StatusCode);
+
+        var byAuthor = await _client.GetFromJsonAsync<BookResponse[]>(
+            "/books?author=ursula%20k.%20le%20guin&loved=true",
+            JsonOptions);
+        Assert.Contains(byAuthor!, item => item.Id == book.Id);
+    }
+
+    [Fact]
+    public async Task Session_advances_the_current_page()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "The Farthest Shore",
+            "Ursula K. Le Guin",
+            BookStatus.Reading,
+            null,
+            Pages: 200,
+            CurrentPage: 10));
+
+        var created = await _client.PostAsJsonAsync(
+            $"/books/{book.Id}/sessions",
+            new CreateSessionRequest(new DateOnly(2026, 10, 1), 10, 40, "Evening"),
+            JsonOptions);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+        var backwards = await _client.PostAsJsonAsync(
+            $"/books/{book.Id}/sessions",
+            new CreateSessionRequest(null, 50, 20, null),
+            JsonOptions);
+        Assert.Equal(HttpStatusCode.BadRequest, backwards.StatusCode);
+
+        var fetched = await _client.GetFromJsonAsync<BookResponse>($"/books/{book.Id}", JsonOptions);
+        Assert.Equal(40, fetched?.CurrentPage);
+        Assert.Equal("Evening", fetched?.Sessions.Single().Note);
+    }
+
+    [Fact]
+    public async Task Export_and_import_skip_books_already_on_the_shelf()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "Tehanu",
+            "Ursula K. Le Guin",
+            BookStatus.Finished,
+            5,
+            Isbn: "978-0-689-31595-4",
+            Series: "Earthsea",
+            SeriesNumber: 4));
+        await _client.PostAsJsonAsync(
+            $"/books/{book.Id}/quotes",
+            new CreateQuoteRequest("A hawk in a cage.", 12),
+            JsonOptions);
+
+        var export = await _client.GetFromJsonAsync<LibraryExport>("/books/export", JsonOptions);
+        Assert.NotNull(export);
+        Assert.Contains(export.Books, item => item.Id == book.Id && item.Quotes.Length == 1);
+
+        var imported = await _client.PostAsJsonAsync("/books/import", export, JsonOptions);
+        Assert.Equal(HttpStatusCode.OK, imported.StatusCode);
+        var result = await imported.Content.ReadFromJsonAsync<ImportResult>(JsonOptions);
+        Assert.NotNull(result);
+        Assert.Equal(0, result.Added);
+        Assert.True(result.Skipped >= 1);
+
+        await _client.PutAsJsonAsync("/settings", new UpdateSettingsRequest(0), JsonOptions);
+        export = export with
+        {
+            YearlyGoal = 12,
+            Books =
+            [
+                export.Books.Single(item => item.Id == book.Id) with
+                {
+                    Id = 0,
+                    Title = "Tales from Earthsea",
+                    Isbn = null,
+                    Quotes = [],
+                    Sessions = [],
+                },
+            ],
+        };
+        var second = await _client.PostAsJsonAsync("/books/import", export, JsonOptions);
+        var secondResult = await second.Content.ReadFromJsonAsync<ImportResult>(JsonOptions);
+        Assert.Equal(1, secondResult?.Added);
+
+        var goal = await _client.GetFromJsonAsync<ShelfSettingsResponse>("/settings", JsonOptions);
+        Assert.Equal(12, goal?.YearlyGoal);
+    }
+
+    [Fact]
+    public async Task Quotes_page_lists_a_saved_quote()
+    {
+        var book = await CreateAsync(new CreateBookRequest("The Other Wind", "Ursula K. Le Guin", BookStatus.Want, null));
+        await _client.PostAsJsonAsync(
+            $"/books/{book.Id}/quotes",
+            new CreateQuoteRequest("The wind was from the west.", 1),
+            JsonOptions);
+
+        var page = await _client.GetAsync("/quotes");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("The wind was from the west.", html);
+        Assert.Contains("The Other Wind", html);
+
+        var listed = await _client.GetFromJsonAsync<QuoteListItem[]>("/books/quotes", JsonOptions);
+        Assert.Contains(listed!, quote => quote.BookId == book.Id);
+    }
+
+    [Fact]
+    public async Task Goal_can_be_replaced()
+    {
+        var updated = await _client.PutAsJsonAsync("/settings", new UpdateSettingsRequest(24), JsonOptions);
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var stats = await _client.GetFromJsonAsync<ShelfStatsResponse>("/books/stats", JsonOptions);
+        Assert.Equal(24, stats?.YearlyGoal);
+    }
+
     private async Task<BookResponse> CreateAsync(CreateBookRequest request)
     {
         var response = await _client.PostAsJsonAsync("/books", request, JsonOptions);

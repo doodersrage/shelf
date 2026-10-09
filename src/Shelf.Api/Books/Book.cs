@@ -10,6 +10,14 @@ public enum BookStatus
     Abandoned,
 }
 
+public enum BookFormat
+{
+    Hardcover,
+    Paperback,
+    Ebook,
+    Audiobook,
+}
+
 public sealed class Book
 {
     public int Id { get; set; }
@@ -25,9 +33,37 @@ public sealed class Book
     public DateOnly? StartedOn { get; set; }
     public DateOnly? FinishedOn { get; set; }
     public string? LoanedTo { get; set; }
+    public DateOnly? LoanedOn { get; set; }
+    public string? Subtitle { get; set; }
+    public string? Publisher { get; set; }
+    public string? Language { get; set; }
+    public BookFormat? Format { get; set; }
+    public string? Series { get; set; }
+    public int? SeriesNumber { get; set; }
+    public string? CoverUrl { get; set; }
+    public string? Review { get; set; }
+    public bool Loved { get; set; }
     public DateTimeOffset AddedAt { get; set; }
     public List<Tag> Tags { get; set; } = [];
     public List<Quote> Quotes { get; set; } = [];
+    public List<ReadingSession> Sessions { get; set; } = [];
+}
+
+public sealed class ReadingSession
+{
+    public int Id { get; set; }
+    public int BookId { get; set; }
+    public Book? Book { get; set; }
+    public DateOnly Date { get; set; }
+    public int? FromPage { get; set; }
+    public int? ToPage { get; set; }
+    public string? Note { get; set; }
+}
+
+public sealed class ShelfSetting
+{
+    public int Id { get; set; }
+    public int YearlyGoal { get; set; }
 }
 
 public sealed class Tag
@@ -60,10 +96,21 @@ public sealed record CreateBookRequest(
     DateOnly? StartedOn = null,
     DateOnly? FinishedOn = null,
     [MaxLength(120)] string? LoanedTo = null,
-    string[]? Tags = null)
+    string[]? Tags = null,
+    [MaxLength(200)] string? Subtitle = null,
+    [MaxLength(200)] string? Publisher = null,
+    [MaxLength(40)] string? Language = null,
+    BookFormat? Format = null,
+    [MaxLength(200)] string? Series = null,
+    [Range(1, 999)] int? SeriesNumber = null,
+    [MaxLength(500)] string? CoverUrl = null,
+    [MaxLength(4000)] string? Review = null,
+    bool Loved = false,
+    DateOnly? LoanedOn = null)
 {
-    public BookWrite ToWrite() => new(
-        Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags ?? []);
+    public BookWrite ToWrite() => BookWrite.From(
+        Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
+        Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn);
 }
 
 public sealed record UpdateBookRequest(
@@ -79,10 +126,21 @@ public sealed record UpdateBookRequest(
     DateOnly? StartedOn = null,
     DateOnly? FinishedOn = null,
     [MaxLength(120)] string? LoanedTo = null,
-    string[]? Tags = null)
+    string[]? Tags = null,
+    [MaxLength(200)] string? Subtitle = null,
+    [MaxLength(200)] string? Publisher = null,
+    [MaxLength(40)] string? Language = null,
+    BookFormat? Format = null,
+    [MaxLength(200)] string? Series = null,
+    [Range(1, 999)] int? SeriesNumber = null,
+    [MaxLength(500)] string? CoverUrl = null,
+    [MaxLength(4000)] string? Review = null,
+    bool Loved = false,
+    DateOnly? LoanedOn = null)
 {
-    public BookWrite ToWrite() => new(
-        Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags ?? []);
+    public BookWrite ToWrite() => BookWrite.From(
+        Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
+        Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn);
 }
 
 public sealed record BookWrite(
@@ -98,7 +156,50 @@ public sealed record BookWrite(
     DateOnly? StartedOn,
     DateOnly? FinishedOn,
     string? LoanedTo,
-    IReadOnlyList<string> Tags);
+    IReadOnlyList<string> Tags,
+    string? Subtitle,
+    string? Publisher,
+    string? Language,
+    BookFormat? Format,
+    string? Series,
+    int? SeriesNumber,
+    string? CoverUrl,
+    string? Review,
+    bool Loved,
+    DateOnly? LoanedOn)
+{
+    public static BookWrite From(
+        string title,
+        string author,
+        BookStatus status,
+        int? rating,
+        int? year,
+        string? isbn,
+        int? pages,
+        int? currentPage,
+        string? notes,
+        DateOnly? startedOn,
+        DateOnly? finishedOn,
+        string? loanedTo,
+        IReadOnlyList<string>? tags,
+        string? subtitle,
+        string? publisher,
+        string? language,
+        BookFormat? format,
+        string? series,
+        int? seriesNumber,
+        string? coverUrl,
+        string? review,
+        bool loved,
+        DateOnly? loanedOn) => new(
+            title, author, status, rating, year, isbn, pages, currentPage, notes, startedOn, finishedOn, loanedTo, tags ?? [],
+            subtitle, publisher, language, format, series, seriesNumber, coverUrl, review, loved, loanedOn);
+
+    public static BookWrite From(BookResponse book) => From(
+        book.Title, book.Author, book.Status, book.Rating, book.Year, book.Isbn, book.Pages, book.CurrentPage, book.Notes,
+        book.StartedOn, book.FinishedOn, book.LoanedTo, book.Tags, book.Subtitle, book.Publisher, book.Language, book.Format,
+        book.Series, book.SeriesNumber, book.CoverUrl, book.Review, book.Loved, book.LoanedOn);
+}
 
 public sealed record BookResponse(
     int Id,
@@ -116,7 +217,18 @@ public sealed record BookResponse(
     string? LoanedTo,
     DateTimeOffset AddedAt,
     string[] Tags,
-    QuoteResponse[] Quotes)
+    QuoteResponse[] Quotes,
+    string? Subtitle,
+    string? Publisher,
+    string? Language,
+    BookFormat? Format,
+    string? Series,
+    int? SeriesNumber,
+    string? CoverUrl,
+    string? Review,
+    bool Loved,
+    DateOnly? LoanedOn,
+    ReadingSessionResponse[] Sessions)
 {
     public static BookResponse From(Book book) => new(
         book.Id,
@@ -134,7 +246,18 @@ public sealed record BookResponse(
         book.LoanedTo,
         book.AddedAt,
         book.Tags.Select(tag => tag.Name).OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray(),
-        book.Quotes.OrderBy(quote => quote.NotedAt).ThenBy(quote => quote.Id).Select(QuoteResponse.From).ToArray());
+        book.Quotes.OrderBy(quote => quote.NotedAt).ThenBy(quote => quote.Id).Select(QuoteResponse.From).ToArray(),
+        book.Subtitle,
+        book.Publisher,
+        book.Language,
+        book.Format,
+        book.Series,
+        book.SeriesNumber,
+        book.CoverUrl,
+        book.Review,
+        book.Loved,
+        book.LoanedOn,
+        book.Sessions.OrderBy(session => session.Date).ThenBy(session => session.Id).Select(ReadingSessionResponse.From).ToArray());
 }
 
 public sealed record QuoteResponse(int Id, int BookId, string Text, int? Page, DateTimeOffset NotedAt)
@@ -145,6 +268,27 @@ public sealed record QuoteResponse(int Id, int BookId, string Text, int? Page, D
 public sealed record CreateQuoteRequest(
     [Required, MaxLength(1000)] string Text,
     [Range(1, 20000)] int? Page);
+
+public sealed record QuoteListItem(
+    int Id,
+    int BookId,
+    string Title,
+    string Author,
+    string Text,
+    int? Page,
+    DateTimeOffset NotedAt);
+
+public sealed record ReadingSessionResponse(int Id, int BookId, DateOnly Date, int? FromPage, int? ToPage, string? Note)
+{
+    public static ReadingSessionResponse From(ReadingSession session) =>
+        new(session.Id, session.BookId, session.Date, session.FromPage, session.ToPage, session.Note);
+}
+
+public sealed record CreateSessionRequest(
+    DateOnly? Date,
+    [Range(0, 20000)] int? FromPage,
+    [Range(0, 20000)] int? ToPage,
+    [MaxLength(500)] string? Note);
 
 public sealed record TagCountResponse(string Name, int Count);
 
@@ -157,4 +301,15 @@ public sealed record ShelfStatsResponse(
     double? AverageRating,
     int PagesRead,
     int FinishedThisYear,
-    TagCountResponse[] Tags);
+    TagCountResponse[] Tags,
+    int Loved,
+    int OnLoan,
+    int YearlyGoal);
+
+public sealed record ShelfSettingsResponse(int YearlyGoal);
+
+public sealed record UpdateSettingsRequest([Range(0, 1000)] int YearlyGoal);
+
+public sealed record LibraryExport(int YearlyGoal, BookResponse[] Books);
+
+public sealed record ImportResult(int Added, int Skipped);

@@ -50,6 +50,8 @@ await using (var scope = app.Services.CreateAsyncScope())
             Status = BookStatus.Want,
             Year = 1969,
             Pages = 304,
+            Publisher = "Ace Books",
+            Language = "English",
             AddedAt = DateTimeOffset.UtcNow,
             Tags = { new Tag { Name = "science fiction" } },
         });

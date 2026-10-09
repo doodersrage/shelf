@@ -8,6 +8,9 @@ public sealed class BookFormModel
     [Required, MaxLength(200)]
     public string Title { get; set; } = "";
 
+    [MaxLength(200)]
+    public string Subtitle { get; set; } = "";
+
     [Required, MaxLength(200)]
     public string Author { get; set; } = "";
 
@@ -38,9 +41,33 @@ public sealed class BookFormModel
     [MaxLength(120)]
     public string LoanedTo { get; set; } = "";
 
+    public DateOnly? LoanedOn { get; set; }
+
+    [MaxLength(200)]
+    public string Publisher { get; set; } = "";
+
+    [MaxLength(40)]
+    public string Language { get; set; } = "";
+
+    public string Format { get; set; } = "";
+
+    [MaxLength(200)]
+    public string Series { get; set; } = "";
+
+    [Range(1, 999)]
+    public int? SeriesNumber { get; set; }
+
+    [MaxLength(500)]
+    public string CoverUrl { get; set; } = "";
+
+    [MaxLength(4000)]
+    public string Review { get; set; } = "";
+
+    public bool Loved { get; set; }
+
     public string Tags { get; set; } = "";
 
-    public BookWrite ToWrite() => new(
+    public BookWrite ToWrite() => BookWrite.From(
         Title,
         Author,
         Status,
@@ -55,11 +82,22 @@ public sealed class BookFormModel
         LoanedTo,
         string.IsNullOrWhiteSpace(Tags)
             ? []
-            : Tags.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+            : Tags.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries),
+        Subtitle,
+        Publisher,
+        Language,
+        Enum.TryParse<BookFormat>(Format, out var format) ? format : null,
+        Series,
+        SeriesNumber,
+        CoverUrl,
+        Review,
+        Loved,
+        LoanedOn);
 
     public void Clear()
     {
         Title = "";
+        Subtitle = "";
         Author = "";
         Status = BookStatus.Want;
         Rating = null;
@@ -71,12 +109,22 @@ public sealed class BookFormModel
         StartedOn = null;
         FinishedOn = null;
         LoanedTo = "";
+        LoanedOn = null;
+        Publisher = "";
+        Language = "";
+        Format = "";
+        Series = "";
+        SeriesNumber = null;
+        CoverUrl = "";
+        Review = "";
+        Loved = false;
         Tags = "";
     }
 
     public static BookFormModel From(Book book) => new()
     {
         Title = book.Title,
+        Subtitle = book.Subtitle ?? "",
         Author = book.Author,
         Status = book.Status,
         Rating = book.Rating,
@@ -88,8 +136,45 @@ public sealed class BookFormModel
         StartedOn = book.StartedOn,
         FinishedOn = book.FinishedOn,
         LoanedTo = book.LoanedTo ?? "",
+        LoanedOn = book.LoanedOn,
+        Publisher = book.Publisher ?? "",
+        Language = book.Language ?? "",
+        Format = book.Format?.ToString() ?? "",
+        Series = book.Series ?? "",
+        SeriesNumber = book.SeriesNumber,
+        CoverUrl = book.CoverUrl ?? "",
+        Review = book.Review ?? "",
+        Loved = book.Loved,
         Tags = string.Join(", ", book.Tags.Select(tag => tag.Name).OrderBy(name => name, StringComparer.OrdinalIgnoreCase)),
     };
+}
+
+public sealed class SessionFormModel
+{
+    public DateOnly? Date { get; set; }
+
+    [Range(0, 20000)]
+    public int? FromPage { get; set; }
+
+    [Range(0, 20000)]
+    public int? ToPage { get; set; }
+
+    [MaxLength(500)]
+    public string Note { get; set; } = "";
+
+    public void Clear()
+    {
+        Date = null;
+        FromPage = null;
+        ToPage = null;
+        Note = "";
+    }
+}
+
+public sealed class GoalFormModel
+{
+    [Range(0, 1000)]
+    public int YearlyGoal { get; set; }
 }
 
 public sealed class QuoteFormModel

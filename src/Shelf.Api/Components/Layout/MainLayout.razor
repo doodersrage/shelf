@@ -5,6 +5,7 @@
     <a class="mark" href="/">Shelf</a>
     <nav>
         <NavLink href="/" Match="NavLinkMatch.All">Library</NavLink>
+        <NavLink href="/quotes">Quotes</NavLink>
         <NavLink href="/stats">Stats</NavLink>
     </nav>
 </header>
@@ -15,6 +16,7 @@
 
 <footer>
     <a href="/books">JSON</a>
+    <span> · <a href="/books/export">Backup</a></span>
     @if (Environment.IsDevelopment())
     {
         <span> · <a href="/openapi/v1.json">OpenAPI</a></span>

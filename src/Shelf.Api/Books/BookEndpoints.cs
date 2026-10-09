@@ -12,6 +12,9 @@ public static class BookEndpoints
 
         books.MapGet("/", ListBooks);
         books.MapGet("/stats", GetStats).WithTags("Shelf");
+        books.MapGet("/export", ExportLibrary).WithTags("Shelf");
+        books.MapPost("/import", ImportLibrary).WithTags("Shelf");
+        books.MapGet("/quotes", ListAllQuotes);
         books.MapGet("/{id:int}", GetBook);
         books.MapPost("/", CreateBook);
         books.MapPut("/{id:int}", UpdateBook);
@@ -19,6 +22,11 @@ public static class BookEndpoints
         books.MapGet("/{id:int}/quotes", ListQuotes);
         books.MapPost("/{id:int}/quotes", CreateQuote);
         books.MapDelete("/{id:int}/quotes/{quoteId:int}", DeleteQuote);
+        books.MapPost("/{id:int}/sessions", CreateSession);
+        books.MapDelete("/{id:int}/sessions/{sessionId:int}", DeleteSession);
+
+        app.MapGet("/settings", GetSettings).WithTags("Shelf");
+        app.MapPut("/settings", UpdateSettings).WithTags("Shelf");
 
         return books;
     }
@@ -29,9 +37,13 @@ public static class BookEndpoints
         string? q = null,
         BookStatus? status = null,
         string? tag = null,
+        string? author = null,
+        bool? loved = null,
+        bool? loaned = null,
+        BookFormat? format = null,
         string? sort = null)
     {
-        var books = await BookRules.Filtered(db.Books, q, status, tag)
+        var books = await BookRules.Filtered(db.Books, q, status, tag, author, loved, loaned, format)
             .AsNoTracking()
             .WithDetails()
             .ToListAsync(cancellationToken);
@@ -100,6 +112,7 @@ public static class BookEndpoints
         await db.SaveChangesAsync(cancellationToken);
         await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
         await db.Entry(book).Collection(existing => existing.Quotes).LoadAsync(cancellationToken);
+        await db.Entry(book).Collection(existing => existing.Sessions).LoadAsync(cancellationToken);
         return TypedResults.Ok(BookResponse.From(book));
     }
 
@@ -189,5 +202,114 @@ public static class BookEndpoints
         db.Quotes.Remove(quote);
         await db.SaveChangesAsync(cancellationToken);
         return TypedResults.NoContent();
+    }
+
+    private static async Task<Ok<LibraryExport>> ExportLibrary(ShelfDb db, CancellationToken cancellationToken)
+    {
+        var books = await db.Books.AsNoTracking().WithDetails().ToListAsync(cancellationToken);
+        var export = new LibraryExport(
+            await BookRules.GetGoalAsync(db, cancellationToken),
+            BookRules.Sort(books, "title").Select(BookResponse.From).ToArray());
+        return TypedResults.Ok(export);
+    }
+
+    private static async Task<Results<Ok<ImportResult>, ValidationProblem>> ImportLibrary(
+        LibraryExport export,
+        ShelfDb db,
+        CancellationToken cancellationToken)
+    {
+        if (export.Books is null)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["Books"] = ["A backup needs a books list."],
+            });
+        }
+
+        if (export.YearlyGoal is < 0 or > 1000)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["YearlyGoal"] = ["The yearly goal must be between 0 and 1000."],
+            });
+        }
+
+        return TypedResults.Ok(await BookRules.ImportAsync(db, export, cancellationToken));
+    }
+
+    private static async Task<Ok<QuoteListItem[]>> ListAllQuotes(ShelfDb db, CancellationToken cancellationToken)
+    {
+        var quotes = await db.Quotes.AsNoTracking()
+            .Join(
+                db.Books.AsNoTracking(),
+                quote => quote.BookId,
+                book => book.Id,
+                (quote, book) => new QuoteListItem(quote.Id, book.Id, book.Title, book.Author, quote.Text, quote.Page, quote.NotedAt))
+            .ToListAsync(cancellationToken);
+
+        return TypedResults.Ok(quotes.OrderByDescending(quote => quote.NotedAt).ThenByDescending(quote => quote.Id).ToArray());
+    }
+
+    private static async Task<Results<Created<ReadingSessionResponse>, NotFound, ValidationProblem>> CreateSession(
+        int id,
+        CreateSessionRequest request,
+        ShelfDb db,
+        CancellationToken cancellationToken)
+    {
+        var book = await db.Books.FirstOrDefaultAsync(existing => existing.Id == id, cancellationToken);
+        if (book is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var problems = BookRules.ValidateSession(request, book.Pages);
+        if (problems is not null)
+        {
+            return TypedResults.ValidationProblem(problems);
+        }
+
+        var session = new ReadingSession
+        {
+            BookId = book.Id,
+            Date = request.Date ?? DateOnly.FromDateTime(DateTime.UtcNow),
+            FromPage = request.FromPage,
+            ToPage = request.ToPage,
+            Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
+        };
+        db.Sessions.Add(session);
+        BookRules.AdvanceProgress(book, session.ToPage);
+        await db.SaveChangesAsync(cancellationToken);
+        return TypedResults.Created($"/books/{book.Id}/sessions/{session.Id}", ReadingSessionResponse.From(session));
+    }
+
+    private static async Task<Results<NoContent, NotFound>> DeleteSession(
+        int id,
+        int sessionId,
+        ShelfDb db,
+        CancellationToken cancellationToken)
+    {
+        var session = await db.Sessions.FirstOrDefaultAsync(
+            existing => existing.Id == sessionId && existing.BookId == id,
+            cancellationToken);
+        if (session is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        db.Sessions.Remove(session);
+        await db.SaveChangesAsync(cancellationToken);
+        return TypedResults.NoContent();
+    }
+
+    private static async Task<Ok<ShelfSettingsResponse>> GetSettings(ShelfDb db, CancellationToken cancellationToken) =>
+        TypedResults.Ok(new ShelfSettingsResponse(await BookRules.GetGoalAsync(db, cancellationToken)));
+
+    private static async Task<Results<Ok<ShelfSettingsResponse>, ValidationProblem>> UpdateSettings(
+        UpdateSettingsRequest request,
+        ShelfDb db,
+        CancellationToken cancellationToken)
+    {
+        await BookRules.SetGoalAsync(db, request.YearlyGoal, cancellationToken);
+        return TypedResults.Ok(new ShelfSettingsResponse(request.YearlyGoal));
     }
 }

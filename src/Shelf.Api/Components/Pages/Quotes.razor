@@ -1,0 +1,50 @@
+@page "/quotes"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>Quotes · Shelf</PageTitle>
+
+<h1>Quotes</h1>
+
+@if (quotes.Count == 0)
+{
+    <p>No quotes yet.</p>
+}
+else
+{
+    <ul class="quotes">
+        @foreach (var quote in quotes)
+        {
+            <li>
+                <blockquote>
+                    <p>@quote.Text</p>
+                    @if (quote.Page is int page)
+                    {
+                        <span class="hint">p. @(page)</span>
+                    }
+                </blockquote>
+                <p class="hint">
+                    <a href="/library/@quote.BookId">@quote.Title</a>
+                    · <a href="@($"/?author={Uri.EscapeDataString(quote.Author)}")">@quote.Author</a>
+                </p>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<QuoteListItem> quotes = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        quotes = await db.Quotes.AsNoTracking()
+            .Join(
+                db.Books.AsNoTracking(),
+                quote => quote.BookId,
+                book => book.Id,
+                (quote, book) => new QuoteListItem(quote.Id, book.Id, book.Title, book.Author, quote.Text, quote.Page, quote.NotedAt))
+            .ToListAsync();
+        quotes = quotes.OrderByDescending(quote => quote.NotedAt).ThenByDescending(quote => quote.Id).ToList();
+    }
+}
