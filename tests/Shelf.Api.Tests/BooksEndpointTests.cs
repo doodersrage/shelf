@@ -1443,7 +1443,7 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         Assert.Single(found!, item => item.Title == "Searoad Stories");
     }
 
-    private static Stream ZipText(string name, string text)
+    internal static Stream ZipText(string name, string text)
     {
         var memory = new MemoryStream();
         using (var zip = new System.IO.Compression.ZipArchive(memory, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
@@ -1462,7 +1462,7 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         writer.Write(text);
     }
 
-    private static byte[] SampleEpub(string sentence)
+    internal static byte[] SampleEpub(string sentence)
     {
         using var memory = new MemoryStream();
         using (var zip = new System.IO.Compression.ZipArchive(memory, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))

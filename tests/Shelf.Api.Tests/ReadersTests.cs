@@ -230,6 +230,87 @@ public sealed class ReadersTests(ShelfApiFactory factory) : IClassFixture<ShelfA
     }
 
     [Fact]
+    public async Task A_borrower_reads_and_listens_with_their_own_place_and_notes()
+    {
+        var borrower = await factory.SignUpAsync("Sparrowhawk");
+        var borrowerId = await factory.ReaderIdAsync("Sparrowhawk");
+        var stranger = await factory.SignUpAsync("Cob");
+        var book = await CreateAsync(_tenar, new CreateBookRequest("The Beginning Place", "Ursula K. Le Guin", BookStatus.Reading, null));
+        using (var content = new MultipartFormDataContent())
+        {
+            content.Add(new ByteArrayContent(BooksEndpointTests.SampleEpub("A gate in the twilight.")), "file", "place.epub");
+            await _tenar.PostAsync($"/books/{book.Id}/ebook", content);
+        }
+
+        using (var content = new MultipartFormDataContent())
+        {
+            content.Add(new StreamContent(BooksEndpointTests.ZipText("one.mp3", "first track")), "file", "place.zip");
+            await _tenar.PostAsync($"/books/{book.Id}/audio", content);
+        }
+
+        await _tenar.PostAsJsonAsync($"/books/{book.Id}/highlights", new CreateHighlightRequest("A gate", 0, "Noted by the owner."), JsonOptions);
+
+        // Before the loan, the book's files are the owner's alone.
+        Assert.Equal(HttpStatusCode.NotFound, (await borrower.GetAsync($"/books/{book.Id}/ebook/file")).StatusCode);
+        await _tenar.PostAsJsonAsync($"/books/{book.Id}/lend", new LendRequest(borrowerId), JsonOptions);
+
+        var listed = Assert.Single(await borrower.GetFromJsonAsync<BorrowedBook[]>("/books/borrowed", JsonOptions) ?? []);
+        Assert.True(listed.HasEbook);
+        Assert.True(listed.HasAudio);
+        Assert.Equal(HttpStatusCode.OK, (await borrower.GetAsync($"/books/{book.Id}/ebook/file")).StatusCode);
+        Assert.Equal("first track", await borrower.GetStringAsync($"/books/{book.Id}/audio/tracks/0"));
+        var chapter = await borrower.GetStringAsync($"/books/{book.Id}/ebook/chapters/0");
+        Assert.Contains("A gate in the twilight.", chapter);
+        Assert.DoesNotContain("Noted by the owner.", chapter);
+        var reading = await borrower.GetStringAsync($"/library/{book.Id}/read");
+        Assert.Contains("lent to you", reading);
+        Assert.Contains($"/books/{book.Id}/ebook/chapters/0", reading);
+        Assert.Contains($"/books/{book.Id}/audio/tracks/0", await borrower.GetStringAsync($"/library/{book.Id}/listen"));
+        Assert.Contains($"/library/{book.Id}/read", await borrower.GetStringAsync("/loans"));
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync($"/books/{book.Id}/ebook/file")).StatusCode);
+
+        // Each side keeps its own notes.
+        Assert.Empty(await borrower.GetFromJsonAsync<HighlightResponse[]>($"/books/{book.Id}/highlights", JsonOptions) ?? []);
+        var made = await borrower.PostAsJsonAsync($"/books/{book.Id}/highlights", new CreateHighlightRequest("twilight", 0, "Noted by the borrower."), JsonOptions);
+        Assert.Equal(HttpStatusCode.Created, made.StatusCode);
+        Assert.Contains("Noted by the borrower.", await borrower.GetStringAsync($"/books/{book.Id}/ebook/chapters/0"));
+        var owners = await _tenar.GetFromJsonAsync<HighlightResponse[]>($"/books/{book.Id}/highlights", JsonOptions);
+        Assert.Equal("Noted by the owner.", Assert.Single(owners!).Note);
+        Assert.DoesNotContain("Noted by the borrower.", await _tenar.GetStringAsync($"/library/{book.Id}"));
+        Assert.Equal(HttpStatusCode.NotFound, (await borrower.DeleteAsync($"/books/{book.Id}/highlights/{owners![0].Id}")).StatusCode);
+
+        // The borrower's place does not move the owner's.
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(borrowerId);
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            var open = await Lending.OpenAsync(db, book.Id);
+            Assert.True(open?.Borrowed);
+            await Lending.KeepPlaceAsync(db, open!, place =>
+            {
+                place.AudioTrack = 0;
+                place.AudioSeconds = 42;
+            });
+            Assert.Equal(42, (await Lending.PlaceAsync(db, open!)).AudioSeconds);
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(factory.ReaderId);
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            var open = await Lending.OpenAsync(db, book.Id);
+            Assert.False(open?.Borrowed);
+            Assert.Equal(0, (await Lending.PlaceAsync(db, open!)).AudioSeconds);
+        }
+
+        // Once it comes back, the borrower cannot open it.
+        await borrower.PostAsync($"/books/borrowed/{book.Id}/return", null);
+        Assert.Equal(HttpStatusCode.NotFound, (await borrower.GetAsync($"/books/{book.Id}/ebook/file")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await borrower.GetAsync($"/books/{book.Id}/audio/tracks/0")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await borrower.GetAsync($"/books/{book.Id}/highlights")).StatusCode);
+    }
+
+    [Fact]
     public async Task A_device_key_opens_only_the_sync_of_its_own_shelf()
     {
         var other = await factory.SignUpAsync("Kalessin");

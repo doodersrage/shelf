@@ -16,11 +16,18 @@
 else if (book is not null)
 {
     <div class="reader">
-        <p class="hint"><a href="/library/@book.Id">@book.Title</a></p>
+        @if (borrowed)
+        {
+            <p class="hint"><a href="/loans">Loans</a> · lent to you</p>
+        }
+        else
+        {
+            <p class="hint"><a href="/library/@book.Id">@book.Title</a></p>
+        }
         <h1>@book.Title</h1>
         @if (string.IsNullOrWhiteSpace(book.EbookStoredName))
         {
-            <p>This book has no e-book file. <a href="/library/@book.Id">Add one</a></p>
+            <p>This book has no e-book file.@if (!borrowed) { <text> <a href="/library/@book.Id">Add one</a></text> }</p>
         }
         else if (EbookStore.IsPdf(book.EbookStoredName))
         {
@@ -95,6 +102,8 @@ else if (book is not null)
 
 @code {
     private Book? book;
+    private OpenBook? open;
+    private bool borrowed;
     private bool missing;
     private int chapter;
     private int markRevision;
@@ -119,7 +128,9 @@ else if (book is not null)
     protected override async Task OnParametersSetAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        book = await db.Books.AsNoTracking().FirstOrDefaultAsync(item => item.Id == Id);
+        open = await Lending.OpenAsync(db, Id);
+        book = open?.Book;
+        borrowed = open?.Borrowed == true;
         missing = book is null;
         chapters = null;
         chapter = 0;
@@ -130,13 +141,12 @@ else if (book is not null)
 
         var path = Ebooks.OpenPath(book.EbookStoredName);
         chapters = path is null ? null : EpubFile.Chapters(path);
-        marks = await db.Highlights.AsNoTracking()
-            .Where(item => item.BookId == Id)
+        marks = await Lending.Marks(db, open!).AsNoTracking()
             .OrderBy(item => item.Id)
             .ToListAsync();
         if (chapters is { Count: > 0 })
         {
-            var saved = ChapterQuery ?? book.EbookChapter ?? 0;
+            var saved = ChapterQuery ?? (await Lending.PlaceAsync(db, open!)).EbookChapter ?? 0;
             chapter = saved >= 0 && saved < chapters.Count ? saved : 0;
         }
     }
@@ -203,15 +213,13 @@ else if (book is not null)
     private async Task RememberChapter()
     {
         ClearSelection();
-        await using var db = await DbFactory.CreateDbContextAsync();
-        var existing = await db.Books.FirstOrDefaultAsync(item => item.Id == Id);
-        if (existing is null)
+        if (open is null)
         {
             return;
         }
 
-        existing.EbookChapter = chapter;
-        await db.SaveChangesAsync();
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Lending.KeepPlaceAsync(db, open, place => place.EbookChapter = chapter);
     }
 
     private void Edit(Highlight mark)
@@ -237,7 +245,7 @@ else if (book is not null)
     private async Task SaveHighlight()
     {
         markError = null;
-        if (book is null)
+        if (open is null)
         {
             return;
         }
@@ -245,7 +253,7 @@ else if (book is not null)
         await using var db = await DbFactory.CreateDbContextAsync();
         if (editingId is int id)
         {
-            var existing = await db.Highlights.FirstOrDefaultAsync(item => item.Id == id && item.BookId == Id);
+            var existing = await Lending.Marks(db, open).FirstOrDefaultAsync(item => item.Id == id);
             if (existing is null)
             {
                 return;
@@ -270,16 +278,14 @@ else if (book is not null)
                 return;
             }
 
-            db.Highlights.Add(new Highlight
-            {
-                BookId = Id,
-                ChapterIndex = chapter,
-                Text = selectedText.Trim(),
-                Note = string.IsNullOrWhiteSpace(selectedNote) ? null : selectedNote.Trim(),
-                Prefix = selectedPrefix.Length <= 80 ? NullIfEmpty(selectedPrefix) : selectedPrefix[^80..],
-                Suffix = selectedSuffix.Length <= 80 ? NullIfEmpty(selectedSuffix) : selectedSuffix[..80],
-                NotedAt = DateTimeOffset.UtcNow,
-            });
+            db.Highlights.Add(Lending.NewMark(
+                db,
+                open,
+                chapter,
+                selectedText.Trim(),
+                string.IsNullOrWhiteSpace(selectedNote) ? null : selectedNote.Trim(),
+                selectedPrefix.Length <= 80 ? NullIfEmpty(selectedPrefix) : selectedPrefix[^80..],
+                selectedSuffix.Length <= 80 ? NullIfEmpty(selectedSuffix) : selectedSuffix[..80]));
             await db.SaveChangesAsync();
         }
 
@@ -290,8 +296,13 @@ else if (book is not null)
 
     private async Task RemoveMark(int id)
     {
+        if (open is null)
+        {
+            return;
+        }
+
         await using var db = await DbFactory.CreateDbContextAsync();
-        var existing = await db.Highlights.FirstOrDefaultAsync(item => item.Id == id && item.BookId == Id);
+        var existing = await Lending.Marks(db, open).FirstOrDefaultAsync(item => item.Id == id);
         if (existing is null)
         {
             return;
@@ -310,9 +321,13 @@ else if (book is not null)
 
     private async Task ReloadMarks()
     {
+        if (open is null)
+        {
+            return;
+        }
+
         await using var db = await DbFactory.CreateDbContextAsync();
-        marks = await db.Highlights.AsNoTracking()
-            .Where(item => item.BookId == Id)
+        marks = await Lending.Marks(db, open).AsNoTracking()
             .OrderBy(item => item.Id)
             .ToListAsync();
     }

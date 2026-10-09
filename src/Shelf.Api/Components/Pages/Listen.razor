@@ -16,11 +16,18 @@
 else if (book is not null)
 {
     <div class="player">
-        <p class="hint"><a href="/library/@book.Id">@book.Title</a></p>
+        @if (borrowed)
+        {
+            <p class="hint"><a href="/loans">Loans</a> · lent to you</p>
+        }
+        else
+        {
+            <p class="hint"><a href="/library/@book.Id">@book.Title</a></p>
+        }
         <h1>@book.Title</h1>
         @if (tracks.Count == 0)
         {
-            <p>This book has no audiobook. <a href="/library/@book.Id">Add one</a></p>
+            <p>This book has no audiobook.@if (!borrowed) { <text> <a href="/library/@book.Id">Add one</a></text> }</p>
         }
         else
         {
@@ -51,6 +58,8 @@ else if (book is not null)
 
 @code {
     private Book? book;
+    private OpenBook? open;
+    private bool borrowed;
     private bool missing;
     private int track;
     private int resumeSeconds;
@@ -66,7 +75,9 @@ else if (book is not null)
     protected override async Task OnParametersSetAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        book = await db.Books.AsNoTracking().FirstOrDefaultAsync(item => item.Id == Id);
+        open = await Lending.OpenAsync(db, Id);
+        book = open?.Book;
+        borrowed = open?.Borrowed == true;
         missing = book is null;
         tracks = [];
         track = 0;
@@ -83,9 +94,10 @@ else if (book is not null)
             return;
         }
 
-        var saved = book.AudioTrack ?? 0;
+        var place = await Lending.PlaceAsync(db, open!);
+        var saved = place.AudioTrack ?? 0;
         track = saved >= 0 && saved < tracks.Count ? saved : 0;
-        resumeSeconds = Math.Max(0, book.AudioSeconds ?? 0);
+        resumeSeconds = Math.Max(0, place.AudioSeconds ?? 0);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -159,16 +171,17 @@ else if (book is not null)
 
     private async Task Remember(int index, int seconds)
     {
-        await using var db = await DbFactory.CreateDbContextAsync();
-        var existing = await db.Books.FirstOrDefaultAsync(item => item.Id == Id);
-        if (existing is null)
+        if (open is null)
         {
             return;
         }
 
-        existing.AudioTrack = index;
-        existing.AudioSeconds = seconds;
-        await db.SaveChangesAsync();
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Lending.KeepPlaceAsync(db, open, place =>
+        {
+            place.AudioTrack = index;
+            place.AudioSeconds = seconds;
+        });
     }
 
     public async ValueTask DisposeAsync()

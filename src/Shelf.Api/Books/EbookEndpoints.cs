@@ -69,7 +69,7 @@ public static class EbookEndpoints
         EbookStore store,
         CancellationToken cancellationToken)
     {
-        var book = await db.Books.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        var book = (await Lending.OpenAsync(db, id, cancellationToken))?.Book;
         var path = book is null ? null : store.OpenPath(book.EbookStoredName);
         if (book is null || path is null)
         {
@@ -88,9 +88,9 @@ public static class EbookEndpoints
         EbookStore store,
         CancellationToken cancellationToken)
     {
-        var book = await db.Books.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
-        var path = book is null ? null : store.OpenPath(book.EbookStoredName);
-        if (path is null || !EbookStore.IsEpub(book?.EbookStoredName))
+        var open = await Lending.OpenAsync(db, id, cancellationToken);
+        var path = open is null ? null : store.OpenPath(open.Book.EbookStoredName);
+        if (open is null || path is null || !EbookStore.IsEpub(open.Book.EbookStoredName))
         {
             return TypedResults.NotFound();
         }
@@ -101,8 +101,8 @@ public static class EbookEndpoints
             return TypedResults.NotFound();
         }
 
-        var marks = await db.Highlights.AsNoTracking()
-            .Where(item => item.BookId == id && item.ChapterIndex == index)
+        var marks = await Lending.Marks(db, open).AsNoTracking()
+            .Where(item => item.ChapterIndex == index)
             .OrderBy(item => item.Id)
             .ToListAsync(cancellationToken);
         html = ReaderMarks.Inject(html, marks);
@@ -118,7 +118,7 @@ public static class EbookEndpoints
         EbookStore store,
         CancellationToken cancellationToken)
     {
-        var book = await db.Books.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        var book = (await Lending.OpenAsync(db, id, cancellationToken))?.Book;
         var epub = book is null ? null : store.OpenPath(book.EbookStoredName);
         if (epub is null || !EbookStore.IsEpub(book?.EbookStoredName))
         {
@@ -140,13 +140,12 @@ public static class EbookEndpoints
         ShelfDb db,
         CancellationToken cancellationToken)
     {
-        if (!await db.Books.AnyAsync(book => book.Id == id, cancellationToken))
+        if (await Lending.OpenAsync(db, id, cancellationToken) is not { } open)
         {
             return TypedResults.NotFound();
         }
 
-        var marks = await db.Highlights.AsNoTracking()
-            .Where(item => item.BookId == id)
+        var marks = await Lending.Marks(db, open).AsNoTracking()
             .OrderBy(item => item.ChapterIndex)
             .ThenBy(item => item.Id)
             .ToListAsync(cancellationToken);
@@ -159,7 +158,7 @@ public static class EbookEndpoints
         ShelfDb db,
         CancellationToken cancellationToken)
     {
-        if (!await db.Books.AnyAsync(book => book.Id == id, cancellationToken))
+        if (await Lending.OpenAsync(db, id, cancellationToken) is not { } open)
         {
             return TypedResults.NotFound();
         }
@@ -170,16 +169,14 @@ public static class EbookEndpoints
             return TypedResults.ValidationProblem(problems);
         }
 
-        var highlight = new Highlight
-        {
-            BookId = id,
-            ChapterIndex = request.ChapterIndex,
-            Text = request.Text.Trim(),
-            Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
-            Prefix = Clip(request.Prefix, keepEnd: true),
-            Suffix = Clip(request.Suffix, keepEnd: false),
-            NotedAt = DateTimeOffset.UtcNow,
-        };
+        var highlight = Lending.NewMark(
+            db,
+            open,
+            request.ChapterIndex,
+            request.Text.Trim(),
+            string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
+            Clip(request.Prefix, keepEnd: true),
+            Clip(request.Suffix, keepEnd: false));
         db.Highlights.Add(highlight);
         await db.SaveChangesAsync(cancellationToken);
         return TypedResults.Created($"/books/{id}/highlights/{highlight.Id}", HighlightResponse.From(highlight));
@@ -192,9 +189,10 @@ public static class EbookEndpoints
         ShelfDb db,
         CancellationToken cancellationToken)
     {
-        var highlight = await db.Highlights.FirstOrDefaultAsync(
-            item => item.Id == highlightId && item.BookId == id,
-            cancellationToken);
+        var open = await Lending.OpenAsync(db, id, cancellationToken);
+        var highlight = open is null
+            ? null
+            : await Lending.Marks(db, open).FirstOrDefaultAsync(item => item.Id == highlightId, cancellationToken);
         if (highlight is null)
         {
             return TypedResults.NotFound();
@@ -219,9 +217,10 @@ public static class EbookEndpoints
         ShelfDb db,
         CancellationToken cancellationToken)
     {
-        var highlight = await db.Highlights.FirstOrDefaultAsync(
-            item => item.Id == highlightId && item.BookId == id,
-            cancellationToken);
+        var open = await Lending.OpenAsync(db, id, cancellationToken);
+        var highlight = open is null
+            ? null
+            : await Lending.Marks(db, open).FirstOrDefaultAsync(item => item.Id == highlightId, cancellationToken);
         if (highlight is null)
         {
             return TypedResults.NotFound();

@@ -15,6 +15,8 @@ public enum LendResult
 }
 
 // Lending to another reader of this shelf: the book stays on the owner's shelf, and shows on the borrower's loans.
+public sealed record OpenBook(Book Book, bool Borrowed);
+
 public static class Lending
 {
     public static async Task<LendResult> LendAsync(
@@ -71,7 +73,9 @@ public static class Lending
                 book.CoverUrl,
                 book.Owner == null ? "" : book.Owner.Name,
                 book.LoanedOn,
-                book.DueOn))
+                book.DueOn,
+                book.EbookStoredName != null,
+                book.AudioStoredName != null))
             .ToListAsync(cancellationToken);
         return books
             .OrderBy(book => book.DueOn ?? DateOnly.MaxValue)
@@ -92,6 +96,108 @@ public static class Lending
         BookRules.ReturnLoan(book);
         await db.SaveChangesAsync(cancellationToken);
         return true;
+    }
+
+    // A book the signed-in reader may open: one of their own, or one another reader has lent them.
+    public static async Task<OpenBook?> OpenAsync(ShelfDb db, int bookId, CancellationToken cancellationToken = default)
+    {
+        var own = await db.Books.AsNoTracking().FirstOrDefaultAsync(book => book.Id == bookId, cancellationToken);
+        if (own is not null)
+        {
+            return new OpenBook(own, Borrowed: false);
+        }
+
+        var readerId = db.ReaderId;
+        var lent = await db.Books.IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(book => readerId != 0 && book.Id == bookId && book.BorrowerId == readerId, cancellationToken);
+        return lent is null ? null : new OpenBook(lent, Borrowed: true);
+    }
+
+    // The owner's marks, or the borrower's own marks on a book lent to them. Neither sees the other's.
+    public static IQueryable<Highlight> Marks(ShelfDb db, OpenBook open)
+    {
+        var bookId = open.Book.Id;
+        if (!open.Borrowed)
+        {
+            return db.Highlights.Where(mark => mark.BookId == bookId);
+        }
+
+        var readerId = db.ReaderId;
+        return db.Highlights.IgnoreQueryFilters()
+            .Where(mark => mark.BookId == bookId && mark.ReaderId == readerId && mark.Book!.BorrowerId == readerId);
+    }
+
+    public static Highlight NewMark(ShelfDb db, OpenBook open, int chapterIndex, string text, string? note, string? prefix, string? suffix) => new()
+    {
+        BookId = open.Book.Id,
+        ReaderId = open.Borrowed ? db.ReaderId : null,
+        ChapterIndex = chapterIndex,
+        Text = text,
+        Note = note,
+        Prefix = prefix,
+        Suffix = suffix,
+        NotedAt = DateTimeOffset.UtcNow,
+    };
+
+    // Where this reader stopped: the book's own place for the owner, a separate place for a borrower.
+    public static async Task<LoanPlace> PlaceAsync(ShelfDb db, OpenBook open, CancellationToken cancellationToken = default)
+    {
+        if (!open.Borrowed)
+        {
+            return new LoanPlace
+            {
+                BookId = open.Book.Id,
+                EbookChapter = open.Book.EbookChapter,
+                AudioTrack = open.Book.AudioTrack,
+                AudioSeconds = open.Book.AudioSeconds,
+            };
+        }
+
+        var readerId = db.ReaderId;
+        return await db.LoanPlaces.AsNoTracking()
+                .FirstOrDefaultAsync(place => place.BookId == open.Book.Id && place.ReaderId == readerId, cancellationToken)
+            ?? new LoanPlace { BookId = open.Book.Id, ReaderId = readerId };
+    }
+
+    public static async Task KeepPlaceAsync(
+        ShelfDb db,
+        OpenBook open,
+        Action<LoanPlace> move,
+        CancellationToken cancellationToken = default)
+    {
+        if (!open.Borrowed)
+        {
+            var book = await db.Books.FirstOrDefaultAsync(item => item.Id == open.Book.Id, cancellationToken);
+            if (book is null)
+            {
+                return;
+            }
+
+            var place = new LoanPlace { EbookChapter = book.EbookChapter, AudioTrack = book.AudioTrack, AudioSeconds = book.AudioSeconds };
+            move(place);
+            book.EbookChapter = place.EbookChapter;
+            book.AudioTrack = place.AudioTrack;
+            book.AudioSeconds = place.AudioSeconds;
+            await db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        var readerId = db.ReaderId;
+        if (!await db.Books.IgnoreQueryFilters().AnyAsync(book => book.Id == open.Book.Id && book.BorrowerId == readerId, cancellationToken))
+        {
+            return;
+        }
+
+        var kept = await db.LoanPlaces.FirstOrDefaultAsync(item => item.BookId == open.Book.Id && item.ReaderId == readerId, cancellationToken);
+        if (kept is null)
+        {
+            kept = new LoanPlace { BookId = open.Book.Id, ReaderId = readerId };
+            db.LoanPlaces.Add(kept);
+        }
+
+        move(kept);
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     public static string Describe(LendResult result) => result switch

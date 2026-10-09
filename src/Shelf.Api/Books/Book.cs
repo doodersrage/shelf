@@ -128,6 +128,9 @@ public sealed class Highlight
     public int Id { get; set; }
     public int BookId { get; set; }
     public Book? Book { get; set; }
+
+    // Null for the owner's marks; a borrower's marks carry their reader id and stay theirs.
+    public int? ReaderId { get; set; }
     public int ChapterIndex { get; set; }
     public required string Text { get; set; }
     public string? Note { get; set; }
@@ -413,6 +416,17 @@ public sealed record HighlightResponse(
         highlight.Prefix,
         highlight.Suffix,
         highlight.NotedAt);
+}
+
+// Where a borrower stopped in a lent book, kept apart from the owner's place.
+public sealed class LoanPlace
+{
+    public int Id { get; set; }
+    public int BookId { get; set; }
+    public int ReaderId { get; set; }
+    public int? EbookChapter { get; set; }
+    public int? AudioTrack { get; set; }
+    public int? AudioSeconds { get; set; }
 }
 
 public sealed record AuthorCount(string Name, int Count);

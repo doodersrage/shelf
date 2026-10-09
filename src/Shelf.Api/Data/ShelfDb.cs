@@ -24,6 +24,7 @@ public sealed class ShelfDb : DbContext
     public DbSet<Quote> Quotes => Set<Quote>();
     public DbSet<Highlight> Highlights => Set<Highlight>();
     public DbSet<ReadingSession> Sessions => Set<ReadingSession>();
+    public DbSet<LoanPlace> LoanPlaces => Set<LoanPlace>();
     public DbSet<ShelfSetting> Settings => Set<ShelfSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -124,7 +125,25 @@ public sealed class ShelfDb : DbContext
             highlight.Property(item => item.Note).HasMaxLength(2000);
             highlight.Property(item => item.Prefix).HasMaxLength(80);
             highlight.Property(item => item.Suffix).HasMaxLength(80);
-            highlight.HasQueryFilter(item => item.Book!.OwnerId == ReaderId);
+            highlight.HasOne<Reader>()
+                .WithMany()
+                .HasForeignKey(item => item.ReaderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            highlight.HasQueryFilter(item => item.Book!.OwnerId == ReaderId && item.ReaderId == null);
+        });
+
+        // A borrower's place belongs to the book and the borrower; the owner's query filters never see it.
+        modelBuilder.Entity<LoanPlace>(place =>
+        {
+            place.HasOne<Book>()
+                .WithMany()
+                .HasForeignKey(item => item.BookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            place.HasOne<Reader>()
+                .WithMany()
+                .HasForeignKey(item => item.ReaderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            place.HasIndex(item => new { item.BookId, item.ReaderId }).IsUnique();
         });
     }
 

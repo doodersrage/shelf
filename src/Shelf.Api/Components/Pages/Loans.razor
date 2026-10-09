@@ -51,6 +51,14 @@ else
                         <span class="@(due < Today ? "late" : null)"> · due @due.ToString("MMM d, yyyy")@(due < Today ? ", overdue" : "")</span>
                     }
                 </p>
+                @if (book.HasEbook)
+                {
+                    <a href="/library/@book.Id/read">Read</a>
+                }
+                @if (book.HasAudio)
+                {
+                    <a href="/library/@book.Id/listen">Listen</a>
+                }
                 <button type="button" @onclick="() => GiveBack(book.Id)">Give it back</button>
             </li>
         }

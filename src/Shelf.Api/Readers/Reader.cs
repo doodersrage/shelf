@@ -21,4 +21,6 @@ public sealed record BorrowedBook(
     string? CoverUrl,
     string Owner,
     DateOnly? LoanedOn,
-    DateOnly? DueOn);
+    DateOnly? DueOn,
+    bool HasEbook = false,
+    bool HasAudio = false);

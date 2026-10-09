@@ -16,7 +16,7 @@ To run the API on its own, use `dotnet run --project src/Shelf.Api` and open [ht
 
 Every page and API call needs a signed-in reader. The first visit goes to `/signin`, and `/signup` makes an account with a name and a password of at least eight characters. The first account keeps the books and the yearly goal that were on the shelf before there were accounts. Each later reader starts with an empty shelf, and no reader sees another's books, quotes, highlights, or reading log.
 
-A book can be lent to another reader from its page. It stays on the owner's shelf as a loan to that reader, and shows under Borrowed on the borrower's Loans page until either of them marks it returned. Typing a different name into the book's Loaned to field turns it back into an ordinary loan.
+A book can be lent to another reader from its page. It stays on the owner's shelf as a loan to that reader, and shows under Borrowed on the borrower's Loans page until either of them marks it returned. While it is out, the borrower can read its e-book and play its audiobook from Loans. They get their own stopping place and their own highlights; the owner's place and notes stay private and unmoved. Typing a different name into the book's Loaned to field turns it back into an ordinary loan.
 
 Set `Accounts:AllowSignUp` to `false` to stop new accounts once the first one exists. Sign-in and sign-up allow ten attempts a minute from one address, which `Accounts:SignInsPerMinute` changes.
 

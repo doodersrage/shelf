@@ -92,7 +92,7 @@ public static class AudioEndpoints
         AudioStore store,
         CancellationToken cancellationToken)
     {
-        var book = await db.Books.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        var book = (await Lending.OpenAsync(db, id, cancellationToken))?.Book;
         var path = book is null ? null : store.TrackPath(book.AudioStoredName, index);
         if (path is null)
         {
