@@ -199,6 +199,9 @@ else
     private bool goalSaved;
     private string? importMessage;
 
+    // A backup holds every book, quote, and session, so a large shelf runs well past a megabyte.
+    private const long MaxBackupBytes = 50L * 1024 * 1024;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
@@ -283,9 +286,15 @@ else
     private async Task ImportBackup(InputFileChangeEventArgs change)
     {
         importMessage = null;
+        if (change.File.Size > MaxBackupBytes)
+        {
+            importMessage = "That backup is larger than 50 MB.";
+            return;
+        }
+
         try
         {
-            await using var stream = change.File.OpenReadStream(1_000_000);
+            await using var stream = change.File.OpenReadStream(MaxBackupBytes);
             var export = await System.Text.Json.JsonSerializer.DeserializeAsync<LibraryExport>(stream, JsonOptions);
             if (export?.Books is null)
             {
