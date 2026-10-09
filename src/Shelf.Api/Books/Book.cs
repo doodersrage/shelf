@@ -287,6 +287,10 @@ public sealed record BookResponse(
 
 public sealed record AuthorCount(string Name, int Count);
 
+public sealed record SeriesBook(int Id, string Title, int? Number, BookStatus Status);
+
+public sealed record SeriesShelf(string Name, SeriesBook[] Books);
+
 public sealed record QuoteResponse(int Id, int BookId, string Text, int? Page, DateTimeOffset NotedAt)
 {
     public static QuoteResponse From(Quote quote) => new(quote.Id, quote.BookId, quote.Text, quote.Page, quote.NotedAt);

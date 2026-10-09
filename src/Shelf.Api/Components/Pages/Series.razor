@@ -1,0 +1,50 @@
+@page "/series"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>Series · Shelf</PageTitle>
+
+<h1>Series</h1>
+
+@if (shelves.Count == 0)
+{
+    <p>No series yet.</p>
+}
+else
+{
+    @foreach (var shelf in shelves)
+    {
+        <h2><a href="@($"/?series={Uri.EscapeDataString(shelf.Name)}")">@shelf.Name</a></h2>
+        <ul class="tag-counts">
+            @foreach (var book in shelf.Books)
+            {
+                <li>
+                    <a href="/library/@book.Id">@book.Title</a>
+                    <span class="hint">@(book.Number is int number ? $"{number} · {book.Status}" : book.Status.ToString())</span>
+                </li>
+            }
+        </ul>
+    }
+}
+
+@code {
+    private List<SeriesShelf> shelves = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var books = await db.Books.AsNoTracking()
+            .Where(book => book.Series != null)
+            .Select(book => new Book
+            {
+                Id = book.Id,
+                Title = book.Title,
+                Author = book.Author,
+                Series = book.Series,
+                SeriesNumber = book.SeriesNumber,
+                Status = book.Status,
+            })
+            .ToListAsync();
+        shelves = BookRules.SeriesShelves(books).ToList();
+    }
+}

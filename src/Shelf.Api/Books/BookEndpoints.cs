@@ -17,6 +17,7 @@ public static class BookEndpoints
         books.MapGet("/lookup", LookupIsbn);
         books.MapGet("/pick", PickBook);
         books.MapGet("/authors", ListAuthors);
+        books.MapGet("/series", ListSeries);
         books.MapGet("/quotes", ListAllQuotes);
         books.MapGet("/{id:int}", GetBook);
         books.MapPost("/", CreateBook);
@@ -45,9 +46,10 @@ public static class BookEndpoints
         bool? loved = null,
         bool? loaned = null,
         BookFormat? format = null,
+        string? series = null,
         string? sort = null)
     {
-        var books = await BookRules.Filtered(db.Books, q, status, tag, author, loved, loaned, format)
+        var books = await BookRules.Filtered(db.Books, q, status, tag, author, loved, loaned, format, series)
             .AsNoTracking()
             .WithDetails()
             .ToListAsync(cancellationToken);
@@ -366,5 +368,22 @@ public static class BookEndpoints
     {
         var authors = await db.Books.AsNoTracking().Select(book => book.Author).ToListAsync(cancellationToken);
         return TypedResults.Ok(BookRules.AuthorCounts(authors));
+    }
+
+    private static async Task<Ok<SeriesShelf[]>> ListSeries(ShelfDb db, CancellationToken cancellationToken)
+    {
+        var books = await db.Books.AsNoTracking()
+            .Where(book => book.Series != null)
+            .Select(book => new Book
+            {
+                Title = book.Title,
+                Author = book.Author,
+                Id = book.Id,
+                Series = book.Series,
+                SeriesNumber = book.SeriesNumber,
+                Status = book.Status,
+            })
+            .ToListAsync(cancellationToken);
+        return TypedResults.Ok(BookRules.SeriesShelves(books));
     }
 }

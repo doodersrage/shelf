@@ -32,7 +32,7 @@ else if (book is not null)
     @if (!string.IsNullOrWhiteSpace(book.Series))
     {
         <p class="hint">
-            @book.Series
+            <a href="@($"/?series={Uri.EscapeDataString(book.Series)}")">@book.Series</a>
             @if (book.SeriesNumber is int number)
             {
                 <span> · @number</span>

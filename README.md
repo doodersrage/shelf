@@ -18,13 +18,15 @@ To run the API on its own, use `dotnet run --project src/Shelf.Api` and open [ht
 | `/library/{id}` | One book. Edit the catalog, log a reading session, keep quotes, or delete it. |
 | `/quotes` | Every quote, with the book it came from. |
 | `/authors` | Every author, with how many of their books are on the shelf. |
+| `/series` | Each series, in reading order. |
 | `/stats` | Counts, the yearly goal, tags, and a JSON backup. |
-| `/books` | The library as JSON. Filter with `q`, `status`, `tag`, `author`, `loved`, `loaned`, `format`, and `sort` (`title`, `author`, `series`, `year`, `rating`, `added`). |
+| `/books` | The library as JSON. Filter with `q`, `status`, `tag`, `author`, `series`, `loved`, `loaned`, `format`, and `sort` (`title`, `author`, `series`, `year`, `rating`, `added`). |
 | `/books/{id}` | One book as JSON, including tags, quotes, and sessions. |
 | `/books/export` | The shelf as a JSON backup. `POST /books/import` restores one, skipping books already on the shelf. |
 | `/books/lookup?isbn=` | Title, author, year, pages, publisher, language, and cover from Open Library. |
 | `/books/pick` | One book from the want list for today. `?status=Reading` picks from another status. |
 | `/books/authors` | Authors and how many of their books are on the shelf. |
+| `/books/series` | Each series, in reading order. |
 | `/books/{id}/return` | Clears a loan. |
 | `/books/stats` | The same summary as JSON. |
 | `/settings` | The yearly goal, as JSON. |

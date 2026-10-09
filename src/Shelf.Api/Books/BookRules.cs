@@ -443,6 +443,20 @@ public static class BookRules
         return candidates[(int)((uint)day.DayNumber % (uint)candidates.Count)];
     }
 
+    public static SeriesShelf[] SeriesShelves(IEnumerable<Book> books) =>
+        books
+            .Where(book => !string.IsNullOrWhiteSpace(book.Series))
+            .GroupBy(book => book.Series!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => new SeriesShelf(
+                group.First().Series!.Trim(),
+                group
+                    .OrderBy(book => book.SeriesNumber ?? int.MaxValue)
+                    .ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase)
+                    .Select(book => new SeriesBook(book.Id, book.Title, book.SeriesNumber, book.Status))
+                    .ToArray()))
+            .OrderBy(shelf => shelf.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
     public static AuthorCount[] AuthorCounts(IEnumerable<string> authors) =>
         authors
             .GroupBy(name => name.Trim(), StringComparer.OrdinalIgnoreCase)
@@ -482,7 +496,8 @@ public static class BookRules
         string? author = null,
         bool? loved = null,
         bool? loaned = null,
-        BookFormat? format = null)
+        BookFormat? format = null,
+        string? series = null)
     {
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -518,6 +533,12 @@ public static class BookRules
         {
             var name = author.Trim().ToLower();
             books = books.Where(book => book.Author.ToLower() == name);
+        }
+
+        if (!string.IsNullOrWhiteSpace(series))
+        {
+            var name = series.Trim().ToLower();
+            books = books.Where(book => book.Series != null && book.Series.ToLower() == name);
         }
 
         if (loved is { } lovedOnly)

@@ -320,6 +320,7 @@ progress::-moz-progress-bar {
     font-family: var(--sans);
 }
 
+
 .quotes {
     list-style: none;
     padding: 0;

@@ -49,12 +49,16 @@
     </label>
 </div>
 
-@if (!string.IsNullOrWhiteSpace(tagFilter) || !string.IsNullOrWhiteSpace(authorFilter))
+@if (!string.IsNullOrWhiteSpace(tagFilter) || !string.IsNullOrWhiteSpace(authorFilter) || !string.IsNullOrWhiteSpace(seriesFilter))
 {
     <p class="hint">
         @if (!string.IsNullOrWhiteSpace(authorFilter))
         {
             <span>By <strong>@authorFilter</strong></span>
+        }
+        @if (!string.IsNullOrWhiteSpace(seriesFilter))
+        {
+            <span>In <strong>@seriesFilter</strong></span>
         }
         @if (!string.IsNullOrWhiteSpace(tagFilter))
         {
@@ -97,7 +101,7 @@ else
             @if (!string.IsNullOrWhiteSpace(book.Series))
             {
                 <p class="hint">
-                    @book.Series
+                    <a href="@($"/?series={Uri.EscapeDataString(book.Series)}")">@book.Series</a>
                     @if (book.SeriesNumber is int number)
                     {
                         <span> · @number</span>
@@ -203,6 +207,7 @@ else
     private string sort = "title";
     private string? tagFilter;
     private string? authorFilter;
+    private string? seriesFilter;
     private bool lovedOnly;
     private bool loanedOnly;
     private Dictionary<string, string[]>? formErrors;
@@ -213,10 +218,14 @@ else
     [SupplyParameterFromQuery(Name = "author")]
     public string? Author { get; set; }
 
+    [SupplyParameterFromQuery(Name = "series")]
+    public string? Series { get; set; }
+
     protected override async Task OnParametersSetAsync()
     {
         tagFilter = string.IsNullOrWhiteSpace(Tag) ? null : Tag.Trim();
         authorFilter = string.IsNullOrWhiteSpace(Author) ? null : Author.Trim();
+        seriesFilter = string.IsNullOrWhiteSpace(Series) ? null : Series.Trim();
         await LoadAsync();
     }
 
@@ -257,6 +266,11 @@ else
             if (!string.IsNullOrWhiteSpace(authorFilter))
             {
                 result = result.Where(book => book.Author.Equals(authorFilter, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(seriesFilter))
+            {
+                result = result.Where(book => book.Series != null && book.Series.Equals(seriesFilter, StringComparison.OrdinalIgnoreCase));
             }
 
             if (lovedOnly)

@@ -587,6 +587,46 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task Series_lists_books_in_reading_order()
+    {
+        var first = await CreateAsync(new CreateBookRequest(
+            "A Wizard of Earthsea", "Ursula K. Le Guin", BookStatus.Finished, 5, Series: "Earthsea", SeriesNumber: 1));
+        var third = await CreateAsync(new CreateBookRequest(
+            "The Farthest Shore", "Ursula K. Le Guin", BookStatus.Want, null, Series: "earthsea", SeriesNumber: 3));
+        var second = await CreateAsync(new CreateBookRequest(
+            "The Tombs of Atuan", "Ursula K. Le Guin", BookStatus.Reading, null, Series: "Earthsea", SeriesNumber: 2));
+
+        var shelves = await _client.GetFromJsonAsync<SeriesShelf[]>("/books/series", JsonOptions);
+        var earthsea = shelves!.Single(shelf => shelf.Books.Any(book => book.Id == second.Id));
+        var order = earthsea.Books.Select(book => book.Id).ToList();
+        Assert.True(order.IndexOf(first.Id) < order.IndexOf(second.Id));
+        Assert.True(order.IndexOf(second.Id) < order.IndexOf(third.Id));
+
+        var filtered = await _client.GetFromJsonAsync<BookResponse[]>("/books?series=earthsea", JsonOptions);
+        Assert.Contains(filtered!, book => book.Id == second.Id);
+
+        var page = await _client.GetAsync("/series");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("The Tombs of Atuan", html);
+        Assert.Contains("Earthsea", html);
+    }
+
+    [Fact]
+    public void Series_shelves_keep_one_name_and_put_unnumbered_books_last()
+    {
+        var shelves = BookRules.SeriesShelves(
+        [
+            new Book { Id = 2, Title = "The Tombs of Atuan", Author = "Ursula K. Le Guin", Series = "earthsea", SeriesNumber = 2, Status = BookStatus.Want },
+            new Book { Id = 1, Title = "A Wizard of Earthsea", Author = "Ursula K. Le Guin", Series = "Earthsea", SeriesNumber = 1, Status = BookStatus.Want },
+            new Book { Id = 3, Title = "Tales from Earthsea", Author = "Ursula K. Le Guin", Series = "Earthsea", Status = BookStatus.Want },
+        ]);
+
+        var earthsea = Assert.Single(shelves);
+        Assert.Equal("earthsea", earthsea.Name);
+        Assert.Equal(["A Wizard of Earthsea", "The Tombs of Atuan", "Tales from Earthsea"], earthsea.Books.Select(book => book.Title));
+    }
+
+    [Fact]
     public async Task Goal_can_be_replaced()
     {
         var updated = await _client.PutAsJsonAsync("/settings", new UpdateSettingsRequest(24), JsonOptions);
