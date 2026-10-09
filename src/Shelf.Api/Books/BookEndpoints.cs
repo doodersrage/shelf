@@ -246,7 +246,10 @@ public static class BookEndpoints
         return TypedResults.Ok(await BookRules.ImportAsync(db, export, cancellationToken));
     }
 
-    private static async Task<Ok<QuoteListItem[]>> ListAllQuotes(ShelfDb db, CancellationToken cancellationToken)
+    private static async Task<Ok<QuoteListItem[]>> ListAllQuotes(
+        ShelfDb db,
+        CancellationToken cancellationToken,
+        string? q = null)
     {
         var quotes = await db.Quotes.AsNoTracking()
             .Join(
@@ -256,7 +259,8 @@ public static class BookEndpoints
                 (quote, book) => new QuoteListItem(quote.Id, book.Id, book.Title, book.Author, quote.Text, quote.Page, quote.NotedAt))
             .ToListAsync(cancellationToken);
 
-        return TypedResults.Ok(quotes.OrderByDescending(quote => quote.NotedAt).ThenByDescending(quote => quote.Id).ToArray());
+        var ordered = quotes.OrderByDescending(quote => quote.NotedAt).ThenByDescending(quote => quote.Id);
+        return TypedResults.Ok(BookRules.MatchingQuotes(ordered, q).ToArray());
     }
 
     private static async Task<Results<Created<ReadingSessionResponse>, NotFound, ValidationProblem>> CreateSession(

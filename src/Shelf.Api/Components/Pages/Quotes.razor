@@ -12,8 +12,20 @@
 }
 else
 {
+    <div class="filters">
+        <label>
+            Search
+            <input @bind="query" @bind:event="oninput" />
+        </label>
+    </div>
+    @if (!Visible.Any())
+    {
+        <p>Nothing matches.</p>
+    }
+    else
+    {
     <ul class="quotes">
-        @foreach (var quote in quotes)
+        @foreach (var quote in Visible)
         {
             <li>
                 <blockquote>
@@ -30,10 +42,14 @@ else
             </li>
         }
     </ul>
+    }
 }
 
 @code {
     private List<QuoteListItem> quotes = [];
+    private string query = "";
+
+    private IEnumerable<QuoteListItem> Visible => BookRules.MatchingQuotes(quotes, query);
 
     protected override async Task OnInitializedAsync()
     {

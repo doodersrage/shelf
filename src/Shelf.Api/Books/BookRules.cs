@@ -522,6 +522,20 @@ public static class BookRules
         return streak;
     }
 
+    public static IEnumerable<QuoteListItem> MatchingQuotes(IEnumerable<QuoteListItem> quotes, string? query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return quotes;
+        }
+
+        var term = query.Trim();
+        return quotes.Where(quote =>
+            quote.Text.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || quote.Title.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || quote.Author.Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
+
     public static AuthorCount[] AuthorCounts(IEnumerable<string> authors) =>
         authors
             .GroupBy(name => name.Trim(), StringComparer.OrdinalIgnoreCase)

@@ -745,6 +745,25 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task Quote_search_matches_the_words_and_the_book()
+    {
+        var book = await CreateAsync(new CreateBookRequest("The Word for World Is Forest", "Ursula K. Le Guin", BookStatus.Want, null));
+        await _client.PostAsJsonAsync(
+            $"/books/{book.Id}/quotes",
+            new CreateQuoteRequest("The word for world is forest.", 12),
+            JsonOptions);
+
+        var byWords = await _client.GetFromJsonAsync<QuoteListItem[]>("/books/quotes?q=forest", JsonOptions);
+        Assert.Contains(byWords!, quote => quote.BookId == book.Id);
+
+        var byTitle = await _client.GetFromJsonAsync<QuoteListItem[]>("/books/quotes?q=word%20for%20world", JsonOptions);
+        Assert.Contains(byTitle!, quote => quote.BookId == book.Id);
+
+        var none = await _client.GetFromJsonAsync<QuoteListItem[]>("/books/quotes?q=zzzz-no-such-quote", JsonOptions);
+        Assert.DoesNotContain(none!, quote => quote.BookId == book.Id);
+    }
+
+    [Fact]
     public async Task Goal_can_be_replaced()
     {
         var updated = await _client.PutAsJsonAsync("/settings", new UpdateSettingsRequest(24), JsonOptions);
