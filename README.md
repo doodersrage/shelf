@@ -15,7 +15,7 @@ To run the API on its own, use `dotnet run --project src/Shelf.Api` and open [ht
 | URL | What you get |
 | --- | --- |
 | `/` | The library. Search, filter, sort, add a book, or change its status. |
-| `/library/{id}` | One book. Edit the catalog, log a reading session, keep quotes, or delete it. |
+| `/library/{id}` | One book. Edit the catalog, log a reading session, keep quotes, open the next volume, or delete it. |
 | `/quotes` | Every quote, with the book it came from. |
 | `/authors` | Every author, with how many of their books are on the shelf. |
 | `/series` | Each series, in reading order. |

@@ -39,6 +39,10 @@ else if (book is not null)
             }
         </p>
     }
+    @if (nextVolume is not null)
+    {
+        <p class="hint">Next: <a href="/library/@nextVolume.Id">@nextVolume.Title</a></p>
+    }
     @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
     {
         <p>
@@ -252,6 +256,7 @@ else if (book is not null)
     private readonly QuoteFormModel quoteDraft = new();
     private readonly SessionFormModel sessionDraft = new();
     private List<OtherBook> others = [];
+    private NextVolume? nextVolume;
     private Dictionary<string, string[]>? formErrors;
     private Dictionary<string, string[]>? quoteErrors;
     private Dictionary<string, string[]>? sessionErrors;
@@ -278,6 +283,25 @@ else if (book is not null)
                 .OrderBy(item => item.Title)
                 .Select(item => new OtherBook(item.Id, item.Title))
                 .ToListAsync();
+        nextVolume = null;
+        if (book is not null)
+        {
+            var siblings = await db.Books.AsNoTracking()
+                .Where(item => item.Series != null && item.Id != book.Id)
+                .Select(item => new Book
+                {
+                    Id = item.Id,
+                    Title = item.Title,
+                    Author = item.Author,
+                    Series = item.Series,
+                    SeriesNumber = item.SeriesNumber,
+                })
+                .ToListAsync();
+            if (BookRules.NextInSeries(book, siblings) is { } next)
+            {
+                nextVolume = new NextVolume(next.Id, next.Title);
+            }
+        }
         if (book is not null && replaceDraft)
         {
             draft = BookFormModel.From(book);
@@ -439,4 +463,6 @@ else if (book is not null)
     }
 
     private sealed record OtherBook(int Id, string Title);
+
+    private sealed record NextVolume(int Id, string Title);
 }

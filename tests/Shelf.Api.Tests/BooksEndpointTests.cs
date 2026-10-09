@@ -676,6 +676,39 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task Book_page_points_at_the_next_volume()
+    {
+        var first = await CreateAsync(new CreateBookRequest(
+            "Rocannon's World", "Ursula K. Le Guin", BookStatus.Finished, 5, Series: "Ekumen", SeriesNumber: 1));
+        var second = await CreateAsync(new CreateBookRequest(
+            "Planet of Exile", "Ursula K. Le Guin", BookStatus.Want, null, Series: "Ekumen", SeriesNumber: 2));
+
+        var page = await _client.GetAsync($"/library/{first.Id}");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("Next:", html);
+        Assert.Contains("Planet of Exile", html);
+        Assert.Contains($"/library/{second.Id}", html);
+
+        var last = await _client.GetAsync($"/library/{second.Id}");
+        var lastHtml = await last.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Next:", lastHtml);
+    }
+
+    [Fact]
+    public void Next_volume_skips_a_different_series()
+    {
+        var current = new Book { Id = 1, Title = "A", Author = "A", Series = "Earthsea", SeriesNumber = 1 };
+        var shelf = new[]
+        {
+            new Book { Id = 2, Title = "Other", Author = "A", Series = "Hainish", SeriesNumber = 2 },
+            new Book { Id = 3, Title = "The Tombs of Atuan", Author = "A", Series = "earthsea", SeriesNumber = 2 },
+            current,
+        };
+        Assert.Equal(3, BookRules.NextInSeries(current, shelf)?.Id);
+        Assert.Null(BookRules.NextInSeries(new Book { Id = 9, Title = "Loose", Author = "A" }, shelf));
+    }
+
+    [Fact]
     public async Task Goal_can_be_replaced()
     {
         var updated = await _client.PutAsJsonAsync("/settings", new UpdateSettingsRequest(24), JsonOptions);

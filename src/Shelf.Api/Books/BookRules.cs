@@ -460,6 +460,23 @@ public static class BookRules
             .Take(take)
             .ToArray();
 
+    public static Book? NextInSeries(Book current, IEnumerable<Book> shelf)
+    {
+        if (string.IsNullOrWhiteSpace(current.Series) || current.SeriesNumber is not int number)
+        {
+            return null;
+        }
+
+        return shelf
+            .Where(book => book.Id != current.Id
+                && book.Series != null
+                && book.Series.Equals(current.Series, StringComparison.OrdinalIgnoreCase)
+                && book.SeriesNumber is int next && next > number)
+            .OrderBy(book => book.SeriesNumber)
+            .ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+    }
+
     public static SeriesShelf[] SeriesShelves(IEnumerable<Book> books) =>
         books
             .Where(book => !string.IsNullOrWhiteSpace(book.Series))
