@@ -1,0 +1,44 @@
+@page "/years"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>Years · Shelf</PageTitle>
+
+<h1>Years</h1>
+
+@if (years.Count == 0)
+{
+    <p>No books finished yet.</p>
+}
+else
+{
+    @foreach (var year in years)
+    {
+        <h2>@(year.Year?.ToString() ?? "Undated")</h2>
+        <ul class="tag-counts">
+            @foreach (var book in year.Books)
+            {
+                <li>
+                    <a href="/library/@book.Id">@book.Title</a>
+                    @if (book.FinishedOn is DateOnly finished)
+                    {
+                        <span class="hint">@finished.ToString("MMM d")</span>
+                    }
+                </li>
+            }
+        </ul>
+    }
+}
+
+@code {
+    private List<FinishedYear> years = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var books = await db.Books.AsNoTracking()
+            .Where(book => book.Status == BookStatus.Finished)
+            .ToListAsync();
+        years = BookRules.FinishedByYear(books).ToList();
+    }
+}

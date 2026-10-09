@@ -853,6 +853,44 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public void Finished_books_group_by_the_year_they_were_finished()
+    {
+        var books = new[]
+        {
+            new Book { Id = 1, Title = "B", Author = "A", Status = BookStatus.Finished, FinishedOn = new DateOnly(2019, 1, 2) },
+            new Book { Id = 2, Title = "A", Author = "A", Status = BookStatus.Finished, FinishedOn = new DateOnly(2019, 6, 1) },
+            new Book { Id = 3, Title = "C", Author = "A", Status = BookStatus.Want },
+            new Book { Id = 4, Title = "D", Author = "A", Status = BookStatus.Finished },
+        };
+
+        var years = BookRules.FinishedByYear(books);
+        Assert.Equal([2019, null], years.Select(year => year.Year));
+        Assert.Equal(["A", "B"], years[0].Books.Select(book => book.Title));
+        Assert.Equal("D", years[1].Books.Single().Title);
+    }
+
+    [Fact]
+    public async Task Years_list_finished_books_by_the_year()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "Searoad",
+            "Ursula K. Le Guin",
+            BookStatus.Finished,
+            4,
+            FinishedOn: new DateOnly(2019, 6, 1)));
+        Assert.Equal(new DateOnly(2019, 6, 1), book.FinishedOn);
+
+        var years = await _client.GetFromJsonAsync<FinishedYear[]>("/books/years", JsonOptions);
+        var year = years!.Single(item => item.Year == 2019);
+        Assert.Contains(year.Books, item => item.Id == book.Id && item.FinishedOn == new DateOnly(2019, 6, 1));
+
+        var page = await _client.GetAsync("/years");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("2019", html);
+        Assert.Contains("Searoad", html);
+    }
+
+    [Fact]
     public async Task An_original_title_is_kept_and_can_be_searched()
     {
         var book = await CreateAsync(new CreateBookRequest(

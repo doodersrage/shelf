@@ -309,6 +309,10 @@ public sealed record SeriesBook(int Id, string Title, int? Number, BookStatus St
 
 public sealed record FinishedBook(int Id, string Title, DateOnly FinishedOn);
 
+public sealed record YearBook(int Id, string Title, DateOnly? FinishedOn);
+
+public sealed record FinishedYear(int? Year, YearBook[] Books);
+
 public sealed record RecentSession(int BookId, string Title, DateOnly Date, int? FromPage, int? ToPage);
 
 public sealed record ReadingMonth(int Year, int Month, int[] Days);

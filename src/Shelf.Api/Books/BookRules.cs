@@ -445,6 +445,21 @@ public static class BookRules
         return candidates[(int)((uint)day.DayNumber % (uint)candidates.Count)];
     }
 
+    public static FinishedYear[] FinishedByYear(IEnumerable<Book> books) =>
+        books
+            .Where(book => book.Status == BookStatus.Finished)
+            .GroupBy(book => book.FinishedOn?.Year)
+            .Select(group => new FinishedYear(
+                group.Key,
+                group
+                    .OrderByDescending(book => book.FinishedOn ?? DateOnly.MinValue)
+                    .ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase)
+                    .Select(book => new YearBook(book.Id, book.Title, book.FinishedOn))
+                    .ToArray()))
+            .OrderByDescending(group => group.Year.HasValue)
+            .ThenByDescending(group => group.Year)
+            .ToArray();
+
     public static FinishedBook[] FinishedInYear(IEnumerable<Book> books, int year) =>
         books
             .Where(book => book.Status == BookStatus.Finished && book.FinishedOn?.Year == year)
