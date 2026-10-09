@@ -15,6 +15,8 @@ public static class BookEndpoints
         books.MapGet("/export", ExportLibrary).WithTags("Shelf");
         books.MapPost("/import", ImportLibrary).WithTags("Shelf");
         books.MapGet("/lookup", LookupIsbn);
+        books.MapGet("/pick", PickBook);
+        books.MapGet("/authors", ListAuthors);
         books.MapGet("/quotes", ListAllQuotes);
         books.MapGet("/{id:int}", GetBook);
         books.MapPost("/", CreateBook);
@@ -343,5 +345,26 @@ public static class BookEndpoints
         BookRules.ReturnLoan(book);
         await db.SaveChangesAsync(cancellationToken);
         return TypedResults.Ok(BookResponse.From(book));
+    }
+
+    private static async Task<Results<Ok<BookResponse>, NotFound>> PickBook(
+        ShelfDb db,
+        CancellationToken cancellationToken,
+        BookStatus? status = null)
+    {
+        var chosen = status ?? BookStatus.Want;
+        var books = await db.Books.AsNoTracking()
+            .WithDetails()
+            .Where(book => book.Status == chosen)
+            .OrderBy(book => book.Id)
+            .ToListAsync(cancellationToken);
+        var pick = BookRules.Pick(books, chosen, DateOnly.FromDateTime(DateTime.UtcNow));
+        return pick is null ? TypedResults.NotFound() : TypedResults.Ok(BookResponse.From(pick));
+    }
+
+    private static async Task<Ok<AuthorCount[]>> ListAuthors(ShelfDb db, CancellationToken cancellationToken)
+    {
+        var authors = await db.Books.AsNoTracking().Select(book => book.Author).ToListAsync(cancellationToken);
+        return TypedResults.Ok(BookRules.AuthorCounts(authors));
     }
 }

@@ -139,6 +139,9 @@ public static class BookRules
         book.CoverUrl = BlankToNull(write.CoverUrl);
         book.Review = BlankToNull(write.Review);
         book.Loved = write.Loved;
+        book.Location = BlankToNull(write.Location);
+        book.AcquiredOn = write.AcquiredOn;
+        book.Translator = BlankToNull(write.Translator);
         book.StartedOn = write.StartedOn;
         book.FinishedOn = write.FinishedOn;
         book.Status = write.Status;
@@ -399,6 +402,54 @@ public static class BookRules
         return Math.Max(1, pages / days);
     }
 
+    public static int? PagesRemaining(Book book)
+    {
+        if (book.Status != BookStatus.Reading || book.Pages is not int pages)
+        {
+            return null;
+        }
+
+        return Math.Max(0, pages - (book.CurrentPage ?? 0));
+    }
+
+    public static int? DaysRemaining(Book book)
+    {
+        if (PagesRemaining(book) is not int left)
+        {
+            return null;
+        }
+
+        if (left == 0)
+        {
+            return 0;
+        }
+
+        if (PagesPerDay(book.Sessions) is not int pace)
+        {
+            return null;
+        }
+
+        return Math.Max(1, (left + pace - 1) / pace);
+    }
+
+    public static Book? Pick(IReadOnlyList<Book> books, BookStatus status, DateOnly day)
+    {
+        var candidates = books.Where(book => book.Status == status).OrderBy(book => book.Id).ToList();
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        return candidates[(int)((uint)day.DayNumber % (uint)candidates.Count)];
+    }
+
+    public static AuthorCount[] AuthorCounts(IEnumerable<string> authors) =>
+        authors
+            .GroupBy(name => name.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => new AuthorCount(group.First(), group.Count()))
+            .OrderBy(author => author.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
     public static bool IsSameCopy(
         string? isbn,
         string title,
@@ -435,28 +486,32 @@ public static class BookRules
     {
         if (!string.IsNullOrWhiteSpace(q))
         {
-            var term = q.Trim();
-            var isbn = NormalizeIsbn(term);
+            var term = q.Trim().ToLower();
+            var isbn = NormalizeIsbn(q);
             books = isbn is null
                 ? books.Where(book =>
-                    book.Title.Contains(term)
-                    || book.Author.Contains(term)
-                    || (book.Subtitle != null && book.Subtitle.Contains(term))
-                    || (book.Series != null && book.Series.Contains(term))
-                    || (book.Publisher != null && book.Publisher.Contains(term))
-                    || (book.Isbn != null && book.Isbn.Contains(term))
-                    || (book.Notes != null && book.Notes.Contains(term))
-                    || (book.Review != null && book.Review.Contains(term))
-                    || book.Quotes.Any(quote => quote.Text.Contains(term)))
+                    book.Title.ToLower().Contains(term)
+                    || book.Author.ToLower().Contains(term)
+                    || (book.Subtitle != null && book.Subtitle.ToLower().Contains(term))
+                    || (book.Series != null && book.Series.ToLower().Contains(term))
+                    || (book.Publisher != null && book.Publisher.ToLower().Contains(term))
+                    || (book.Isbn != null && book.Isbn.ToLower().Contains(term))
+                    || (book.Notes != null && book.Notes.ToLower().Contains(term))
+                    || (book.Review != null && book.Review.ToLower().Contains(term))
+                    || (book.Location != null && book.Location.ToLower().Contains(term))
+                    || (book.Translator != null && book.Translator.ToLower().Contains(term))
+                    || book.Quotes.Any(quote => quote.Text.ToLower().Contains(term)))
                 : books.Where(book =>
-                    book.Title.Contains(term)
-                    || book.Author.Contains(term)
-                    || (book.Subtitle != null && book.Subtitle.Contains(term))
-                    || (book.Series != null && book.Series.Contains(term))
+                    book.Title.ToLower().Contains(term)
+                    || book.Author.ToLower().Contains(term)
+                    || (book.Subtitle != null && book.Subtitle.ToLower().Contains(term))
+                    || (book.Series != null && book.Series.ToLower().Contains(term))
                     || book.Isbn == isbn
-                    || (book.Notes != null && book.Notes.Contains(term))
-                    || (book.Review != null && book.Review.Contains(term))
-                    || book.Quotes.Any(quote => quote.Text.Contains(term)));
+                    || (book.Notes != null && book.Notes.ToLower().Contains(term))
+                    || (book.Review != null && book.Review.ToLower().Contains(term))
+                    || (book.Location != null && book.Location.ToLower().Contains(term))
+                    || (book.Translator != null && book.Translator.ToLower().Contains(term))
+                    || book.Quotes.Any(quote => quote.Text.ToLower().Contains(term)));
         }
 
         if (!string.IsNullOrWhiteSpace(author))

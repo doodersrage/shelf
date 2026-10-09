@@ -6,6 +6,11 @@
 
 <h1>Library</h1>
 
+@if (Suggestion is Book suggestion)
+{
+    <p class="hint">From the want list: <a href="/library/@suggestion.Id">@suggestion.Title</a></p>
+}
+
 <div class="filters">
     <label>
         Search
@@ -139,6 +144,10 @@ else
                 {
                     <span>Finished @finished.ToString("MMM d, yyyy")</span>
                 }
+                @if (!string.IsNullOrWhiteSpace(book.Location))
+                {
+                    <span>@book.Location</span>
+                }
                 @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
                 {
                     <span>
@@ -211,6 +220,8 @@ else
         await LoadAsync();
     }
 
+    private Book? Suggestion => BookRules.Pick(books, BookStatus.Want, DateOnly.FromDateTime(DateTime.UtcNow));
+
     private IEnumerable<Book> Visible
     {
         get
@@ -228,6 +239,8 @@ else
                     || (isbn is not null && book.Isbn == isbn)
                     || (book.Isbn?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     || (book.Notes?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (book.Location?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (book.Translator?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     || book.Quotes.Any(quote => quote.Text.Contains(term, StringComparison.OrdinalIgnoreCase)));
             }
 

@@ -22,7 +22,13 @@ else if (book is not null)
     {
         <p class="hint">@book.Subtitle</p>
     }
-    <p class="by"><a href="@($"/?author={Uri.EscapeDataString(book.Author)}")">@book.Author</a></p>
+    <p class="by">
+        <a href="@($"/?author={Uri.EscapeDataString(book.Author)}")">@book.Author</a>
+        @if (!string.IsNullOrWhiteSpace(book.Translator))
+        {
+            <span class="hint"> · translated by @book.Translator</span>
+        }
+    </p>
     @if (!string.IsNullOrWhiteSpace(book.Series))
     {
         <p class="hint">
@@ -42,6 +48,36 @@ else if (book is not null)
                 <span>since @loanedOn.ToString("MMM d, yyyy")</span>
             }
             <button type="button" @onclick="ReturnLoan">Return</button>
+        </p>
+    }
+    @if (!string.IsNullOrWhiteSpace(book.Location) || book.AcquiredOn is not null)
+    {
+        <p class="hint">
+            @if (!string.IsNullOrWhiteSpace(book.Location))
+            {
+                <span>@book.Location</span>
+            }
+            @if (book.AcquiredOn is DateOnly acquired)
+            {
+                <span>@(string.IsNullOrWhiteSpace(book.Location) ? "" : " · ")Acquired @acquired.ToString("MMM d, yyyy")</span>
+            }
+        </p>
+    }
+    @if (BookRules.PagesRemaining(book) is int left)
+    {
+        <p class="hint">
+            @if (left == 0)
+            {
+                <span>At the last page.</span>
+            }
+            else
+            {
+                <span>@left @(left == 1 ? "page" : "pages") left</span>
+                @if (BookRules.DaysRemaining(book) is int days)
+                {
+                    <span> · about @days @(days == 1 ? "day" : "days")</span>
+                }
+            }
         </p>
     }
 

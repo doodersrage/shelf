@@ -65,6 +65,14 @@ public sealed class BookFormModel
 
     public bool Loved { get; set; }
 
+    [MaxLength(80)]
+    public string Location { get; set; } = "";
+
+    public DateOnly? AcquiredOn { get; set; }
+
+    [MaxLength(200)]
+    public string Translator { get; set; } = "";
+
     public string Tags { get; set; } = "";
 
     public BookWrite ToWrite() => BookWrite.From(
@@ -92,7 +100,10 @@ public sealed class BookFormModel
         CoverUrl,
         Review,
         Loved,
-        LoanedOn);
+        LoanedOn,
+        Location,
+        AcquiredOn,
+        Translator);
 
     public bool FillBlanks(CatalogMatch match)
     {
@@ -153,6 +164,9 @@ public sealed class BookFormModel
         CoverUrl = "";
         Review = "";
         Loved = false;
+        Location = "";
+        AcquiredOn = null;
+        Translator = "";
         Tags = "";
     }
 
@@ -180,6 +194,9 @@ public sealed class BookFormModel
         CoverUrl = book.CoverUrl ?? "",
         Review = book.Review ?? "",
         Loved = book.Loved,
+        Location = book.Location ?? "",
+        AcquiredOn = book.AcquiredOn,
+        Translator = book.Translator ?? "",
         Tags = string.Join(", ", book.Tags.Select(tag => tag.Name).OrderBy(name => name, StringComparer.OrdinalIgnoreCase)),
     };
 }

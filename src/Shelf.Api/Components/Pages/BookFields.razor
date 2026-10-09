@@ -132,6 +132,20 @@
             <InputDate @bind-Value="Model.FinishedOn" />
         </label>
     </div>
+    <div class="pair">
+        <label>
+            Where it sits
+            <InputText @bind-Value="Model.Location" maxlength="80" />
+        </label>
+        <label>
+            Acquired
+            <InputDate @bind-Value="Model.AcquiredOn" />
+        </label>
+    </div>
+    <label>
+        Translator
+        <InputText @bind-Value="Model.Translator" maxlength="200" />
+    </label>
 }
 <label>
     Notes

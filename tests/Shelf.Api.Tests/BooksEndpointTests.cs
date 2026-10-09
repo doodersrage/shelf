@@ -508,6 +508,85 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task Place_and_translator_round_trip_and_can_be_searched()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "The Dispossessed",
+            "Ursula K. Le Guin",
+            BookStatus.Reading,
+            null,
+            Pages: 387,
+            CurrentPage: 40,
+            Location: "  North wall  ",
+            AcquiredOn: new DateOnly(2020, 5, 1),
+            Translator: "   "));
+
+        Assert.Equal("North wall", book.Location);
+        Assert.Equal(new DateOnly(2020, 5, 1), book.AcquiredOn);
+        Assert.Null(book.Translator);
+
+        var found = await _client.GetFromJsonAsync<BookResponse[]>("/books?q=north%20wall", JsonOptions);
+        Assert.Contains(found!, item => item.Id == book.Id);
+    }
+
+    [Fact]
+    public async Task Pick_and_authors_follow_the_shelf()
+    {
+        await CreateAsync(new CreateBookRequest("City of Illusions", "Ursula K. Le Guin", BookStatus.Want, null));
+        var listed = await _client.GetFromJsonAsync<BookResponse[]>("/books", JsonOptions);
+        var shelf = listed!.Select(item => new Book
+        {
+            Id = item.Id,
+            Title = item.Title,
+            Author = item.Author,
+            Status = item.Status,
+        }).ToList();
+        var expected = BookRules.Pick(shelf, BookStatus.Want, DateOnly.FromDateTime(DateTime.UtcNow));
+
+        var pick = await _client.GetFromJsonAsync<BookResponse>("/books/pick", JsonOptions);
+        Assert.Equal(expected?.Id, pick?.Id);
+
+        var authors = await _client.GetFromJsonAsync<AuthorCount[]>("/books/authors", JsonOptions);
+        Assert.Contains(authors!, author => author.Name == "Ursula K. Le Guin" && author.Count >= 1);
+
+        var page = await _client.GetAsync("/authors");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("Ursula K. Le Guin", html);
+        Assert.Contains("Authors", html);
+    }
+
+    [Fact]
+    public void Remaining_pages_use_the_reading_pace()
+    {
+        var book = new Book
+        {
+            Title = "The Dispossessed",
+            Author = "Ursula K. Le Guin",
+            Status = BookStatus.Reading,
+            Pages = 100,
+            CurrentPage = 20,
+            Sessions =
+            [
+                new ReadingSession { Date = new DateOnly(2026, 1, 1), FromPage = 1, ToPage = 21 },
+            ],
+        };
+        Assert.Equal(80, BookRules.PagesRemaining(book));
+        Assert.Equal(4, BookRules.DaysRemaining(book));
+
+        var wanted = new List<Book>
+        {
+            new() { Id = 1, Title = "A", Author = "A", Status = BookStatus.Want },
+            new() { Id = 2, Title = "B", Author = "B", Status = BookStatus.Want },
+        };
+        Assert.Equal(1, BookRules.Pick(wanted, BookStatus.Want, DateOnly.FromDayNumber(2))?.Id);
+        Assert.Equal(2, BookRules.Pick(wanted, BookStatus.Want, DateOnly.FromDayNumber(3))?.Id);
+        Assert.Null(BookRules.Pick(wanted, BookStatus.Finished, DateOnly.FromDayNumber(2)));
+
+        var counts = BookRules.AuthorCounts(["Ursula K. Le Guin", "ursula k. le guin", "Octavia E. Butler"]);
+        Assert.Equal(2, counts.Single(author => author.Name == "Ursula K. Le Guin").Count);
+    }
+
+    [Fact]
     public async Task Goal_can_be_replaced()
     {
         var updated = await _client.PutAsJsonAsync("/settings", new UpdateSettingsRequest(24), JsonOptions);

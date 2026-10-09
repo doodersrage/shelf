@@ -1,0 +1,35 @@
+@page "/authors"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>Authors · Shelf</PageTitle>
+
+<h1>Authors</h1>
+
+@if (authors.Count == 0)
+{
+    <p>No authors yet.</p>
+}
+else
+{
+    <ul class="tag-counts">
+        @foreach (var author in authors)
+        {
+            <li>
+                <a href="@($"/?author={Uri.EscapeDataString(author.Name)}")">@author.Name</a>
+                <span class="hint">@author.Count @(author.Count == 1 ? "book" : "books")</span>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<AuthorCount> authors = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var names = await db.Books.AsNoTracking().Select(book => book.Author).ToListAsync();
+        authors = BookRules.AuthorCounts(names).ToList();
+    }
+}
