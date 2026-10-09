@@ -524,6 +524,14 @@ public static class BookRules
             .OrderBy(person => person.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
+    public static LoanCount[] Loans(IEnumerable<string?> names) =>
+        names
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .GroupBy(name => name!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => new LoanCount(group.First()!.Trim(), group.Count()))
+            .OrderBy(person => person.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
     public static int ReadingStreak(IEnumerable<DateOnly> dates, DateOnly today)
     {
         var days = dates.Distinct().OrderByDescending(day => day).ToList();
@@ -619,7 +627,8 @@ public static class BookRules
         BookFormat? format = null,
         string? series = null,
         string? place = null,
-        string? recommendedBy = null)
+        string? recommendedBy = null,
+        string? loanedTo = null)
     {
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -677,6 +686,12 @@ public static class BookRules
         {
             var name = recommendedBy.Trim().ToLower();
             books = books.Where(book => book.RecommendedBy != null && book.RecommendedBy.ToLower() == name);
+        }
+
+        if (!string.IsNullOrWhiteSpace(loanedTo))
+        {
+            var name = loanedTo.Trim().ToLower();
+            books = books.Where(book => book.LoanedTo != null && book.LoanedTo.ToLower() == name);
         }
 
         if (loved is { } lovedOnly)

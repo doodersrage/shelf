@@ -305,6 +305,8 @@ public sealed record PlaceCount(string Name, int Count);
 
 public sealed record RecommenderCount(string Name, int Count);
 
+public sealed record LoanCount(string Name, int Count);
+
 public sealed record SeriesBook(int Id, string Title, int? Number, BookStatus Status);
 
 public sealed record FinishedBook(int Id, string Title, DateOnly FinishedOn);

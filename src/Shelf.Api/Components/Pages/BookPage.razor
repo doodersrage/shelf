@@ -50,7 +50,7 @@ else if (book is not null)
     @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
     {
         <p>
-            Loaned to @book.LoanedTo
+            Loaned to <a href="@($"/?loanedTo={Uri.EscapeDataString(book.LoanedTo)}")">@book.LoanedTo</a>
             @if (book.LoanedOn is DateOnly loanedOn)
             {
                 <span>since @loanedOn.ToString("MMM d, yyyy")</span>

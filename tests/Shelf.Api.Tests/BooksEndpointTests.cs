@@ -891,6 +891,42 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task Loans_group_the_people_who_have_books()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "Four Ways to Forgiveness",
+            "Ursula K. Le Guin",
+            BookStatus.Reading,
+            null,
+            LoanedTo: "  Tenar  "));
+        Assert.Equal("Tenar", book.LoanedTo);
+
+        var people = await _client.GetFromJsonAsync<LoanCount[]>("/books/loans", JsonOptions);
+        Assert.Contains(people!, person => person.Name == "Tenar" && person.Count >= 1);
+
+        var filtered = await _client.GetFromJsonAsync<BookResponse[]>("/books?loanedTo=tenar", JsonOptions);
+        Assert.Contains(filtered!, item => item.Id == book.Id);
+
+        var page = await _client.GetAsync("/loans");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("Tenar", html);
+        Assert.Contains("/?loanedTo=Tenar", html);
+
+        var shelf = await _client.GetAsync("/?loanedTo=Tenar");
+        var shelfHtml = await shelf.Content.ReadAsStringAsync();
+        Assert.Contains("Loaned to <strong>Tenar</strong>", shelfHtml);
+        Assert.Contains("Four Ways to Forgiveness", shelfHtml);
+    }
+
+    [Fact]
+    public void Loans_collapse_spelling_and_skip_blanks()
+    {
+        var people = BookRules.Loans(["  Tenar  ", "tenar", "  ", null, "Ged"]);
+        Assert.Equal(["Ged", "Tenar"], people.Select(person => person.Name));
+        Assert.Equal(2, people.Single(person => person.Name == "Tenar").Count);
+    }
+
+    [Fact]
     public async Task An_original_title_is_kept_and_can_be_searched()
     {
         var book = await CreateAsync(new CreateBookRequest(
