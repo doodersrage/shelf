@@ -142,6 +142,7 @@ public static class BookRules
         book.Location = BlankToNull(write.Location);
         book.AcquiredOn = write.AcquiredOn;
         book.Translator = BlankToNull(write.Translator);
+        book.RecommendedBy = BlankToNull(write.RecommendedBy);
         book.StartedOn = write.StartedOn;
         book.FinishedOn = write.FinishedOn;
         book.Status = write.Status;
@@ -491,6 +492,36 @@ public static class BookRules
             .OrderBy(shelf => shelf.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
+    public static PlaceCount[] Places(IEnumerable<string?> locations) =>
+        locations
+            .Where(location => !string.IsNullOrWhiteSpace(location))
+            .GroupBy(location => location!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => new PlaceCount(group.First()!.Trim(), group.Count()))
+            .OrderBy(place => place.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    public static int ReadingStreak(IEnumerable<DateOnly> dates, DateOnly today)
+    {
+        var days = dates.Distinct().OrderByDescending(day => day).ToList();
+        if (days.Count == 0 || days[0] < today.AddDays(-1))
+        {
+            return 0;
+        }
+
+        var streak = 1;
+        for (var index = 1; index < days.Count; index++)
+        {
+            if (days[index - 1].DayNumber - days[index].DayNumber != 1)
+            {
+                break;
+            }
+
+            streak++;
+        }
+
+        return streak;
+    }
+
     public static AuthorCount[] AuthorCounts(IEnumerable<string> authors) =>
         authors
             .GroupBy(name => name.Trim(), StringComparer.OrdinalIgnoreCase)
@@ -531,7 +562,9 @@ public static class BookRules
         bool? loved = null,
         bool? loaned = null,
         BookFormat? format = null,
-        string? series = null)
+        string? series = null,
+        string? place = null,
+        string? recommendedBy = null)
     {
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -549,6 +582,7 @@ public static class BookRules
                     || (book.Review != null && book.Review.ToLower().Contains(term))
                     || (book.Location != null && book.Location.ToLower().Contains(term))
                     || (book.Translator != null && book.Translator.ToLower().Contains(term))
+                    || (book.RecommendedBy != null && book.RecommendedBy.ToLower().Contains(term))
                     || book.Quotes.Any(quote => quote.Text.ToLower().Contains(term)))
                 : books.Where(book =>
                     book.Title.ToLower().Contains(term)
@@ -560,6 +594,7 @@ public static class BookRules
                     || (book.Review != null && book.Review.ToLower().Contains(term))
                     || (book.Location != null && book.Location.ToLower().Contains(term))
                     || (book.Translator != null && book.Translator.ToLower().Contains(term))
+                    || (book.RecommendedBy != null && book.RecommendedBy.ToLower().Contains(term))
                     || book.Quotes.Any(quote => quote.Text.ToLower().Contains(term)));
         }
 
@@ -573,6 +608,18 @@ public static class BookRules
         {
             var name = series.Trim().ToLower();
             books = books.Where(book => book.Series != null && book.Series.ToLower() == name);
+        }
+
+        if (!string.IsNullOrWhiteSpace(place))
+        {
+            var name = place.Trim().ToLower();
+            books = books.Where(book => book.Location != null && book.Location.ToLower() == name);
+        }
+
+        if (!string.IsNullOrWhiteSpace(recommendedBy))
+        {
+            var name = recommendedBy.Trim().ToLower();
+            books = books.Where(book => book.RecommendedBy != null && book.RecommendedBy.ToLower() == name);
         }
 
         if (loved is { } lovedOnly)

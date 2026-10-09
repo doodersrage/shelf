@@ -73,6 +73,9 @@ public sealed class BookFormModel
     [MaxLength(200)]
     public string Translator { get; set; } = "";
 
+    [MaxLength(120)]
+    public string RecommendedBy { get; set; } = "";
+
     public string Tags { get; set; } = "";
 
     public BookWrite ToWrite() => BookWrite.From(
@@ -103,7 +106,8 @@ public sealed class BookFormModel
         LoanedOn,
         Location,
         AcquiredOn,
-        Translator);
+        Translator,
+        RecommendedBy);
 
     public bool FillBlanks(CatalogMatch match)
     {
@@ -167,6 +171,7 @@ public sealed class BookFormModel
         Location = "";
         AcquiredOn = null;
         Translator = "";
+        RecommendedBy = "";
         Tags = "";
     }
 
@@ -197,6 +202,7 @@ public sealed class BookFormModel
         Location = book.Location ?? "",
         AcquiredOn = book.AcquiredOn,
         Translator = book.Translator ?? "",
+        RecommendedBy = book.RecommendedBy ?? "",
         Tags = string.Join(", ", book.Tags.Select(tag => tag.Name).OrderBy(name => name, StringComparer.OrdinalIgnoreCase)),
     };
 }

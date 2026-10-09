@@ -709,6 +709,42 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task Places_group_books_and_a_recommendation_is_kept()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "Always Coming Home",
+            "Ursula K. Le Guin",
+            BookStatus.Want,
+            null,
+            Location: "  North wall  ",
+            RecommendedBy: "  Ged  "));
+        Assert.Equal("North wall", book.Location);
+        Assert.Equal("Ged", book.RecommendedBy);
+
+        var places = await _client.GetFromJsonAsync<PlaceCount[]>("/books/places", JsonOptions);
+        Assert.Contains(places!, place => place.Name == "North wall" && place.Count >= 1);
+
+        var filtered = await _client.GetFromJsonAsync<BookResponse[]>("/books?place=north%20wall", JsonOptions);
+        Assert.Contains(filtered!, item => item.Id == book.Id);
+
+        var page = await _client.GetAsync("/places");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("North wall", html);
+    }
+
+    [Fact]
+    public void A_reading_streak_stops_when_a_day_is_missed()
+    {
+        var today = new DateOnly(2026, 10, 9);
+        Assert.Equal(3, BookRules.ReadingStreak(
+            [today, today.AddDays(-1), today.AddDays(-2), today.AddDays(-2)],
+            today));
+        Assert.Equal(1, BookRules.ReadingStreak([today.AddDays(-1)], today));
+        Assert.Equal(0, BookRules.ReadingStreak([today.AddDays(-2)], today));
+        Assert.Equal(0, BookRules.ReadingStreak([], today));
+    }
+
+    [Fact]
     public async Task Goal_can_be_replaced()
     {
         var updated = await _client.PutAsJsonAsync("/settings", new UpdateSettingsRequest(24), JsonOptions);

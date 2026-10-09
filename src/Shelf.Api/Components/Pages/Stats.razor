@@ -29,6 +29,15 @@ else
         <p><strong>@stats.OnLoan</strong><span>On loan</span></p>
     </div>
 
+    @if (streak > 1)
+    {
+        <p class="hint">@streak days in a row.</p>
+    }
+    else if (streak == 1)
+    {
+        <p class="hint">One day of reading.</p>
+    }
+
     @if (stats.YearlyGoal > 0)
     {
         <p class="hint">@stats.FinishedThisYear of @stats.YearlyGoal finished this year</p>
@@ -124,6 +133,7 @@ else
     private ShelfStatsResponse? stats;
     private List<FinishedBook> finished = [];
     private List<RecentSession> lately = [];
+    private int streak;
     private readonly GoalFormModel goal = new();
     private bool goalSaved;
     private string? importMessage;
@@ -142,6 +152,7 @@ else
         var year = DateOnly.FromDateTime(DateTime.UtcNow).Year;
         finished = BookRules.FinishedInYear(books, year).ToList();
         lately = BookRules.RecentSessions(books).ToList();
+        streak = BookRules.ReadingStreak(books.SelectMany(book => book.Sessions).Select(session => session.Date), DateOnly.FromDateTime(DateTime.UtcNow));
     }
 
     private async Task SaveGoal()

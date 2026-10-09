@@ -46,6 +46,7 @@ public sealed class Book
     public string? Location { get; set; }
     public DateOnly? AcquiredOn { get; set; }
     public string? Translator { get; set; }
+    public string? RecommendedBy { get; set; }
     public DateTimeOffset AddedAt { get; set; }
     public List<Tag> Tags { get; set; } = [];
     public List<Quote> Quotes { get; set; } = [];
@@ -112,12 +113,13 @@ public sealed record CreateBookRequest(
     DateOnly? LoanedOn = null,
     [MaxLength(80)] string? Location = null,
     DateOnly? AcquiredOn = null,
-    [MaxLength(200)] string? Translator = null)
+    [MaxLength(200)] string? Translator = null,
+    [MaxLength(120)] string? RecommendedBy = null)
 {
     public BookWrite ToWrite() => BookWrite.From(
         Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
         Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn,
-        Location, AcquiredOn, Translator);
+        Location, AcquiredOn, Translator, RecommendedBy);
 }
 
 public sealed record UpdateBookRequest(
@@ -146,12 +148,13 @@ public sealed record UpdateBookRequest(
     DateOnly? LoanedOn = null,
     [MaxLength(80)] string? Location = null,
     DateOnly? AcquiredOn = null,
-    [MaxLength(200)] string? Translator = null)
+    [MaxLength(200)] string? Translator = null,
+    [MaxLength(120)] string? RecommendedBy = null)
 {
     public BookWrite ToWrite() => BookWrite.From(
         Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
         Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn,
-        Location, AcquiredOn, Translator);
+        Location, AcquiredOn, Translator, RecommendedBy);
 }
 
 public sealed record BookWrite(
@@ -180,7 +183,8 @@ public sealed record BookWrite(
     DateOnly? LoanedOn,
     string? Location,
     DateOnly? AcquiredOn,
-    string? Translator)
+    string? Translator,
+    string? RecommendedBy)
 {
     public static BookWrite From(
         string title,
@@ -208,16 +212,17 @@ public sealed record BookWrite(
         DateOnly? loanedOn,
         string? location,
         DateOnly? acquiredOn,
-        string? translator) => new(
+        string? translator,
+        string? recommendedBy) => new(
             title, author, status, rating, year, isbn, pages, currentPage, notes, startedOn, finishedOn, loanedTo, tags ?? [],
             subtitle, publisher, language, format, series, seriesNumber, coverUrl, review, loved, loanedOn,
-            location, acquiredOn, translator);
+            location, acquiredOn, translator, recommendedBy);
 
     public static BookWrite From(BookResponse book) => From(
         book.Title, book.Author, book.Status, book.Rating, book.Year, book.Isbn, book.Pages, book.CurrentPage, book.Notes,
         book.StartedOn, book.FinishedOn, book.LoanedTo, book.Tags, book.Subtitle, book.Publisher, book.Language, book.Format,
         book.Series, book.SeriesNumber, book.CoverUrl, book.Review, book.Loved, book.LoanedOn,
-        book.Location, book.AcquiredOn, book.Translator);
+        book.Location, book.AcquiredOn, book.Translator, book.RecommendedBy);
 }
 
 public sealed record BookResponse(
@@ -250,7 +255,8 @@ public sealed record BookResponse(
     ReadingSessionResponse[] Sessions,
     string? Location,
     DateOnly? AcquiredOn,
-    string? Translator)
+    string? Translator,
+    string? RecommendedBy)
 {
     public static BookResponse From(Book book) => new(
         book.Id,
@@ -282,10 +288,13 @@ public sealed record BookResponse(
         book.Sessions.OrderBy(session => session.Date).ThenBy(session => session.Id).Select(ReadingSessionResponse.From).ToArray(),
         book.Location,
         book.AcquiredOn,
-        book.Translator);
+        book.Translator,
+        book.RecommendedBy);
 }
 
 public sealed record AuthorCount(string Name, int Count);
+
+public sealed record PlaceCount(string Name, int Count);
 
 public sealed record SeriesBook(int Id, string Title, int? Number, BookStatus Status);
 

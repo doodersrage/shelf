@@ -1,0 +1,35 @@
+@page "/places"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>Places · Shelf</PageTitle>
+
+<h1>Places</h1>
+
+@if (places.Count == 0)
+{
+    <p>No places yet.</p>
+}
+else
+{
+    <ul class="tag-counts">
+        @foreach (var place in places)
+        {
+            <li>
+                <a href="@($"/?place={Uri.EscapeDataString(place.Name)}")">@place.Name</a>
+                <span class="hint">@place.Count @(place.Count == 1 ? "book" : "books")</span>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<PlaceCount> places = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var locations = await db.Books.AsNoTracking().Select(book => book.Location).ToListAsync();
+        places = BookRules.Places(locations).ToList();
+    }
+}

@@ -59,13 +59,17 @@ else if (book is not null)
         <p class="hint">
             @if (!string.IsNullOrWhiteSpace(book.Location))
             {
-                <span>@book.Location</span>
+                <a href="@($"/?place={Uri.EscapeDataString(book.Location)}")">@book.Location</a>
             }
             @if (book.AcquiredOn is DateOnly acquired)
             {
                 <span>@(string.IsNullOrWhiteSpace(book.Location) ? "" : " · ")Acquired @acquired.ToString("MMM d, yyyy")</span>
             }
         </p>
+    }
+    @if (!string.IsNullOrWhiteSpace(book.RecommendedBy))
+    {
+        <p class="hint">Recommended by @book.RecommendedBy</p>
     }
     @if (BookRules.PagesRemaining(book) is int left)
     {

@@ -142,10 +142,16 @@
             <InputDate @bind-Value="Model.AcquiredOn" />
         </label>
     </div>
-    <label>
-        Translator
-        <InputText @bind-Value="Model.Translator" maxlength="200" />
-    </label>
+    <div class="pair">
+        <label>
+            Translator
+            <InputText @bind-Value="Model.Translator" maxlength="200" />
+        </label>
+        <label>
+            Recommended by
+            <InputText @bind-Value="Model.RecommendedBy" maxlength="120" />
+        </label>
+    </div>
 }
 <label>
     Notes
