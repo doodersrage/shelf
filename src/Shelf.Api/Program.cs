@@ -68,6 +68,9 @@ builder.Services.AddHttpClient<IBookLookup, OpenLibraryLookup>(client =>
 builder.Services.AddHttpClient("shelf-sync", client => client.Timeout = TimeSpan.FromMinutes(10));
 builder.Services.AddSingleton<EbookStore>();
 builder.Services.AddSingleton<AudioStore>();
+builder.Services.AddSingleton<OcrTools>();
+builder.Services.AddSingleton<OcrService>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<OcrService>());
 var uploadLimit = Math.Max(EbookStore.MaxBytes, AudioStore.MaxBytes);
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
 {

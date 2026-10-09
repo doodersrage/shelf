@@ -1630,3 +1630,8 @@ label > textarea {
     border-radius: 2px;
     cursor: pointer;
 }
+
+.textLayer.ocr span {
+    font-family: sans-serif;
+    line-height: 1;
+}

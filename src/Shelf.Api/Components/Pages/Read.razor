@@ -47,6 +47,10 @@ else if (book is not null)
                 </label>
             </div>
             @Passage
+            @if (ScanNote is string scanNote)
+            {
+                <p class="hint" role="status">@scanNote</p>
+            }
             <div class="pdf-viewer" @ref="pdfHost" tabindex="0" role="region" aria-label="@($"{book.Title}, page {pdfIndex + 1}. Use the arrow keys to turn pages.")"></div>
             @if (pdfFailed)
             {
@@ -127,6 +131,16 @@ else if (book is not null)
     private int pdfIndex;
     private int pdfPages;
     private bool pdfFailed;
+    private string pdfKind = "text";
+
+    private string? ScanNote => pdfKind switch
+    {
+        "read" => "This page is a scan. Shelf read its words, so you can select and highlight them.",
+        "reading" => "This page is a scan. Shelf is reading its words, and they appear here when they are ready.",
+        "unavailable" => "This page is a scan. To select its words, install Tesseract and Poppler on the server.",
+        "scan" => "This page is a picture with no words Shelf could read.",
+        _ => null,
+    };
     private int typeRevision;
     private int chapter;
     private int markRevision;
@@ -239,7 +253,7 @@ else if (book is not null)
             try
             {
                 pdf = await Js.InvokeAsync<IJSObjectReference>("import", "./pdf-reader.js");
-                await pdf.InvokeAsync<int>("open", pdfHost, $"/books/{book.Id}/ebook/file", pdfIndex, type.Size, self, PdfMarks());
+                await pdf.InvokeAsync<int>("open", pdfHost, $"/books/{book.Id}/ebook/file", pdfIndex, type.Size, self, PdfMarks(), $"/books/{book.Id}/ebook/ocr/");
             }
             catch (JSException)
             {
@@ -486,6 +500,14 @@ else if (book is not null)
         {
             await pdf.InvokeVoidAsync("show", index);
         }
+    }
+
+    // Whether the page showing has its own text, words read from a scan, or neither yet.
+    [JSInvokable]
+    public Task PdfPageKind(string kind)
+    {
+        pdfKind = kind;
+        return InvokeAsync(StateHasChanged);
     }
 
     // The PDF module reports each page it shows; the place is kept as for an EPUB chapter.

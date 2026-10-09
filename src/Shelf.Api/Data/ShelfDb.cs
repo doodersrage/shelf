@@ -26,6 +26,8 @@ public sealed class ShelfDb : DbContext
     public DbSet<ReadingSession> Sessions => Set<ReadingSession>();
     public DbSet<LoanPlace> LoanPlaces => Set<LoanPlace>();
     public DbSet<LoanAskRow> LoanAsks => Set<LoanAskRow>();
+    public DbSet<OcrScan> OcrScans => Set<OcrScan>();
+    public DbSet<OcrPage> OcrPages => Set<OcrPage>();
     public DbSet<ShelfSetting> Settings => Set<ShelfSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -107,6 +109,26 @@ public sealed class ShelfDb : DbContext
             reader.HasIndex(r => r.NormalizedName).IsUnique();
             reader.Property(r => r.Stamp).HasMaxLength(64).IsRequired();
             reader.HasIndex(r => r.KeyHash).IsUnique();
+        });
+
+        // Words read from scanned PDF pages. They go with the book, and a new file gets a new reading.
+        modelBuilder.Entity<OcrScan>(scan =>
+        {
+            scan.Property(item => item.StoredName).HasMaxLength(48).IsRequired();
+            scan.HasOne<Book>()
+                .WithMany()
+                .HasForeignKey(item => item.BookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            scan.HasIndex(item => new { item.BookId, item.StoredName }).IsUnique();
+        });
+
+        modelBuilder.Entity<OcrPage>(page =>
+        {
+            page.HasOne<OcrScan>()
+                .WithMany()
+                .HasForeignKey(item => item.ScanId)
+                .OnDelete(DeleteBehavior.Cascade);
+            page.HasIndex(item => new { item.ScanId, item.Page }).IsUnique();
         });
 
         modelBuilder.Entity<LoanAskRow>(ask =>

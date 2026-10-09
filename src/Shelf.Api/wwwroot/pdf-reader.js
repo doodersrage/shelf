@@ -6,13 +6,17 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL("./lib/pdfjs/pdf.worker.min.mjs", 
 
 let state = null;
 let resizeTimer = 0;
+let ocrTimer = 0;
 
-export async function open(host, url, start, size, dotnet, marks) {
+// Fewer letters than this of a page's own and it is a picture of text, worth asking the server to read.
+const ownTextLetters = 16;
+
+export async function open(host, url, start, size, dotnet, marks, ocrBase) {
   close();
   // No eval and no XFA forms: a PDF from anywhere should only ever be drawn, never run.
   const task = pdfjs.getDocument({ url, isEvalSupported: false, enableXfa: false });
   const doc = await task.promise;
-  state = { host, doc, dotnet, size, marks: marks ?? [], index: clamp(start, doc.numPages), token: 0, rendering: null };
+  state = { host, doc, dotnet, size, ocrBase, marks: marks ?? [], index: clamp(start, doc.numPages), token: 0, rendering: null };
   host.addEventListener("keydown", onKey);
   host.addEventListener("mouseup", onSelect);
   host.addEventListener("keyup", onSelect);
@@ -59,6 +63,7 @@ export function close() {
     return;
   }
 
+  clearTimeout(ocrTimer);
   state.host.removeEventListener("keydown", onKey);
   state.host.removeEventListener("mouseup", onSelect);
   state.host.removeEventListener("keyup", onSelect);
@@ -119,15 +124,83 @@ async function render() {
     throw error;
   }
 
+  clearTimeout(ocrTimer);
+  let kind = "text";
+  if (letters(text) < ownTextLetters && current.ocrBase) {
+    kind = await readScan(current, token, text, viewport);
+  }
+
   // A newer page or size may have been asked for while this one was drawing.
   if (state !== current || token !== current.token) {
     return;
   }
 
+  current.dotnet.invokeMethodAsync("PdfPageKind", kind);
   paint(text, current.index);
   current.host.replaceChildren(sheet);
   current.host.scrollTop = 0;
   await current.dotnet.invokeMethodAsync("PdfShown", current.index, current.doc.numPages);
+}
+
+function letters(layer) {
+  return (layer.textContent.match(/[\p{L}\p{N}]/gu) ?? []).length;
+}
+
+// A scanned page: lay the words the server read over the picture, or say why there are none yet.
+async function readScan(current, token, layer, viewport) {
+  let answer;
+  try {
+    const response = await fetch(`${current.ocrBase}${current.index}`, { credentials: "same-origin" });
+    answer = response.ok ? await response.json() : null;
+  } catch {
+    answer = null;
+  }
+
+  if (!answer) {
+    return "scan";
+  }
+
+  if (answer.words?.length) {
+    ocrLayer(layer, answer.words, viewport);
+    return "read";
+  }
+
+  if (answer.state === "queued" || answer.state === "reading") {
+    // Look again shortly while this page is still the one showing.
+    const page = current.index;
+    ocrTimer = setTimeout(() => {
+      if (state === current && current.index === page && token === current.token) {
+        render();
+      }
+    }, 4000);
+    return answer.done > current.index ? "scan" : "reading";
+  }
+
+  return answer.state === "unavailable" ? "unavailable" : "scan";
+}
+
+function ocrLayer(layer, words, viewport) {
+  layer.replaceChildren();
+  layer.classList.add("ocr");
+  const measure = document.createElement("canvas").getContext("2d");
+  for (const word of words) {
+    const height = word.h * viewport.height;
+    const width = word.w * viewport.width;
+    if (height <= 0 || width <= 0) {
+      continue;
+    }
+
+    const span = document.createElement("span");
+    // Each word ends in a space, so a selection across words and lines reads as ordinary text.
+    span.textContent = `${word.t} `;
+    span.style.left = `${word.x * viewport.width}px`;
+    span.style.top = `${word.y * viewport.height}px`;
+    span.style.fontSize = `${height}px`;
+    measure.font = `${height}px sans-serif`;
+    const natural = measure.measureText(word.t).width || width;
+    span.style.transform = `scaleX(${width / natural})`;
+    layer.append(span);
+  }
 }
 
 // A page's text, as one string in the text layer's own order, with each text node's place in it.

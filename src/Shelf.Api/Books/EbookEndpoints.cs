@@ -13,6 +13,7 @@ public static class EbookEndpoints
         IFormFile? file,
         ShelfDb db,
         EbookStore store,
+        OcrService ocr,
         CancellationToken cancellationToken)
     {
         var book = await db.Books.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
@@ -40,6 +41,11 @@ public static class EbookEndpoints
         book.EbookChapter = 0;
         book.Format ??= BookFormat.Ebook;
         await db.SaveChangesAsync(cancellationToken);
+        if (EbookStore.IsPdf(saved.StoredName))
+        {
+            ocr.Nudge();
+        }
+
         return TypedResults.Redirect($"/library/{id}?ebook=saved");
     }
 
