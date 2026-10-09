@@ -384,4 +384,19 @@ public sealed record CatalogMatch(
     int? Pages,
     string? Publisher,
     string? Language,
-    string? CoverUrl);
+    string? CoverUrl,
+    string? Isbn = null,
+    string? Subtitle = null,
+    BookFormat? Format = null,
+    string[]? Tags = null);
+
+public sealed record EditionChoice(
+    string? Title,
+    string? Publisher,
+    int? Year,
+    int? Pages,
+    string? Language,
+    string? PhysicalFormat,
+    int? CoverId,
+    string? Subtitle,
+    string? Isbn);

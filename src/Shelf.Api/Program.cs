@@ -31,7 +31,7 @@ builder.Services.AddScoped(static services =>
 builder.Services.AddHttpClient<IBookLookup, OpenLibraryLookup>(client =>
 {
     client.BaseAddress = new Uri("https://openlibrary.org/");
-    client.Timeout = TimeSpan.FromSeconds(8);
+    client.Timeout = TimeSpan.FromSeconds(15);
     client.DefaultRequestHeaders.UserAgent.ParseAdd("Shelf/1.0 (personal library; +https://github.com/doodersrage/shelf)");
 });
 

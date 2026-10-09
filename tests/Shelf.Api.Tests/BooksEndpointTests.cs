@@ -467,6 +467,67 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
 
         var unknown = await _client.GetAsync("/books/lookup?isbn=9780000000002");
         Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+
+        var byTitle = await _client.GetFromJsonAsync<CatalogMatch>(
+            "/books/lookup?title=A%20Wizard%20of%20Earthsea&author=Ursula%20K.%20Le%20Guin",
+            JsonOptions);
+        Assert.Equal("Parnassus Press", byTitle?.Publisher);
+        Assert.Equal(205, byTitle?.Pages);
+        Assert.Equal(BookFormat.Hardcover, byTitle?.Format);
+    }
+
+    [Fact]
+    public async Task Enrich_fills_empty_catalog_fields_from_a_title()
+    {
+        var book = await CreateAsync(new CreateBookRequest("A Wizard of Earthsea", "Ursula K. Le Guin", BookStatus.Want, null));
+        Assert.Null(book.Pages);
+
+        var enriched = await _client.PostAsync($"/books/{book.Id}/enrich", null);
+        Assert.Equal(HttpStatusCode.OK, enriched.StatusCode);
+        var filled = await enriched.Content.ReadFromJsonAsync<BookResponse>(JsonOptions);
+        Assert.Equal(1968, filled?.Year);
+        Assert.Equal(205, filled?.Pages);
+        Assert.Equal("Parnassus Press", filled?.Publisher);
+        Assert.Equal("English", filled?.Language);
+        Assert.Equal(BookFormat.Hardcover, filled?.Format);
+        Assert.Contains("fantasy", filled!.Tags);
+
+        var again = await _client.PostAsync($"/books/{book.Id}/enrich", null);
+        var second = await again.Content.ReadFromJsonAsync<BookResponse>(JsonOptions);
+        Assert.Equal(filled.Publisher, second?.Publisher);
+        Assert.Equal(filled.Tags, second?.Tags);
+    }
+
+    [Fact]
+    public void The_earliest_english_edition_is_kept()
+    {
+        var chosen = BookRules.ChooseEdition(
+            [
+                new EditionChoice("Yerdeniz", "Metis", 2016, 192, null, "paperback", null, null, null),
+                new EditionChoice("A Wizard of Earthsea", "Bantam Books", 1975, 183, "eng", "Paperback", 2, null, null),
+                new EditionChoice("The wizard of Earthsea", "Ace Pub. Co.", 1968, 205, "eng", null, 3, null, null),
+                new EditionChoice("A wizard of Earthsea", "Parnassus Press", 1968, 205, "eng", null, 4, null, "9780000000000"),
+            ],
+            "A Wizard of Earthsea");
+        Assert.Equal("Parnassus Press", chosen?.Publisher);
+        Assert.Equal(1968, BookRules.ParsePublishYear("1968"));
+        Assert.Equal(2012, BookRules.ParsePublishYear("Sep 11, 2012"));
+        Assert.Equal(BookFormat.Paperback, BookRules.ParseFormat("Mass Market Paperback"));
+        Assert.Equal(BookFormat.Hardcover, BookRules.ParseFormat("Hardcover"));
+        Assert.Null(BookRules.ParseFormat("library binding"));
+        Assert.Equal(["science fiction", "fantasy"], BookRules.UsefulSubjects(
+            ["award:hugo_award=1970", "Fiction", "Fantasy", "Bk. 1.", "magic in fiction", "science fiction", "Hugo Award Winner"]));
+        Assert.Null(BookRules.CleanSubtitle("\" A Tale of Magic and Shadow\" ( more thematic, not official)"));
+        Assert.Null(BookRules.CleanSubtitle("Drawings by Ruth Robbins."));
+
+        var closer = BookRules.ChooseEdition(
+            [
+                new EditionChoice("The Left Hand of Darkness", "Walker", 1969, 230, "eng", null, null, null, null),
+                new EditionChoice("The left hand of darkness", "Ace Books", 1969, 304, "eng", null, null, null, null),
+            ],
+            "The Left Hand of Darkness",
+            304);
+        Assert.Equal("Ace Books", closer?.Publisher);
     }
 
     [Fact]
@@ -1001,8 +1062,26 @@ public sealed class ShelfApiFactory : WebApplicationFactory<Program>
 
 file sealed class StubBookLookup : IBookLookup
 {
-    public Task<CatalogMatch?> FindAsync(string isbn, CancellationToken cancellationToken)
+    public Task<CatalogMatch?> FindAsync(string? isbn, string? title, string? author, CancellationToken cancellationToken)
     {
+        if (title?.Contains("Earthsea", StringComparison.OrdinalIgnoreCase) == true
+            && author?.Contains("Le Guin", StringComparison.OrdinalIgnoreCase) == true
+            && BookRules.NormalizeIsbn(isbn) is null)
+        {
+            return Task.FromResult<CatalogMatch?>(new CatalogMatch(
+                "A Wizard of Earthsea",
+                "Ursula K. Le Guin",
+                1968,
+                205,
+                "Parnassus Press",
+                "English",
+                "https://covers.openlibrary.org/b/id/2-M.jpg",
+                null,
+                null,
+                BookFormat.Hardcover,
+                ["Fantasy"]));
+        }
+
         if (BookRules.NormalizeIsbn(isbn) != "9780441478125")
         {
             return Task.FromResult<CatalogMatch?>(null);

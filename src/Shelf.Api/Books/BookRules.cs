@@ -793,6 +793,234 @@ public static class BookRules
         return names;
     }
 
+    public static int? ParsePublishYear(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        for (var index = 0; index <= value.Length - 4; index++)
+        {
+            if (!char.IsDigit(value[index]) || !char.IsDigit(value[index + 1]) || !char.IsDigit(value[index + 2]) || !char.IsDigit(value[index + 3]))
+            {
+                continue;
+            }
+
+            if (index > 0 && char.IsDigit(value[index - 1]))
+            {
+                continue;
+            }
+
+            if (index + 4 < value.Length && char.IsDigit(value[index + 4]))
+            {
+                continue;
+            }
+
+            var year = int.Parse(value.AsSpan(index, 4), System.Globalization.CultureInfo.InvariantCulture);
+            if (year is >= 1000 and <= 2100)
+            {
+                return year;
+            }
+        }
+
+        return null;
+    }
+
+    public static BookFormat? ParseFormat(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var text = value.ToLowerInvariant();
+        if (text.Contains("audio", StringComparison.Ordinal))
+        {
+            return BookFormat.Audiobook;
+        }
+
+        if (text.Contains("ebook", StringComparison.Ordinal) || text.Contains("electronic", StringComparison.Ordinal))
+        {
+            return BookFormat.Ebook;
+        }
+
+        if (text.Contains("hard", StringComparison.Ordinal))
+        {
+            return BookFormat.Hardcover;
+        }
+
+        if (text.Contains("paper", StringComparison.Ordinal))
+        {
+            return BookFormat.Paperback;
+        }
+
+        return null;
+    }
+
+    public static string? CleanSubtitle(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var text = value.Trim().Trim('"').Trim();
+        if (text.Length is 0 or > 80
+            || text.Contains('(') || text.Contains(')') || text.Contains('"') || text.Contains('“'))
+        {
+            return null;
+        }
+
+        var lower = text.ToLowerInvariant();
+        if (lower.Contains("not official", StringComparison.Ordinal)
+            || lower.StartsWith("drawings", StringComparison.Ordinal)
+            || lower.StartsWith("illustrated", StringComparison.Ordinal)
+            || lower.Contains("thematic", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return text;
+    }
+
+    public static string[] UsefulSubjects(IEnumerable<string?>? subjects)
+    {
+        if (subjects is null)
+        {
+            return [];
+        }
+
+        var tags = new List<string>();
+        foreach (var subject in subjects.Take(10))
+        {
+            var name = CanonicalTag(subject);
+            if (name is null
+                || name.Length > MaxTagLength
+                || name.Contains(':', StringComparison.Ordinal)
+                || name.Contains("award", StringComparison.Ordinal)
+                || name.Any(char.IsDigit)
+                || name.StartsWith("bk.", StringComparison.Ordinal)
+                || name.StartsWith("bk ", StringComparison.Ordinal)
+                || name == "fiction"
+                || (name.EndsWith(" fiction", StringComparison.Ordinal) && name != "science fiction")
+                || !name.All(character => char.IsAsciiLetter(character) || character is ' ' or '-' or '\''))
+            {
+                continue;
+            }
+
+            if (tags.Contains(name, StringComparer.Ordinal))
+            {
+                continue;
+            }
+
+            tags.Add(name);
+        }
+
+        string[] preferred = ["science fiction", "fantasy", "mystery", "horror", "poetry", "biography", "history", "romance", "thriller"];
+        return tags
+            .Select((name, index) => (name, index))
+            .OrderBy(item => Array.IndexOf(preferred, item.name) is var rank and >= 0 ? rank : preferred.Length)
+            .ThenBy(item => item.index)
+            .Take(4)
+            .Select(item => item.name)
+            .ToArray();
+    }
+
+    public static EditionChoice? ChooseEdition(IEnumerable<EditionChoice> editions, string workTitle, int? typicalPages = null)
+    {
+        var candidates = editions.Where(edition => !string.IsNullOrWhiteSpace(edition.Publisher)).ToList();
+        var english = candidates
+            .Where(edition => string.Equals(edition.Language, "eng", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        var pool = english.Count > 0
+            ? english
+            : candidates.Where(edition => TitlesMatch(edition.Title, workTitle)).ToList();
+
+        return pool
+            .OrderBy(edition => edition.Year ?? int.MaxValue)
+            .ThenByDescending(edition => TitlesMatch(edition.Title, workTitle))
+            .ThenBy(edition => typicalPages is int typical && edition.Pages is int pages ? Math.Abs(pages - typical) : int.MaxValue)
+            .ThenByDescending(edition => edition.Pages is not null)
+            .FirstOrDefault();
+    }
+
+    public static bool FillEmpty(Book book, CatalogMatch match, List<string> tags)
+    {
+        var changed = false;
+
+        void SetText(string? current, string? incoming, Action<string> apply, int max)
+        {
+            if (!string.IsNullOrWhiteSpace(current) || string.IsNullOrWhiteSpace(incoming))
+            {
+                return;
+            }
+
+            var trimmed = incoming.Trim();
+            apply(trimmed.Length <= max ? trimmed : trimmed[..max]);
+            changed = true;
+        }
+
+        if (book.Year is null && match.Year is >= 1000 and <= 2100)
+        {
+            book.Year = match.Year;
+            changed = true;
+        }
+
+        if (book.Pages is null && match.Pages is >= 1 and <= 20000)
+        {
+            book.Pages = match.Pages;
+            changed = true;
+        }
+
+        SetText(book.Publisher, match.Publisher, value => book.Publisher = value, 200);
+        SetText(book.Language, match.Language, value => book.Language = value, 40);
+        SetText(book.Subtitle, match.Subtitle, value => book.Subtitle = value, 200);
+
+        if (string.IsNullOrWhiteSpace(book.CoverUrl) && match.CoverUrl is { } cover && cover.Length <= 500 && IsCoverUrl(cover))
+        {
+            book.CoverUrl = cover.Trim();
+            changed = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(book.Isbn) && NormalizeIsbn(match.Isbn) is { } isbn)
+        {
+            book.Isbn = isbn;
+            changed = true;
+        }
+
+        if (book.Format is null && match.Format is { } format)
+        {
+            book.Format = format;
+            changed = true;
+        }
+
+        foreach (var tag in UsefulSubjects(match.Tags))
+        {
+            if (tags.Count >= MaxTags || tags.Contains(tag, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            tags.Add(tag);
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private static bool TitlesMatch(string? left, string? right)
+    {
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+        {
+            return false;
+        }
+
+        var a = string.Join(' ', left.Trim().TrimEnd('.').Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        var b = string.Join(' ', right.Trim().TrimEnd('.').Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return a.Equals(b, StringComparison.OrdinalIgnoreCase);
+    }
+
     public static string? CanonicalTag(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))

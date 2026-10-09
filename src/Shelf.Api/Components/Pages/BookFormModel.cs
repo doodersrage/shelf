@@ -133,6 +133,39 @@ public sealed class BookFormModel
             filled = true;
         }
 
+        filled |= Assign(Subtitle, match.Subtitle, value => Subtitle = value, 200);
+        filled |= Assign(Isbn, match.Isbn, value => Isbn = value, 32);
+        if (string.IsNullOrWhiteSpace(Format) && match.Format is { } format)
+        {
+            Format = format.ToString();
+            filled = true;
+        }
+
+        var incoming = BookRules.UsefulSubjects(match.Tags);
+        if (incoming.Length > 0)
+        {
+            var tags = string.IsNullOrWhiteSpace(Tags)
+                ? []
+                : Tags.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+            var added = false;
+            foreach (var tag in incoming)
+            {
+                if (tags.Count >= BookRules.MaxTags || tags.Contains(tag, StringComparer.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                tags.Add(tag);
+                added = true;
+            }
+
+            if (added)
+            {
+                Tags = string.Join(", ", tags);
+                filled = true;
+            }
+        }
+
         return filled;
     }
 

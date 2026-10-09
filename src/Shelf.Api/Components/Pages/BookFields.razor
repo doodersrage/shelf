@@ -60,7 +60,7 @@
         </InputSelect>
     </label>
 </div>
-<button type="button" @onclick="LookUp" disabled="@looking">@(looking ? "Looking…" : "Look up ISBN")</button>
+<button type="button" @onclick="LookUp" disabled="@looking">@(looking ? "Looking…" : "Look up")</button>
 @if (lookupNote is not null)
 {
     <p class="hint">@lookupNote</p>
@@ -185,18 +185,19 @@
     private async Task LookUp()
     {
         lookupNote = null;
-        if (string.IsNullOrWhiteSpace(Model.Isbn))
+        if (string.IsNullOrWhiteSpace(Model.Isbn)
+            && (string.IsNullOrWhiteSpace(Model.Title) || string.IsNullOrWhiteSpace(Model.Author)))
         {
-            lookupNote = "Enter an ISBN first.";
+            lookupNote = "Enter an ISBN, or a title and an author.";
             return;
         }
 
         looking = true;
         try
         {
-            var match = await Lookup.FindAsync(Model.Isbn, CancellationToken.None);
+            var match = await Lookup.FindAsync(Model.Isbn, Model.Title, Model.Author, CancellationToken.None);
             lookupNote = match is null
-                ? "Nothing matched that ISBN."
+                ? "Nothing matched."
                 : Model.FillBlanks(match) ? "Filled the empty fields." : "Those fields are already filled.";
         }
         finally

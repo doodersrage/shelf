@@ -1,6 +1,7 @@
 @page "/"
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
+@inject IBookLookup Lookup
 
 <PageTitle>Shelf</PageTitle>
 
@@ -9,6 +10,17 @@
 @if (Suggestion is Book suggestion)
 {
     <p class="hint">From the want list: <a href="/library/@suggestion.Id">@suggestion.Title</a></p>
+}
+
+@if (books.Any(NeedsCatalog))
+{
+    <p class="hint">
+        <button type="button" @onclick="FillEmptyDetails" disabled="@filling">@(filling ? "Looking…" : "Fill empty details")</button>
+        @if (fillNote is not null)
+        {
+            <span>@fillNote</span>
+        }
+    </p>
 }
 
 <div class="filters">
@@ -234,6 +246,8 @@ else
     private bool lovedOnly;
     private bool loanedOnly;
     private Dictionary<string, string[]>? formErrors;
+    private bool filling;
+    private string? fillNote;
 
     [SupplyParameterFromQuery(Name = "tag")]
     public string? Tag { get; set; }
@@ -404,6 +418,60 @@ else
 
         book.Loved = !book.Loved;
         await db.SaveChangesAsync();
+        await LoadAsync();
+    }
+
+    private static bool NeedsCatalog(Book book) =>
+        book.Year is null
+        || book.Pages is null
+        || string.IsNullOrWhiteSpace(book.Publisher)
+        || string.IsNullOrWhiteSpace(book.Language)
+        || string.IsNullOrWhiteSpace(book.CoverUrl);
+
+    private async Task FillEmptyDetails()
+    {
+        filling = true;
+        fillNote = null;
+        var filled = 0;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var pending = (await db.Books.WithDetails().ToListAsync()).Where(NeedsCatalog).ToList();
+            foreach (var book in pending)
+            {
+                var match = await Lookup.FindAsync(book.Isbn, book.Title, book.Author, CancellationToken.None);
+                if (match is null)
+                {
+                    continue;
+                }
+
+                var tags = book.Tags.Select(tag => tag.Name).ToList();
+                if (!BookRules.FillEmpty(book, match, tags))
+                {
+                    continue;
+                }
+
+                await BookRules.SyncTagsAsync(db, book, tags, CancellationToken.None);
+                filled++;
+            }
+
+            if (filled > 0)
+            {
+                await db.SaveChangesAsync();
+                await BookRules.RemoveUnusedTagsAsync(db, CancellationToken.None);
+            }
+        }
+        finally
+        {
+            filling = false;
+        }
+
+        fillNote = filled switch
+        {
+            0 => "Nothing new turned up.",
+            1 => "Filled 1 book.",
+            _ => $"Filled {filled} books.",
+        };
         await LoadAsync();
     }
 

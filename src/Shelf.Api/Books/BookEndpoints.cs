@@ -14,7 +14,7 @@ public static class BookEndpoints
         books.MapGet("/stats", GetStats).WithTags("Shelf");
         books.MapGet("/export", ExportLibrary).WithTags("Shelf");
         books.MapPost("/import", ImportLibrary).WithTags("Shelf");
-        books.MapGet("/lookup", LookupIsbn);
+        books.MapGet("/lookup", LookupBook);
         books.MapGet("/pick", PickBook);
         books.MapGet("/authors", ListAuthors);
         books.MapGet("/series", ListSeries);
@@ -34,6 +34,7 @@ public static class BookEndpoints
         books.MapPost("/{id:int}/sessions", CreateSession);
         books.MapDelete("/{id:int}/sessions/{sessionId:int}", DeleteSession);
         books.MapPost("/{id:int}/return", ReturnBook);
+        books.MapPost("/{id:int}/enrich", EnrichBook);
 
         app.MapGet("/settings", GetSettings).WithTags("Shelf");
         app.MapPut("/settings", UpdateSettings).WithTags("Shelf");
@@ -331,18 +332,42 @@ public static class BookEndpoints
         return TypedResults.Ok(new ShelfSettingsResponse(request.YearlyGoal));
     }
 
-    private static async Task<Results<Ok<CatalogMatch>, NotFound>> LookupIsbn(
-        string? isbn,
+    private static async Task<Results<Ok<CatalogMatch>, NotFound>> LookupBook(
+        IBookLookup lookup,
+        CancellationToken cancellationToken,
+        string? isbn = null,
+        string? title = null,
+        string? author = null)
+    {
+        var match = await lookup.FindAsync(isbn, title, author, cancellationToken);
+        return match is null ? TypedResults.NotFound() : TypedResults.Ok(match);
+    }
+
+    private static async Task<Results<Ok<BookResponse>, NotFound>> EnrichBook(
+        int id,
+        ShelfDb db,
         IBookLookup lookup,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(isbn))
+        var book = await db.Books.WithDetails().FirstOrDefaultAsync(existing => existing.Id == id, cancellationToken);
+        if (book is null)
         {
             return TypedResults.NotFound();
         }
 
-        var match = await lookup.FindAsync(isbn, cancellationToken);
-        return match is null ? TypedResults.NotFound() : TypedResults.Ok(match);
+        var match = await lookup.FindAsync(book.Isbn, book.Title, book.Author, cancellationToken);
+        if (match is not null)
+        {
+            var tags = book.Tags.Select(tag => tag.Name).ToList();
+            if (BookRules.FillEmpty(book, match, tags))
+            {
+                await BookRules.SyncTagsAsync(db, book, tags, cancellationToken);
+                await db.SaveChangesAsync(cancellationToken);
+                await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
+            }
+        }
+
+        return TypedResults.Ok(BookResponse.From(book));
     }
 
     private static async Task<Results<Ok<BookResponse>, NotFound>> ReturnBook(

@@ -27,7 +27,7 @@ To run the API on its own, use `dotnet run --project src/Shelf.Api` and open [ht
 | `/books` | The library as JSON. Filter with `q`, `status`, `tag`, `author`, `series`, `place`, `recommendedBy`, `loanedTo`, `loved`, `loaned`, `format`, and `sort` (`title`, `author`, `series`, `year`, `rating`, `added`). |
 | `/books/{id}` | One book as JSON, including tags, quotes, and sessions. |
 | `/books/export` | The shelf as a JSON backup. `POST /books/import` restores one, skipping books already on the shelf. |
-| `/books/lookup?isbn=` | Title, author, year, pages, publisher, language, and cover from Open Library. |
+| `/books/lookup?isbn=` | Title, author, year, pages, publisher, language, and cover from Open Library. `?title=` and `?author=` look the book up without an ISBN. `POST /books/{id}/enrich` fills the empty catalog fields. |
 | `/books/pick` | One book from the want list for today. `?status=Reading` picks from another status. |
 | `/books/authors` | Authors and how many of their books are on the shelf. |
 | `/books/series` | Each series, in reading order. |
