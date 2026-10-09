@@ -1,0 +1,35 @@
+@page "/recommenders"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>Recommenders · Shelf</PageTitle>
+
+<h1>Recommenders</h1>
+
+@if (people.Count == 0)
+{
+    <p>No recommendations yet.</p>
+}
+else
+{
+    <ul class="tag-counts">
+        @foreach (var person in people)
+        {
+            <li>
+                <a href="@($"/?recommendedBy={Uri.EscapeDataString(person.Name)}")">@person.Name</a>
+                <span class="hint">@person.Count @(person.Count == 1 ? "book" : "books")</span>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<RecommenderCount> people = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var names = await db.Books.AsNoTracking().Select(book => book.RecommendedBy).ToListAsync();
+        people = BookRules.Recommenders(names).ToList();
+    }
+}

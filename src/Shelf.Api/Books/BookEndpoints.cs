@@ -19,6 +19,7 @@ public static class BookEndpoints
         books.MapGet("/authors", ListAuthors);
         books.MapGet("/series", ListSeries);
         books.MapGet("/places", ListPlaces);
+        books.MapGet("/recommenders", ListRecommenders);
         books.MapGet("/quotes", ListAllQuotes);
         books.MapGet("/{id:int}", GetBook);
         books.MapPost("/", CreateBook);
@@ -398,5 +399,11 @@ public static class BookEndpoints
     {
         var locations = await db.Books.AsNoTracking().Select(book => book.Location).ToListAsync(cancellationToken);
         return TypedResults.Ok(BookRules.Places(locations));
+    }
+
+    private static async Task<Ok<RecommenderCount[]>> ListRecommenders(ShelfDb db, CancellationToken cancellationToken)
+    {
+        var names = await db.Books.AsNoTracking().Select(book => book.RecommendedBy).ToListAsync(cancellationToken);
+        return TypedResults.Ok(BookRules.Recommenders(names));
     }
 }

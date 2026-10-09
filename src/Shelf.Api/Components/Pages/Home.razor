@@ -49,7 +49,7 @@
     </label>
 </div>
 
-@if (!string.IsNullOrWhiteSpace(tagFilter) || !string.IsNullOrWhiteSpace(authorFilter) || !string.IsNullOrWhiteSpace(seriesFilter) || !string.IsNullOrWhiteSpace(placeFilter))
+@if (!string.IsNullOrWhiteSpace(tagFilter) || !string.IsNullOrWhiteSpace(authorFilter) || !string.IsNullOrWhiteSpace(seriesFilter) || !string.IsNullOrWhiteSpace(placeFilter) || !string.IsNullOrWhiteSpace(recommendedFilter))
 {
     <p class="hint">
         @if (!string.IsNullOrWhiteSpace(authorFilter))
@@ -63,6 +63,10 @@
         @if (!string.IsNullOrWhiteSpace(placeFilter))
         {
             <span>At <strong>@placeFilter</strong></span>
+        }
+        @if (!string.IsNullOrWhiteSpace(recommendedFilter))
+        {
+            <span>From <strong>@recommendedFilter</strong></span>
         }
         @if (!string.IsNullOrWhiteSpace(tagFilter))
         {
@@ -158,7 +162,7 @@ else
                 }
                 @if (!string.IsNullOrWhiteSpace(book.RecommendedBy))
                 {
-                    <span>From @book.RecommendedBy</span>
+                    <a href="@($"/?recommendedBy={Uri.EscapeDataString(book.RecommendedBy)}")">From @book.RecommendedBy</a>
                 }
                 @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
                 {
@@ -217,6 +221,7 @@ else
     private string? authorFilter;
     private string? seriesFilter;
     private string? placeFilter;
+    private string? recommendedFilter;
     private bool lovedOnly;
     private bool loanedOnly;
     private Dictionary<string, string[]>? formErrors;
@@ -233,12 +238,16 @@ else
     [SupplyParameterFromQuery(Name = "place")]
     public string? Place { get; set; }
 
+    [SupplyParameterFromQuery(Name = "recommendedBy")]
+    public string? RecommendedBy { get; set; }
+
     protected override async Task OnParametersSetAsync()
     {
         tagFilter = string.IsNullOrWhiteSpace(Tag) ? null : Tag.Trim();
         authorFilter = string.IsNullOrWhiteSpace(Author) ? null : Author.Trim();
         seriesFilter = string.IsNullOrWhiteSpace(Series) ? null : Series.Trim();
         placeFilter = string.IsNullOrWhiteSpace(Place) ? null : Place.Trim();
+        recommendedFilter = string.IsNullOrWhiteSpace(RecommendedBy) ? null : RecommendedBy.Trim();
         await LoadAsync();
     }
 
@@ -290,6 +299,11 @@ else
             if (!string.IsNullOrWhiteSpace(placeFilter))
             {
                 result = result.Where(book => book.Location != null && book.Location.Equals(placeFilter, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(recommendedFilter))
+            {
+                result = result.Where(book => book.RecommendedBy != null && book.RecommendedBy.Equals(recommendedFilter, StringComparison.OrdinalIgnoreCase));
             }
 
             if (lovedOnly)

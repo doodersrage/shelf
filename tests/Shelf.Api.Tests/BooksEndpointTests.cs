@@ -733,6 +733,42 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task Recommenders_group_the_people_who_suggested_books()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "Tales of Ogion",
+            "Ursula K. Le Guin",
+            BookStatus.Want,
+            null,
+            RecommendedBy: "  Ogion  "));
+        Assert.Equal("Ogion", book.RecommendedBy);
+
+        var people = await _client.GetFromJsonAsync<RecommenderCount[]>("/books/recommenders", JsonOptions);
+        Assert.Contains(people!, person => person.Name == "Ogion" && person.Count >= 1);
+
+        var filtered = await _client.GetFromJsonAsync<BookResponse[]>("/books?recommendedBy=ogion", JsonOptions);
+        Assert.Contains(filtered!, item => item.Id == book.Id);
+
+        var page = await _client.GetAsync("/recommenders");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("Ogion", html);
+        Assert.Contains("/?recommendedBy=Ogion", html);
+
+        var shelf = await _client.GetAsync("/?recommendedBy=Ogion");
+        var shelfHtml = await shelf.Content.ReadAsStringAsync();
+        Assert.Contains("From <strong>Ogion</strong>", shelfHtml);
+        Assert.Contains("Tales of Ogion", shelfHtml);
+    }
+
+    [Fact]
+    public void Recommenders_collapse_spelling_and_skip_blanks()
+    {
+        var people = BookRules.Recommenders(["  Ogion  ", "ogion", "  ", null, "Ged"]);
+        Assert.Equal(["Ged", "Ogion"], people.Select(person => person.Name));
+        Assert.Equal(2, people.Single(person => person.Name == "Ogion").Count);
+    }
+
+    [Fact]
     public void A_reading_streak_stops_when_a_day_is_missed()
     {
         var today = new DateOnly(2026, 10, 9);

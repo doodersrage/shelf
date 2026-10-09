@@ -69,7 +69,7 @@ else if (book is not null)
     }
     @if (!string.IsNullOrWhiteSpace(book.RecommendedBy))
     {
-        <p class="hint">Recommended by @book.RecommendedBy</p>
+        <p class="hint"><a href="@($"/?recommendedBy={Uri.EscapeDataString(book.RecommendedBy)}")">Recommended by @book.RecommendedBy</a></p>
     }
     @if (BookRules.PagesRemaining(book) is int left)
     {

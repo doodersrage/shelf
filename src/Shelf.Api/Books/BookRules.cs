@@ -500,6 +500,14 @@ public static class BookRules
             .OrderBy(place => place.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
+    public static RecommenderCount[] Recommenders(IEnumerable<string?> names) =>
+        names
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .GroupBy(name => name!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => new RecommenderCount(group.First()!.Trim(), group.Count()))
+            .OrderBy(person => person.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
     public static int ReadingStreak(IEnumerable<DateOnly> dates, DateOnly today)
     {
         var days = dates.Distinct().OrderByDescending(day => day).ToList();
