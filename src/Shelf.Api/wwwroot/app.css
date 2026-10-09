@@ -1623,3 +1623,10 @@ label > textarea {
     cursor: default;
     user-select: none;
 }
+
+.textLayer mark.shelf-mark {
+    color: transparent;
+    background: rgb(213 164 106 / 0.45);
+    border-radius: 2px;
+    cursor: pointer;
+}

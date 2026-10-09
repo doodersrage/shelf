@@ -46,12 +46,14 @@ else if (book is not null)
                     </select>
                 </label>
             </div>
+            @Passage
             <div class="pdf-viewer" @ref="pdfHost" tabindex="0" role="region" aria-label="@($"{book.Title}, page {pdfIndex + 1}. Use the arrow keys to turn pages.")"></div>
             @if (pdfFailed)
             {
                 <p class="validation-message" role="alert">This PDF could not be drawn here. <a href="/books/@book.Id/ebook/file">Open the file itself</a></p>
             }
-            <p class="hint">A PDF keeps its own layout, so only its size changes. Passages can be marked in an EPUB. <a href="/books/@book.Id/ebook/file">Open the file itself</a></p>
+            <p class="hint">A PDF keeps its own layout, so only its size changes. <a href="/books/@book.Id/ebook/file">Open the file itself</a></p>
+            @MarkList("On this page")
         }
         else if (chapters is null)
         {
@@ -107,45 +109,9 @@ else if (book is not null)
                     </label>
                 </div>
             </details>
-            @if (!string.IsNullOrWhiteSpace(selectedText))
-            {
-                <blockquote class="passage"><p>@selectedText</p></blockquote>
-                <label>
-                    Note
-                    <textarea @bind="selectedNote" @bind:event="oninput" maxlength="2000" rows="3"></textarea>
-                </label>
-                <p>
-                    <button type="button" @onclick="SaveHighlight">@(editingId is null ? "Highlight" : "Save the note")</button>
-                    <button type="button" @onclick="ClearSelection">Cancel</button>
-                </p>
-                @if (markError is not null)
-                {
-                    <p class="hint">@markError</p>
-                }
-            }
-            else
-            {
-                <p class="hint">Select a passage to highlight it.</p>
-            }
+            @Passage
             <iframe @key="@($"{chapter}:{markRevision}:{typeRevision}")" class="reader-frame" title="@chapters[chapter].Title" src="/books/@book.Id/ebook/chapters/@chapter?t=@typeRevision"></iframe>
-            @if (ChapterMarks.Count > 0)
-            {
-                <h2>In this chapter</h2>
-                <ul class="quotes">
-                    @foreach (var mark in ChapterMarks)
-                    {
-                        <li>
-                            <blockquote><p>@mark.Text</p></blockquote>
-                            @if (!string.IsNullOrWhiteSpace(mark.Note))
-                            {
-                                <p>@mark.Note</p>
-                            }
-                            <button type="button" @onclick="() => Edit(mark)">Note</button>
-                            <button type="button" @onclick="() => RemoveMark(mark.Id)">Remove</button>
-                        </li>
-                    }
-                </ul>
-            }
+            @MarkList("In this chapter")
         }
     </div>
 }
@@ -174,7 +140,56 @@ else if (book is not null)
     private string? markError;
     private IJSObjectReference? reader;
     private DotNetObjectReference<Read>? self;
-    private List<Highlight> ChapterMarks => marks.Where(mark => mark.ChapterIndex == chapter).ToList();
+    // A highlight's ChapterIndex is the chapter of an EPUB, or the page of a PDF.
+    private bool IsPdf => EbookStore.IsPdf(book?.EbookStoredName);
+
+    private int Here => IsPdf ? pdfIndex : chapter;
+
+    private List<Highlight> ChapterMarks => marks.Where(mark => mark.ChapterIndex == Here).ToList();
+
+    private RenderFragment Passage => @<text>
+        @if (!string.IsNullOrWhiteSpace(selectedText))
+        {
+            <blockquote class="passage"><p>@selectedText</p></blockquote>
+            <label>
+                Note
+                <textarea @bind="selectedNote" @bind:event="oninput" maxlength="2000" rows="3"></textarea>
+            </label>
+            <p>
+                <button type="button" class="primary" @onclick="SaveHighlight">@(editingId is null ? "Highlight" : "Save the note")</button>
+                <button type="button" @onclick="ClearSelection">Cancel</button>
+            </p>
+            @if (markError is not null)
+            {
+                <p class="validation-message" role="alert">@markError</p>
+            }
+        }
+        else
+        {
+            <p class="hint">Select a passage to highlight it and keep a note with it.</p>
+        }
+    </text>;
+
+    private RenderFragment MarkList(string heading) => @<text>
+        @if (ChapterMarks.Count > 0)
+        {
+            <h2>@heading</h2>
+            <ul class="quotes">
+                @foreach (var mark in ChapterMarks)
+                {
+                    <li>
+                        <blockquote><p>@mark.Text</p></blockquote>
+                        @if (!string.IsNullOrWhiteSpace(mark.Note))
+                        {
+                            <p>@mark.Note</p>
+                        }
+                        <button type="button" @onclick="() => Edit(mark)">Note</button>
+                        <button type="button" @onclick="() => RemoveMark(mark.Id)">Remove</button>
+                    </li>
+                }
+            </ul>
+        }
+    </text>;
 
     [Parameter]
     public int Id { get; set; }
@@ -195,7 +210,10 @@ else if (book is not null)
         {
             var saved = await BookRules.GetReaderTypeAsync(db);
             type = new TypeForm { Size = saved.Size, Leading = saved.Leading, Width = saved.Width };
-            pdfIndex = Math.Max(0, (await Lending.PlaceAsync(db, open)).EbookChapter ?? 0);
+            pdfIndex = Math.Max(0, ChapterQuery ?? (await Lending.PlaceAsync(db, open)).EbookChapter ?? 0);
+            marks = await Lending.Marks(db, open).AsNoTracking()
+                .OrderBy(item => item.Id)
+                .ToListAsync();
         }
 
         if (book is null || !EbookStore.IsEpub(book.EbookStoredName))
@@ -206,9 +224,6 @@ else if (book is not null)
         var path = Ebooks.OpenPath(book.EbookStoredName);
         chapters = path is null ? null : EpubFile.Chapters(path);
 
-        marks = await Lending.Marks(db, open!).AsNoTracking()
-            .OrderBy(item => item.Id)
-            .ToListAsync();
         if (chapters is { Count: > 0 })
         {
             var place = ChapterQuery ?? (await Lending.PlaceAsync(db, open!)).EbookChapter ?? 0;
@@ -224,7 +239,7 @@ else if (book is not null)
             try
             {
                 pdf = await Js.InvokeAsync<IJSObjectReference>("import", "./pdf-reader.js");
-                await pdf.InvokeAsync<int>("open", pdfHost, $"/books/{book.Id}/ebook/file", pdfIndex, type.Size, self);
+                await pdf.InvokeAsync<int>("open", pdfHost, $"/books/{book.Id}/ebook/file", pdfIndex, type.Size, self, PdfMarks());
             }
             catch (JSException)
             {
@@ -350,7 +365,7 @@ else if (book is not null)
         }
         else
         {
-            var request = new CreateHighlightRequest(selectedText, chapter, selectedNote, selectedPrefix, selectedSuffix);
+            var request = new CreateHighlightRequest(selectedText, Here, selectedNote, selectedPrefix, selectedSuffix);
             var problems = BookRules.ValidateHighlight(request);
             if (problems is not null)
             {
@@ -361,7 +376,7 @@ else if (book is not null)
             db.Highlights.Add(Lending.NewMark(
                 db,
                 open,
-                chapter,
+                Here,
                 selectedText.Trim(),
                 string.IsNullOrWhiteSpace(selectedNote) ? null : selectedNote.Trim(),
                 selectedPrefix.Length <= 80 ? NullIfEmpty(selectedPrefix) : selectedPrefix[^80..],
@@ -410,7 +425,17 @@ else if (book is not null)
         marks = await Lending.Marks(db, open).AsNoTracking()
             .OrderBy(item => item.Id)
             .ToListAsync();
+        if (pdf is not null)
+        {
+            await pdf.InvokeVoidAsync("marks", PdfMarks());
+        }
     }
+
+    // What the PDF viewer needs to find and paint each passage on its page. A list, not an array,
+    // so the interop call passes it as one argument instead of spreading it into many.
+    private List<object> PdfMarks() => marks
+        .Select(mark => (object)new { id = mark.Id, page = mark.ChapterIndex, text = mark.Text, prefix = mark.Prefix ?? "", suffix = mark.Suffix ?? "", note = mark.Note ?? "" })
+        .ToList();
 
     public async ValueTask DisposeAsync()
     {

@@ -375,6 +375,32 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
     }
 
     [Fact]
+    public async Task A_pdf_keeps_highlights_by_page()
+    {
+        var book = await CreateAsync(_admin, new CreateBookRequest("A Marked Pdf", "Someone", BookStatus.Reading, null));
+        using (var content = new MultipartFormDataContent())
+        {
+            content.Add(new ByteArrayContent("%PDF-1.4 sample"u8.ToArray()), "file", "marked.pdf");
+            await _admin.PostAsync($"/books/{book.Id}/ebook", content);
+        }
+
+        var made = await _admin.PostAsJsonAsync(
+            $"/books/{book.Id}/highlights",
+            new CreateHighlightRequest("the ship leaves", 2, "Where it starts.", "Page one: ", " Anarres."),
+            JsonOptions);
+        Assert.Equal(HttpStatusCode.Created, made.StatusCode);
+
+        var bookPage = await _admin.GetStringAsync($"/library/{book.Id}");
+        Assert.Contains("Page 3", bookPage);
+        Assert.Contains($"/library/{book.Id}/read?chapter=2", bookPage);
+
+        var reader = await _admin.GetStringAsync($"/library/{book.Id}/read?chapter=2");
+        Assert.Contains("On this page", reader);
+        Assert.Contains("Where it starts.", reader);
+        Assert.Contains("page 3", reader);
+    }
+
+    [Fact]
     public async Task Large_uploads_report_their_progress()
     {
         var book = await CreateAsync(_admin, new CreateBookRequest("Uploaded Slowly", "Someone", BookStatus.Want, null));
