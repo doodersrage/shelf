@@ -2,6 +2,21 @@
 
 A personal library on .NET 10. It keeps the catalog, the reading log, the quotes, loans, and a yearly goal, looks up an ISBN, suggests one book from the want list, and can back the whole shelf up as JSON. Each reader signs in to a shelf of their own and can lend books to the other readers.
 
+![The library: the books being read, the one to read next, and the ones just finished](docs/images/library.png)
+
+| | |
+| --- | --- |
+| ![Every book on the shelf as a grid of covers, with status labels](docs/images/covers.png) | ![A book's page, led by its cover, status, and next step](docs/images/book.png) |
+| **The whole shelf** as covers or a compact list, with search, status, and sort. | **A book's page** leads with the cover and one next step, then the reading log, lending, quotes, highlights, and files. |
+| ![The e-book reader with a highlighted passage and text settings](docs/images/reader.png) | ![Stats with the year's goal and books finished each month](docs/images/stats.png) |
+| **The reader** keeps your place, your highlights and notes, and your text size, spacing, and width. | **Stats** lead with the year's goal and a month-by-month chart. |
+| ![Loans, with a book lent out and another reader asking to borrow](docs/images/loans.png) | ![The library in dark mode](docs/images/dark.png) |
+| **Loans** between readers, and asks to borrow from an open shelf. | **Dark mode** follows the system setting. |
+
+<p align="center"><img src="docs/images/phone.png" alt="The library on a phone, with the bottom bar" width="300" /></p>
+
+The screenshots show public-domain books, with covers drawn for the demo.
+
 ## Run
 
 ```bash
