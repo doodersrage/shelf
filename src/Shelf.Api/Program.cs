@@ -35,6 +35,7 @@ builder.Services.AddHttpClient<IBookLookup, OpenLibraryLookup>(client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("Shelf/1.0 (personal library; +https://github.com/doodersrage/shelf)");
 });
 
+builder.Services.AddHttpClient("shelf-sync", client => client.Timeout = TimeSpan.FromMinutes(10));
 builder.Services.AddSingleton<EbookStore>();
 builder.Services.AddSingleton<AudioStore>();
 var uploadLimit = Math.Max(EbookStore.MaxBytes, AudioStore.MaxBytes);

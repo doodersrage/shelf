@@ -332,6 +332,33 @@ public static class BookRules
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    public static async Task<string?> GetSyncAddressAsync(ShelfDb db, CancellationToken cancellationToken = default)
+    {
+        var setting = await db.Settings.AsNoTracking().FirstOrDefaultAsync(item => item.Id == ShelfSettingId, cancellationToken);
+        return setting?.SyncAddress;
+    }
+
+    public static async Task SetSyncAddressAsync(ShelfDb db, string? address, CancellationToken cancellationToken = default)
+    {
+        var trimmed = string.IsNullOrWhiteSpace(address) ? null : address.Trim();
+        if (trimmed is { Length: > 300 })
+        {
+            trimmed = trimmed[..300];
+        }
+
+        var setting = await db.Settings.FirstOrDefaultAsync(item => item.Id == ShelfSettingId, cancellationToken);
+        if (setting is null)
+        {
+            db.Settings.Add(new ShelfSetting { Id = ShelfSettingId, SyncAddress = trimmed });
+        }
+        else
+        {
+            setting.SyncAddress = trimmed;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public static async Task<ImportResult> ImportAsync(ShelfDb db, LibraryExport export, CancellationToken cancellationToken = default)
     {
         var existing = await db.Books.AsNoTracking()

@@ -49,6 +49,14 @@ public static class BookEndpoints
         books.MapDelete("/{id:int}/audio", AudioEndpoints.Remove);
         books.MapGet("/{id:int}/audio/tracks/{index:int}", AudioEndpoints.Track);
 
+        books.MapGet("/sync", SyncEndpoints.Catalog).WithTags("Shelf");
+        books.MapPost("/sync/books", SyncEndpoints.Ensure).WithTags("Shelf");
+        books.MapGet("/sync/{key}/ebook", SyncEndpoints.Ebook).WithTags("Shelf");
+        books.MapPost("/sync/{key}/ebook", SyncEndpoints.UploadEbook).DisableAntiforgery().WithTags("Shelf");
+        books.MapGet("/sync/{key}/audio", SyncEndpoints.Audio).WithTags("Shelf");
+        books.MapPost("/sync/{key}/audio", SyncEndpoints.UploadAudio).DisableAntiforgery().WithTags("Shelf");
+        books.MapPut("/sync/{key}/progress", SyncEndpoints.Progress).WithTags("Shelf");
+
         app.MapGet("/settings", GetSettings).WithTags("Shelf");
         app.MapPut("/settings", UpdateSettings).WithTags("Shelf");
 

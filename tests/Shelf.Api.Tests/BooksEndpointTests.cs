@@ -1333,6 +1333,127 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         Assert.Null(stored?.AudioFileName);
     }
 
+    [Fact]
+    public async Task Devices_trade_an_e_book_and_keep_the_further_place()
+    {
+        var book = await CreateAsync(new CreateBookRequest("Unlocking the Air", "Ursula K. Le Guin", BookStatus.Want, null));
+        using (var content = new MultipartFormDataContent())
+        {
+            content.Add(new ByteArrayContent(SampleEpub("A heron waits.")), "file", "heron.epub");
+            Assert.Equal(HttpStatusCode.OK, (await _client.PostAsync($"/books/{book.Id}/ebook", content)).StatusCode);
+        }
+
+        var catalog = await _client.GetFromJsonAsync<SyncCatalog>("/books/sync", JsonOptions);
+        var entry = catalog!.Books.Single(item => item.Title == "Unlocking the Air");
+        Assert.Equal("heron.epub", entry.Ebook?.FileName);
+        Assert.Equal(ShelfSync.Key(null, book.Title, book.Author), entry.Key);
+
+        var file = await _client.GetByteArrayAsync($"/books/sync/{entry.Key}/ebook");
+        Assert.Equal(SampleEpub("A heron waits."), file);
+
+        var ahead = await _client.PutAsJsonAsync($"/books/sync/{entry.Key}/progress", new SyncProgress(
+            entry.Ebook!.Sha256, 3, null, null, null,
+            [new SyncHighlight(0, "A heron waits.", "At the start.", null, null)]));
+        Assert.Equal(HttpStatusCode.NoContent, ahead.StatusCode);
+        var moved = await _client.GetFromJsonAsync<SyncCatalog>("/books/sync", JsonOptions);
+        Assert.Equal(3, moved!.Books.Single(item => item.Key == entry.Key).EbookChapter);
+        var marks = await _client.GetFromJsonAsync<HighlightResponse[]>($"/books/{book.Id}/highlights", JsonOptions);
+        Assert.Equal("At the start.", Assert.Single(marks!).Note);
+
+        var back = await _client.PutAsJsonAsync($"/books/sync/{entry.Key}/progress", new SyncProgress(
+            entry.Ebook.Sha256, 1, null, null, null,
+            [new SyncHighlight(0, "A heron waits.", "A second note.", null, null)]));
+        Assert.Equal(HttpStatusCode.NoContent, back.StatusCode);
+        var stayed = await _client.GetFromJsonAsync<SyncCatalog>("/books/sync", JsonOptions);
+        Assert.Equal(3, stayed!.Books.Single(item => item.Key == entry.Key).EbookChapter);
+        marks = await _client.GetFromJsonAsync<HighlightResponse[]>($"/books/{book.Id}/highlights", JsonOptions);
+        Assert.Equal("At the start.", Assert.Single(marks!).Note);
+
+        var ignored = await _client.PutAsJsonAsync($"/books/sync/{entry.Key}/progress", new SyncProgress(
+            "not-the-file", 9, null, null, null,
+            [new SyncHighlight(0, "Somewhere else.", null, null, null)]));
+        Assert.Equal(HttpStatusCode.NoContent, ignored.StatusCode);
+        marks = await _client.GetFromJsonAsync<HighlightResponse[]>($"/books/{book.Id}/highlights", JsonOptions);
+        Assert.Single(marks!);
+
+        using var other = new MultipartFormDataContent();
+        other.Add(new ByteArrayContent(SampleEpub("A different text.")), "file", "other.epub");
+        var conflict = await _client.PostAsync($"/books/sync/{entry.Key}/ebook", other);
+        Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+        Assert.Contains("A heron waits.", await _client.GetStringAsync($"/books/{book.Id}/ebook/chapters/0"));
+
+        var page = await _client.GetStringAsync("/sync");
+        Assert.Contains("Address of the other shelf", page);
+    }
+
+    [Fact]
+    public async Task A_shelf_brings_an_audiobook_it_does_not_have()
+    {
+        var book = await CreateAsync(new CreateBookRequest("The Compass Rose", "Ursula K. Le Guin", BookStatus.Want, null));
+        var catalog = new SyncCatalog([
+            new SyncBook(
+                ShelfSync.Key(null, book.Title, book.Author),
+                book.Title,
+                book.Author,
+                null,
+                null,
+                1,
+                9,
+                null,
+                new SyncFile("shore.mp3", 12, "unused"),
+                []),
+        ]);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var lines = await ShelfSync.ExchangeAsync(
+            scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>(),
+            scope.ServiceProvider.GetRequiredService<EbookStore>(),
+            scope.ServiceProvider.GetRequiredService<AudioStore>(),
+            catalog,
+            (_, kind, _) => Task.FromResult<Stream?>(kind == "audio" ? ZipText("shore.mp3", "a quiet shore") : null),
+            (_, _) => Task.FromResult<string?>(null),
+            (_, _, _, _, _) => Task.FromResult(204),
+            (_, _, _) => Task.CompletedTask,
+            CancellationToken.None);
+
+        Assert.Contains("Brought the audiobook of The Compass Rose.", lines);
+        Assert.Equal("a quiet shore", await _client.GetStringAsync($"/books/{book.Id}/audio/tracks/0"));
+        var synced = await _client.GetFromJsonAsync<SyncCatalog>("/books/sync", JsonOptions);
+        var entry = synced!.Books.Single(item => item.Title == book.Title);
+        Assert.Equal(1, entry.AudioTrack);
+        Assert.Equal(9, entry.AudioSeconds);
+
+        var zip = await _client.GetByteArrayAsync($"/books/sync/{entry.Key}/audio");
+        using var archive = new System.IO.Compression.ZipArchive(new MemoryStream(zip));
+        var packed = archive.Entries.Single();
+        using var reader = new StreamReader(packed.Open());
+        Assert.Equal("a quiet shore", reader.ReadToEnd());
+    }
+
+    [Fact]
+    public async Task Asking_for_a_book_twice_keeps_one_copy()
+    {
+        var first = await _client.PostAsJsonAsync("/books/sync/books", new SyncOffer("Searoad Stories", "Ursula K. Le Guin", null), JsonOptions);
+        var second = await _client.PostAsJsonAsync("/books/sync/books", new SyncOffer("Searoad Stories", "Ursula K. Le Guin", null), JsonOptions);
+        var left = await first.Content.ReadFromJsonAsync<SyncPlace>(JsonOptions);
+        var right = await second.Content.ReadFromJsonAsync<SyncPlace>(JsonOptions);
+        Assert.Equal(left?.Key, right?.Key);
+        var found = await _client.GetFromJsonAsync<BookResponse[]>("/books?q=Searoad%20Stories", JsonOptions);
+        Assert.Single(found!, item => item.Title == "Searoad Stories");
+    }
+
+    private static Stream ZipText(string name, string text)
+    {
+        var memory = new MemoryStream();
+        using (var zip = new System.IO.Compression.ZipArchive(memory, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            WriteEntry(zip, name, text);
+        }
+
+        memory.Position = 0;
+        return memory;
+    }
+
     private static void WriteEntry(System.IO.Compression.ZipArchive zip, string name, string text)
     {
         var entry = zip.CreateEntry(name);

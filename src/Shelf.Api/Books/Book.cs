@@ -97,6 +97,7 @@ public sealed class ShelfSetting
 {
     public int Id { get; set; }
     public int YearlyGoal { get; set; }
+    public string? SyncAddress { get; set; }
 }
 
 public sealed class Tag

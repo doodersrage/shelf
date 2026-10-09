@@ -1,0 +1,76 @@
+@page "/sync"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject IHttpClientFactory Http
+@inject EbookStore Ebooks
+@inject AudioStore Audio
+
+<PageTitle>Devices</PageTitle>
+
+<h1>Devices</h1>
+<p>Another shelf can trade e-books and audiobooks with this one. The place you stopped, and the notes on a passage, come along. The furthest place is the one that stays.</p>
+<p class="hint">Use the address of a shelf on a machine you trust. Shelf has no accounts.</p>
+
+<EditForm Model="form" OnValidSubmit="Save">
+    <label>
+        Address of the other shelf
+        <InputText @bind-Value="form.Address" maxlength="300" />
+    </label>
+    <button type="submit">Save</button>
+    @if (saved)
+    {
+        <span class="hint">Saved.</span>
+    }
+</EditForm>
+
+<p>
+    <button type="button" @onclick="SyncNow" disabled="@busy">Sync now</button>
+</p>
+
+@if (lines is not null)
+{
+    <ul>
+        @foreach (var line in lines)
+        {
+            <li>@line</li>
+        }
+    </ul>
+}
+
+@code {
+    private readonly AddressForm form = new();
+    private bool saved;
+    private bool busy;
+    private IReadOnlyList<string>? lines;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        form.Address = await BookRules.GetSyncAddressAsync(db) ?? "";
+    }
+
+    private async Task Save()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await BookRules.SetSyncAddressAsync(db, form.Address);
+        saved = true;
+        lines = null;
+    }
+
+    private async Task SyncNow()
+    {
+        saved = false;
+        busy = true;
+        lines = null;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await BookRules.SetSyncAddressAsync(db, form.Address);
+        var client = Http.CreateClient("shelf-sync");
+        lines = await ShelfSync.FromShelfAsync(client, form.Address, db, Ebooks, Audio, CancellationToken.None);
+        busy = false;
+    }
+
+    private sealed class AddressForm
+    {
+        public string Address { get; set; } = "";
+    }
+}

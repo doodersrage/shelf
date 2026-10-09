@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Security.Cryptography;
 
 namespace Shelf.Api.Books;
 
@@ -99,6 +100,53 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
     {
         var files = TrackFiles(storedName);
         return index >= 0 && index < files.Count ? files[index] : null;
+    }
+
+    public async Task<string?> HashAsync(string? storedName, CancellationToken cancellationToken)
+    {
+        var files = TrackFiles(storedName);
+        if (files.Count == 0)
+        {
+            return null;
+        }
+
+        using var incremental = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var buffer = new byte[81920];
+        foreach (var file in files)
+        {
+            await using var stream = File.OpenRead(file);
+            while (true)
+            {
+                var read = await stream.ReadAsync(buffer, cancellationToken);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                incremental.AppendData(buffer.AsSpan(0, read));
+            }
+        }
+
+        return Convert.ToHexString(incremental.GetHashAndReset()).ToLowerInvariant();
+    }
+
+    public async Task WriteZipAsync(string? storedName, Stream destination, CancellationToken cancellationToken)
+    {
+        using var zip = new ZipArchive(destination, ZipArchiveMode.Create, leaveOpen: true);
+        foreach (var track in Tracks(storedName))
+        {
+            var path = TrackPath(storedName, track.Index);
+            if (path is null)
+            {
+                continue;
+            }
+
+            var title = track.Title.Replace('/', '-').Replace('\\', '-');
+            var entry = zip.CreateEntry($"{track.Index:000}-{title}", CompressionLevel.NoCompression);
+            await using var input = File.OpenRead(path);
+            await using var output = entry.Open();
+            await input.CopyToAsync(output, cancellationToken);
+        }
     }
 
     public void Delete(string? storedName)

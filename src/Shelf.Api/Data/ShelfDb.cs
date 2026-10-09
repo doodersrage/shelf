@@ -67,6 +67,7 @@ public sealed class ShelfDb(DbContextOptions<ShelfDb> options) : DbContext(optio
         modelBuilder.Entity<ShelfSetting>(setting =>
         {
             setting.Property(s => s.Id).ValueGeneratedNever();
+            setting.Property(s => s.SyncAddress).HasMaxLength(300);
         });
 
         modelBuilder.Entity<Tag>(tag =>

@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+
 namespace Shelf.Api.Books;
 
 public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration configuration)
@@ -93,6 +95,19 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
         catch (IOException)
         {
         }
+    }
+
+    public async Task<string?> HashAsync(string? storedName, CancellationToken cancellationToken)
+    {
+        var path = OpenPath(storedName);
+        if (path is null)
+        {
+            return null;
+        }
+
+        await using var stream = File.OpenRead(path);
+        var hash = await SHA256.HashDataAsync(stream, cancellationToken);
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     public static bool IsPdf(string? storedName) =>
