@@ -19,7 +19,7 @@ To run the API on its own, use `dotnet run --project src/Shelf.Api` and open [ht
 | `/quotes` | Every quote, with the book it came from. |
 | `/authors` | Every author, with how many of their books are on the shelf. |
 | `/series` | Each series, in reading order. |
-| `/stats` | Counts, the yearly goal, tags, and a JSON backup. |
+| `/stats` | Counts, the yearly goal, books finished this year, recent sessions, tags, and a JSON backup. |
 | `/books` | The library as JSON. Filter with `q`, `status`, `tag`, `author`, `series`, `loved`, `loaned`, `format`, and `sort` (`title`, `author`, `series`, `year`, `rating`, `added`). |
 | `/books/{id}` | One book as JSON, including tags, quotes, and sessions. |
 | `/books/export` | The shelf as a JSON backup. `POST /books/import` restores one, skipping books already on the shelf. |

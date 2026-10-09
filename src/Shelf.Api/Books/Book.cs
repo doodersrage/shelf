@@ -289,6 +289,10 @@ public sealed record AuthorCount(string Name, int Count);
 
 public sealed record SeriesBook(int Id, string Title, int? Number, BookStatus Status);
 
+public sealed record FinishedBook(int Id, string Title, DateOnly FinishedOn);
+
+public sealed record RecentSession(int BookId, string Title, DateOnly Date, int? FromPage, int? ToPage);
+
 public sealed record SeriesShelf(string Name, SeriesBook[] Books);
 
 public sealed record QuoteResponse(int Id, int BookId, string Text, int? Page, DateTimeOffset NotedAt)

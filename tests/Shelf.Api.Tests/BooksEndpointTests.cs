@@ -627,6 +627,55 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task Stats_lists_books_finished_this_year_and_recent_sessions()
+    {
+        var book = await CreateAsync(new CreateBookRequest(
+            "The Lathe of Heaven", "Ursula K. Le Guin", BookStatus.Finished, 5));
+        await _client.PostAsJsonAsync(
+            $"/books/{book.Id}/sessions",
+            new CreateSessionRequest(new DateOnly(2026, 10, 2), 1, 40, null),
+            JsonOptions);
+
+        var page = await _client.GetAsync("/stats");
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("The Lathe of Heaven", html);
+        Assert.Contains("Finished this year", html);
+        Assert.Contains("Lately", html);
+        Assert.Contains("1–40", html);
+    }
+
+    [Fact]
+    public void Finished_books_stay_inside_their_year()
+    {
+        var books = new[]
+        {
+            new Book { Id = 1, Title = "Older", Author = "A", Status = BookStatus.Finished, FinishedOn = new DateOnly(2025, 12, 31) },
+            new Book { Id = 2, Title = "Newer", Author = "A", Status = BookStatus.Finished, FinishedOn = new DateOnly(2026, 1, 2) },
+            new Book { Id = 3, Title = "Still reading", Author = "A", Status = BookStatus.Reading, FinishedOn = new DateOnly(2026, 1, 3) },
+        };
+        Assert.Equal(["Newer"], BookRules.FinishedInYear(books, 2026).Select(book => book.Title));
+
+        var sessions = BookRules.RecentSessions(
+        [
+            new Book
+            {
+                Id = 9,
+                Title = "Later",
+                Author = "A",
+                Sessions = [new ReadingSession { Date = new DateOnly(2026, 2, 2), ToPage = 10 }],
+            },
+            new Book
+            {
+                Id = 4,
+                Title = "Earlier",
+                Author = "A",
+                Sessions = [new ReadingSession { Date = new DateOnly(2026, 2, 1), FromPage = 1, ToPage = 5 }],
+            },
+        ]);
+        Assert.Equal(["Later", "Earlier"], sessions.Select(session => session.Title));
+    }
+
+    [Fact]
     public async Task Goal_can_be_replaced()
     {
         var updated = await _client.PutAsJsonAsync("/settings", new UpdateSettingsRequest(24), JsonOptions);

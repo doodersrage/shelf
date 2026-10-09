@@ -443,6 +443,23 @@ public static class BookRules
         return candidates[(int)((uint)day.DayNumber % (uint)candidates.Count)];
     }
 
+    public static FinishedBook[] FinishedInYear(IEnumerable<Book> books, int year) =>
+        books
+            .Where(book => book.Status == BookStatus.Finished && book.FinishedOn?.Year == year)
+            .OrderByDescending(book => book.FinishedOn)
+            .ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase)
+            .Select(book => new FinishedBook(book.Id, book.Title, book.FinishedOn!.Value))
+            .ToArray();
+
+    public static RecentSession[] RecentSessions(IEnumerable<Book> books, int take = 8) =>
+        books
+            .SelectMany(book => book.Sessions.Select(session =>
+                new RecentSession(book.Id, book.Title, session.Date, session.FromPage, session.ToPage)))
+            .OrderByDescending(session => session.Date)
+            .ThenByDescending(session => session.BookId)
+            .Take(take)
+            .ToArray();
+
     public static SeriesShelf[] SeriesShelves(IEnumerable<Book> books) =>
         books
             .Where(book => !string.IsNullOrWhiteSpace(book.Series))

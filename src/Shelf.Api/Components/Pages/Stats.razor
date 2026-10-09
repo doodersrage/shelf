@@ -35,6 +35,44 @@ else
         <progress max="@stats.YearlyGoal" value="@Math.Min(stats.FinishedThisYear, stats.YearlyGoal)"></progress>
     }
 
+    @if (finished.Count > 0)
+    {
+        <h2>Finished this year</h2>
+        <ul class="tag-counts">
+            @foreach (var book in finished)
+            {
+                <li>
+                    <a href="/library/@book.Id">@book.Title</a>
+                    <span class="hint">@book.FinishedOn.ToString("MMM d")</span>
+                </li>
+            }
+        </ul>
+    }
+
+    @if (lately.Count > 0)
+    {
+        <h2>Lately</h2>
+        <ul class="tag-counts">
+            @foreach (var session in lately)
+            {
+                <li>
+                    <span>
+                        <a href="/library/@session.BookId">@session.Title</a>
+                        @if (session.FromPage is int from && session.ToPage is int to)
+                        {
+                            <span class="hint">@from–@to</span>
+                        }
+                        else if (session.ToPage is int end)
+                        {
+                            <span class="hint">to @end</span>
+                        }
+                    </span>
+                    <span class="hint">@session.Date.ToString("MMM d")</span>
+                </li>
+            }
+        </ul>
+    }
+
     <h2>Tags</h2>
     @if (stats.Tags.Length == 0)
     {
@@ -84,6 +122,8 @@ else
     };
 
     private ShelfStatsResponse? stats;
+    private List<FinishedBook> finished = [];
+    private List<RecentSession> lately = [];
     private readonly GoalFormModel goal = new();
     private bool goalSaved;
     private string? importMessage;
@@ -98,6 +138,10 @@ else
         await using var db = await DbFactory.CreateDbContextAsync();
         stats = await BookRules.SummarizeAsync(db);
         goal.YearlyGoal = stats.YearlyGoal;
+        var books = await db.Books.AsNoTracking().Include(book => book.Sessions).ToListAsync();
+        var year = DateOnly.FromDateTime(DateTime.UtcNow).Year;
+        finished = BookRules.FinishedInYear(books, year).ToList();
+        lately = BookRules.RecentSessions(books).ToList();
     }
 
     private async Task SaveGoal()
