@@ -14,6 +14,15 @@ public static class BookEndpoints
         books.MapGet("/stats", GetStats).WithTags("Shelf");
         books.MapGet("/export", ExportLibrary).WithTags("Shelf");
         books.MapPost("/import", ImportLibrary).WithTags("Shelf");
+        books.MapGet("/export/full", ExportEverything).WithTags("Shelf");
+        books.MapPost("/import/full", ImportEverything).DisableAntiforgery().WithTags("Shelf");
+        books.MapGet("/reminders", Asking.Remind).WithTags("Lending");
+        books.MapGet("/shelves", Asking.Shelves).WithTags("Lending");
+        books.MapGet("/shelves/{id:int}", Asking.Shelf).WithTags("Lending");
+        books.MapPut("/shelves/open", Asking.OpenShelf).WithTags("Lending");
+        books.MapGet("/asks", Asking.Asks).WithTags("Lending");
+        books.MapPost("/asks/{id:int}/lend", Asking.LendAsk).WithTags("Lending");
+        books.MapDelete("/asks/{id:int}", Asking.DropAsk).WithTags("Lending");
         books.MapGet("/lookup", LookupBook);
         books.MapGet("/pick", PickBook);
         books.MapGet("/authors", ListAuthors);
@@ -36,6 +45,7 @@ public static class BookEndpoints
         books.MapDelete("/{id:int}/sessions/{sessionId:int}", DeleteSession);
         books.MapPost("/{id:int}/return", ReturnBook);
         books.MapPost("/{id:int}/lend", Lending.Lend).WithTags("Lending");
+        books.MapPost("/{id:int}/ask", Asking.Ask).WithTags("Lending");
         books.MapGet("/borrowed", Lending.Borrowed).WithTags("Lending");
         books.MapPost("/borrowed/{id:int}/return", Lending.GiveBack).WithTags("Lending");
         books.MapPost("/{id:int}/enrich", EnrichBook);
@@ -249,13 +259,59 @@ public static class BookEndpoints
         return TypedResults.NoContent();
     }
 
-    private static async Task<Ok<LibraryExport>> ExportLibrary(ShelfDb db, CancellationToken cancellationToken)
+    private static async Task<Ok<LibraryExport>> ExportLibrary(ShelfDb db, CancellationToken cancellationToken) =>
+        TypedResults.Ok(await Backup.ExportAsync(db, cancellationToken));
+
+    private static async Task<TempFileResult> ExportEverything(
+        ShelfDb db,
+        EbookStore ebooks,
+        AudioStore audio,
+        CancellationToken cancellationToken)
     {
-        var books = await db.Books.AsNoTracking().WithDetails().ToListAsync(cancellationToken);
-        var export = new LibraryExport(
-            await BookRules.GetGoalAsync(db, cancellationToken),
-            BookRules.Sort(books, "title").Select(BookResponse.From).ToArray());
-        return TypedResults.Ok(export);
+        var path = TempFileResult.NewPath(".zip");
+        await Backup.WriteShelfAsync(db, ebooks, audio, path, cancellationToken);
+        return new TempFileResult(path, "application/zip", $"shelf-backup-{DateTime.UtcNow:yyyy-MM-dd}.zip");
+    }
+
+    // Like the e-book upload, this answers the form on the Stats page with a redirect back to it.
+    private static async Task<RedirectHttpResult> ImportEverything(
+        IFormFile? file,
+        ShelfDb db,
+        EbookStore ebooks,
+        AudioStore audio,
+        CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return TypedResults.Redirect("/stats?restore=unreadable");
+        }
+
+        var path = TempFileResult.NewPath(".zip");
+        try
+        {
+            await using (var output = File.Create(path))
+            {
+                await file.CopyToAsync(output, cancellationToken);
+            }
+
+            RestoreResult? result;
+            try
+            {
+                result = await Backup.RestoreShelfAsync(db, ebooks, audio, path, cancellationToken);
+            }
+            catch (InvalidDataException)
+            {
+                result = null;
+            }
+
+            return TypedResults.Redirect(result is null
+                ? "/stats?restore=unreadable"
+                : $"/stats?restore=done&added={result.Added}&skipped={result.Skipped}&files={result.Files}");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     private static async Task<Results<Ok<ImportResult>, ValidationProblem>> ImportLibrary(

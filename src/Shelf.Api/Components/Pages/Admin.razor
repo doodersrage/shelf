@@ -1,0 +1,131 @@
+@page "/admin"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject EbookStore Ebooks
+@inject AudioStore Audio
+
+<PageTitle>Readers · Shelf</PageTitle>
+
+<h1>Readers</h1>
+
+@if (!allowed)
+{
+    <p>Only an admin of this shelf can manage readers.</p>
+}
+else
+{
+    <p class="hint">A reader who forgets their password gets a new one here. Hand it to them, and they can change it from their account.</p>
+
+    @if (problem is AccountProblem shown)
+    {
+        <p class="validation-message" role="alert">@ReaderRules.Describe(shown)</p>
+    }
+
+    <ul class="quotes">
+        @foreach (var reader in readers)
+        {
+            <li>
+                <strong>@reader.Name</strong>
+                <span class="hint"> · @reader.Books @(reader.Books == 1 ? "book" : "books") · since @reader.CreatedAt.ToString("MMM d, yyyy")@(reader.IsAdmin ? " · admin" : "")@(reader.Id == me ? " · you" : "")</span>
+                @if (passwords.TryGetValue(reader.Id, out var password))
+                {
+                    <p>New password: <code class="key">@password</code></p>
+                    <p class="hint">It is not shown again. Every session @reader.Name had is signed out.</p>
+                }
+                <p>
+                    @if (reader.Id != me)
+                    {
+                        <button type="button" @onclick="() => Reset(reader.Id)">New password</button>
+                    }
+                    <button type="button" @onclick="() => SetAdmin(reader.Id, !reader.IsAdmin)">@(reader.IsAdmin ? "No longer admin" : "Make admin")</button>
+                    @if (reader.Id != me)
+                    {
+                        @if (removing == reader.Id)
+                        {
+                            <span class="hint">Delete @reader.Name, their @reader.Books @(reader.Books == 1 ? "book" : "books"), and their files?</span>
+                            <button type="button" class="danger" @onclick="() => Remove(reader.Id)">Yes, delete</button>
+                            <button type="button" @onclick="() => removing = null">Cancel</button>
+                        }
+                        else
+                        {
+                            <button type="button" class="danger" @onclick="() => removing = reader.Id">Delete</button>
+                        }
+                    }
+                </p>
+            </li>
+        }
+    </ul>
+
+    <h2>Snapshot</h2>
+    <p class="hint">Everything on this server in one zip: the database with every reader, and every e-book and audiobook. To restore it, stop the shelf and unpack it into a new data folder: <code>shelf.db</code> beside the app, and the <code>ebooks</code> and <code>audio</code> folders where they were.</p>
+    <p><a href="/admin/snapshot">Download a snapshot</a></p>
+}
+
+@code {
+    private bool allowed;
+    private int me;
+    private List<ReaderSummary> readers = [];
+    private readonly Dictionary<int, string> passwords = [];
+    private AccountProblem? problem;
+    private int? removing;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        me = db.ReaderId;
+        allowed = await ReaderRules.IsAdminAsync(db, me);
+        readers = allowed ? (await ReaderRules.SummariesAsync(db)).ToList() : [];
+    }
+
+    private async Task<bool> StillAdminAsync(ShelfDb db) => allowed = await ReaderRules.IsAdminAsync(db, db.ReaderId);
+
+    private async Task Reset(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (!await StillAdminAsync(db))
+        {
+            return;
+        }
+
+        if (await ReaderRules.ResetPasswordAsync(db, id) is { } password)
+        {
+            passwords[id] = password;
+        }
+
+        problem = null;
+    }
+
+    private async Task SetAdmin(int id, bool isAdmin)
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            if (!await StillAdminAsync(db))
+            {
+                return;
+            }
+
+            problem = await ReaderRules.SetAdminAsync(db, id, isAdmin);
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task Remove(int id)
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            if (!await StillAdminAsync(db))
+            {
+                return;
+            }
+
+            problem = await ReaderRules.RemoveAsync(db, Ebooks, Audio, id);
+        }
+
+        removing = null;
+        passwords.Remove(id);
+        await LoadAsync();
+    }
+}

@@ -1,0 +1,35 @@
+@page "/shelves"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>Shelves · Shelf</PageTitle>
+
+<h1>Shelves</h1>
+<p class="hint">Readers who have opened their shelf. Ask to borrow a book, and it shows on its owner's loans until they lend it or decline. <a href="/account">Open yours</a> for them to see.</p>
+
+@if (shelves.Count == 0)
+{
+    <p>No other reader has opened their shelf.</p>
+}
+else
+{
+    <ul class="tag-counts">
+        @foreach (var shelf in shelves)
+        {
+            <li>
+                <a href="/shelves/@shelf.Id">@shelf.Name</a>
+                <span class="hint">@shelf.Books @(shelf.Books == 1 ? "book" : "books")</span>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<OpenShelf> shelves = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        shelves = (await Asking.OpenShelvesAsync(db)).ToList();
+    }
+}

@@ -3,6 +3,8 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Server.Circuits;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -29,6 +31,24 @@ if (!Path.IsPathRooted(sqlite.DataSource))
 {
     sqlite.DataSource = Path.Combine(builder.Environment.ContentRootPath, sqlite.DataSource);
 }
+
+// Sign-in cookies are sealed with these keys. Keeping them beside the database means a redeploy or a
+// new container does not sign everyone out, and a snapshot restore brings them back with the data.
+var keysPath = builder.Configuration["DataProtection:KeysPath"]
+    ?? Path.Combine(Path.GetDirectoryName(sqlite.DataSource) ?? builder.Environment.ContentRootPath, "keys");
+builder.Services.AddDataProtection()
+    .SetApplicationName("Shelf")
+    .PersistKeysToFileSystem(new DirectoryInfo(keysPath));
+
+// Behind a reverse proxy that ends TLS, trust its forwarded scheme and address so HTTPS redirects,
+// secure cookies, and the sign-in limit all see the real request.
+var behindProxy = builder.Configuration.GetValue("Hosting:BehindProxy", false);
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // Scoped, so each context is built in the scope that knows which reader is signed in.
 builder.Services.AddHttpContextAccessor();
@@ -66,6 +86,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.ExpireTimeSpan = TimeSpan.FromDays(30);
         options.SlidingExpiration = true;
+        options.Events.OnValidatePrincipal = EndStaleSession;
         options.Events.OnRedirectToLogin = context => Refuse(context, StatusCodes.Status401Unauthorized);
         options.Events.OnRedirectToAccessDenied = context => Refuse(context, StatusCodes.Status403Forbidden);
     })
@@ -97,6 +118,27 @@ await using (var scope = app.Services.CreateAsyncScope())
     var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
     await db.Database.MigrateAsync();
 
+    // Run with --reset-password <name> when nobody can sign in to reset it from the admin page.
+    if (app.Configuration["reset-password"] is { Length: > 0 } resetName)
+    {
+        var reader = await db.Readers.FirstOrDefaultAsync(item => item.NormalizedName == ReaderRules.Normalize(resetName));
+        var password = reader is null ? null : await ReaderRules.ResetPasswordAsync(db, reader.Id);
+        Console.WriteLine(password is null ? $"No reader is named {resetName}." : $"The new password for {reader!.Name} is {password}");
+        return password is null ? 1 : 0;
+    }
+
+    if (app.Configuration["make-admin"] is { Length: > 0 } adminName)
+    {
+        var reader = await db.Readers.FirstOrDefaultAsync(item => item.NormalizedName == ReaderRules.Normalize(adminName));
+        if (reader is not null)
+        {
+            await ReaderRules.SetAdminAsync(db, reader.Id, true);
+        }
+
+        Console.WriteLine(reader is null ? $"No reader is named {adminName}." : $"{reader.Name} is an admin.");
+        return reader is null ? 1 : 0;
+    }
+
     // The sample book has no owner yet; the first reader to sign up takes it with the rest of the shelf.
     if (app.Environment.IsDevelopment() && !await db.Books.IgnoreQueryFilters().AnyAsync())
     {
@@ -116,10 +158,19 @@ await using (var scope = app.Services.CreateAsyncScope())
     }
 }
 
+if (behindProxy)
+{
+    app.UseForwardedHeaders();
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    app.UseHsts();
 }
+
+// Passwords and device keys travel with every request, so plain HTTP is sent to HTTPS when the shelf has a port for it.
+app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseRateLimiter();
@@ -136,14 +187,30 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.MapAccounts();
+app.MapAdmin();
 app.MapBooks();
-app.Run();
+await app.RunAsync();
+return 0;
+
+// A reset or changed password, or a removed reader, ends every session signed in before it.
+static async Task EndStaleSession(CookieValidatePrincipalContext context)
+{
+    var id = ShelfReader.IdOf(context.Principal);
+    var stamp = context.Principal?.FindFirst(ReaderRules.StampClaim)?.Value;
+    var db = context.HttpContext.RequestServices.GetRequiredService<ShelfDb>();
+    if (id is null || !await ReaderRules.StampMatchesAsync(db, id.Value, stamp, context.HttpContext.RequestAborted))
+    {
+        context.RejectPrincipal();
+        await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    }
+}
 
 // Pages send a signed-out visitor to the sign-in page; the JSON API answers with a status instead.
 static Task Refuse(RedirectContext<CookieAuthenticationOptions> context, int status)
 {
     var path = context.Request.Path;
-    if (path.StartsWithSegments("/books") || path.StartsWithSegments("/settings") || path.StartsWithSegments("/readers"))
+    if (path.StartsWithSegments("/books") || path.StartsWithSegments("/settings") || path.StartsWithSegments("/readers")
+        || path.StartsWithSegments("/admin/readers") || path.StartsWithSegments("/admin/snapshot") || path.StartsWithSegments("/account/remove"))
     {
         context.Response.StatusCode = status;
         return Task.CompletedTask;

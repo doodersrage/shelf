@@ -1,0 +1,84 @@
+@page "/shelves/{Id:int}"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@(owner ?? "Shelf") · Shelf</PageTitle>
+
+@if (owner is null)
+{
+    <h1>Not an open shelf</h1>
+    <p>That reader has not opened their shelf. <a href="/shelves">Back to the shelves</a></p>
+}
+else
+{
+    <p class="hint"><a href="/shelves">Shelves</a></p>
+    <h1>@owner's shelf</h1>
+    @if (books.Count == 0)
+    {
+        <p>Nothing on it yet.</p>
+    }
+    else
+    {
+        <ul class="quotes">
+            @foreach (var book in books)
+            {
+                <li>
+                    <strong>@book.Title</strong>
+                    <span class="hint"> · @book.Author@(book.Year is int year ? $" · {year}" : "")@(book.HasEbook ? " · e-book" : "")@(book.HasAudio ? " · audiobook" : "")</span>
+                    <p>
+                        @if (book.Asked)
+                        {
+                            <span class="hint">Asked. </span>
+                        }
+                        else
+                        {
+                            <button type="button" @onclick="() => Ask(book.Id)">Ask to borrow</button>
+                        }
+                        @if (book.OnLoan)
+                        {
+                            <span class="hint">On loan now.</span>
+                        }
+                    </p>
+                </li>
+            }
+        </ul>
+    }
+    @if (message is not null)
+    {
+        <p class="hint" role="status">@message</p>
+    }
+}
+
+@code {
+    private string? owner;
+    private List<ShelfBook> books = [];
+    private string? message;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var shelf = await Asking.ShelfAsync(db, Id);
+        owner = shelf?.Owner;
+        books = shelf?.Books.ToList() ?? [];
+    }
+
+    private async Task Ask(int bookId)
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            message = await Asking.AskAsync(db, bookId) switch
+            {
+                AskResult.Asked => null,
+                AskResult.AlreadyYours => "That book is already lent to you.",
+                _ => "That book is no longer on an open shelf.",
+            };
+        }
+
+        await LoadAsync();
+    }
+}

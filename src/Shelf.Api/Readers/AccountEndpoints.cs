@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Shelf.Api.Books;
 using Shelf.Api.Data;
 
 namespace Shelf.Api.Readers;
@@ -18,6 +19,7 @@ public static class AccountEndpoints
         account.MapPost("/signin", SignIn).AllowAnonymous().RequireRateLimiting(SignInLimit);
         account.MapPost("/signup", SignUp).AllowAnonymous().RequireRateLimiting(SignInLimit);
         account.MapPost("/signout", SignOut).AllowAnonymous();
+        account.MapPost("/remove", RemoveSelf).RequireAuthorization();
 
         app.MapGet("/readers", Others).WithTags("Account").RequireAuthorization();
     }
@@ -79,6 +81,27 @@ public static class AccountEndpoints
 
         await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return TypedResults.Redirect("/signin");
+    }
+
+    private static async Task<Results<NoContent, ValidationProblem>> RemoveSelf(
+        RemoveAccountRequest request,
+        HttpContext http,
+        ShelfDb db,
+        EbookStore ebooks,
+        AudioStore audio,
+        CancellationToken cancellationToken)
+    {
+        var problem = await ReaderRules.RemoveSelfAsync(db, ebooks, audio, db.ReaderId, request.Password, cancellationToken);
+        if (problem is not null)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(request.Password)] = [ReaderRules.Describe(problem.Value)],
+            });
+        }
+
+        await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        return TypedResults.NoContent();
     }
 
     private static async Task<Ok<ReaderResponse[]>> Others(ShelfDb db, ShelfReader reader, CancellationToken cancellationToken) =>

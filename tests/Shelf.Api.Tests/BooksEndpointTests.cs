@@ -1337,9 +1337,12 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     public async Task Devices_trade_an_e_book_and_keep_the_further_place()
     {
         var book = await CreateAsync(new CreateBookRequest("Unlocking the Air", "Ursula K. Le Guin", BookStatus.Want, null));
+
+        // Built once: a zip carries the time it was made, so two builds can differ by a second.
+        var epub = SampleEpub("A heron waits.");
         using (var content = new MultipartFormDataContent())
         {
-            content.Add(new ByteArrayContent(SampleEpub("A heron waits.")), "file", "heron.epub");
+            content.Add(new ByteArrayContent(epub), "file", "heron.epub");
             Assert.Equal(HttpStatusCode.OK, (await _client.PostAsync($"/books/{book.Id}/ebook", content)).StatusCode);
         }
 
@@ -1349,7 +1352,7 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         Assert.Equal(ShelfSync.Key(null, book.Title, book.Author), entry.Key);
 
         var file = await _client.GetByteArrayAsync($"/books/sync/{entry.Key}/ebook");
-        Assert.Equal(SampleEpub("A heron waits."), file);
+        Assert.Equal(epub, file);
 
         var ahead = await _client.PutAsJsonAsync($"/books/sync/{entry.Key}/progress", new SyncProgress(
             entry.Ebook!.Sha256, 3, null, null, null,
@@ -1555,6 +1558,7 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
     private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"shelf-{Guid.NewGuid():N}.db");
     private readonly string _ebookRoot = Path.Combine(Path.GetTempPath(), $"shelf-ebooks-{Guid.NewGuid():N}");
     private readonly string _audioRoot = Path.Combine(Path.GetTempPath(), $"shelf-audio-{Guid.NewGuid():N}");
+    private readonly string _keysRoot = Path.Combine(Path.GetTempPath(), $"shelf-keys-{Guid.NewGuid():N}");
     private HttpClient? _client;
 
     // The reader most tests act as: the first account on this shelf.
@@ -1614,6 +1618,7 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
         builder.UseSetting("EbookStore:Root", _ebookRoot);
         builder.UseSetting("AudioStore:Root", _audioRoot);
         builder.UseSetting("Accounts:SignInsPerMinute", "1000");
+        builder.UseSetting("DataProtection:KeysPath", _keysRoot);
         builder.UseEnvironment("Testing");
         builder.ConfigureTestServices(services => services.AddSingleton<IBookLookup, StubBookLookup>());
     }
@@ -1630,9 +1635,12 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
             Directory.Delete(_ebookRoot, recursive: true);
         }
 
-        if (Directory.Exists(_audioRoot))
+        foreach (var folder in new[] { _audioRoot, _keysRoot })
         {
-            Directory.Delete(_audioRoot, recursive: true);
+            if (Directory.Exists(folder))
+            {
+                Directory.Delete(folder, recursive: true);
+            }
         }
     }
 

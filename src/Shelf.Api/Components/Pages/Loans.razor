@@ -27,6 +27,34 @@ else
     </ul>
 }
 
+@if (asks.Incoming.Length > 0)
+{
+    <h2>Asked of you</h2>
+    <ul class="quotes">
+        @foreach (var ask in asks.Incoming)
+        {
+            <li>
+                <strong>@ask.Title</strong>
+                <span class="hint"> · @ask.Author</span>
+                <p class="hint">@ask.Reader asked on @ask.AskedAt.ToString("MMM d, yyyy")@(ask.OnLoan ? ". It is on loan now." : "")</p>
+                @if (!ask.OnLoan)
+                {
+                    <label class="inline-date">
+                        Due back
+                        <input type="date" @bind="dueDates[ask.Id]" />
+                    </label>
+                    <button type="button" @onclick="() => LendAsk(ask.Id)">Lend it</button>
+                }
+                <button type="button" @onclick="() => DropAsk(ask.Id)">Decline</button>
+            </li>
+        }
+    </ul>
+    @if (askProblem is not null)
+    {
+        <p class="validation-message" role="alert">@askProblem</p>
+    }
+}
+
 <h2>Borrowed</h2>
 @if (borrowed.Count == 0)
 {
@@ -65,8 +93,28 @@ else
     </ul>
 }
 
+@if (asks.Outgoing.Length > 0)
+{
+    <h2>You asked</h2>
+    <ul class="quotes">
+        @foreach (var ask in asks.Outgoing)
+        {
+            <li>
+                <strong>@ask.Title</strong>
+                <span class="hint"> · from @ask.Reader, asked @ask.AskedAt.ToString("MMM d, yyyy")</span>
+                <button type="button" @onclick="() => DropAsk(ask.Id)">Take it back</button>
+            </li>
+        }
+    </ul>
+}
+<p class="hint"><a href="/shelves">Browse the open shelves</a> to ask for a book.</p>
+
 @code {
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+
+    private LoanAsks asks = new([], []);
+    private readonly Dictionary<int, DateOnly?> dueDates = [];
+    private string? askProblem;
 
     private List<LoanCount> people = [];
     private List<BorrowedBook> borrowed = [];
@@ -83,6 +131,33 @@ else
             loans.Select(loan => (loan.LoanedTo, loan.DueOn)),
             Today).ToList();
         borrowed = (await Lending.BorrowedAsync(db)).ToList();
+        asks = await Asking.AsksAsync(db);
+        foreach (var ask in asks.Incoming)
+        {
+            dueDates.TryAdd(ask.Id, null);
+        }
+    }
+
+    private async Task LendAsk(int id)
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            var result = await Asking.LendAskAsync(db, id, dueDates.GetValueOrDefault(id));
+            askProblem = result == LendResult.Lent ? null : Lending.Describe(result);
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task DropAsk(int id)
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            await Asking.DropAskAsync(db, id);
+        }
+
+        askProblem = null;
+        await LoadAsync();
     }
 
     private async Task GiveBack(int id)

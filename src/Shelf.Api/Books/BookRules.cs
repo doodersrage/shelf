@@ -379,17 +379,26 @@ public static class BookRules
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    public static async Task<ImportResult> ImportAsync(ShelfDb db, LibraryExport export, CancellationToken cancellationToken = default)
+    // Books added from the backup land in `added` at the same index they had in it; skipped ones stay null.
+    public static async Task<ImportResult> ImportAsync(
+        ShelfDb db,
+        LibraryExport export,
+        CancellationToken cancellationToken = default,
+        Book?[]? added = null)
     {
+        var readers = await db.Readers.AsNoTracking()
+            .Where(reader => reader.Id != db.ReaderId)
+            .ToDictionaryAsync(reader => reader.NormalizedName, reader => reader.Id, cancellationToken);
         var existing = await db.Books.AsNoTracking()
             .Select(book => new ExistingBook(book.Title, book.Author, book.Isbn))
             .ToListAsync(cancellationToken);
         var seen = existing.Select(Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var added = 0;
+        var count = 0;
         var skipped = 0;
 
-        foreach (var source in export.Books)
+        for (var index = 0; index < export.Books.Length; index++)
         {
+            var source = export.Books[index];
             var write = BookWrite.From(source);
             if (Validate(write) is not null || !seen.Add(Key(new ExistingBook(write.Title, write.Author, NormalizeIsbn(write.Isbn)))))
             {
@@ -406,6 +415,31 @@ public static class BookRules
             if (source.AddedAt != default)
             {
                 book.AddedAt = source.AddedAt;
+            }
+
+            // A loan to a reader comes back as one when a reader by that name is on this shelf.
+            if (source.BorrowerId is not null && book.LoanedTo is { } lentTo
+                && readers.TryGetValue(Readers.ReaderRules.Normalize(lentTo), out var borrowerId))
+            {
+                book.BorrowerId = borrowerId;
+            }
+
+            foreach (var mark in source.Highlights ?? [])
+            {
+                if (string.IsNullOrWhiteSpace(mark.Text) || mark.Text.Trim().Length > 1000 || mark.ChapterIndex < 0)
+                {
+                    continue;
+                }
+
+                book.Highlights.Add(new Highlight
+                {
+                    ChapterIndex = mark.ChapterIndex,
+                    Text = mark.Text.Trim(),
+                    Note = string.IsNullOrWhiteSpace(mark.Note) ? null : mark.Note.Trim()[..Math.Min(mark.Note.Trim().Length, 2000)],
+                    Prefix = mark.Prefix is { Length: > 80 } prefix ? prefix[^80..] : mark.Prefix,
+                    Suffix = mark.Suffix is { Length: > 80 } suffix ? suffix[..80] : mark.Suffix,
+                    NotedAt = mark.NotedAt == default ? DateTimeOffset.UtcNow : mark.NotedAt,
+                });
             }
 
             foreach (var quote in source.Quotes)
@@ -436,10 +470,15 @@ public static class BookRules
 
             db.Books.Add(book);
             await SyncTagsAsync(db, book, write.Tags, cancellationToken);
-            added++;
+            if (added is not null && index < added.Length)
+            {
+                added[index] = book;
+            }
+
+            count++;
         }
 
-        if (added > 0)
+        if (count > 0)
         {
             await db.SaveChangesAsync(cancellationToken);
             await RemoveUnusedTagsAsync(db, cancellationToken);
@@ -450,7 +489,7 @@ public static class BookRules
             await SetGoalAsync(db, export.YearlyGoal, cancellationToken);
         }
 
-        return new ImportResult(added, skipped);
+        return new ImportResult(count, skipped);
     }
 
     public static void AdvanceProgress(Book book, int? toPage)

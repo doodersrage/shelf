@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @inject IHostEnvironment Environment
+@inject IDbContextFactory<ShelfDb> DbFactory
 
 <header class="site">
     <a class="mark" href="/">Shelf</a>
@@ -15,10 +16,18 @@
         <NavLink href="/recommenders">Recommenders</NavLink>
         <NavLink href="/years">Years</NavLink>
         <NavLink href="/loans">Loans</NavLink>
+        <NavLink href="/shelves">Shelves</NavLink>
         <NavLink href="/stats">Stats</NavLink>
     </nav>
     }
 </header>
+
+@if (reminders is { Any: true } due)
+{
+    <p class="notice" role="status">
+        <a href="/loans">@string.Join(" · ", ReminderLines(due))</a>
+    </p>
+}
 
 <main>
     @Body
@@ -35,6 +44,10 @@
         <span> · <a href="/books">JSON</a></span>
         <span> · <a href="/books/export">Backup</a></span>
         <span> · <a href="/sync">Devices</a></span>
+        @if (isAdmin)
+        {
+            <span> · <a href="/admin">Readers</a></span>
+        }
         @if (Environment.IsDevelopment())
         {
             <span> · <a href="/openapi/v1.json">OpenAPI</a></span>
@@ -50,7 +63,9 @@
 
 @code {
     private bool signedIn;
+    private bool isAdmin;
     private string? readerName;
+    private Reminders? reminders;
 
     [CascadingParameter]
     private Task<AuthenticationState>? Authentication { get; set; }
@@ -60,5 +75,34 @@
         var user = Authentication is null ? null : (await Authentication).User;
         signedIn = user?.Identity?.IsAuthenticated == true;
         readerName = user?.Identity?.Name;
+        if (signedIn)
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            reminders = await Asking.RemindersAsync(db);
+            isAdmin = await ReaderRules.IsAdminAsync(db, db.ReaderId);
+        }
+    }
+
+    private static IEnumerable<string> ReminderLines(Reminders due)
+    {
+        if (due.LentOverdue > 0)
+        {
+            yield return $"{due.LentOverdue} {(due.LentOverdue == 1 ? "book you lent is" : "books you lent are")} overdue";
+        }
+
+        if (due.BorrowedOverdue > 0)
+        {
+            yield return $"{due.BorrowedOverdue} {(due.BorrowedOverdue == 1 ? "book you borrowed is" : "books you borrowed are")} overdue";
+        }
+
+        if (due.BorrowedDueSoon > 0)
+        {
+            yield return $"{due.BorrowedDueSoon} borrowed {(due.BorrowedDueSoon == 1 ? "book is" : "books are")} due within three days";
+        }
+
+        if (due.Asks > 0)
+        {
+            yield return $"{due.Asks} {(due.Asks == 1 ? "reader has" : "readers have")} asked to borrow";
+        }
     }
 }

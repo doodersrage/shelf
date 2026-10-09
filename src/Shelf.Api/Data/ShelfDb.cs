@@ -25,6 +25,7 @@ public sealed class ShelfDb : DbContext
     public DbSet<Highlight> Highlights => Set<Highlight>();
     public DbSet<ReadingSession> Sessions => Set<ReadingSession>();
     public DbSet<LoanPlace> LoanPlaces => Set<LoanPlace>();
+    public DbSet<LoanAskRow> LoanAsks => Set<LoanAskRow>();
     public DbSet<ShelfSetting> Settings => Set<ShelfSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -104,7 +105,22 @@ public sealed class ShelfDb : DbContext
             reader.Property(r => r.PasswordHash).HasMaxLength(200).IsRequired();
             reader.Property(r => r.KeyHash).HasMaxLength(64);
             reader.HasIndex(r => r.NormalizedName).IsUnique();
+            reader.Property(r => r.Stamp).HasMaxLength(64).IsRequired();
             reader.HasIndex(r => r.KeyHash).IsUnique();
+        });
+
+        modelBuilder.Entity<LoanAskRow>(ask =>
+        {
+            ask.ToTable("LoanAsks");
+            ask.HasOne<Book>()
+                .WithMany()
+                .HasForeignKey(item => item.BookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            ask.HasOne<Reader>()
+                .WithMany()
+                .HasForeignKey(item => item.ReaderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            ask.HasIndex(item => new { item.BookId, item.ReaderId }).IsUnique();
         });
 
         modelBuilder.Entity<Tag>(tag =>

@@ -172,13 +172,30 @@ else
 </EditForm>
 
 <h2>Backup</h2>
-<p><a href="/books/export">Download JSON</a></p>
-<p class="hint">E-books and audiobooks travel with <a href="/sync">Devices</a>, not with this file.</p>
+<p><a href="/books/export/full">Download everything</a> <span class="hint">· a zip of the catalog, notes, highlights, e-books, and audiobooks</span></p>
+<form action="/books/import/full" method="post" enctype="multipart/form-data" data-enhance="false">
+    <label>
+        Restore a zip backup
+        <input type="file" name="file" accept=".zip,application/zip" required />
+    </label>
+    <button type="submit">Restore</button>
+</form>
+@if (Restore == "done")
+{
+    <p class="hint" role="status">Added @Added @(Added == 1 ? "book" : "books") and @Files @(Files == 1 ? "file" : "files"), skipped @Skipped already on the shelf.</p>
+}
+else if (Restore == "unreadable")
+{
+    <p class="hint" role="status">That file is not a shelf backup zip.</p>
+}
+
+<p><a href="/books/export">Download the catalog as JSON</a> <span class="hint">· without the files</span></p>
 <InputFile OnChange="ImportBackup" accept="application/json" />
 @if (!string.IsNullOrWhiteSpace(importMessage))
 {
     <p class="hint">@importMessage</p>
 }
+<p class="hint">Restoring skips books already on the shelf.</p>
 
 @code {
     private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new(System.Text.Json.JsonSerializerDefaults.Web)
@@ -198,6 +215,18 @@ else
     private readonly GoalFormModel goal = new();
     private bool goalSaved;
     private string? importMessage;
+
+    [SupplyParameterFromQuery]
+    public string? Restore { get; set; }
+
+    [SupplyParameterFromQuery]
+    public int Added { get; set; }
+
+    [SupplyParameterFromQuery]
+    public int Skipped { get; set; }
+
+    [SupplyParameterFromQuery]
+    public int Files { get; set; }
 
     // A backup holds every book, quote, and session, so a large shelf runs well past a megabyte.
     private const long MaxBackupBytes = 50L * 1024 * 1024;

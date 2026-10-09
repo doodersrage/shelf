@@ -14,7 +14,20 @@ public static class ReaderRules
     public const int MinPasswordLength = 8;
     public const int MaxPasswordLength = 200;
 
+    public const string StampClaim = "shelf:stamp";
+
     private static readonly PasswordHasher<Reader> Hasher = new();
+
+    public static string NewStamp() => Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+
+    // Readable enough to read aloud or copy: four groups of four from an alphabet without look-alikes.
+    public static string NewPassword()
+    {
+        const string alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
+        var groups = Enumerable.Range(0, 4)
+            .Select(_ => new string(Enumerable.Range(0, 4).Select(_ => alphabet[RandomNumberGenerator.GetInt32(alphabet.Length)]).ToArray()));
+        return string.Join('-', groups);
+    }
 
     public static string Normalize(string name) => Clean(name).ToUpperInvariant();
 
@@ -58,6 +71,8 @@ public static class ReaderRules
         AccountProblem.WrongPassword => "That name and password do not match.",
         AccountProblem.CurrentPasswordWrong => "The current password does not match.",
         AccountProblem.SignUpClosed => "This shelf is not taking new readers.",
+        AccountProblem.LastAdmin => "The shelf needs at least one admin. Make another reader an admin first.",
+        AccountProblem.NoSuchReader => "That reader is not on this shelf.",
         _ => "Something went wrong.",
     };
 
@@ -98,6 +113,8 @@ public static class ReaderRules
 
         if (!await db.Readers.AnyAsync(other => other.Id != reader.Id, cancellationToken))
         {
+            reader.IsAdmin = true;
+            await db.SaveChangesAsync(cancellationToken);
             await ClaimUnownedAsync(db, reader.Id, cancellationToken);
         }
 
@@ -157,7 +174,128 @@ public static class ReaderRules
         }
 
         reader.PasswordHash = Hasher.HashPassword(reader, password!);
+        reader.Stamp = NewStamp();
         await db.SaveChangesAsync(cancellationToken);
+        return null;
+    }
+
+    // For a reader who has forgotten their password: a new one to hand them, and every old session ends.
+    public static async Task<string?> ResetPasswordAsync(ShelfDb db, int readerId, CancellationToken cancellationToken = default)
+    {
+        var reader = await db.Readers.FirstOrDefaultAsync(item => item.Id == readerId, cancellationToken);
+        if (reader is null)
+        {
+            return null;
+        }
+
+        var password = NewPassword();
+        reader.PasswordHash = Hasher.HashPassword(reader, password);
+        reader.Stamp = NewStamp();
+        await db.SaveChangesAsync(cancellationToken);
+        return password;
+    }
+
+    public static async Task<bool> IsAdminAsync(ShelfDb db, int readerId, CancellationToken cancellationToken = default) =>
+        readerId != 0 && await db.Readers.AnyAsync(reader => reader.Id == readerId && reader.IsAdmin, cancellationToken);
+
+    public static async Task<bool> StampMatchesAsync(ShelfDb db, int readerId, string? stamp, CancellationToken cancellationToken = default) =>
+        !string.IsNullOrEmpty(stamp)
+        && await db.Readers.AnyAsync(reader => reader.Id == readerId && reader.Stamp == stamp, cancellationToken);
+
+    public static async Task<ReaderSummary[]> SummariesAsync(ShelfDb db, CancellationToken cancellationToken = default)
+    {
+        var counts = await db.Books.IgnoreQueryFilters()
+            .Where(book => book.OwnerId != null)
+            .GroupBy(book => book.OwnerId!.Value)
+            .Select(group => new { Id = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.Id, item => item.Count, cancellationToken);
+        var readers = await db.Readers.AsNoTracking().ToListAsync(cancellationToken);
+        return readers
+            .OrderBy(reader => reader.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(reader => new ReaderSummary(reader.Id, reader.Name, reader.IsAdmin, reader.CreatedAt, counts.GetValueOrDefault(reader.Id)))
+            .ToArray();
+    }
+
+    public static async Task<AccountProblem?> SetAdminAsync(ShelfDb db, int readerId, bool isAdmin, CancellationToken cancellationToken = default)
+    {
+        var reader = await db.Readers.FirstOrDefaultAsync(item => item.Id == readerId, cancellationToken);
+        if (reader is null)
+        {
+            return AccountProblem.NoSuchReader;
+        }
+
+        if (!isAdmin && reader.IsAdmin && !await db.Readers.AnyAsync(other => other.IsAdmin && other.Id != readerId, cancellationToken))
+        {
+            return AccountProblem.LastAdmin;
+        }
+
+        reader.IsAdmin = isAdmin;
+        await db.SaveChangesAsync(cancellationToken);
+        return null;
+    }
+
+    public static async Task<AccountProblem?> RemoveSelfAsync(
+        ShelfDb db,
+        EbookStore ebooks,
+        AudioStore audio,
+        int readerId,
+        string? password,
+        CancellationToken cancellationToken = default)
+    {
+        var reader = await db.Readers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == readerId, cancellationToken);
+        if (reader is null || string.IsNullOrEmpty(password)
+            || Hasher.VerifyHashedPassword(reader, reader.PasswordHash, password) == PasswordVerificationResult.Failed)
+        {
+            return AccountProblem.CurrentPasswordWrong;
+        }
+
+        return await RemoveAsync(db, ebooks, audio, readerId, cancellationToken);
+    }
+
+    // Removing a reader takes their shelf with them: their books and files go, and books lent to them go home.
+    public static async Task<AccountProblem?> RemoveAsync(
+        ShelfDb db,
+        EbookStore ebooks,
+        AudioStore audio,
+        int readerId,
+        CancellationToken cancellationToken = default)
+    {
+        var reader = await db.Readers.FirstOrDefaultAsync(item => item.Id == readerId, cancellationToken);
+        if (reader is null)
+        {
+            return AccountProblem.NoSuchReader;
+        }
+
+        if (reader.IsAdmin && !await db.Readers.AnyAsync(other => other.IsAdmin && other.Id != readerId, cancellationToken))
+        {
+            return AccountProblem.LastAdmin;
+        }
+
+        var files = new List<(string? Ebook, string? Audio)>();
+        await using (var transaction = await db.Database.BeginTransactionAsync(cancellationToken))
+        {
+            var borrowed = await db.Books.IgnoreQueryFilters().Where(book => book.BorrowerId == readerId).ToListAsync(cancellationToken);
+            foreach (var book in borrowed)
+            {
+                BookRules.ReturnLoan(book);
+            }
+
+            var owned = await db.Books.IgnoreQueryFilters().Where(book => book.OwnerId == readerId).ToListAsync(cancellationToken);
+            files.AddRange(owned.Select(book => (book.EbookStoredName, book.AudioStoredName)));
+            db.Books.RemoveRange(owned);
+            db.Settings.RemoveRange(await db.Settings.Where(setting => setting.Id == readerId).ToListAsync(cancellationToken));
+            db.Readers.Remove(reader);
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+
+        foreach (var (ebook, recording) in files)
+        {
+            ebooks.Delete(ebook);
+            audio.Delete(recording);
+        }
+
+        await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
         return null;
     }
 
@@ -231,6 +369,7 @@ public static class ReaderRules
             [
                 new Claim(ClaimTypes.NameIdentifier, reader.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                 new Claim(ClaimTypes.Name, reader.Name),
+                new Claim(StampClaim, reader.Stamp),
             ],
             scheme));
 
@@ -257,4 +396,6 @@ public enum AccountProblem
     WrongPassword,
     CurrentPasswordWrong,
     SignUpClosed,
+    LastAdmin,
+    NoSuchReader,
 }

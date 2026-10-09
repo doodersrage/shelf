@@ -2,11 +2,21 @@
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject ShelfReader Reader
+@inject NavigationManager Navigation
+@inject EbookStore Ebooks
+@inject AudioStore Audio
 
 <PageTitle>Account · Shelf</PageTitle>
 
 <h1>@Reader.Name</h1>
-<p class="hint">Your shelf is yours alone. Other readers see a book of yours only while it is lent to them.</p>
+<p class="hint">Your notes, reviews, quotes, and highlights are yours alone. Other readers see a book of yours only when it is lent to them, or by its title on an open shelf.</p>
+
+<h2>Your shelf</h2>
+<label class="check">
+    <input type="checkbox" checked="@shelfOpen" @onchange="ChangeShelfOpen" />
+    Let other readers see the titles on my shelf and ask to borrow one
+</label>
+<p class="hint">Asks wait on your <a href="/loans">Loans</a> page until you lend the book or decline.</p>
 
 <h2>Change the password</h2>
 <EditForm Model="form" OnValidSubmit="ChangePassword">
@@ -22,28 +32,60 @@
         The new password again
         <InputText type="password" @bind-Value="form.Confirm" autocomplete="new-password" />
     </label>
+    <p class="hint">Changing it signs you out everywhere, here included.</p>
     <button type="submit">Change it</button>
     @if (problem is AccountProblem shown)
     {
         <p class="validation-message" role="alert">@ReaderRules.Describe(shown)</p>
-    }
-    else if (changed)
-    {
-        <span class="hint">Changed.</span>
     }
 </EditForm>
 
 <h2>Devices</h2>
 <p class="hint"><a href="/sync">Make a key</a> for another shelf to trade e-books and audiobooks with yours.</p>
 
+<h2>Delete the account</h2>
+@if (!confirmingRemove)
+{
+    <button type="button" class="danger" @onclick="() => confirmingRemove = true">Delete my account</button>
+}
+else
+{
+    <p>This deletes your account, every book on your shelf, and their e-books and audiobooks. Books other readers have lent you go back to them. Download a <a href="/books/export/full">full backup</a> first if you may want any of it.</p>
+    <label>
+        Your password
+        <input type="password" @bind="removePassword" autocomplete="current-password" />
+    </label>
+    <button type="button" class="danger" @onclick="RemoveAccount">Yes, delete everything</button>
+    <button type="button" @onclick="() => confirmingRemove = false">Cancel</button>
+    @if (removeProblem is AccountProblem shownRemove)
+    {
+        <p class="validation-message" role="alert">@ReaderRules.Describe(shownRemove)</p>
+    }
+}
+
 @code {
     private readonly PasswordForm form = new();
     private AccountProblem? problem;
-    private bool changed;
+    private bool shelfOpen;
+    private bool confirmingRemove;
+    private string removePassword = "";
+    private AccountProblem? removeProblem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        shelfOpen = await Asking.IsShelfOpenAsync(db);
+    }
+
+    private async Task ChangeShelfOpen(ChangeEventArgs change)
+    {
+        shelfOpen = change.Value is true;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Asking.SetShelfOpenAsync(db, shelfOpen);
+    }
 
     private async Task ChangePassword()
     {
-        changed = false;
         if (!string.Equals(form.Password, form.Confirm, StringComparison.Ordinal))
         {
             problem = AccountProblem.PasswordsDiffer;
@@ -54,8 +96,17 @@
         problem = await ReaderRules.ChangePasswordAsync(db, db.ReaderId, form.Current, form.Password);
         if (problem is null)
         {
-            changed = true;
-            form.Current = form.Password = form.Confirm = "";
+            Navigation.NavigateTo("/signin?notice=changed", forceLoad: true);
+        }
+    }
+
+    private async Task RemoveAccount()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        removeProblem = await ReaderRules.RemoveSelfAsync(db, Ebooks, Audio, db.ReaderId, removePassword);
+        if (removeProblem is null)
+        {
+            Navigation.NavigateTo("/signin?notice=removed", forceLoad: true);
         }
     }
 

@@ -341,7 +341,8 @@ public sealed record BookResponse(
     CopyCondition? Condition,
     string? EbookFileName,
     string? AudioFileName,
-    int? BorrowerId = null)
+    int? BorrowerId = null,
+    HighlightResponse[]? Highlights = null)
 {
     public static BookResponse From(Book book) => new(
         book.Id,
@@ -383,7 +384,8 @@ public sealed record BookResponse(
         book.Condition,
         book.EbookFileName,
         book.AudioFileName,
-        book.BorrowerId);
+        book.BorrowerId,
+        book.Highlights.OrderBy(mark => mark.ChapterIndex).ThenBy(mark => mark.Id).Select(HighlightResponse.From).ToArray());
 }
 
 public sealed record ShelfCopy(int Id, string Title, Acquisition? Acquisition);
@@ -427,6 +429,15 @@ public sealed class LoanPlace
     public int? EbookChapter { get; set; }
     public int? AudioTrack { get; set; }
     public int? AudioSeconds { get; set; }
+}
+
+// Another reader asking the owner to lend them a book from an open shelf.
+public sealed class LoanAskRow
+{
+    public int Id { get; set; }
+    public int BookId { get; set; }
+    public int ReaderId { get; set; }
+    public DateTimeOffset AskedAt { get; set; }
 }
 
 public sealed record AuthorCount(string Name, int Count);

@@ -87,27 +87,7 @@ public static class SyncEndpoints
             await store.WriteZipAsync(book.AudioStoredName, output, cancellationToken);
         }
 
-        return new TempZipResult(temp);
-    }
-
-    private sealed class TempZipResult(string path) : IResult
-    {
-        public async Task ExecuteAsync(HttpContext httpContext)
-        {
-            try
-            {
-                httpContext.Response.ContentType = "application/zip";
-                await using var input = File.OpenRead(path);
-                await input.CopyToAsync(httpContext.Response.Body, httpContext.RequestAborted);
-            }
-            finally
-            {
-                if (File.Exists(path))
-                {
-                    File.Delete(path);
-                }
-            }
-        }
+        return new TempFileResult(temp, "application/zip");
     }
 
     public static async Task<Results<NoContent, NotFound, Conflict, BadRequest>> UploadEbook(
