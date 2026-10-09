@@ -181,6 +181,12 @@ public static class BookRules
 
         var previousLoan = book.LoanedTo;
         book.LoanedTo = BlankToNull(write.LoanedTo);
+        if (!string.Equals(previousLoan, book.LoanedTo, StringComparison.Ordinal))
+        {
+            // Typing another name over a reader's loan makes it an ordinary loan.
+            book.BorrowerId = null;
+        }
+
         if (book.LoanedTo is null)
         {
             book.LoanedOn = null;
@@ -264,7 +270,8 @@ public static class BookRules
 
     public static async Task RemoveUnusedTagsAsync(ShelfDb db, CancellationToken cancellationToken)
     {
-        var unused = await db.Tags.Where(tag => !tag.Books.Any()).ToListAsync(cancellationToken);
+        // Tags are shared by every reader, so a tag is unused only when no shelf at all has it.
+        var unused = await db.Tags.IgnoreQueryFilters().Where(tag => !tag.Books.Any()).ToListAsync(cancellationToken);
         if (unused.Count == 0)
         {
             return;
@@ -313,16 +320,16 @@ public static class BookRules
 
     public static async Task<int> GetGoalAsync(ShelfDb db, CancellationToken cancellationToken = default)
     {
-        var setting = await db.Settings.AsNoTracking().FirstOrDefaultAsync(item => item.Id == ShelfSettingId, cancellationToken);
+        var setting = await db.Settings.AsNoTracking().FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
         return setting?.YearlyGoal ?? 0;
     }
 
     public static async Task SetGoalAsync(ShelfDb db, int goal, CancellationToken cancellationToken = default)
     {
-        var setting = await db.Settings.FirstOrDefaultAsync(item => item.Id == ShelfSettingId, cancellationToken);
+        var setting = await db.Settings.FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
         if (setting is null)
         {
-            db.Settings.Add(new ShelfSetting { Id = ShelfSettingId, YearlyGoal = goal });
+            db.Settings.Add(new ShelfSetting { Id = SettingId(db), YearlyGoal = goal });
         }
         else
         {
@@ -334,11 +341,17 @@ public static class BookRules
 
     public static async Task<string?> GetSyncAddressAsync(ShelfDb db, CancellationToken cancellationToken = default)
     {
-        var setting = await db.Settings.AsNoTracking().FirstOrDefaultAsync(item => item.Id == ShelfSettingId, cancellationToken);
+        var setting = await db.Settings.AsNoTracking().FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
         return setting?.SyncAddress;
     }
 
-    public static async Task SetSyncAddressAsync(ShelfDb db, string? address, CancellationToken cancellationToken = default)
+    public static async Task<string?> GetSyncKeyAsync(ShelfDb db, CancellationToken cancellationToken = default)
+    {
+        var setting = await db.Settings.AsNoTracking().FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
+        return setting?.SyncKey;
+    }
+
+    public static async Task SetSyncAddressAsync(ShelfDb db, string? address, string? key, CancellationToken cancellationToken = default)
     {
         var trimmed = string.IsNullOrWhiteSpace(address) ? null : address.Trim();
         if (trimmed is { Length: > 300 })
@@ -346,14 +359,21 @@ public static class BookRules
             trimmed = trimmed[..300];
         }
 
-        var setting = await db.Settings.FirstOrDefaultAsync(item => item.Id == ShelfSettingId, cancellationToken);
+        key = string.IsNullOrWhiteSpace(key) ? null : key.Trim();
+        if (key is { Length: > 100 })
+        {
+            key = key[..100];
+        }
+
+        var setting = await db.Settings.FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
         if (setting is null)
         {
-            db.Settings.Add(new ShelfSetting { Id = ShelfSettingId, SyncAddress = trimmed });
+            db.Settings.Add(new ShelfSetting { Id = SettingId(db), SyncAddress = trimmed, SyncKey = key });
         }
         else
         {
             setting.SyncAddress = trimmed;
+            setting.SyncKey = key;
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -448,6 +468,7 @@ public static class BookRules
 
     public static void ReturnLoan(Book book)
     {
+        book.BorrowerId = null;
         book.LoanedTo = null;
         book.LoanedOn = null;
         book.DueOn = null;
@@ -1138,7 +1159,8 @@ public static class BookRules
         return collapsed.ToLowerInvariant();
     }
 
-    private const int ShelfSettingId = 1;
+    private static int SettingId(ShelfDb db) =>
+        db.ReaderId != 0 ? db.ReaderId : throw new InvalidOperationException("Settings belong to a signed-in reader.");
 
     private static string? BlankToNull(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

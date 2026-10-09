@@ -237,6 +237,11 @@ else if (book is not null)
     private async Task SaveHighlight()
     {
         markError = null;
+        if (book is null)
+        {
+            return;
+        }
+
         await using var db = await DbFactory.CreateDbContextAsync();
         if (editingId is int id)
         {

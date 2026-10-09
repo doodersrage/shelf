@@ -1,0 +1,68 @@
+@page "/account"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject ShelfReader Reader
+
+<PageTitle>Account · Shelf</PageTitle>
+
+<h1>@Reader.Name</h1>
+<p class="hint">Your shelf is yours alone. Other readers see a book of yours only while it is lent to them.</p>
+
+<h2>Change the password</h2>
+<EditForm Model="form" OnValidSubmit="ChangePassword">
+    <label>
+        Current password
+        <InputText type="password" @bind-Value="form.Current" autocomplete="current-password" />
+    </label>
+    <label>
+        New password, at least @ReaderRules.MinPasswordLength characters
+        <InputText type="password" @bind-Value="form.Password" autocomplete="new-password" />
+    </label>
+    <label>
+        The new password again
+        <InputText type="password" @bind-Value="form.Confirm" autocomplete="new-password" />
+    </label>
+    <button type="submit">Change it</button>
+    @if (problem is AccountProblem shown)
+    {
+        <p class="validation-message" role="alert">@ReaderRules.Describe(shown)</p>
+    }
+    else if (changed)
+    {
+        <span class="hint">Changed.</span>
+    }
+</EditForm>
+
+<h2>Devices</h2>
+<p class="hint"><a href="/sync">Make a key</a> for another shelf to trade e-books and audiobooks with yours.</p>
+
+@code {
+    private readonly PasswordForm form = new();
+    private AccountProblem? problem;
+    private bool changed;
+
+    private async Task ChangePassword()
+    {
+        changed = false;
+        if (!string.Equals(form.Password, form.Confirm, StringComparison.Ordinal))
+        {
+            problem = AccountProblem.PasswordsDiffer;
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        problem = await ReaderRules.ChangePasswordAsync(db, db.ReaderId, form.Current, form.Password);
+        if (problem is null)
+        {
+            changed = true;
+            form.Current = form.Password = form.Confirm = "";
+        }
+    }
+
+    private sealed class PasswordForm
+    {
+        public string Current { get; set; } = "";
+        public string Password { get; set; } = "";
+        public string Confirm { get; set; } = "";
+    }
+}

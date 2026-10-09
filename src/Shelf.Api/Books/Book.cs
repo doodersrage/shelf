@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Shelf.Api.Readers;
 
 namespace Shelf.Api.Books;
 
@@ -36,6 +37,8 @@ public enum CopyCondition
 public sealed class Book
 {
     public int Id { get; set; }
+    public int? OwnerId { get; set; }
+    public Reader? Owner { get; set; }
     public required string Title { get; set; }
     public required string Author { get; set; }
     public BookStatus Status { get; set; }
@@ -50,6 +53,8 @@ public sealed class Book
     public string? LoanedTo { get; set; }
     public DateOnly? LoanedOn { get; set; }
     public DateOnly? DueOn { get; set; }
+    public int? BorrowerId { get; set; }
+    public Reader? Borrower { get; set; }
     public string? Subtitle { get; set; }
     public string? Publisher { get; set; }
     public string? Language { get; set; }
@@ -98,6 +103,7 @@ public sealed class ShelfSetting
     public int Id { get; set; }
     public int YearlyGoal { get; set; }
     public string? SyncAddress { get; set; }
+    public string? SyncKey { get; set; }
 }
 
 public sealed class Tag
@@ -331,7 +337,8 @@ public sealed record BookResponse(
     Acquisition? Acquisition,
     CopyCondition? Condition,
     string? EbookFileName,
-    string? AudioFileName)
+    string? AudioFileName,
+    int? BorrowerId = null)
 {
     public static BookResponse From(Book book) => new(
         book.Id,
@@ -372,7 +379,8 @@ public sealed record BookResponse(
         book.Acquisition,
         book.Condition,
         book.EbookFileName,
-        book.AudioFileName);
+        book.AudioFileName,
+        book.BorrowerId);
 }
 
 public sealed record ShelfCopy(int Id, string Title, Acquisition? Acquisition);

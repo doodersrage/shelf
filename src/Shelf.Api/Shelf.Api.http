@@ -1,21 +1,28 @@
 @Shelf.Api_HostAddress = http://localhost:5041
 
+# Every request needs a signed-in reader. Sign in at /signin in a browser and copy the "shelf" cookie here.
+@Cookie = shelf=paste-the-cookie-value
+
 GET {{Shelf.Api_HostAddress}}/books
+Cookie: {{Cookie}}
 Accept: application/json
 
 ###
 
 GET {{Shelf.Api_HostAddress}}/books?q=le%20guin&status=Want&sort=year
+Cookie: {{Cookie}}
 Accept: application/json
 
 ###
 
 GET {{Shelf.Api_HostAddress}}/books/stats
+Cookie: {{Cookie}}
 Accept: application/json
 
 ###
 
 POST {{Shelf.Api_HostAddress}}/books
+Cookie: {{Cookie}}
 Content-Type: application/json
 
 {
@@ -31,6 +38,7 @@ Content-Type: application/json
 ###
 
 PUT {{Shelf.Api_HostAddress}}/books/1
+Cookie: {{Cookie}}
 Content-Type: application/json
 
 {
@@ -46,6 +54,7 @@ Content-Type: application/json
 ###
 
 POST {{Shelf.Api_HostAddress}}/books/1/quotes
+Cookie: {{Cookie}}
 Content-Type: application/json
 
 {
@@ -56,16 +65,43 @@ Content-Type: application/json
 ###
 
 DELETE {{Shelf.Api_HostAddress}}/books/1/quotes/1
+Cookie: {{Cookie}}
 
 ###
 
 DELETE {{Shelf.Api_HostAddress}}/books/1
+Cookie: {{Cookie}}
 
 ###
 
 GET {{Shelf.Api_HostAddress}}/books/lookup?isbn=9780441478125
+Cookie: {{Cookie}}
 Accept: application/json
 
 ###
 
 POST {{Shelf.Api_HostAddress}}/books/1/return
+Cookie: {{Cookie}}
+
+###
+
+GET {{Shelf.Api_HostAddress}}/readers
+Cookie: {{Cookie}}
+Accept: application/json
+
+###
+
+POST {{Shelf.Api_HostAddress}}/books/1/lend
+Cookie: {{Cookie}}
+Content-Type: application/json
+
+{
+  "readerId": 2,
+  "dueOn": "2026-11-01"
+}
+
+###
+
+GET {{Shelf.Api_HostAddress}}/books/borrowed
+Cookie: {{Cookie}}
+Accept: application/json

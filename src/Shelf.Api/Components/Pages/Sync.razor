@@ -8,13 +8,32 @@
 <PageTitle>Devices</PageTitle>
 
 <h1>Devices</h1>
-<p>Another shelf can trade e-books and audiobooks with this one. The place you stopped, and the notes on a passage, come along. The furthest place is the one that stays.</p>
-<p class="hint">Use the address of a shelf on a machine you trust. Shelf has no accounts.</p>
+<p>Another shelf can trade e-books and audiobooks with yours. The place you stopped, and the notes on a passage, come along. The furthest place is the one that stays.</p>
 
+<h2>This shelf's key</h2>
+<p class="hint">The other shelf needs this key to reach your books. Anyone with it can read and add to your e-books and audiobooks, so keep it as you would a password.</p>
+@if (newKey is not null)
+{
+    <p><code class="key">@newKey</code></p>
+    <p class="hint">Copy it now. It is not shown again.</p>
+}
+else if (hasKey)
+{
+    <p class="hint">A key is in use. A new one stops the old one from working.</p>
+}
+<p>
+    <button type="button" @onclick="MakeKey">@(hasKey ? "Make a new key" : "Make a key")</button>
+</p>
+
+<h2>Another shelf</h2>
 <EditForm Model="form" OnValidSubmit="Save">
     <label>
         Address of the other shelf
         <InputText @bind-Value="form.Address" maxlength="300" />
+    </label>
+    <label>
+        Key from the other shelf
+        <InputText @bind-Value="form.Key" maxlength="100" type="password" autocomplete="off" />
     </label>
     <button type="submit">Save</button>
     @if (saved)
@@ -22,6 +41,7 @@
         <span class="hint">Saved.</span>
     }
 </EditForm>
+<p class="hint">Use an https:// address when the other shelf is not on your own network, so the key is not sent in the clear.</p>
 
 <p>
     <button type="button" @onclick="SyncNow" disabled="@busy">Sync now</button>
@@ -41,18 +61,29 @@
     private readonly AddressForm form = new();
     private bool saved;
     private bool busy;
+    private bool hasKey;
+    private string? newKey;
     private IReadOnlyList<string>? lines;
 
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         form.Address = await BookRules.GetSyncAddressAsync(db) ?? "";
+        form.Key = await BookRules.GetSyncKeyAsync(db) ?? "";
+        hasKey = await ReaderRules.HasKeyAsync(db, db.ReaderId);
+    }
+
+    private async Task MakeKey()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        newKey = await ReaderRules.NewKeyAsync(db, db.ReaderId);
+        hasKey = true;
     }
 
     private async Task Save()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        await BookRules.SetSyncAddressAsync(db, form.Address);
+        await BookRules.SetSyncAddressAsync(db, form.Address, form.Key);
         saved = true;
         lines = null;
     }
@@ -62,15 +93,22 @@
         saved = false;
         busy = true;
         lines = null;
-        await using var db = await DbFactory.CreateDbContextAsync();
-        await BookRules.SetSyncAddressAsync(db, form.Address);
-        var client = Http.CreateClient("shelf-sync");
-        lines = await ShelfSync.FromShelfAsync(client, form.Address, db, Ebooks, Audio, CancellationToken.None);
-        busy = false;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            await BookRules.SetSyncAddressAsync(db, form.Address, form.Key);
+            var client = Http.CreateClient("shelf-sync");
+            lines = await ShelfSync.FromShelfAsync(client, form.Address, form.Key, db, Ebooks, Audio, CancellationToken.None);
+        }
+        finally
+        {
+            busy = false;
+        }
     }
 
     private sealed class AddressForm
     {
         public string Address { get; set; } = "";
+        public string Key { get; set; } = "";
     }
 }

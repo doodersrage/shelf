@@ -27,10 +27,45 @@ else
     </ul>
 }
 
-@code {
-    private List<LoanCount> people = [];
+<h2>Borrowed</h2>
+@if (borrowed.Count == 0)
+{
+    <p class="hint">No other reader has lent you a book.</p>
+}
+else
+{
+    <ul class="quotes">
+        @foreach (var book in borrowed)
+        {
+            <li>
+                <strong>@book.Title</strong>
+                <span class="hint"> · @book.Author</span>
+                <p class="hint">
+                    From @book.Owner
+                    @if (book.LoanedOn is DateOnly since)
+                    {
+                        <span> since @since.ToString("MMM d, yyyy")</span>
+                    }
+                    @if (book.DueOn is DateOnly due)
+                    {
+                        <span class="@(due < Today ? "late" : null)"> · due @due.ToString("MMM d, yyyy")@(due < Today ? ", overdue" : "")</span>
+                    }
+                </p>
+                <button type="button" @onclick="() => GiveBack(book.Id)">Give it back</button>
+            </li>
+        }
+    </ul>
+}
 
-    protected override async Task OnInitializedAsync()
+@code {
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+
+    private List<LoanCount> people = [];
+    private List<BorrowedBook> borrowed = [];
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         var loans = await db.Books.AsNoTracking()
@@ -38,6 +73,17 @@ else
             .ToListAsync();
         people = BookRules.Loans(
             loans.Select(loan => (loan.LoanedTo, loan.DueOn)),
-            DateOnly.FromDateTime(DateTime.UtcNow)).ToList();
+            Today).ToList();
+        borrowed = (await Lending.BorrowedAsync(db)).ToList();
+    }
+
+    private async Task GiveBack(int id)
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            await Lending.GiveBackAsync(db, id);
+        }
+
+        await LoadAsync();
     }
 }

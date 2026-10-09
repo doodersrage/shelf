@@ -17,7 +17,7 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         Converters = { new JsonStringEnumConverter() },
     };
 
-    private readonly HttpClient _client = factory.CreateClient();
+    private readonly HttpClient _client = factory.Client;
 
     [Fact]
     public async Task Home_page_lists_created_books()
@@ -1405,6 +1405,7 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         ]);
 
         await using var scope = factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<Shelf.Api.Readers.ShelfReader>().Use(factory.ReaderId);
         var lines = await ShelfSync.ExchangeAsync(
             scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>(),
             scope.ServiceProvider.GetRequiredService<EbookStore>(),
@@ -1547,23 +1548,79 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     }
 }
 
-public sealed class ShelfApiFactory : WebApplicationFactory<Program>
+public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    public const string Password = "a long enough password";
+
     private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"shelf-{Guid.NewGuid():N}.db");
     private readonly string _ebookRoot = Path.Combine(Path.GetTempPath(), $"shelf-ebooks-{Guid.NewGuid():N}");
     private readonly string _audioRoot = Path.Combine(Path.GetTempPath(), $"shelf-audio-{Guid.NewGuid():N}");
+    private HttpClient? _client;
+
+    // The reader most tests act as: the first account on this shelf.
+    public HttpClient Client => _client ?? throw new InvalidOperationException("The factory has not signed in yet.");
+
+    public int ReaderId { get; private set; }
+
+    public async Task InitializeAsync()
+    {
+        _client = await SignUpAsync("Tenar");
+        ReaderId = await ReaderIdAsync("Tenar");
+    }
+
+    Task IAsyncLifetime.DisposeAsync() => Task.CompletedTask;
+
+    public async Task<HttpClient> SignUpAsync(string name, string password = Password)
+    {
+        var client = CreateClient();
+        var response = await PostFormAsync(client, "/signup", "/account/signup", new()
+        {
+            ["name"] = name,
+            ["password"] = password,
+            ["confirm"] = password,
+        });
+        Assert.Equal("/", response.RequestMessage?.RequestUri?.AbsolutePath);
+        return client;
+    }
+
+    public async Task<int> ReaderIdAsync(string name)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>();
+        var normalized = Shelf.Api.Readers.ReaderRules.Normalize(name);
+        return db.Readers.Single(reader => reader.NormalizedName == normalized).Id;
+    }
+
+    // Sends a form the way the browser does: read the page for its antiforgery token, then post.
+    public static async Task<HttpResponseMessage> PostFormAsync(
+        HttpClient client,
+        string page,
+        string action,
+        Dictionary<string, string> fields)
+    {
+        var html = await client.GetStringAsync(page);
+        var token = AntiforgeryToken().Match(html);
+        Assert.True(token.Success, $"No antiforgery token on {page}.");
+        fields["__RequestVerificationToken"] = System.Net.WebUtility.HtmlDecode(token.Groups[1].Value);
+        return await client.PostAsync(action, new FormUrlEncodedContent(fields));
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex("name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"")]
+    private static partial System.Text.RegularExpressions.Regex AntiforgeryToken();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("ConnectionStrings:Shelf", $"Data Source={_databasePath}");
         builder.UseSetting("EbookStore:Root", _ebookRoot);
         builder.UseSetting("AudioStore:Root", _audioRoot);
+        builder.UseSetting("Accounts:SignInsPerMinute", "1000");
         builder.UseEnvironment("Testing");
         builder.ConfigureTestServices(services => services.AddSingleton<IBookLookup, StubBookLookup>());
     }
 
     public override async ValueTask DisposeAsync()
     {
+        _client?.Dispose();
         await base.DisposeAsync();
         TryDelete(_databasePath);
         TryDelete(_databasePath + "-wal");

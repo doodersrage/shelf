@@ -6,6 +6,8 @@ namespace Shelf.Api.Books;
 
 public static class SyncEndpoints
 {
+    public const string Policy = "sync";
+
     public static async Task<Ok<SyncCatalog>> Catalog(
         ShelfDb db,
         EbookStore ebooks,

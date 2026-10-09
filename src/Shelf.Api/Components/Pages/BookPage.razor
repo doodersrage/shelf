@@ -96,7 +96,7 @@ else if (book is not null)
     @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
     {
         <p>
-            Loaned to <a href="@($"/?loanedTo={Uri.EscapeDataString(book.LoanedTo)}")">@book.LoanedTo</a>
+            Loaned to <a href="@($"/?loanedTo={Uri.EscapeDataString(book.LoanedTo)}")">@book.LoanedTo</a>@(book.BorrowerId is null ? "" : ", a reader here,")
             @if (book.LoanedOn is DateOnly loanedOn)
             {
                 <span>since @loanedOn.ToString("MMM d, yyyy")</span>
@@ -327,6 +327,33 @@ else if (book is not null)
         </ul>
     }
 
+    @if (readers.Count > 0 && string.IsNullOrWhiteSpace(book.LoanedTo))
+    {
+        <h2>Lend</h2>
+        <p class="hint">Lend this book to another reader here. It shows on their loans until it comes back.</p>
+        <div class="pair">
+            <label>
+                Reader
+                <select @bind="lendTo">
+                    <option value="0">Choose a reader</option>
+                    @foreach (var reader in readers)
+                    {
+                        <option value="@reader.Id">@reader.Name</option>
+                    }
+                </select>
+            </label>
+            <label>
+                Due back
+                <input type="date" @bind="lendDue" />
+            </label>
+        </div>
+        <button type="button" @onclick="LendBook" disabled="@(lendTo == 0)">Lend</button>
+        @if (lendProblem is not null)
+        {
+            <p class="validation-message" role="alert">@lendProblem</p>
+        }
+    }
+
     <h2>E-book</h2>
     @if (!string.IsNullOrWhiteSpace(book.EbookFileName))
     {
@@ -380,6 +407,10 @@ else if (book is not null)
     private readonly SessionFormModel sessionDraft = new();
     private List<OtherBook> others = [];
     private NextVolume? nextVolume;
+    private List<ReaderResponse> readers = [];
+    private int lendTo;
+    private DateOnly? lendDue;
+    private string? lendProblem;
     private Dictionary<string, string[]>? formErrors;
     private Dictionary<string, string[]>? quoteErrors;
     private Dictionary<string, string[]>? sessionErrors;
@@ -431,10 +462,35 @@ else if (book is not null)
                 nextVolume = new NextVolume(next.Id, next.Title);
             }
         }
+        readers = book is null ? [] : (await ReaderRules.OthersAsync(db, db.ReaderId)).ToList();
         if (book is not null && replaceDraft)
         {
             draft = BookFormModel.From(book);
         }
+    }
+
+    private async Task LendBook()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var result = await Lending.LendAsync(db, Id, lendTo, lendDue);
+        if (result == LendResult.NoBook)
+        {
+            missing = true;
+            book = null;
+            return;
+        }
+
+        if (result != LendResult.Lent)
+        {
+            lendProblem = Lending.Describe(result);
+            return;
+        }
+
+        lendTo = 0;
+        lendDue = null;
+        lendProblem = null;
+        saved = false;
+        await LoadAsync();
     }
 
     private async Task Save()

@@ -1,0 +1,45 @@
+@page "/signin"
+@attribute [AllowAnonymous]
+
+<PageTitle>Sign in · Shelf</PageTitle>
+
+<h1>Sign in</h1>
+
+@if (Problem is AccountProblem problem)
+{
+    <p class="validation-message" role="alert">@ReaderRules.Describe(problem)</p>
+}
+
+<form class="account" method="post" action="/account/signin">
+    <AntiforgeryToken />
+    <input type="hidden" name="returnUrl" value="@SafeReturnUrl" />
+    <label>
+        Name
+        <input name="name" value="@Name" maxlength="@ReaderRules.MaxNameLength" autocomplete="username" required autofocus />
+    </label>
+    <label>
+        Password
+        <input type="password" name="password" maxlength="@ReaderRules.MaxPasswordLength" autocomplete="current-password" required />
+    </label>
+    <button type="submit">Sign in</button>
+</form>
+
+<p class="hint">New to this shelf? <a href="@SignUpHref">Make an account</a></p>
+
+@code {
+    [SupplyParameterFromQuery(Name = "problem")]
+    public string? ProblemCode { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? Name { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    private AccountProblem? Problem =>
+        Enum.TryParse<AccountProblem>(ProblemCode, out var problem) && Enum.IsDefined(problem) ? problem : null;
+
+    private string? SafeReturnUrl => ReaderRules.IsLocalUrl(ReturnUrl) ? ReturnUrl : null;
+
+    private string SignUpHref => SafeReturnUrl is null ? "/signup" : $"/signup?returnUrl={Uri.EscapeDataString(SafeReturnUrl)}";
+}

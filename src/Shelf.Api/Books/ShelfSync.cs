@@ -70,6 +70,7 @@ public static class ShelfSync
     public static async Task<IReadOnlyList<string>> FromShelfAsync(
         HttpClient client,
         string? address,
+        string? key,
         ShelfDb db,
         EbookStore ebooks,
         AudioStore audio,
@@ -82,10 +83,24 @@ public static class ShelfSync
             return ["Enter an address that starts with http:// or https://."];
         }
 
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return ["Enter the key made on the other shelf."];
+        }
+
         client.BaseAddress = new Uri($"{uri.Scheme}://{uri.Authority}/");
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key.Trim());
         try
         {
-            var catalog = await client.GetFromJsonAsync<SyncCatalog>("books/sync", cancellationToken);
+            using var answer = await client.GetAsync("books/sync", cancellationToken);
+            if (answer.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+            {
+                return ["The other shelf did not accept that key."];
+            }
+
+            var catalog = answer.IsSuccessStatusCode
+                ? await answer.Content.ReadFromJsonAsync<SyncCatalog>(cancellationToken)
+                : null;
             if (catalog?.Books is null)
             {
                 return ["That address is not a shelf."];

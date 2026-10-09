@@ -1,10 +1,24 @@
 using Microsoft.EntityFrameworkCore;
 using Shelf.Api.Books;
+using Shelf.Api.Readers;
 
 namespace Shelf.Api.Data;
 
-public sealed class ShelfDb(DbContextOptions<ShelfDb> options) : DbContext(options)
+public sealed class ShelfDb : DbContext
 {
+    private readonly ShelfReader? _reader;
+
+    public ShelfDb(DbContextOptions<ShelfDb> options, ShelfReader? reader = null)
+        : base(options)
+    {
+        _reader = reader;
+        SavingChanges += (_, _) => StampOwners();
+    }
+
+    // Every query sees only this reader's books. No reader means no books, never the unclaimed ones.
+    public int ReaderId => _reader?.Id ?? 0;
+
+    public DbSet<Reader> Readers => Set<Reader>();
     public DbSet<Book> Books => Set<Book>();
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<Quote> Quotes => Set<Quote>();
@@ -40,6 +54,15 @@ public sealed class ShelfDb(DbContextOptions<ShelfDb> options) : DbContext(optio
             book.Property(b => b.EbookStoredName).HasMaxLength(48);
             book.Property(b => b.AudioFileName).HasMaxLength(200);
             book.Property(b => b.AudioStoredName).HasMaxLength(48);
+            book.HasOne(b => b.Owner)
+                .WithMany()
+                .HasForeignKey(b => b.OwnerId)
+                .OnDelete(DeleteBehavior.Cascade);
+            book.HasOne(b => b.Borrower)
+                .WithMany()
+                .HasForeignKey(b => b.BorrowerId)
+                .OnDelete(DeleteBehavior.SetNull);
+            book.HasQueryFilter(b => b.OwnerId == ReaderId);
             book.HasIndex(b => b.Status);
             book.HasIndex(b => b.Author);
             book.HasMany(b => b.Tags)
@@ -62,12 +85,25 @@ public sealed class ShelfDb(DbContextOptions<ShelfDb> options) : DbContext(optio
         modelBuilder.Entity<ReadingSession>(session =>
         {
             session.Property(s => s.Note).HasMaxLength(500);
+            session.HasQueryFilter(s => s.Book!.OwnerId == ReaderId);
         });
 
+        // A setting row belongs to the reader with the same id.
         modelBuilder.Entity<ShelfSetting>(setting =>
         {
             setting.Property(s => s.Id).ValueGeneratedNever();
             setting.Property(s => s.SyncAddress).HasMaxLength(300);
+            setting.Property(s => s.SyncKey).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<Reader>(reader =>
+        {
+            reader.Property(r => r.Name).HasMaxLength(ReaderRules.MaxNameLength).IsRequired();
+            reader.Property(r => r.NormalizedName).HasMaxLength(ReaderRules.MaxNameLength).IsRequired();
+            reader.Property(r => r.PasswordHash).HasMaxLength(200).IsRequired();
+            reader.Property(r => r.KeyHash).HasMaxLength(64);
+            reader.HasIndex(r => r.NormalizedName).IsUnique();
+            reader.HasIndex(r => r.KeyHash).IsUnique();
         });
 
         modelBuilder.Entity<Tag>(tag =>
@@ -79,6 +115,7 @@ public sealed class ShelfDb(DbContextOptions<ShelfDb> options) : DbContext(optio
         modelBuilder.Entity<Quote>(quote =>
         {
             quote.Property(q => q.Text).HasMaxLength(1000).IsRequired();
+            quote.HasQueryFilter(q => q.Book!.OwnerId == ReaderId);
         });
 
         modelBuilder.Entity<Highlight>(highlight =>
@@ -87,6 +124,23 @@ public sealed class ShelfDb(DbContextOptions<ShelfDb> options) : DbContext(optio
             highlight.Property(item => item.Note).HasMaxLength(2000);
             highlight.Property(item => item.Prefix).HasMaxLength(80);
             highlight.Property(item => item.Suffix).HasMaxLength(80);
+            highlight.HasQueryFilter(item => item.Book!.OwnerId == ReaderId);
         });
+    }
+
+    private void StampOwners()
+    {
+        if (ReaderId == 0)
+        {
+            return;
+        }
+
+        foreach (var entry in ChangeTracker.Entries<Book>())
+        {
+            if (entry.State == EntityState.Added && entry.Entity.OwnerId is null)
+            {
+                entry.Entity.OwnerId = ReaderId;
+            }
+        }
     }
 }

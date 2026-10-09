@@ -8,7 +8,7 @@ public static class BookEndpoints
 {
     public static RouteGroupBuilder MapBooks(this IEndpointRouteBuilder app)
     {
-        var books = app.MapGroup("/books").WithTags("Books");
+        var books = app.MapGroup("/books").WithTags("Books").RequireAuthorization();
 
         books.MapGet("/", ListBooks);
         books.MapGet("/stats", GetStats).WithTags("Shelf");
@@ -35,6 +35,9 @@ public static class BookEndpoints
         books.MapPost("/{id:int}/sessions", CreateSession);
         books.MapDelete("/{id:int}/sessions/{sessionId:int}", DeleteSession);
         books.MapPost("/{id:int}/return", ReturnBook);
+        books.MapPost("/{id:int}/lend", Lending.Lend).WithTags("Lending");
+        books.MapGet("/borrowed", Lending.Borrowed).WithTags("Lending");
+        books.MapPost("/borrowed/{id:int}/return", Lending.GiveBack).WithTags("Lending");
         books.MapPost("/{id:int}/enrich", EnrichBook);
         books.MapGet("/{id:int}/highlights", EbookEndpoints.ListHighlights);
         books.MapPost("/{id:int}/highlights", EbookEndpoints.CreateHighlight);
@@ -49,16 +52,18 @@ public static class BookEndpoints
         books.MapDelete("/{id:int}/audio", AudioEndpoints.Remove);
         books.MapGet("/{id:int}/audio/tracks/{index:int}", AudioEndpoints.Track);
 
-        books.MapGet("/sync", SyncEndpoints.Catalog).WithTags("Shelf");
-        books.MapPost("/sync/books", SyncEndpoints.Ensure).WithTags("Shelf");
-        books.MapGet("/sync/{key}/ebook", SyncEndpoints.Ebook).WithTags("Shelf");
-        books.MapPost("/sync/{key}/ebook", SyncEndpoints.UploadEbook).DisableAntiforgery().WithTags("Shelf");
-        books.MapGet("/sync/{key}/audio", SyncEndpoints.Audio).WithTags("Shelf");
-        books.MapPost("/sync/{key}/audio", SyncEndpoints.UploadAudio).DisableAntiforgery().WithTags("Shelf");
-        books.MapPut("/sync/{key}/progress", SyncEndpoints.Progress).WithTags("Shelf");
+        // Another shelf reaches these with a device key; the rest of the API needs a signed-in reader.
+        var sync = app.MapGroup("/books/sync").WithTags("Shelf").RequireAuthorization(SyncEndpoints.Policy);
+        sync.MapGet("/", SyncEndpoints.Catalog);
+        sync.MapPost("/books", SyncEndpoints.Ensure);
+        sync.MapGet("/{key}/ebook", SyncEndpoints.Ebook);
+        sync.MapPost("/{key}/ebook", SyncEndpoints.UploadEbook).DisableAntiforgery();
+        sync.MapGet("/{key}/audio", SyncEndpoints.Audio);
+        sync.MapPost("/{key}/audio", SyncEndpoints.UploadAudio).DisableAntiforgery();
+        sync.MapPut("/{key}/progress", SyncEndpoints.Progress);
 
-        app.MapGet("/settings", GetSettings).WithTags("Shelf");
-        app.MapPut("/settings", UpdateSettings).WithTags("Shelf");
+        app.MapGet("/settings", GetSettings).WithTags("Shelf").RequireAuthorization();
+        app.MapPut("/settings", UpdateSettings).WithTags("Shelf").RequireAuthorization();
 
         return books;
     }
