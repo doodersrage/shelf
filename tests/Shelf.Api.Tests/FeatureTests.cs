@@ -101,6 +101,76 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Contains($"/library/{book.Id}/read?chapter=2", page);
     }
 
+    [Fact]
+    public async Task A_goodreads_export_comes_in_with_shelves_series_and_dates()
+    {
+        const string csv = """"""
+            Book Id,Title,Author,Author l-f,Additional Authors,ISBN,ISBN13,My Rating,Average Rating,Publisher,Binding,Number of Pages,Year Published,Original Publication Year,Date Read,Date Added,Bookshelves,Bookshelves with positions,Exclusive Shelf,My Review,Spoiler,Private Notes,Read Count,Owned Copies
+            13642,"A Wizard of Earthsea (Earthsea Cycle, #1)",Ursula K. Le Guin,"Le Guin, Ursula K.",,"=""0547773749""","=""9780547773742""",5,4.01,Houghton Mifflin,Paperback,183,2012,1968,2024/03/14,2023/12/01,"fantasy, favourites",,read,"Wonderful.<br/>Read it twice.",,A note to self,1,0
+            4,"The Dispossessed",Ursula K. Le Guin,"Le Guin, Ursula K.",,"=""""","=""""",0,4.21,Harper,Hardcover,387,1994,1974,,2024/01/02,currently-reading,,currently-reading,,,,0,0
+            5,"Kindred",Octavia E. Butler,"Butler, Octavia E.",,"=""""","=""""",0,4.28,Beacon,Paperback,264,2003,1979,,2024/01/03,to-read,,to-read,,,,0,0
+            6,"Gravity's Rainbow",Thomas Pynchon,"Pynchon, Thomas",,"=""""","=""""",0,4.0,Penguin,Paperback,776,2006,1973,,2024/01/04,did-not-finish,,did-not-finish,,,,0,0
+            """""";
+        var response = await PostCsvAsync(csv.Replace("            ", ""), "goodreads_library_export.csv");
+        Assert.Contains("csv=done&source=Goodreads&added=4&skipped=0", response.RequestMessage?.RequestUri?.Query);
+
+        var books = await _client.GetFromJsonAsync<BookResponse[]>("/books?author=Ursula%20K.%20Le%20Guin", JsonOptions);
+        var wizard = books!.Single(book => book.Title == "A Wizard of Earthsea");
+        Assert.Equal("Earthsea Cycle", wizard.Series);
+        Assert.Equal(1, wizard.SeriesNumber);
+        Assert.Equal(BookStatus.Finished, wizard.Status);
+        Assert.Equal(new DateOnly(2024, 3, 14), wizard.FinishedOn);
+        Assert.Equal(wizard.FinishedOn, wizard.StartedOn);
+        Assert.Equal("9780547773742", wizard.Isbn);
+        Assert.Equal(5, wizard.Rating);
+        Assert.Equal(1968, wizard.Year);
+        Assert.Equal(183, wizard.Pages);
+        Assert.Equal(BookFormat.Paperback, wizard.Format);
+        Assert.Equal("Wonderful.\nRead it twice.", wizard.Review);
+        Assert.Equal("A note to self", wizard.Notes);
+        Assert.Equal(["fantasy", "favourites"], wizard.Tags);
+        Assert.Equal(new DateTimeOffset(2023, 12, 1, 0, 0, 0, TimeSpan.Zero), wizard.AddedAt);
+        Assert.Equal(BookStatus.Reading, books!.Single(book => book.Title == "The Dispossessed").Status);
+        var all = await _client.GetFromJsonAsync<BookResponse[]>("/books", JsonOptions);
+        Assert.Equal(BookStatus.Want, all!.Single(book => book.Title == "Kindred").Status);
+        Assert.Equal(BookStatus.Abandoned, all!.Single(book => book.Title == "Gravity's Rainbow").Status);
+
+        var again = await PostCsvAsync(csv.Replace("            ", ""), "goodreads_library_export.csv");
+        Assert.Contains("added=0&skipped=4", again.RequestMessage?.RequestUri?.Query);
+    }
+
+    [Fact]
+    public async Task A_storygraph_export_comes_in_with_status_and_half_stars()
+    {
+        const string csv = """"""
+            Title,Authors,Contributors,ISBN/UID,Format,Read Status,Date Added,Last Date Read,Dates Read,Read Count,Moods,Pace,Character- or Plot-Driven?,Strong Character Development?,Loveable Characters?,Diverse Characters?,Flawed Characters?,Star Rating,Review,Content Warnings,Content Warning Description,Tags,Owned?
+            Piranesi,Susanna Clarke,,9781635575637,hardcover,read,2024/02/10,2024/02/20,2024/02/12-2024/02/20,1,mysterious,medium,Character,,,,,4.5,"A house of tides, endless.",,,"fantasy, mystery",Yes
+            The Overstory,Richard Powers,,9780393635522,digital,did-not-finish,2024/03/01,,,0,,,,,,,,,,,,,No
+            """""";
+        var response = await PostCsvAsync(csv.Replace("            ", ""), "storygraph.csv");
+        Assert.Contains("csv=done&source=StoryGraph&added=2", response.RequestMessage?.RequestUri?.Query);
+        var books = await _client.GetFromJsonAsync<BookResponse[]>("/books", JsonOptions);
+        var piranesi = books!.Single(book => book.Title == "Piranesi");
+        Assert.Equal(BookStatus.Finished, piranesi.Status);
+        Assert.Equal(5, piranesi.Rating);
+        Assert.Equal(BookFormat.Hardcover, piranesi.Format);
+        Assert.Equal(new DateOnly(2024, 2, 20), piranesi.FinishedOn);
+        Assert.Equal("A house of tides, endless.", piranesi.Review);
+        Assert.Equal(["fantasy", "mystery"], piranesi.Tags);
+        var overstory = books!.Single(book => book.Title == "The Overstory");
+        Assert.Equal(BookStatus.Abandoned, overstory.Status);
+        Assert.Equal(BookFormat.Ebook, overstory.Format);
+
+        var junk = await PostCsvAsync("a,b,c\n1,2,3\n", "other.csv");
+        Assert.Contains("csv=unreadable", junk.RequestMessage?.RequestUri?.Query);
+    }
+
+    private async Task<HttpResponseMessage> PostCsvAsync(string csv, string name)
+    {
+        using var content = new MultipartFormDataContent { { new StringContent(csv), "file", name } };
+        return await _client.PostAsync("/books/import/csv", content);
+    }
+
     private async Task<BookResponse> CreateAsync(CreateBookRequest request)
     {
         var response = await _client.PostAsJsonAsync("/books", request, JsonOptions);

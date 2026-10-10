@@ -47,6 +47,28 @@
     }
 </section>
 
+<section class="panel" aria-labelledby="csv-heading">
+    <h2 id="csv-heading">Bring a library from Goodreads or StoryGraph</h2>
+    <p>Export your library from Goodreads (My Books, then Import and export) or The StoryGraph (Manage account, then Export), and choose the CSV file here. Shelves, reading status, ratings, dates, reviews, and tags come along; books already on your shelf are skipped.</p>
+    <form action="/books/import/csv" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
+        <label>
+            CSV export
+            <input type="file" name="file" accept=".csv,text/csv" required />
+        </label>
+        <progress data-upload-progress max="100" hidden></progress>
+        <p class="hint" data-upload-status role="status" hidden></p>
+        <button type="submit" class="quiet">Import this file</button>
+    </form>
+    @if (Csv == "done")
+    {
+        <p class="saved" role="status">Imported from @(Source == "StoryGraph" ? "The StoryGraph" : "Goodreads"). Added @Added @(Added == 1 ? "book" : "books"), and skipped @Skipped already on your shelf or missing a title or author.</p>
+    }
+    else if (Csv == "unreadable")
+    {
+        <p class="validation-message" role="alert">That file is not a Goodreads or StoryGraph export, so nothing was added.</p>
+    }
+</section>
+
 <p class="hint">An admin can also keep a snapshot of the whole server, every reader included, from <a href="/admin">Readers</a>.</p>
 
 @code {
@@ -72,6 +94,12 @@
 
     [SupplyParameterFromQuery]
     public int Files { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? Csv { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? Source { get; set; }
 
     private async Task ImportBackup(InputFileChangeEventArgs change)
     {

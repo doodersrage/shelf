@@ -555,6 +555,45 @@ public static class BookRules
         return new ImportResult(count, skipped);
     }
 
+    // Books from another service's export: skipped when invalid or already on the shelf, as a backup restore is.
+    public static async Task<ImportResult> ImportCsvAsync(ShelfDb db, CsvLibrary library, CancellationToken cancellationToken = default)
+    {
+        var existing = await db.Books.AsNoTracking()
+            .Select(book => new ExistingBook(book.Title, book.Author, book.Isbn))
+            .ToListAsync(cancellationToken);
+        var seen = existing.Select(Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var added = 0;
+        var skipped = 0;
+        foreach (var row in library.Books)
+        {
+            var write = row.Write;
+            if (Validate(write) is not null || !seen.Add(Key(new ExistingBook(write.Title.Trim(), write.Author.Trim(), NormalizeIsbn(write.Isbn)))))
+            {
+                skipped++;
+                continue;
+            }
+
+            var book = new Book { Title = write.Title.Trim(), Author = write.Author.Trim() };
+            Apply(book, write);
+            if (row.AddedAt is { } addedAt)
+            {
+                book.AddedAt = addedAt;
+            }
+
+            db.Books.Add(book);
+            await SyncTagsAsync(db, book, write.Tags, cancellationToken);
+            added++;
+        }
+
+        if (added > 0)
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            await RemoveUnusedTagsAsync(db, cancellationToken);
+        }
+
+        return new ImportResult(added, skipped);
+    }
+
     public static void AdvanceProgress(Book book, int? toPage)
     {
         if (toPage is not { } page)

@@ -16,6 +16,7 @@ public static class BookEndpoints
         books.MapPost("/import", ImportLibrary).WithTags("Shelf");
         books.MapGet("/export/full", ExportEverything).WithTags("Shelf");
         books.MapPost("/import/full", ImportEverything).DisableAntiforgery().WithTags("Shelf");
+        books.MapPost("/import/csv", ImportCsv).DisableAntiforgery().WithTags("Shelf");
         books.MapGet("/reminders", Asking.Remind).WithTags("Lending");
         books.MapGet("/shelves", Asking.Shelves).WithTags("Lending");
         books.MapGet("/shelves/{id:int}", Asking.Shelf).WithTags("Lending");
@@ -272,6 +273,25 @@ public static class BookEndpoints
         var path = TempFileResult.NewPath(".zip");
         await Backup.WriteShelfAsync(db, ebooks, audio, path, cancellationToken);
         return new TempFileResult(path, "application/zip", $"shelf-backup-{DateTime.UtcNow:yyyy-MM-dd}.zip");
+    }
+
+    // A Goodreads or StoryGraph export. Like the other uploads, it answers the Backup page's form with a redirect back.
+    private static async Task<RedirectHttpResult> ImportCsv(IFormFile? file, ShelfDb db, CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0 || file.Length > 20 * 1024 * 1024)
+        {
+            return TypedResults.Redirect("/backup?csv=unreadable");
+        }
+
+        using var reader = new StreamReader(file.OpenReadStream(), System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        var library = LibraryCsv.Read(await reader.ReadToEndAsync(cancellationToken));
+        if (library is null)
+        {
+            return TypedResults.Redirect("/backup?csv=unreadable");
+        }
+
+        var result = await BookRules.ImportCsvAsync(db, library, cancellationToken);
+        return TypedResults.Redirect($"/backup?csv=done&source={library.Source}&added={result.Added}&skipped={result.Skipped}");
     }
 
     // Like the e-book upload, this answers the form on the Backup page with a redirect back to it.
