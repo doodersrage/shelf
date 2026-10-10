@@ -92,12 +92,16 @@ export function describe(title, author, book, cover) {
     return;
   }
 
-  session.metadata = new MediaMetadata({
-    title: title || book,
-    artist: author || "",
-    album: book || "",
-    artwork: cover ? [{ src: new URL(cover, location.href).href, sizes: "512x512" }] : [],
-  });
+  try {
+    session.metadata = new MediaMetadata({
+      title: title || book,
+      artist: author || "",
+      album: book || "",
+      artwork: cover ? [{ src: new URL(cover, location.href).href, sizes: "512x512" }] : [],
+    });
+  } catch {
+    // An older browser, or a cover address it will not take: the lock screen goes without.
+  }
 }
 
 function on(action, handler) {

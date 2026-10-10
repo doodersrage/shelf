@@ -220,11 +220,12 @@ else if (book is not null)
         var now = chapters.Count > 1 && chapterIndex < chapters.Count ? chapters[chapterIndex].Title
             : tracks.Count > 1 && track < tracks.Count ? tracks[track].Title
             : book.Title;
+        // The lock screen is a nicety: a browser that refuses it must not take the player down with it.
         try
         {
             await module.InvokeVoidAsync("describe", now, book.Author, book.Title, book.CoverShown);
         }
-        catch (JSDisconnectedException)
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
         {
         }
     }
