@@ -77,8 +77,8 @@ test("files added together become books, each named from what it says", async ({
   const page = await signUp(browser, unique("Importer"));
   await page.goto("/?add=1");
   await ready(page);
-  await page.locator('form[action="/books/import"] input[name=file]').setInputFiles([fixture("moby.epub"), fixture("chapters.m4b"), fixture("comic.cbz")]);
-  await Promise.all([page.waitForURL(/imported=/), page.locator('form[action="/books/import"] button[type=submit]').click()]);
+  await page.locator('form[action="/books/import/files"] input[name=file]').setInputFiles([fixture("moby.epub"), fixture("chapters.m4b"), fixture("comic.cbz")]);
+  await Promise.all([page.waitForURL(/imported=/), page.locator('form[action="/books/import/files"] button[type=submit]').click()]);
   await expect(page.locator('[role=status]:has-text("Added 3 books.")')).toBeVisible();
   const books = await (await page.request.get("/books")).json();
   expect(books.map((book) => book.format).sort()).toEqual(["Audiobook", "Ebook", "Ebook"]);
@@ -87,8 +87,8 @@ test("files added together become books, each named from what it says", async ({
   // The same files again are already on the shelf.
   await page.goto("/?add=1");
   await ready(page);
-  await page.locator('form[action="/books/import"] input[name=file]').setInputFiles([fixture("moby.epub")]);
-  await Promise.all([page.waitForURL(/imported=/), page.locator('form[action="/books/import"] button[type=submit]').click()]);
+  await page.locator('form[action="/books/import/files"] input[name=file]').setInputFiles([fixture("moby.epub")]);
+  await Promise.all([page.waitForURL(/imported=/), page.locator('form[action="/books/import/files"] button[type=submit]').click()]);
   await expect(page.locator('[role=status]:has-text("already on another book")')).toBeVisible();
   noProblems(page);
 });

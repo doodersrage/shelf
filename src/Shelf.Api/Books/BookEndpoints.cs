@@ -38,7 +38,7 @@ public static class BookEndpoints
         books.MapGet("/copies", ListCopies);
         books.MapGet("/{id:int}", GetBook);
         books.MapPost("/", CreateBook);
-        books.MapPost("/import", ImportEndpoints.Import).DisableAntiforgery();
+        books.MapPost("/import/files", ImportEndpoints.Import).DisableAntiforgery();
         books.MapPost("/bulk", Bulk.Apply);
         books.MapPut("/{id:int}", UpdateBook);
         books.MapDelete("/{id:int}", DeleteBook);

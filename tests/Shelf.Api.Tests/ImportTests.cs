@@ -93,7 +93,7 @@ public sealed class ImportTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
 
         // Without tags, the file name is the title and the author is left to fill in.
         using var content = new MultipartFormDataContent { { new ByteArrayContent(Epub(null, null, null, null, cover: false)), "file", "the_tombs_of_atuan.epub" } };
-        var response = await client.PostAsync("/books/import", content);
+        var response = await client.PostAsync("/books/import/files", content);
         Assert.Matches(@"^/library/\d+$", response.RequestMessage!.RequestUri!.AbsolutePath);
         Assert.Equal("?imported=1", response.RequestMessage.RequestUri.Query);
         var page = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
@@ -404,7 +404,7 @@ public sealed class ImportTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
             content.Add(new StringContent("true"), "keepBoth");
         }
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/books/import") { Content = content };
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/books/import/files") { Content = content };
         request.Headers.Accept.ParseAdd("application/json");
         var response = await client.SendAsync(request);
         response.EnsureSuccessStatusCode();

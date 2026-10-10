@@ -73,9 +73,27 @@ export function waiting(bookId) {
   return load(bookId).some((mark) => mark.pending || mark.deleted);
 }
 
+// One sync at a time for a book, across every tab: two at once would each send the same new highlight.
+const running = new Map();
+
+export function send(bookId) {
+  if (navigator.locks?.request) {
+    return navigator.locks.request(`shelf-marks-${bookId}`, () => sendNow(bookId));
+  }
+
+  const next = (running.get(bookId) ?? Promise.resolve()).catch(() => {}).then(() => sendNow(bookId));
+  running.set(bookId, next);
+  return next;
+}
+
 // Highlights made or removed offline go to the shelf, then the shelf's own list comes back down.
-export async function send(bookId) {
+async function sendNow(bookId) {
   for (const mark of load(bookId)) {
+    const current = load(bookId).find((item) => item.id === mark.id);
+    if (!current || current.pending !== mark.pending || current.deleted !== mark.deleted) {
+      continue;
+    }
+
     if (mark.pending && !mark.deleted) {
       const response = await fetch(`/books/${bookId}/highlights`, {
         method: "POST",

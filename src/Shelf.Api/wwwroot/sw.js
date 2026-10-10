@@ -1,6 +1,6 @@
 // Shelf's service worker. It keeps the offline reader and the books a reader chose to keep, and shows
 // the offline reader when the shelf cannot be reached. Everything else goes to the network as usual.
-const SHELL = "shelf-shell-v2";
+const SHELL = "shelf-shell-v3";
 const BOOKS = "shelf-books";
 const SHELL_FILES = [
   "/offline.html",

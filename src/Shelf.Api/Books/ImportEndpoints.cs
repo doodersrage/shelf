@@ -5,7 +5,7 @@ namespace Shelf.Api.Books;
 
 public static class ImportEndpoints
 {
-    // POST /books/import: any number of e-books, audio files, and zips of tracks, each made into a book.
+    // POST /books/import/files: any number of e-books, audio files, and zips of tracks, each made into a book.
     // A form gets sent back to what it made; asked for JSON, it gets what happened to each file.
     public static async Task<IResult> Import(HttpContext http, ShelfDb db, BookImport import, CancellationToken cancellationToken)
     {
