@@ -90,6 +90,13 @@ jobs:
         with:
           context: .
           push: false
+          load: true
           tags: shelf:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # Building is not enough: a missing blazor.web.js only shows in a running image.
+      - name: Start the image and load a page's scripts
+        run: .github/scripts/smoke-image.sh shelf:ci
+      - name: The image's log
+        if: failure()
+        run: cat smoke.log || true

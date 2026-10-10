@@ -1,6 +1,6 @@
 // Shelf's service worker. It keeps the offline reader and the books a reader chose to keep, and shows
 // the offline reader when the shelf cannot be reached. Everything else goes to the network as usual.
-const SHELL = "shelf-shell-v4";
+const SHELL = "shelf-shell-v5";
 const BOOKS = "shelf-books";
 const SHELL_FILES = [
   "/offline.html",
@@ -51,8 +51,19 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // The offline reader's own files come from the device first.
+  // The offline reader's own files come from the shelf while it answers, which also keeps the copies on the device
+  // up to date, and from the device when it does not. From the device first, a new release's styles and words would
+  // wait until this file itself changed.
   if (SHELL_FILES.includes(url.pathname)) {
-    event.respondWith(caches.match(url.pathname).then((cached) => cached || fetch(request)));
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            event.waitUntil(caches.open(SHELL).then((cache) => cache.put(url.pathname, copy)));
+          }
+          return response;
+        })
+        .catch(() => caches.match(url.pathname).then((cached) => cached || Response.error())));
   }
 });

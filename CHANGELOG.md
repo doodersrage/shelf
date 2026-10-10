@@ -10,6 +10,9 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Fixed
 
+- The Docker image could not make any page interactive: it left out `_framework/blazor.web.js`, so buttons such as Connect on the Audiobookshelf import, About this book, Add to shelf, and others handled on the page did nothing. Every image before this one is affected; running from source was not. The image's build now restores with the whole source in place, and CI and releases start the image and check that a page's scripts load before anything is published.
+- A new release's styles and translations reached a browser that had Shelf open before only once the offline helper itself changed. They now come from the shelf whenever it answers, with the copies on the device kept for offline reading.
+- Connecting to an Audiobookshelf address that never answers says it timed out, instead of that it did not answer as Audiobookshelf.
 - About this book on Free books could leave the whole page unresponsive when Project Gutenberg or LibriVox was slow: a timeout from the retry layer every outgoing request goes through was not caught, and it ended the page's connection. The same gap is closed for Open Library look-ups, shelf-to-shelf sync, free-book downloads, and the Audiobookshelf import.
 - Gutenberg and LibriVox requests may take up to 45 seconds an attempt, and Audiobookshelf up to two minutes, instead of the standard ten, so a busy catalog or a large library still answers.
 - About this book works before the page's live connection is up, or without one: it opens the details from the server instead.

@@ -208,7 +208,12 @@ else
         }
         catch (Exception ex) when (ex is AbsProblem or TaskCanceledException or System.Text.Json.JsonException or KeyNotFoundException or InvalidOperationException)
         {
-            problem = ex is AbsProblem ? ex.Message : T("That address did not answer as Audiobookshelf.");
+            problem = ex switch
+            {
+                AbsProblem => ex.Message,
+                TaskCanceledException => T("That address did not answer within 30 seconds. Check it, and that this server can reach it."),
+                _ => T("That address did not answer as Audiobookshelf."),
+            };
         }
         finally
         {

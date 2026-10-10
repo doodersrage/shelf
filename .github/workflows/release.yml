@@ -44,6 +44,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Built and checked here first, so an image that cannot run its pages is never published.
+      - name: Build the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          build-args: VERSION=${{ steps.version.outputs.number }}
+          tags: shelf:release
+
+      - name: Start the image and load a page's scripts
+        run: .github/scripts/smoke-image.sh shelf:release
+
       - name: Publish the image
         uses: docker/build-push-action@v6
         with:

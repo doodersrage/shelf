@@ -763,6 +763,7 @@
   "Text settings": "Texteinstellungen",
   "Text size": "Textgröße",
   "That address did not answer as Audiobookshelf.": "Diese Adresse hat nicht wie Audiobookshelf geantwortet.",
+  "That address did not answer within 30 seconds. Check it, and that this server can reach it.": "Diese Adresse hat nicht innerhalb von 30 Sekunden geantwortet. Prüf sie und ob dieser Server sie erreichen kann.",
   "That address does not answer as Audiobookshelf. If it is served under a path, include it, such as https://example.org/audiobookshelf.": "Diese Adresse antwortet nicht wie Audiobookshelf. Wenn es unter einem Pfad läuft, gib ihn mit an, etwa https://example.org/audiobookshelf.",
   "That address is not a shelf.": "Diese Adresse ist kein Shelf.",
   "That audiobook is already on another book, byte for byte:": "Dieses Hörbuch hängt Byte für Byte schon an einem anderen Buch:",

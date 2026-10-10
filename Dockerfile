@@ -9,7 +9,10 @@ COPY src/Shelf.ServiceDefaults/Shelf.ServiceDefaults.csproj src/Shelf.ServiceDef
 RUN dotnet restore src/Shelf.Api/Shelf.Api.csproj
 COPY src/ src/
 ARG VERSION=
-RUN dotnet publish src/Shelf.Api/Shelf.Api.csproj -c Release -o /app --no-restore ${VERSION:+-p:Version=$VERSION}
+# Publish restores again, now that the whole source is here: the restore above sees only the project files, and
+# without the Razor pages in sight it leaves out the package that carries _framework/blazor.web.js. Published from
+# that alone, no page could become interactive. The packages restored above are reused, so this costs little.
+RUN dotnet publish src/Shelf.Api/Shelf.Api.csproj -c Release -o /app ${VERSION:+-p:Version=$VERSION}
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 # Calibre turns Kindle files into EPUBs. It adds several hundred megabytes, so it is left out unless asked for:
