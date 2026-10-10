@@ -268,7 +268,7 @@ public static class Asking
             AskResult.Asked => TypedResults.NoContent(),
             AskResult.AlreadyYours => TypedResults.ValidationProblem(new Dictionary<string, string[]>
             {
-                ["BookId"] = ["That book is already lent to you."],
+                ["BookId"] = [Localization.Words.T("That book is already lent to you.")],
             }),
             _ => TypedResults.NotFound(),
         };

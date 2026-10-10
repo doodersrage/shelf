@@ -25,7 +25,7 @@ public static class SyncEndpoints
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             {
-                [nameof(offer.Title)] = ["A title and an author are required."],
+                [nameof(offer.Title)] = [Localization.Words.T("A title and an author are required.")],
             });
         }
 

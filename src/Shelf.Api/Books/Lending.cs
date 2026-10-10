@@ -239,7 +239,7 @@ public static class Lending
     {
         if (request.EbookChapter is not int chapter || chapter < 0)
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.EbookChapter)] = ["Give a chapter or page from 0 on."] });
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.EbookChapter)] = [Localization.Words.T("Give a chapter or page from 0 on.")] });
         }
 
         if (await OpenAsync(db, id, cancellationToken) is not { } open)

@@ -10,15 +10,15 @@
 
 @if (missing)
 {
-    <h1>Not on the shelf</h1>
-    <p>That book is not here. <a href="/">Back to the library</a></p>
+    <h1>@T("Not on the shelf")</h1>
+    <p>@T("That book is not here.") <a href="/">@T("Back to the library")</a></p>
 }
 else if (book is not null)
 {
     <div class="player">
         @if (borrowed)
         {
-            <p class="hint"><a href="/loans">Loans</a> · lent to you</p>
+            <p class="hint"><a href="/loans">@T("Loans")</a> · @T("lent to you")</p>
         }
         else
         {
@@ -27,16 +27,16 @@ else if (book is not null)
         <h1>@book.Title</h1>
         @if (tracks.Count == 0)
         {
-            <p>This book has no audiobook.@if (!borrowed) { <text> <a href="/library/@book.Id">Add one</a></text> }</p>
+            <p>@T("This book has no audiobook.")@if (!borrowed) { <text> <a href="/library/@book.Id">@T("Add one")</a></text> }</p>
         }
         else
         {
             @if (tracks.Count > 1)
             {
                 <div class="reader-nav">
-                    <button type="button" @onclick="Previous" disabled="@(track == 0)">Previous</button>
+                    <button type="button" @onclick="Previous" disabled="@(track == 0)">@T("Previous")</button>
                     <label>
-                        Track
+                        @T("Track")
                         <select @bind="track" @bind:after="ChooseTrack">
                             @foreach (var item in tracks)
                             {
@@ -44,7 +44,7 @@ else if (book is not null)
                             }
                         </select>
                     </label>
-                    <button type="button" @onclick="Next" disabled="@(track >= tracks.Count - 1)">Next</button>
+                    <button type="button" @onclick="Next" disabled="@(track >= tracks.Count - 1)">@T("Next")</button>
                 </div>
             }
             else
@@ -54,7 +54,7 @@ else if (book is not null)
             <audio @key="track" @ref="player" controls preload="metadata" src="/books/@book.Id/audio/tracks/@track"></audio>
             <div class="reader-settings">
                 <label>
-                    Speed
+                    @T("Speed")
                     <select @bind="speed" @bind:after="SaveSpeed">
                         <option value="80">0.8×</option>
                         <option value="100">1×</option>
@@ -65,14 +65,14 @@ else if (book is not null)
                     </select>
                 </label>
                 <label>
-                    Sleep timer
+                    @T("Sleep timer")
                     <select @bind="sleep" @bind:after="SetSleep">
-                        <option value="">Off</option>
-                        <option value="15">In 15 minutes</option>
-                        <option value="30">In 30 minutes</option>
-                        <option value="45">In 45 minutes</option>
-                        <option value="60">In an hour</option>
-                        <option value="track">At the end of this track</option>
+                        <option value="">@T("Off")</option>
+                        <option value="15">@T("In 15 minutes")</option>
+                        <option value="30">@T("In 30 minutes")</option>
+                        <option value="45">@T("In 45 minutes")</option>
+                        <option value="60">@T("In an hour")</option>
+                        <option value="track">@T("At the end of this track")</option>
                     </select>
                 </label>
             </div>
@@ -83,9 +83,9 @@ else if (book is not null)
             @if (chapters.Count > 1)
             {
                 <div class="reader-nav">
-                    <button type="button" @onclick="() => GoToChapter(chapterIndex - 1)" disabled="@(chapterIndex <= 0)">Previous chapter</button>
+                    <button type="button" @onclick="() => GoToChapter(chapterIndex - 1)" disabled="@(chapterIndex <= 0)">@T("Previous chapter")</button>
                     <label>
-                        Chapter
+                        @T("Chapter")
                         <select value="@chapterIndex" @onchange="change => GoToChapter(int.Parse((string)change.Value!))">
                             @foreach (var chapter in chapters)
                             {
@@ -93,22 +93,22 @@ else if (book is not null)
                             }
                         </select>
                     </label>
-                    <button type="button" @onclick="() => GoToChapter(chapterIndex + 1)" disabled="@(chapterIndex >= chapters.Count - 1)">Next chapter</button>
+                    <button type="button" @onclick="() => GoToChapter(chapterIndex + 1)" disabled="@(chapterIndex >= chapters.Count - 1)">@T("Next chapter")</button>
                 </div>
-                <p class="hint" aria-live="polite">Now in @chapters[chapterIndex].Title</p>
+                <p class="hint" aria-live="polite">@T("Now in {0}", chapters[chapterIndex].Title)</p>
             }
 
-            <h2>Bookmarks</h2>
+            <h2>@T("Bookmarks")</h2>
             <div class="reader-settings">
                 <label>
-                    Note, if you like
+                    @T("Note, if you like")
                     <input @bind="bookmarkNote" maxlength="500" />
                 </label>
-                <button type="button" class="primary" @onclick="AddBookmark">Bookmark this moment</button>
+                <button type="button" class="primary" @onclick="AddBookmark">@T("Bookmark this moment")</button>
             </div>
             @if (bookmarks.Count == 0)
             {
-                <p class="hint">No bookmarks yet. Bookmark a moment to come back to it.</p>
+                <p class="hint">@T("No bookmarks yet. Bookmark a moment to come back to it.")</p>
             }
             else
             {
@@ -121,8 +121,8 @@ else if (book is not null)
                             {
                                 <p>@mark.Note</p>
                             }
-                            <button type="button" @onclick="() => GoToBookmark(mark)">Go there</button>
-                            <button type="button" @onclick="() => RemoveBookmark(mark.Id)">Remove</button>
+                            <button type="button" @onclick="() => GoToBookmark(mark)">@T("Go there")</button>
+                            <button type="button" @onclick="() => RemoveBookmark(mark.Id)">@T("Remove")</button>
                         </li>
                     }
                 </ul>
@@ -325,7 +325,7 @@ else if (book is not null)
     public Task Slept()
     {
         sleep = "";
-        sleepNote = "Paused by the sleep timer. Play to carry on from here.";
+        sleepNote = T("Paused by the sleep timer. Play to carry on from here.");
         return InvokeAsync(StateHasChanged);
     }
 
@@ -351,8 +351,8 @@ else if (book is not null)
         sleepNote = sleep switch
         {
             "" => null,
-            "track" => "Stops at the end of this track.",
-            _ => $"Stops in {minutes} minutes.",
+            "track" => T("Stops at the end of this track."),
+            _ => T("Stops in {0} minutes.", minutes),
         };
     }
 
@@ -363,7 +363,7 @@ else if (book is not null)
         {
             // The sleep timer said this track was the last one tonight; the next one starts from its beginning.
             sleep = "";
-            sleepNote = "Stopped at the end of the track, as the sleep timer asked.";
+            sleepNote = T("Stopped at the end of the track, as the sleep timer asked.");
             if (track < tracks.Count - 1)
             {
                 track++;

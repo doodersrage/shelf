@@ -2,17 +2,17 @@
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 
-<PageTitle>Stats · Shelf</PageTitle>
+<PageTitle>@T("Stats") · Shelf</PageTitle>
 
-<h1>Stats</h1>
+<h1>@T("Stats")</h1>
 
 @if (stats is null)
 {
-    <p class="hint">Counting the shelf…</p>
+    <p class="hint">@T("Counting the shelf…")</p>
 }
 else if (stats.Total == 0)
 {
-    <EmptyState Title="Nothing to count yet" Text="Stats fill in as you add books and log reading sessions." ActionHref="/?add=1" ActionLabel="Add a book" />
+    <EmptyState Title="@T("Nothing to count yet")" Text="@T("Stats fill in as you add books and log reading sessions.")" ActionHref="/?add=1" ActionLabel="@T("Add a book")" />
 }
 else
 {
@@ -20,28 +20,28 @@ else
         <h2 id="goal-heading">@Today.Year</h2>
         @if (stats.YearlyGoal > 0)
         {
-            <p><strong>@stats.FinishedThisYear</strong> of @stats.YearlyGoal books finished this year</p>
-            <progress class="goal" max="@stats.YearlyGoal" value="@Math.Min(stats.FinishedThisYear, stats.YearlyGoal)" aria-label="@($"{stats.FinishedThisYear} of {stats.YearlyGoal} books finished")"></progress>
+            <p>@((MarkupString)T("<strong>{0}</strong> of {1} books finished this year", stats.FinishedThisYear, stats.YearlyGoal))</p>
+            <progress class="goal" max="@stats.YearlyGoal" value="@Math.Min(stats.FinishedThisYear, stats.YearlyGoal)" aria-label="@T("{0} of {1} books finished", stats.FinishedThisYear, stats.YearlyGoal)"></progress>
             @if (stats.FinishedThisYear >= stats.YearlyGoal)
             {
-                <p class="milestone">You reached this year's goal.</p>
+                <p class="milestone">@T("You reached this year's goal.")</p>
             }
         }
         else
         {
-            <p>@stats.FinishedThisYear @(stats.FinishedThisYear == 1 ? "book" : "books") finished this year. Set a goal below if you would like one.</p>
+            <p>@T("Finished this year: {0}. Set a goal below if you would like one.", Localization.Counts.Books(stats.FinishedThisYear))</p>
         }
         @if (streak > 1)
         {
-            <p class="hint">@streak days of reading in a row.</p>
+            <p class="hint">@T("{0} days of reading in a row.", streak)</p>
         }
         else if (streak == 1)
         {
-            <p class="hint">You read today or yesterday.</p>
+            <p class="hint">@T("You read today or yesterday.")</p>
         }
 
-        <h3>Finished each month</h3>
-        <ul class="month-bars" aria-label="Books finished each month this year">
+        <h3>@T("Finished each month")</h3>
+        <ul class="month-bars" aria-label="@T("Books finished each month this year")">
             @for (var month = 1; month <= 12; month++)
             {
                 var count = FinishedIn(month);
@@ -56,38 +56,38 @@ else
         <EditForm Model="goal" OnValidSubmit="SaveGoal">
             <DataAnnotationsValidator />
             <label class="inline-date">
-                Books to finish this year
+                @T("Books to finish this year")
                 <InputNumber @bind-Value="goal.YearlyGoal" min="0" max="1000" />
             </label>
-            <button type="submit">Save goal</button>
+            <button type="submit">@T("Save goal")</button>
             <ValidationMessage For="() => goal.YearlyGoal" />
             @if (goalSaved)
             {
-                <span class="saved" role="status">Saved.</span>
+                <span class="saved" role="status">@T("Saved.")</span>
             }
         </EditForm>
     </section>
 
     <div class="stats">
-        <p><strong>@stats.Total</strong><span>Books</span></p>
-        <p><strong>@stats.Reading</strong><span>Reading</span></p>
-        <p><strong>@stats.Want</strong><span>Want to read</span></p>
-        <p><strong>@stats.Finished</strong><span>Finished</span></p>
-        <p><strong>@stats.Abandoned</strong><span>Abandoned</span></p>
-        <p><strong>@stats.PagesRead</strong><span>Pages read</span></p>
-        <p><strong>@stats.FinishedThisYear</strong><span>Finished this year</span></p>
-        <p><strong>@(stats.AverageRating?.ToString("0.##") ?? "—")</strong><span>Average rating</span></p>
-        <p><strong>@stats.Loved</strong><span>Loved</span></p>
-        <p><strong>@stats.OnLoan</strong><span>On loan</span></p>
+        <p><strong>@stats.Total</strong><span>@T("Books")</span></p>
+        <p><strong>@stats.Reading</strong><span>@T("Reading")</span></p>
+        <p><strong>@stats.Want</strong><span>@T("Want to read")</span></p>
+        <p><strong>@stats.Finished</strong><span>@T("Finished")</span></p>
+        <p><strong>@stats.Abandoned</strong><span>@T("Abandoned")</span></p>
+        <p><strong>@stats.PagesRead</strong><span>@T("Pages read")</span></p>
+        <p><strong>@stats.FinishedThisYear</strong><span>@T("Finished this year")</span></p>
+        <p><strong>@(stats.AverageRating?.ToString("0.##") ?? "—")</strong><span>@T("Average rating")</span></p>
+        <p><strong>@stats.Loved</strong><span>@T("Loved")</span></p>
+        <p><strong>@stats.OnLoan</strong><span>@T("On loan")</span></p>
     </div>
 
     <section class="panel" aria-labelledby="month-heading">
         <h2 id="month-heading">@shown.MonthYear()</h2>
         <p>
-            <button type="button" class="quiet" @onclick="Earlier">Earlier</button>
+            <button type="button" class="quiet" @onclick="Earlier">@T("Earlier")</button>
             @if (shown < ThisMonth)
             {
-                <button type="button" class="quiet" @onclick="Later">Later</button>
+                <button type="button" class="quiet" @onclick="Later">@T("Later")</button>
             }
         </p>
         <div class="month">
@@ -104,7 +104,7 @@ else
                 var current = day;
                 if (Marked.Contains(current))
                 {
-                    <button type="button" class="@DayClass(current)" aria-pressed="@(chosen == new DateOnly(shown.Year, shown.Month, current) ? "true" : "false")" aria-label="@($"{new DateOnly(shown.Year, shown.Month, current).FullMonthDay()}, read")" @onclick="() => ChooseDay(current)">@current</button>
+                    <button type="button" class="@DayClass(current)" aria-pressed="@(chosen == new DateOnly(shown.Year, shown.Month, current) ? "true" : "false")" aria-label="@T("{0}, read", new DateOnly(shown.Year, shown.Month, current).FullMonthDay())" @onclick="() => ChooseDay(current)">@current</button>
                 }
                 else
                 {
@@ -114,11 +114,11 @@ else
         </div>
         @if (Marked.Count == 0)
         {
-            <p class="hint">Nothing logged this month. Reading sessions logged on a book's page show here.</p>
+            <p class="hint">@T("Nothing logged this month. Reading sessions logged on a book's page show here.")</p>
         }
         else
         {
-            <p class="hint">Days with a reading session are filled. Choose one to see what you read.</p>
+            <p class="hint">@T("Days with a reading session are filled. Choose one to see what you read.")</p>
         }
         @if (chosen is DateOnly selected)
         {
@@ -134,7 +134,7 @@ else
                         }
                         else if (reading.ToPage is int end)
                         {
-                            <span class="hint"> · to @end</span>
+                            <span class="hint"> · @T("to {0}", end)</span>
                         }
                     </li>
                 }
@@ -144,7 +144,7 @@ else
 
     @if (finished.Count > 0)
     {
-        <h2>Finished this year</h2>
+        <h2>@T("Finished this year")</h2>
         <ul class="tag-counts">
             @foreach (var book in finished)
             {
@@ -158,7 +158,7 @@ else
 
     @if (lately.Count > 0)
     {
-        <h2>Lately</h2>
+        <h2>@T("Lately")</h2>
         <ul class="tag-counts">
             @foreach (var session in lately)
             {
@@ -171,7 +171,7 @@ else
                         }
                         else if (session.ToPage is int end)
                         {
-                            <span class="hint"> · to @end</span>
+                            <span class="hint"> · @T("to {0}", end)</span>
                         }
                     </span>
                     <span class="hint">@session.Date.MonthDay()</span>
@@ -180,10 +180,10 @@ else
         </ul>
     }
 
-    <h2>Tags</h2>
+    <h2>@T("Tags")</h2>
     @if (stats.Tags.Length == 0)
     {
-        <p class="hint">No tags yet. Tags added to a book's details gather here.</p>
+        <p class="hint">@T("No tags yet. Tags added to a book's details gather here.")</p>
     }
     else
     {

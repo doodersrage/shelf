@@ -277,7 +277,7 @@ public static class AccountEndpoints
         var reader = await db.Readers.AsNoTracking().FirstAsync(item => item.Id == db.ReaderId, cancellationToken);
         if (!email.Enabled || reader.Email is null)
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Email"] = ["Add an address, and an admin has to set up a mail server, first."] });
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Email"] = [Localization.Words.T("Add an address, and an admin has to set up a mail server, first.")] });
         }
 
         await email.SendAsync(new EmailMessage(reader.Email, "Shelf can reach you", $"Hello {reader.Name},\n\nThis is a test from your shelf. Email works."), cancellationToken);

@@ -375,7 +375,7 @@ public static class BookEndpoints
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             {
-                ["Books"] = ["A backup needs a books list."],
+                ["Books"] = [Localization.Words.T("A backup needs a books list.")],
             });
         }
 
@@ -383,7 +383,7 @@ public static class BookEndpoints
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             {
-                ["YearlyGoal"] = ["The yearly goal must be between 0 and 1000."],
+                ["YearlyGoal"] = [Localization.Words.T("The yearly goal must be between 0 and 1000.")],
             });
         }
 

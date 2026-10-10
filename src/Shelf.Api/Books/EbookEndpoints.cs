@@ -247,7 +247,7 @@ public static class EbookEndpoints
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             {
-                [nameof(request.Note)] = ["Keep the note to 2000 characters."],
+                [nameof(request.Note)] = [Localization.Words.T("Keep the note to 2000 characters.")],
             });
         }
 

@@ -95,7 +95,7 @@ public static class Bulk
     {
         if (request.Ids is null || request.Ids.Length == 0)
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Ids)] = ["Choose at least one book."] });
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Ids)] = [Localization.Words.T("Choose at least one book.")] });
         }
 
         if (request.Ids.Length > MaxBooks)

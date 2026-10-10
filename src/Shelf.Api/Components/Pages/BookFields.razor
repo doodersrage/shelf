@@ -1,179 +1,179 @@
 <label>
-    Title
+    @T("Title")
     <InputText @bind-Value="Model.Title" maxlength="200" required />
     <ValidationMessage For="() => Model.Title" />
 </label>
 <label>
-    Subtitle
+    @T("Subtitle")
     <InputText @bind-Value="Model.Subtitle" maxlength="200" />
 </label>
 <label>
-    Original title
+    @T("Original title")
     <InputText @bind-Value="Model.OriginalTitle" maxlength="200" />
 </label>
 <label>
-    Author
+    @T("Author")
     <InputText @bind-Value="Model.Author" maxlength="200" required />
     <ValidationMessage For="() => Model.Author" />
 </label>
 <div class="pair">
     <label>
-        Year
+        @T("Year")
         <InputNumber @bind-Value="Model.Year" />
         <ValidationMessage For="() => Model.Year" />
     </label>
     <label>
-        Pages
+        @T("Pages")
         <InputNumber @bind-Value="Model.Pages" />
         <ValidationMessage For="() => Model.Pages" />
     </label>
 </div>
 <div class="pair">
     <label>
-        Status
+        @T("Status")
         <InputSelect @bind-Value="Model.Status">
             @foreach (var status in Enum.GetValues<BookStatus>())
             {
-                <option value="@status">@status</option>
+                <option value="@status">@BookRules.StatusLabel(status)</option>
             }
         </InputSelect>
     </label>
     <label>
-        Rating
+        @T("Rating")
         <InputNumber @bind-Value="Model.Rating" />
         <ValidationMessage For="() => Model.Rating" />
     </label>
 </div>
 <div class="pair">
     <label>
-        ISBN
+        @T("ISBN")
         <InputText @bind-Value="Model.Isbn" maxlength="32" spellcheck="false" />
     </label>
     <label>
-        Format
+        @T("Format")
         <InputSelect @bind-Value="Model.Format">
             <option value="">—</option>
             @foreach (var format in Enum.GetValues<BookFormat>())
             {
-                <option value="@format">@format</option>
+                <option value="@format">@BookRules.FormatLabel(format)</option>
             }
         </InputSelect>
     </label>
 </div>
-<button type="button" @onclick="LookUp" disabled="@looking">@(looking ? "Looking…" : "Look up")</button>
+<button type="button" @onclick="LookUp" disabled="@looking">@(looking ? T("Looking…") : T("Look up"))</button>
 @if (lookupNote is not null)
 {
     <p class="hint">@lookupNote</p>
 }
 @if (Duplicate is Book existing)
 {
-    <p class="hint">Already on the shelf: <a href="/library/@existing.Id">@existing.Title</a>.</p>
+    <p class="hint">@T("Already on the shelf:") <a href="/library/@existing.Id">@existing.Title</a>.</p>
 }
 else if (Borrowable.Length > 0)
 {
-    <p class="hint">Another reader has this. You could borrow it instead of adding your own.</p>
+    <p class="hint">@T("Another reader has this. You could borrow it instead of adding your own.")</p>
     <OpenCopies Copies="Borrowable" />
 }
 <div class="pair">
     <label>
-        Series
+        @T("Series")
         <InputText @bind-Value="Model.Series" maxlength="200" />
     </label>
     <label>
-        Number in series
+        @T("Number in series")
         <InputNumber @bind-Value="Model.SeriesNumber" />
         <ValidationMessage For="() => Model.SeriesNumber" />
     </label>
 </div>
 <div class="pair">
     <label>
-        Publisher
+        @T("Publisher")
         <InputText @bind-Value="Model.Publisher" maxlength="200" />
     </label>
     <label>
-        Language
+        @T("Language")
         <InputText @bind-Value="Model.Language" maxlength="40" />
     </label>
 </div>
 <label>
-    Tags
+    @T("Tags")
     <InputText @bind-Value="Model.Tags" maxlength="400" />
-    <span class="hint">Comma separated. Stored in lowercase.</span>
+    <span class="hint">@T("Comma separated. Stored in lowercase.")</span>
 </label>
 @if (Detailed)
 {
     <div class="pair">
         <label>
-            Current page
+            @T("Current page")
             <InputNumber @bind-Value="Model.CurrentPage" />
             <ValidationMessage For="() => Model.CurrentPage" />
         </label>
         <label>
-            Loaned to
+            @T("Loaned to")
             <InputText @bind-Value="Model.LoanedTo" maxlength="120" />
         </label>
     </div>
     <div class="pair">
         <label>
-            Loaned on
+            @T("Loaned on")
             <InputDate @bind-Value="Model.LoanedOn" />
         </label>
         <label>
-            Due back
+            @T("Due back")
             <InputDate @bind-Value="Model.DueOn" />
         </label>
     </div>
     <label>
-        Cover address
+        @T("Cover address")
         <InputText @bind-Value="Model.CoverUrl" maxlength="500" spellcheck="false" />
     </label>
     <label class="check">
         <InputCheckbox @bind-Value="Model.Loved" />
-        Loved
+        @T("Loved")
     </label>
     @if (Model.Status == BookStatus.Want)
     {
         <label class="check">
             <InputCheckbox @bind-Value="Model.Queued" />
-            Read next
+            @T("Read next")
         </label>
     }
     <label>
-        Review
+        @T("Review")
         <InputTextArea @bind-Value="Model.Review" maxlength="4000" rows="4" />
     </label>
     <div class="pair">
         <label>
-            Started
+            @T("Started")
             <InputDate @bind-Value="Model.StartedOn" />
         </label>
         <label>
-            Finished
+            @T("Finished")
             <InputDate @bind-Value="Model.FinishedOn" />
         </label>
     </div>
     <div class="pair">
         <label>
-            Where it sits
+            @T("Where it sits")
             <InputText @bind-Value="Model.Location" maxlength="80" />
         </label>
         <label>
-            Acquired
+            @T("Acquired")
             <InputDate @bind-Value="Model.AcquiredOn" />
         </label>
     </div>
     <label>
-        How it arrived
+        @T("How it arrived")
         <InputSelect @bind-Value="Model.Arrival">
             <option value="">—</option>
             @foreach (var arrived in Enum.GetValues<Acquisition>())
             {
-                <option value="@arrived">@arrived</option>
+                <option value="@arrived">@BookRules.AcquisitionLabel(arrived)</option>
             }
         </InputSelect>
     </label>
     <label>
-        Condition
+        @T("Condition")
         <InputSelect @bind-Value="Model.Condition">
             <option value="">—</option>
             @foreach (var condition in Enum.GetValues<CopyCondition>())
@@ -184,21 +184,21 @@ else if (Borrowable.Length > 0)
     </label>
     <div class="pair">
         <label>
-            Translator
+            @T("Translator")
             <InputText @bind-Value="Model.Translator" maxlength="200" />
         </label>
         <label>
-            Recommended by
+            @T("Recommended by")
             <InputText @bind-Value="Model.RecommendedBy" maxlength="120" />
         </label>
     </div>
     <label>
-        Inscription
+        @T("Inscription")
         <InputTextArea @bind-Value="Model.Inscription" maxlength="500" rows="3" />
     </label>
 }
 <label>
-    Notes
+    @T("Notes")
     <InputTextArea @bind-Value="Model.Notes" maxlength="4000" rows="4" />
     <ValidationMessage For="() => Model.Notes" />
 </label>
@@ -245,7 +245,7 @@ else if (Borrowable.Length > 0)
         if (string.IsNullOrWhiteSpace(Model.Isbn)
             && (string.IsNullOrWhiteSpace(Model.Title) || string.IsNullOrWhiteSpace(Model.Author)))
         {
-            lookupNote = "Enter an ISBN, or a title and an author.";
+            lookupNote = T("Enter an ISBN, or a title and an author.");
             return;
         }
 
@@ -254,8 +254,8 @@ else if (Borrowable.Length > 0)
         {
             var match = await Lookup.FindAsync(Model.Isbn, Model.Title, Model.Author, CancellationToken.None);
             lookupNote = match is null
-                ? "Nothing matched."
-                : Model.FillBlanks(match) ? "Filled the empty fields." : "Those fields are already filled.";
+                ? T("Nothing matched.")
+                : Model.FillBlanks(match) ? T("Filled the empty fields.") : T("Those fields are already filled.");
         }
         finally
         {

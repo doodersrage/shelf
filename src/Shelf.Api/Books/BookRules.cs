@@ -26,48 +26,48 @@ public static class BookRules
 
         if (string.IsNullOrWhiteSpace(write.Title))
         {
-            Add(nameof(write.Title), "Title is required.");
+            Add(nameof(write.Title), T("Title is required."));
         }
 
         if (string.IsNullOrWhiteSpace(write.Author))
         {
-            Add(nameof(write.Author), "Author is required.");
+            Add(nameof(write.Author), T("Author is required."));
         }
 
         if (!string.IsNullOrWhiteSpace(write.Isbn) && NormalizeIsbn(write.Isbn) is null)
         {
-            Add(nameof(write.Isbn), "Enter a 10- or 13-digit ISBN.");
+            Add(nameof(write.Isbn), T("Enter a 10- or 13-digit ISBN."));
         }
 
         if (write.FinishedOn is { } finished && write.StartedOn is { } started && finished < started)
         {
-            Add(nameof(write.FinishedOn), "Finished date is before the start date.");
+            Add(nameof(write.FinishedOn), T("Finished date is before the start date."));
         }
 
         if (write.CurrentPage is { } page && write.Pages is { } pages && page > pages)
         {
-            Add(nameof(write.CurrentPage), "Current page is past the end of the book.");
+            Add(nameof(write.CurrentPage), T("Current page is past the end of the book."));
         }
 
         if (write.SeriesNumber is not null && string.IsNullOrWhiteSpace(write.Series))
         {
-            Add(nameof(write.Series), "A series number needs a series name.");
+            Add(nameof(write.Series), T("A series number needs a series name."));
         }
 
         if (!string.IsNullOrWhiteSpace(write.CoverUrl) && !IsCoverUrl(write.CoverUrl))
         {
-            Add(nameof(write.CoverUrl), "Cover address must start with http:// or https://.");
+            Add(nameof(write.CoverUrl), T("Cover address must start with http:// or https://."));
         }
 
         var tags = CanonicalTags(write.Tags);
         if (tags.Count > MaxTags)
         {
-            Add(nameof(write.Tags), $"Use at most {MaxTags} tags.");
+            Add(nameof(write.Tags), T("Use at most {0} tags.", MaxTags));
         }
 
         if (tags.Any(tag => tag.Length > MaxTagLength))
         {
-            Add(nameof(write.Tags), $"Tags can be at most {MaxTagLength} characters.");
+            Add(nameof(write.Tags), T("Tags can be at most {0} characters.", MaxTagLength));
         }
 
         return errors.Count == 0
@@ -81,12 +81,12 @@ public static class BookRules
 
         if (string.IsNullOrWhiteSpace(text))
         {
-            errors[nameof(CreateQuoteRequest.Text)] = ["Quote text is required."];
+            errors[nameof(CreateQuoteRequest.Text)] = [T("Quote text is required.")];
         }
 
         if (page is { } quotePage && bookPages is { } pages && quotePage > pages)
         {
-            errors[nameof(CreateQuoteRequest.Page)] = ["That page is past the end of the book."];
+            errors[nameof(CreateQuoteRequest.Page)] = [T("That page is past the end of the book.")];
         }
 
         return errors.Count == 0
@@ -99,21 +99,21 @@ public static class BookRules
         var errors = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         if (string.IsNullOrWhiteSpace(request.Text))
         {
-            errors[nameof(request.Text)] = ["Select a passage to highlight."];
+            errors[nameof(request.Text)] = [T("Select a passage to highlight.")];
         }
         else if (request.Text.Trim().Length > 1000)
         {
-            errors[nameof(request.Text)] = ["Keep a highlight to 1000 characters."];
+            errors[nameof(request.Text)] = [T("Keep a highlight to 1000 characters.")];
         }
 
         if (request.ChapterIndex < 0)
         {
-            errors[nameof(request.ChapterIndex)] = ["That chapter is not in the book."];
+            errors[nameof(request.ChapterIndex)] = [T("That chapter is not in the book.")];
         }
 
         if (!string.IsNullOrWhiteSpace(request.Note) && request.Note.Trim().Length > 2000)
         {
-            errors[nameof(request.Note)] = ["Keep the note to 2000 characters."];
+            errors[nameof(request.Note)] = [T("Keep the note to 2000 characters.")];
         }
 
         return errors.Count == 0
@@ -126,17 +126,17 @@ public static class BookRules
         var errors = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         if (request.FromPage is { } from && request.ToPage is { } to && to < from)
         {
-            errors[nameof(request.ToPage)] = ["The session ends before it starts."];
+            errors[nameof(request.ToPage)] = [T("The session ends before it starts.")];
         }
 
         if (request.ToPage is { } end && bookPages is { } pages && end > pages)
         {
-            errors[nameof(request.ToPage)] = ["That page is past the end of the book."];
+            errors[nameof(request.ToPage)] = [T("That page is past the end of the book.")];
         }
 
         if (!string.IsNullOrWhiteSpace(request.Note) && request.Note.Trim().Length > 500)
         {
-            errors[nameof(request.Note)] = ["Keep the session note to 500 characters."];
+            errors[nameof(request.Note)] = [T("Keep the session note to 500 characters.")];
         }
 
         return errors.Count == 0
@@ -779,6 +779,15 @@ public static class BookRules
         CopyCondition.Fair => T("Fair copy"),
         CopyCondition.Poor => T("Poor copy"),
         _ => condition.ToString(),
+    };
+
+    public static string FormatLabel(BookFormat format) => format switch
+    {
+        BookFormat.Hardcover => T("Hardcover"),
+        BookFormat.Paperback => T("Paperback"),
+        BookFormat.Ebook => T("E-book"),
+        BookFormat.Audiobook => T("Audiobook"),
+        _ => format.ToString(),
     };
 
     public static string AcquisitionLabel(Acquisition acquisition) => acquisition switch

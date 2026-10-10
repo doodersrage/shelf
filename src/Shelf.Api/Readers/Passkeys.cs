@@ -101,7 +101,7 @@ public static class Passkeys
         var existing = await db.ReaderPasskeys.AsNoTracking().Where(key => key.ReaderId == reader.Id).Select(key => key.CredentialId).ToListAsync(cancellationToken);
         if (existing.Count >= MaxPerReader)
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Passkey"] = [$"A reader can keep up to {MaxPerReader} passkeys."] });
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Passkey"] = [Localization.Words.T("A reader can keep up to {0} passkeys.", MaxPerReader)] });
         }
 
         // A random handle names the reader to the device; it says nothing about who they are.
@@ -131,7 +131,7 @@ public static class Passkeys
     {
         if (Recall(http, protection, CreateCookie) is not { } json)
         {
-            return Problem("That took too long. Try again.");
+            return Problem(Localization.Words.T("That took too long. Try again."));
         }
 
         RegisteredPublicKeyCredential credential;
@@ -146,13 +146,13 @@ public static class Passkeys
         }
         catch (Fido2VerificationException)
         {
-            return Problem("The passkey could not be checked. Try again.");
+            return Problem(Localization.Words.T("The passkey could not be checked. Try again."));
         }
 
         var reader = await db.Readers.FirstAsync(item => item.Id == db.ReaderId, cancellationToken);
         if (reader.PasskeyHandle is null || !credential.User.Id.AsSpan().SequenceEqual(reader.PasskeyHandle))
         {
-            return Problem("That passkey belongs to someone else.");
+            return Problem(Localization.Words.T("That passkey belongs to someone else."));
         }
 
         var name = string.IsNullOrWhiteSpace(request.Name) ? TwoFactor.DeviceName(http.Request.Headers.UserAgent) : request.Name.Trim();
@@ -204,14 +204,14 @@ public static class Passkeys
     {
         if (Recall(http, protection, SignInCookie) is not { } json)
         {
-            return Problem("That took too long. Try again.");
+            return Problem(Localization.Words.T("That took too long. Try again."));
         }
 
         var key = await db.ReaderPasskeys.FirstOrDefaultAsync(item => item.CredentialId == request.Credential.RawId, cancellationToken);
         var reader = key is null ? null : await db.Readers.FirstOrDefaultAsync(item => item.Id == key.ReaderId, cancellationToken);
         if (key is null || reader?.PasskeyHandle is null)
         {
-            return Problem("This shelf does not know that passkey. Sign in with the password, then add the passkey on Account.");
+            return Problem(Localization.Words.T("This shelf does not know that passkey. Sign in with the password, then add the passkey on Account."));
         }
 
         try
@@ -230,7 +230,7 @@ public static class Passkeys
         catch (Fido2VerificationException)
         {
             await Audit.NoteAsync(db, Localization.Words.Say("A sign-in failed: the passkey did not check out"), reader, key.Name, cancellationToken);
-            return Problem("The passkey could not be checked. Try again.");
+            return Problem(Localization.Words.T("The passkey could not be checked. Try again."));
         }
 
         key.LastUsedAt = DateTimeOffset.UtcNow;
