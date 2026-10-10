@@ -55,7 +55,7 @@
       "This book's file is no longer on this device.": "Le fichier de ce livre n'est plus sur cet appareil.",
       "On this page": "Sur cette page",
       "In this chapter": "Dans ce chapitre",
-      "On this device; sent to the shelf when you are online.": "Sur cet appareil ; envoyé à Shelf quand vous serez en ligne.",
+      "On this device; sent to the shelf when you are online.": "Sur cet appareil ; envoyé à Shelf quand vous serez en ligne.",
       "Online again": "De nouveau en ligne",
       "Offline": "Hors ligne",
       "Page {0} of {1}": "Page {0} sur {1}",

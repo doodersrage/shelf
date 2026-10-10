@@ -1,0 +1,30 @@
+name: Translation correction
+description: A sentence in Spanish, French, or German that reads wrong.
+title: "Translation: "
+labels: ["translation"]
+body:
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      options: [Español, Français, Deutsch, Another language]
+    validations:
+      required: true
+  - type: textarea
+    id: now
+    attributes:
+      label: What it says now
+      description: Copy the sentence from the page, and say which page it is on.
+    validations:
+      required: true
+  - type: textarea
+    id: better
+    attributes:
+      label: What it should say
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why, if it helps
+      description: Wrong meaning, too formal, unnatural, a different word in your region…

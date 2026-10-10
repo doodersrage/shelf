@@ -15,7 +15,7 @@ Each person makes an account with a name and a password of at least eight charac
 
 Shelf's pages are in English, Spanish, French, and German. Each reader sees the language their browser asks for, unless they pick one under **Language and region** on **Account**. Emails, the reset link and the loan reminders, go out in the language the reader picked. Dates and numbers follow the region separately, so a reader can have the pages in English and the dates written the German way.
 
-The translations were made by machine and have not yet been read by native speakers. Corrections are welcome: each language is one file, `src/Shelf.Api/Localization/<language>.json`, keyed by the English sentence. A test fails when a sentence on a page is missing from a language, so a new sentence can't be left untranslated by accident.
+The translations were made by machine and checked for consistency, but have not yet been read by native speakers. Corrections are welcome: [Translating Shelf](https://github.com/doodersrage/shelf/blob/main/docs/translating.md) shows where the words are and the terms each language uses, or [open a translation issue](https://github.com/doodersrage/shelf/issues/new?template=translation.yml) with the sentence and what it should say. A test fails when a sentence on a page is missing from a language, so a new sentence can't be left untranslated by accident.
 
 ## Lending to another reader
 
