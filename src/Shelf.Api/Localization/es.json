@@ -87,6 +87,8 @@
   "All": "Todos",
   "All books": "Todos los libros",
   "All e-books": "Todos los libros electrónicos",
+  "All {0} to read next": "Los {0} que leerás después",
+  "All {0} you are reading": "Los {0} que estás leyendo",
   "Already a reader here?": "¿Ya eres lector aquí?",
   "Already on another book: {0}. Tick the box to add them anyway.": "Ya en otro libro: {0}. Marca la casilla para añadirlos de todos modos.",
   "Already on the shelf:": "Ya está en la estantería:",

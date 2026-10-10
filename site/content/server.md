@@ -90,3 +90,18 @@ Email lets readers reset a forgotten password themselves and get a daily reminde
 ## Disk space
 
 Plan for your files more than Shelf itself: e-books are a few megabytes each, audiobooks a few hundred, and the database stays small. Held uploads that nobody decided on are cleared after a day.
+
+## How big a library can be
+
+Shelf was tried with a library of 10,000 books, 2,000 of them with an e-book, on a desktop computer (a 12-core Ryzen 9, so a Raspberry Pi or a small NAS will be a few times slower):
+
+| What | Time |
+| --- | --- |
+| The library, any view | about 140 ms |
+| Stats | about 220 ms |
+| A book's page, Authors, Series, Shelves, Quotes | under 20 ms |
+| Search inside books | under 10 ms |
+| All books as JSON (7 MB) | about 200 ms |
+| A snapshot of the whole server | about 140 ms |
+
+The server used about 75 MB of memory for it. The library draws 60 books at a time, so a long list stays quick in the browser too.

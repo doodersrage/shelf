@@ -98,6 +98,10 @@
                 </li>
             }
         </ul>
+        @if (ReadingCount > StripSize)
+        {
+            <p class="hint"><a href="/?status=Reading">@T("All {0} you are reading", ReadingCount)</a></p>
+        }
     }
 
     @if (ReadNext.Count > 0 || Suggestion is not null)
@@ -115,6 +119,10 @@
                 </li>
             }
         </ul>
+        @if (QueuedCount > StripSize)
+        {
+            <p class="hint"><a href="/?status=Want&amp;queued=1">@T("All {0} to read next", QueuedCount)</a></p>
+        }
     }
 
     @if (RecentlyFinished.Count > 0)
@@ -757,8 +765,17 @@ else if (visible.Count > 0)
 
     private Book? Suggestion => BookRules.Pick(books, BookStatus.Want, Today);
 
+    // The strips at the top show a few, the latest first; a link leads to the rest.
+    private const int StripSize = 8;
+
+    private int ReadingCount => books.Count(book => book.Status == BookStatus.Reading);
+
+    private int QueuedCount => books.Count(book => book.Status == BookStatus.Want && book.Queued);
+
     private List<Book> ReadingNow => books.Where(book => book.Status == BookStatus.Reading)
-        .OrderBy(book => book.Title, StringComparer.OrdinalIgnoreCase)
+        .OrderByDescending(book => book.StartedOn)
+        .ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase)
+        .Take(StripSize)
         .ToList();
 
     private List<Book> RecentlyFinished => books
@@ -849,6 +866,7 @@ else if (visible.Count > 0)
     private List<Book> ReadNext => books
         .Where(book => book.Status == BookStatus.Want && book.Queued)
         .OrderBy(book => book.Title, StringComparer.OrdinalIgnoreCase)
+        .Take(StripSize)
         .ToList();
 
     private IEnumerable<Book> Visible
