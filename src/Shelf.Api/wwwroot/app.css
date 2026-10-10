@@ -1694,3 +1694,26 @@ blockquote mark {
     color: inherit;
     border-radius: 2px;
 }
+
+.qr svg {
+    display: block;
+    width: 12rem;
+    height: 12rem;
+    border-radius: var(--radius-control);
+}
+
+.recovery-codes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+    gap: var(--space-2);
+    padding: 0;
+    list-style: none;
+}
+
+.recovery-codes code {
+    display: block;
+    padding: var(--space-1) var(--space-2);
+    background: var(--color-sunken);
+    border-radius: var(--radius-control);
+    text-align: center;
+}

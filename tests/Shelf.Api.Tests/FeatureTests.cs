@@ -497,6 +497,68 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal(65, (await reader.GetFromJsonAsync<BookResponse[]>("/books", JsonOptions))!.Length);
     }
 
+    [Fact]
+    public void Authenticator_codes_follow_rfc_6238()
+    {
+        // The RFC's own example: the ASCII secret "12345678901234567890" at 59 seconds gives 94287082, of which 287082.
+        const string secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+        Assert.Equal("287082", TwoFactor.Code(secret, 1));
+        Assert.True(TwoFactor.Verify(secret, "287 082", DateTimeOffset.FromUnixTimeSeconds(59)));
+        Assert.True(TwoFactor.Verify(secret, "287082", DateTimeOffset.FromUnixTimeSeconds(89)));
+        Assert.False(TwoFactor.Verify(secret, "287082", DateTimeOffset.FromUnixTimeSeconds(200)));
+        Assert.False(TwoFactor.Verify(secret, "28708", DateTimeOffset.FromUnixTimeSeconds(59)));
+        Assert.StartsWith("otpauth://totp/Shelf%3ATenar?secret=", TwoFactor.Uri(secret, "Tenar"));
+    }
+
+    [Fact]
+    public async Task Two_step_sign_in_asks_for_a_code_and_each_device_can_be_signed_out()
+    {
+        var phone = await factory.SignUpAsync("Careful Reader");
+        var start = await (await phone.PostAsync("/account/two-factor/start", null)).Content.ReadFromJsonAsync<TwoFactorStart>(JsonOptions);
+        string Now() => TwoFactor.Code(start!.Secret, DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 30);
+        Assert.Equal(HttpStatusCode.BadRequest, (await phone.PostAsJsonAsync("/account/two-factor/confirm", new TwoFactorCodeRequest("000000"), JsonOptions)).StatusCode);
+        var confirmed = await phone.PostAsJsonAsync("/account/two-factor/confirm", new TwoFactorCodeRequest(Now()), JsonOptions);
+        var recovery = (await confirmed.Content.ReadFromJsonAsync<RecoveryCodes>(JsonOptions))!.Codes;
+        Assert.Equal(10, recovery.Length);
+
+        var laptop = factory.CreateClient(new() { AllowAutoRedirect = false });
+        var password = await ShelfApiFactory.PostFormAsync(laptop, "/signin", "/account/signin", new() { ["name"] = "Careful Reader", ["password"] = ShelfApiFactory.Password });
+        Assert.Equal("/signin/code", password.Headers.Location?.OriginalString);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await laptop.GetAsync("/books")).StatusCode);
+        var wrong = await ShelfApiFactory.PostFormAsync(laptop, "/signin/code", "/account/signin/code", new() { ["code"] = "123456" });
+        Assert.Contains("problem=CodeWrong", wrong.Headers.Location?.OriginalString);
+        var right = await ShelfApiFactory.PostFormAsync(laptop, "/signin/code", "/account/signin/code", new() { ["code"] = Now() });
+        Assert.Equal("/", right.Headers.Location?.OriginalString);
+        Assert.Equal(HttpStatusCode.OK, (await laptop.GetAsync("/books")).StatusCode);
+
+        // A recovery code stands in for the authenticator, once.
+        var tablet = factory.CreateClient(new() { AllowAutoRedirect = false });
+        await ShelfApiFactory.PostFormAsync(tablet, "/signin", "/account/signin", new() { ["name"] = "Careful Reader", ["password"] = ShelfApiFactory.Password });
+        Assert.Equal("/", (await ShelfApiFactory.PostFormAsync(tablet, "/signin/code", "/account/signin/code", new() { ["code"] = recovery[0] })).Headers.Location?.OriginalString);
+        var spare = factory.CreateClient(new() { AllowAutoRedirect = false });
+        await ShelfApiFactory.PostFormAsync(spare, "/signin", "/account/signin", new() { ["name"] = "Careful Reader", ["password"] = ShelfApiFactory.Password });
+        Assert.Contains("problem=CodeWrong", (await ShelfApiFactory.PostFormAsync(spare, "/signin/code", "/account/signin/code", new() { ["code"] = recovery[0] })).Headers.Location?.OriginalString);
+
+        var sessions = await phone.GetFromJsonAsync<SessionSummary[]>("/account/sessions", JsonOptions);
+        Assert.Equal(3, sessions!.Length);
+        Assert.Single(sessions, session => session.Current);
+        Assert.Contains("Signed-in devices", await phone.GetStringAsync("/account"));
+        foreach (var other in sessions.Where(session => !session.Current))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, (await phone.DeleteAsync($"/account/sessions/{other.Id}")).StatusCode);
+        }
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await laptop.GetAsync("/books")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await phone.GetAsync("/books")).StatusCode);
+
+        // An admin's new password is the way back from a lost phone: two-step sign-in turns off.
+        var id = await factory.ReaderIdAsync("Careful Reader");
+        var reset = await (await _client.PostAsync($"/admin/readers/{id}/password", null)).Content.ReadFromJsonAsync<TemporaryPassword>(JsonOptions);
+        var after = factory.CreateClient(new() { AllowAutoRedirect = false });
+        var back = await ShelfApiFactory.PostFormAsync(after, "/signin", "/account/signin", new() { ["name"] = "Careful Reader", ["password"] = reset!.Password });
+        Assert.Equal("/", back.Headers.Location?.OriginalString);
+    }
+
     private async Task<HttpResponseMessage> PostCsvAsync(string csv, string name)
     {
         using var content = new MultipartFormDataContent { { new StringContent(csv), "file", name } };

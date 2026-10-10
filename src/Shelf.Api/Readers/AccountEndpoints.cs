@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,11 +13,19 @@ namespace Shelf.Api.Readers;
 public static class AccountEndpoints
 {
     public const string SignInLimit = "sign-in";
+    private const string PendingCookie = "shelf-pending";
+    private static readonly TimeSpan PendingLasts = TimeSpan.FromMinutes(5);
 
     public static void MapAccounts(this IEndpointRouteBuilder app)
     {
         var account = app.MapGroup("/account").WithTags("Account");
         account.MapPost("/signin", SignIn).AllowAnonymous().RequireRateLimiting(SignInLimit);
+        account.MapPost("/signin/code", SignInCode).AllowAnonymous().RequireRateLimiting(SignInLimit);
+        account.MapGet("/sessions", Sessions).RequireAuthorization();
+        account.MapDelete("/sessions/{id}", EndSession).RequireAuthorization();
+        account.MapPost("/two-factor/start", StartTwoFactor).RequireAuthorization();
+        account.MapPost("/two-factor/confirm", ConfirmTwoFactor).RequireAuthorization();
+        account.MapPost("/two-factor/disable", DisableTwoFactor).RequireAuthorization();
         account.MapPost("/signup", SignUp).AllowAnonymous().RequireRateLimiting(SignInLimit);
         account.MapPost("/signout", SignOut).AllowAnonymous();
         account.MapPost("/remove", RemoveSelf).RequireAuthorization();
@@ -34,6 +43,7 @@ public static class AccountEndpoints
         [FromForm] string? returnUrl,
         HttpContext http,
         ShelfDb db,
+        IDataProtectionProvider protection,
         CancellationToken cancellationToken)
     {
         var reader = await ReaderRules.VerifyAsync(db, name, password, cancellationToken);
@@ -42,8 +52,118 @@ public static class AccountEndpoints
             return TypedResults.Redirect(Back("/signin", AccountProblem.WrongPassword, name, returnUrl));
         }
 
-        await SignInAsync(http, reader);
+        if (reader.TwoFactorEnabled)
+        {
+            // The password was right; the second step happens on the next page, for the next five minutes.
+            var pending = Pending(protection).Protect($"{reader.Id}|{reader.Stamp}", PendingLasts);
+            http.Response.Cookies.Append(PendingCookie, pending, new CookieOptions
+            {
+                HttpOnly = true,
+                SameSite = SameSiteMode.Lax,
+                Secure = http.Request.IsHttps,
+                MaxAge = PendingLasts,
+                Path = "/",
+            });
+            return TypedResults.Redirect(ReaderRules.IsLocalUrl(returnUrl) ? $"/signin/code?returnUrl={Uri.EscapeDataString(returnUrl!)}" : "/signin/code");
+        }
+
+        await SignInAsync(http, db, reader, cancellationToken);
         return TypedResults.Redirect(ReaderRules.IsLocalUrl(returnUrl) ? returnUrl! : "/");
+    }
+
+    private static async Task<RedirectHttpResult> SignInCode(
+        [FromForm] string? code,
+        [FromForm] string? returnUrl,
+        HttpContext http,
+        ShelfDb db,
+        IDataProtectionProvider protection,
+        CancellationToken cancellationToken)
+    {
+        Reader? reader = null;
+        try
+        {
+            var parts = http.Request.Cookies[PendingCookie] is { } cookie ? Pending(protection).Unprotect(cookie).Split('|') : [];
+            if (parts.Length == 2 && int.TryParse(parts[0], out var readerId))
+            {
+                reader = await db.Readers.FirstOrDefaultAsync(item => item.Id == readerId && item.Stamp == parts[1], cancellationToken);
+            }
+        }
+        catch (System.Security.Cryptography.CryptographicException)
+        {
+        }
+
+        if (reader is null)
+        {
+            return TypedResults.Redirect(Back("/signin", AccountProblem.WrongPassword, null, returnUrl));
+        }
+
+        if (!await TwoFactor.CheckAsync(db, protection, reader, code, cancellationToken))
+        {
+            var again = new Dictionary<string, string?> { ["problem"] = nameof(AccountProblem.CodeWrong) };
+            if (ReaderRules.IsLocalUrl(returnUrl))
+            {
+                again["returnUrl"] = returnUrl;
+            }
+
+            return TypedResults.Redirect(Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString("/signin/code", again));
+        }
+
+        http.Response.Cookies.Delete(PendingCookie);
+        await SignInAsync(http, db, reader, cancellationToken);
+        return TypedResults.Redirect(ReaderRules.IsLocalUrl(returnUrl) ? returnUrl! : "/");
+    }
+
+    private static ITimeLimitedDataProtector Pending(IDataProtectionProvider protection) =>
+        protection.CreateProtector("Shelf.SignIn.Pending").ToTimeLimitedDataProtector();
+
+    private static async Task<Ok<SessionSummary[]>> Sessions(HttpContext http, ShelfDb db, CancellationToken cancellationToken) =>
+        TypedResults.Ok(await TwoFactor.SessionsAsync(db, db.ReaderId, http.User.FindFirst(TwoFactor.SessionClaim)?.Value, cancellationToken));
+
+    private static async Task<Results<NoContent, NotFound>> EndSession(string id, ShelfDb db, CancellationToken cancellationToken) =>
+        await TwoFactor.EndSessionAsync(db, db.ReaderId, id, cancellationToken) > 0 ? TypedResults.NoContent() : TypedResults.NotFound();
+
+    private static async Task<Ok<TwoFactorStart>> StartTwoFactor(ShelfDb db, IDataProtectionProvider protection, CancellationToken cancellationToken)
+    {
+        var reader = await db.Readers.FirstAsync(item => item.Id == db.ReaderId, cancellationToken);
+        var secret = TwoFactor.NewSecret();
+        reader.TwoFactorSecret = TwoFactor.Protector(protection).Protect(secret);
+        reader.TwoFactorEnabled = false;
+        await db.SaveChangesAsync(cancellationToken);
+        return TypedResults.Ok(new TwoFactorStart(secret, TwoFactor.Uri(secret, reader.Name)));
+    }
+
+    private static async Task<Results<Ok<RecoveryCodes>, ValidationProblem>> ConfirmTwoFactor(
+        TwoFactorCodeRequest request,
+        ShelfDb db,
+        IDataProtectionProvider protection,
+        CancellationToken cancellationToken)
+    {
+        var reader = await db.Readers.FirstAsync(item => item.Id == db.ReaderId, cancellationToken);
+        if (reader.TwoFactorSecret is null
+            || !TwoFactor.Verify(TwoFactor.Protector(protection).Unprotect(reader.TwoFactorSecret), request.Code, DateTimeOffset.UtcNow))
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Code"] = [ReaderRules.Describe(AccountProblem.CodeWrong)] });
+        }
+
+        reader.TwoFactorEnabled = true;
+        await db.SaveChangesAsync(cancellationToken);
+        return TypedResults.Ok(new RecoveryCodes(await TwoFactor.NewRecoveryCodesAsync(db, reader.Id, cancellationToken)));
+    }
+
+    private static async Task<Results<NoContent, ValidationProblem>> DisableTwoFactor(
+        TwoFactorCodeRequest request,
+        ShelfDb db,
+        IDataProtectionProvider protection,
+        CancellationToken cancellationToken)
+    {
+        var reader = await db.Readers.FirstAsync(item => item.Id == db.ReaderId, cancellationToken);
+        if (!await TwoFactor.CheckAsync(db, protection, reader, request.Code, cancellationToken))
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Code"] = [ReaderRules.Describe(AccountProblem.CodeWrong)] });
+        }
+
+        await TwoFactor.DisableAsync(db, reader, cancellationToken);
+        return TypedResults.NoContent();
     }
 
     private static async Task<RedirectHttpResult> SignUp(
@@ -72,15 +192,20 @@ public static class AccountEndpoints
             return TypedResults.Redirect(Back("/signup", problem ?? AccountProblem.NameMissing, name, returnUrl));
         }
 
-        await SignInAsync(http, reader);
+        await SignInAsync(http, db, reader, cancellationToken);
         return TypedResults.Redirect(ReaderRules.IsLocalUrl(returnUrl) ? returnUrl! : "/");
     }
 
-    private static async Task<Results<RedirectHttpResult, BadRequest>> SignOut(HttpContext http, IAntiforgery antiforgery)
+    private static async Task<Results<RedirectHttpResult, BadRequest>> SignOut(HttpContext http, IAntiforgery antiforgery, ShelfDb db)
     {
         if (!await antiforgery.IsRequestValidAsync(http))
         {
             return TypedResults.BadRequest();
+        }
+
+        if (ShelfReader.IdOf(http.User) is int readerId && http.User.FindFirst(TwoFactor.SessionClaim)?.Value is { } session)
+        {
+            await TwoFactor.EndSessionAsync(db, readerId, session);
         }
 
         await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
@@ -162,11 +287,15 @@ public static class AccountEndpoints
     public static bool SignUpOpen(IConfiguration configuration) =>
         configuration.GetValue("Accounts:AllowSignUp", true);
 
-    private static Task SignInAsync(HttpContext http, Reader reader) =>
-        http.SignInAsync(
+    // Every sign-in is a session of its own, listed on the account page until it signs out.
+    private static async Task SignInAsync(HttpContext http, ShelfDb db, Reader reader, CancellationToken cancellationToken)
+    {
+        var session = await TwoFactor.StartSessionAsync(db, reader.Id, TwoFactor.DeviceName(http.Request.Headers.UserAgent), cancellationToken);
+        await http.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
-            ReaderRules.Principal(reader, CookieAuthenticationDefaults.AuthenticationScheme),
+            ReaderRules.Principal(reader, CookieAuthenticationDefaults.AuthenticationScheme, session),
             new AuthenticationProperties { IsPersistent = true });
+    }
 
     private static string Back(string page, AccountProblem problem, string? name, string? returnUrl)
     {

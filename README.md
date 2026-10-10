@@ -47,7 +47,9 @@ A book can be lent to another reader from its page. It stays on the owner's shel
 
 A reader can open their shelf from their account. The other readers then see its titles under Shelves, never the notes, reviews, quotes, or highlights, and can ask to borrow a book. Asks wait on the owner's Loans page until they lend the book or decline, and the reader who asked can take an ask back. A notice under the header points to Loans when a loan is overdue, a borrowed book is due within three days, or someone has asked to borrow.
 
-The first account is an admin. An admin manages readers from the Readers link in the footer: a new password for a reader who forgot theirs, admin for another reader, or deleting a reader. A new or changed password signs that reader out everywhere. Deleting a reader, or a reader deleting their own account from `/account`, removes their books and files, and sends books lent to them back to their owners. The shelf always keeps at least one admin. If the only admin forgets their password, reset it from the command line:
+Two-step sign-in asks for a code from an authenticator app after the password. Turning it on gives ten single-use recovery codes, and the secret is sealed with the shelf's keys, so a copy of the database alone cannot use it. Every sign-in is a session the account page lists, with its browser and when it was last used, and any of them can be signed out from there.
+
+The first account is an admin. An admin manages readers from the Readers link in the footer: a new password for a reader who forgot theirs, admin for another reader, or deleting a reader. A new or changed password signs that reader out everywhere, and an admin's new password also turns off two-step sign-in, which is the way back in after a lost phone. Deleting a reader, or a reader deleting their own account from `/account`, removes their books and files, and sends books lent to them back to their owners. The shelf always keeps at least one admin. If the only admin forgets their password, reset it from the command line:
 
 ```bash
 dotnet run --project src/Shelf.Api -- --reset-password "Their Name"
@@ -59,7 +61,8 @@ Set `Accounts:AllowSignUp` to `false` to stop new accounts once the first one ex
 | URL | What you get |
 | --- | --- |
 | `/signin`, `/signup` | Sign in, or make an account. |
-| `/account` | Open your shelf to the other readers, change the password, or delete the account. |
+| `/account` | Open your shelf to the other readers, set up two-step sign-in with an authenticator app, see and sign out the devices you are signed in on, change the password, or delete the account. |
+| `/signin/code` | The second step of signing in, for a reader with two-step sign-in: a code from the authenticator, or a recovery code. |
 | `/shelves` | The shelves other readers have opened. `/shelves/{id}` lists one and asks to borrow a book. |
 | `/admin` | For an admin: readers, new passwords, admins, and a server snapshot. |
 | `/` | The library. `?status=Reading`, `?q=`, `?view=list`, and `?add=1` open it on one status, a search, the list view, or the add form. Search, filter, sort, add a book, or change its status. Covers line the top, anything being read is listed first, and want-list books can be marked to read next. An uploaded EPUB, PDF, or audiobook can be opened from its card. |

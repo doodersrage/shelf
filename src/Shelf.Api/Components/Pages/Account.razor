@@ -1,4 +1,5 @@
 @page "/account"
+@using Microsoft.AspNetCore.DataProtection
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject ShelfReader Reader
@@ -6,6 +7,8 @@
 @inject EbookStore Ebooks
 @inject AudioStore Audio
 @inject IEmailSender Email
+@inject Microsoft.AspNetCore.DataProtection.IDataProtectionProvider Protection
+@inject AuthenticationStateProvider Authentication
 
 <PageTitle>Account · Shelf</PageTitle>
 
@@ -78,6 +81,73 @@ else if (emailNote is not null)
 </section>
 
 <section class="panel">
+<h2>Two-step sign-in</h2>
+@if (twoFactorOn)
+{
+    <p>On. Signing in asks for a code from your authenticator app after the password.</p>
+    @if (recovery is not null)
+    {
+        <p><strong>Your recovery codes.</strong> Each works once, in place of a code, if you lose the authenticator. Keep them somewhere safe; they are not shown again.</p>
+        <ul class="recovery-codes">
+            @foreach (var recoveryCode in recovery)
+            {
+                <li><code>@recoveryCode</code></li>
+            }
+        </ul>
+    }
+    <label class="inline-date">
+        Code, to turn it off
+        <input @bind="twoFactorCode" autocomplete="one-time-code" maxlength="12" />
+    </label>
+    <button type="button" class="danger" @onclick="TurnOffTwoFactor">Turn off</button>
+}
+else if (setupUri is not null)
+{
+    <p>Scan this with an authenticator app, such as one from your phone's app store, then enter the code it shows.</p>
+    <div class="qr" role="img" aria-label="QR code for your authenticator app">@((MarkupString)setupQr!)</div>
+    <p class="hint">Or type this key into the app: <code class="key">@setupSecret</code></p>
+    <label class="inline-date">
+        Code from the app
+        <input @bind="twoFactorCode" autocomplete="one-time-code" maxlength="6" inputmode="numeric" />
+    </label>
+    <button type="button" class="primary" @onclick="ConfirmTwoFactor">Turn on</button>
+    <button type="button" @onclick="() => { setupUri = null; twoFactorProblem = null; }">Cancel</button>
+}
+else
+{
+    <p class="hint">Off. Turn it on to ask for a code from an authenticator app as well as the password.</p>
+    <button type="button" @onclick="StartTwoFactor">Set up two-step sign-in</button>
+}
+@if (twoFactorProblem is AccountProblem shownTwoFactor)
+{
+    <p class="validation-message" role="alert">@ReaderRules.Describe(shownTwoFactor)</p>
+}
+</section>
+
+<section class="panel">
+<h2>Signed-in devices</h2>
+<ul class="tag-counts">
+    @foreach (var session in sessions)
+    {
+        <li>
+            <span>
+                <strong>@(session.Device ?? "A browser")</strong>@(session.Current ? " · this one" : "")
+                <span class="hint"> · signed in @session.CreatedAt.ToString("MMM d, yyyy") · last used @session.LastSeenAt.ToString("MMM d, HH:mm") UTC</span>
+            </span>
+            @if (!session.Current)
+            {
+                <button type="button" @onclick="() => EndSession(session.Id)">Sign out</button>
+            }
+        </li>
+    }
+</ul>
+@if (sessions.Count(session => !session.Current) > 1)
+{
+    <button type="button" @onclick="EndOtherSessions">Sign out everywhere else</button>
+}
+</section>
+
+<section class="panel">
 <h2>Devices</h2>
 <p class="hint"><a href="/sync">Make a key</a> for another shelf to trade e-books and audiobooks with yours.</p>
 
@@ -112,6 +182,15 @@ else
     private bool confirmingRemove;
     private string removePassword = "";
     private AccountProblem? removeProblem;
+    private bool twoFactorOn;
+    private string? setupSecret;
+    private string? setupUri;
+    private string? setupQr;
+    private string twoFactorCode = "";
+    private string[]? recovery;
+    private AccountProblem? twoFactorProblem;
+    private SessionSummary[] sessions = [];
+    private string? currentSession;
     private string emailAddress = "";
     private string? savedEmail;
     private bool emailReminders;
@@ -126,6 +205,9 @@ else
         savedEmail = me.Email;
         emailAddress = me.Email ?? "";
         emailReminders = me.EmailReminders;
+        twoFactorOn = me.TwoFactorEnabled;
+        currentSession = (await Authentication.GetAuthenticationStateAsync()).User.FindFirst(TwoFactor.SessionClaim)?.Value;
+        sessions = await TwoFactor.SessionsAsync(db, db.ReaderId, currentSession);
     }
 
     private async Task ChangeShelfOpen(ChangeEventArgs change)
@@ -133,6 +215,71 @@ else
         shelfOpen = change.Value is true;
         await using var db = await DbFactory.CreateDbContextAsync();
         await Asking.SetShelfOpenAsync(db, shelfOpen);
+    }
+
+    private async Task StartTwoFactor()
+    {
+        twoFactorProblem = null;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var me = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
+        setupSecret = TwoFactor.NewSecret();
+        me.TwoFactorSecret = TwoFactor.Protector(Protection).Protect(setupSecret);
+        me.TwoFactorEnabled = false;
+        await db.SaveChangesAsync();
+        setupUri = TwoFactor.Uri(setupSecret, me.Name);
+        setupQr = TwoFactor.QrSvg(setupUri);
+        twoFactorCode = "";
+    }
+
+    private async Task ConfirmTwoFactor()
+    {
+        if (setupSecret is null || !TwoFactor.Verify(setupSecret, twoFactorCode, DateTimeOffset.UtcNow))
+        {
+            twoFactorProblem = AccountProblem.CodeWrong;
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var me = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
+        me.TwoFactorEnabled = true;
+        await db.SaveChangesAsync();
+        recovery = await TwoFactor.NewRecoveryCodesAsync(db, me.Id);
+        twoFactorOn = true;
+        twoFactorProblem = null;
+        setupUri = null;
+        setupSecret = null;
+        twoFactorCode = "";
+    }
+
+    private async Task TurnOffTwoFactor()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var me = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
+        if (!await TwoFactor.CheckAsync(db, Protection, me, twoFactorCode))
+        {
+            twoFactorProblem = AccountProblem.CodeWrong;
+            return;
+        }
+
+        await TwoFactor.DisableAsync(db, me);
+        twoFactorOn = false;
+        recovery = null;
+        twoFactorProblem = null;
+        twoFactorCode = "";
+    }
+
+    private async Task EndSession(string id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await TwoFactor.EndSessionAsync(db, db.ReaderId, id);
+        sessions = await TwoFactor.SessionsAsync(db, db.ReaderId, currentSession);
+    }
+
+    private async Task EndOtherSessions()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await TwoFactor.EndOtherSessionsAsync(db, db.ReaderId, currentSession);
+        sessions = await TwoFactor.SessionsAsync(db, db.ReaderId, currentSession);
     }
 
     private async Task SaveEmail()

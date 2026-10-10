@@ -1,0 +1,36 @@
+@page "/signin/code"
+@attribute [AllowAnonymous]
+
+<PageTitle>Two-step sign-in · Shelf</PageTitle>
+
+<h1>Two-step sign-in</h1>
+<p class="hint">Enter the six-digit code from your authenticator app, or one of your recovery codes.</p>
+
+@if (Problem is AccountProblem problem)
+{
+    <p class="validation-message" role="alert">@ReaderRules.Describe(problem)</p>
+}
+
+<form class="account" method="post" action="/account/signin/code">
+    <AntiforgeryToken />
+    <input type="hidden" name="returnUrl" value="@SafeReturnUrl" />
+    <label>
+        Code
+        <input name="code" inputmode="text" autocomplete="one-time-code" maxlength="12" required autofocus />
+    </label>
+    <button type="submit">Sign in</button>
+</form>
+<p class="hint">Lost the authenticator and the recovery codes? An admin of this shelf can give you a new password, which turns two-step sign-in off. <a href="/signin">Start again</a></p>
+
+@code {
+    [SupplyParameterFromQuery(Name = "problem")]
+    public string? ProblemCode { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    private AccountProblem? Problem =>
+        Enum.TryParse<AccountProblem>(ProblemCode, out var problem) && Enum.IsDefined(problem) ? problem : null;
+
+    private string? SafeReturnUrl => ReaderRules.IsLocalUrl(ReturnUrl) ? ReturnUrl : null;
+}

@@ -209,8 +209,11 @@ static async Task EndStaleSession(CookieValidatePrincipalContext context)
 {
     var id = ShelfReader.IdOf(context.Principal);
     var stamp = context.Principal?.FindFirst(ReaderRules.StampClaim)?.Value;
+    var session = context.Principal?.FindFirst(TwoFactor.SessionClaim)?.Value;
     var db = context.HttpContext.RequestServices.GetRequiredService<ShelfDb>();
-    if (id is null || !await ReaderRules.StampMatchesAsync(db, id.Value, stamp, context.HttpContext.RequestAborted))
+    if (id is null
+        || !await ReaderRules.StampMatchesAsync(db, id.Value, stamp, context.HttpContext.RequestAborted)
+        || !await TwoFactor.TouchSessionAsync(db, id.Value, session, context.HttpContext.RequestAborted))
     {
         context.RejectPrincipal();
         await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);

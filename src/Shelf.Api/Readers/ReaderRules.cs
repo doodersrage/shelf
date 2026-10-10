@@ -75,6 +75,7 @@ public static class ReaderRules
         AccountProblem.NoSuchReader => "That reader is not on this shelf.",
         AccountProblem.ResetExpired => "That reset link has expired or was used already. Ask for a new one.",
         AccountProblem.EmailInvalid => "That does not look like an email address.",
+        AccountProblem.CodeWrong => "That code does not match. Try the newest code from your authenticator, or a recovery code.",
         _ => "Something went wrong.",
     };
 
@@ -178,6 +179,7 @@ public static class ReaderRules
         reader.PasswordHash = Hasher.HashPassword(reader, password!);
         reader.Stamp = NewStamp();
         await db.SaveChangesAsync(cancellationToken);
+        await db.ReaderSessions.Where(session => session.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
         return null;
     }
 
@@ -193,6 +195,7 @@ public static class ReaderRules
         reader.PasswordHash = Hasher.HashPassword(reader, password);
         reader.Stamp = NewStamp();
         await db.SaveChangesAsync(cancellationToken);
+        await db.ReaderSessions.Where(session => session.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
         return true;
     }
 
@@ -229,6 +232,10 @@ public static class ReaderRules
         reader.PasswordHash = Hasher.HashPassword(reader, password);
         reader.Stamp = NewStamp();
         await db.SaveChangesAsync(cancellationToken);
+        await db.ReaderSessions.Where(session => session.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
+
+        // An admin's reset is the way back in after a lost phone, so it turns two-step sign-in off too.
+        await TwoFactor.DisableAsync(db, reader, cancellationToken);
         return password;
     }
 
@@ -401,14 +408,21 @@ public static class ReaderRules
         return readers.OrderBy(reader => reader.Name, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
-    public static ClaimsPrincipal Principal(Reader reader, string scheme) =>
-        new(new ClaimsIdentity(
-            [
-                new Claim(ClaimTypes.NameIdentifier, reader.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                new Claim(ClaimTypes.Name, reader.Name),
-                new Claim(StampClaim, reader.Stamp),
-            ],
-            scheme));
+    public static ClaimsPrincipal Principal(Reader reader, string scheme, string? sessionId = null)
+    {
+        List<Claim> claims =
+        [
+            new Claim(ClaimTypes.NameIdentifier, reader.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            new Claim(ClaimTypes.Name, reader.Name),
+            new Claim(StampClaim, reader.Stamp),
+        ];
+        if (sessionId is not null)
+        {
+            claims.Add(new Claim(TwoFactor.SessionClaim, sessionId));
+        }
+
+        return new(new ClaimsIdentity(claims, scheme));
+    }
 
     public static bool IsLocalUrl(string? url) =>
         !string.IsNullOrEmpty(url)
@@ -437,4 +451,5 @@ public enum AccountProblem
     NoSuchReader,
     ResetExpired,
     EmailInvalid,
+    CodeWrong,
 }

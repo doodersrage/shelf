@@ -31,6 +31,8 @@ public sealed class ShelfDb : DbContext
     public DbSet<BookText> BookTexts => Set<BookText>();
     public DbSet<PasswordReset> PasswordResets => Set<PasswordReset>();
     public DbSet<AudioBookmark> AudioBookmarks => Set<AudioBookmark>();
+    public DbSet<ReaderSession> ReaderSessions => Set<ReaderSession>();
+    public DbSet<RecoveryCode> RecoveryCodes => Set<RecoveryCode>();
     public DbSet<ShelfSetting> Settings => Set<ShelfSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -112,6 +114,7 @@ public sealed class ShelfDb : DbContext
             reader.HasIndex(r => r.NormalizedName).IsUnique();
             reader.Property(r => r.Stamp).HasMaxLength(64).IsRequired();
             reader.Property(r => r.Email).HasMaxLength(EmailRules.MaxAddressLength);
+            reader.Property(r => r.TwoFactorSecret).HasMaxLength(500);
             reader.HasIndex(r => r.KeyHash).IsUnique();
         });
 
@@ -133,6 +136,20 @@ public sealed class ShelfDb : DbContext
                 .HasForeignKey(item => item.ScanId)
                 .OnDelete(DeleteBehavior.Cascade);
             page.HasIndex(item => new { item.ScanId, item.Page }).IsUnique();
+        });
+
+        modelBuilder.Entity<ReaderSession>(session =>
+        {
+            session.HasKey(item => item.Id);
+            session.Property(item => item.Id).HasMaxLength(32);
+            session.Property(item => item.Device).HasMaxLength(200);
+            session.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RecoveryCode>(code =>
+        {
+            code.Property(item => item.CodeHash).HasMaxLength(64).IsRequired();
+            code.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<AudioBookmark>(bookmark =>

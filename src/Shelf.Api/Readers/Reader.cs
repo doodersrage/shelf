@@ -22,7 +22,17 @@ public sealed class Reader
     public string? Email { get; set; }
     public bool EmailReminders { get; set; }
     public DateOnly? LastReminderOn { get; set; }
+
+    // Two-step sign-in: the authenticator secret, sealed with the shelf's own keys.
+    public bool TwoFactorEnabled { get; set; }
+    public string? TwoFactorSecret { get; set; }
 }
+
+public sealed record TwoFactorStart(string Secret, string Uri);
+
+public sealed record TwoFactorCodeRequest(string? Code);
+
+public sealed record RecoveryCodes(string[] Codes);
 
 public sealed record EmailSettingsRequest(string? Email, bool Reminders);
 
