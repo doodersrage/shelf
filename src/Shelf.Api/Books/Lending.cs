@@ -128,6 +128,20 @@ public static class Lending
             .Where(mark => mark.BookId == bookId && mark.ReaderId == readerId && mark.Book!.BorrowerId == readerId);
     }
 
+    // The owner's bookmarks, or the borrower's own on a book lent to them.
+    public static IQueryable<AudioBookmark> Bookmarks(ShelfDb db, OpenBook open)
+    {
+        var bookId = open.Book.Id;
+        if (!open.Borrowed)
+        {
+            return db.AudioBookmarks.Where(mark => mark.BookId == bookId);
+        }
+
+        var readerId = db.ReaderId;
+        return db.AudioBookmarks.IgnoreQueryFilters()
+            .Where(mark => mark.BookId == bookId && mark.ReaderId == readerId && mark.Book!.BorrowerId == readerId);
+    }
+
     public static Highlight NewMark(ShelfDb db, OpenBook open, int chapterIndex, string text, string? note, string? prefix, string? suffix) => new()
     {
         BookId = open.Book.Id,

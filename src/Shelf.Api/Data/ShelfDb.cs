@@ -30,6 +30,7 @@ public sealed class ShelfDb : DbContext
     public DbSet<OcrPage> OcrPages => Set<OcrPage>();
     public DbSet<BookText> BookTexts => Set<BookText>();
     public DbSet<PasswordReset> PasswordResets => Set<PasswordReset>();
+    public DbSet<AudioBookmark> AudioBookmarks => Set<AudioBookmark>();
     public DbSet<ShelfSetting> Settings => Set<ShelfSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -132,6 +133,20 @@ public sealed class ShelfDb : DbContext
                 .HasForeignKey(item => item.ScanId)
                 .OnDelete(DeleteBehavior.Cascade);
             page.HasIndex(item => new { item.ScanId, item.Page }).IsUnique();
+        });
+
+        modelBuilder.Entity<AudioBookmark>(bookmark =>
+        {
+            bookmark.Property(item => item.Note).HasMaxLength(500);
+            bookmark.HasOne(item => item.Book)
+                .WithMany()
+                .HasForeignKey(item => item.BookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            bookmark.HasOne<Reader>()
+                .WithMany()
+                .HasForeignKey(item => item.ReaderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            bookmark.HasQueryFilter(item => item.Book!.OwnerId == ReaderId && item.ReaderId == null);
         });
 
         modelBuilder.Entity<PasswordReset>(reset =>

@@ -80,12 +80,63 @@ else if (book is not null)
             {
                 <p class="hint" role="status">@sleepNote</p>
             }
+            @if (chapters.Count > 1)
+            {
+                <div class="reader-nav">
+                    <button type="button" @onclick="() => GoToChapter(chapterIndex - 1)" disabled="@(chapterIndex <= 0)">Previous chapter</button>
+                    <label>
+                        Chapter
+                        <select value="@chapterIndex" @onchange="change => GoToChapter(int.Parse((string)change.Value!))">
+                            @foreach (var chapter in chapters)
+                            {
+                                <option value="@chapter.Index">@chapter.Title · @Clock(chapter.Start)</option>
+                            }
+                        </select>
+                    </label>
+                    <button type="button" @onclick="() => GoToChapter(chapterIndex + 1)" disabled="@(chapterIndex >= chapters.Count - 1)">Next chapter</button>
+                </div>
+                <p class="hint" aria-live="polite">Now in @chapters[chapterIndex].Title</p>
+            }
+
+            <h2>Bookmarks</h2>
+            <div class="reader-settings">
+                <label>
+                    Note, if you like
+                    <input @bind="bookmarkNote" maxlength="500" />
+                </label>
+                <button type="button" class="primary" @onclick="AddBookmark">Bookmark this moment</button>
+            </div>
+            @if (bookmarks.Count == 0)
+            {
+                <p class="hint">No bookmarks yet. Bookmark a moment to come back to it.</p>
+            }
+            else
+            {
+                <ul class="quotes">
+                    @foreach (var mark in bookmarks)
+                    {
+                        <li>
+                            <strong>@Where(mark)</strong>
+                            @if (!string.IsNullOrWhiteSpace(mark.Note))
+                            {
+                                <p>@mark.Note</p>
+                            }
+                            <button type="button" @onclick="() => GoToBookmark(mark)">Go there</button>
+                            <button type="button" @onclick="() => RemoveBookmark(mark.Id)">Remove</button>
+                        </li>
+                    }
+                </ul>
+            }
         }
     </div>
 }
 
 @code {
     private Book? book;
+    private IReadOnlyList<AudioChapter> chapters = [];
+    private int chapterIndex;
+    private List<AudioBookmark> bookmarks = [];
+    private string bookmarkNote = "";
     private int speed = BookRules.DefaultAudioSpeed;
     private string sleep = "";
     private string? sleepNote;
@@ -121,6 +172,8 @@ else if (book is not null)
         }
 
         tracks = Audio.Tracks(book.AudioStoredName);
+        chapters = Audio.Chapters(book.AudioStoredName);
+        bookmarks = await Lending.Bookmarks(db, open!).AsNoTracking().OrderBy(mark => mark.Track).ThenBy(mark => mark.Seconds).ToListAsync();
         if (tracks.Count == 0)
         {
             return;
@@ -130,6 +183,7 @@ else if (book is not null)
         var saved = place.AudioTrack ?? 0;
         track = saved >= 0 && saved < tracks.Count ? saved : 0;
         resumeSeconds = Math.Max(0, place.AudioSeconds ?? 0);
+        chapterIndex = chapters.Count > 1 ? ChapterAt(resumeSeconds) : 0;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -154,7 +208,118 @@ else if (book is not null)
     }
 
     [JSInvokable]
-    public Task Progress(int seconds) => Remember(track, Math.Max(0, seconds));
+    public async Task Progress(int seconds)
+    {
+        await Remember(track, Math.Max(0, seconds));
+        if (chapters.Count > 1)
+        {
+            var now = ChapterAt(seconds);
+            if (now != chapterIndex)
+            {
+                chapterIndex = now;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private int ChapterAt(double seconds) => chapters.LastOrDefault(chapter => chapter.Start <= seconds + 0.5)?.Index ?? 0;
+
+    private async Task GoToChapter(int index)
+    {
+        if (index < 0 || index >= chapters.Count || module is null)
+        {
+            return;
+        }
+
+        chapterIndex = index;
+        var start = (int)Math.Floor(chapters[index].Start);
+        await module.InvokeVoidAsync("seek", player, start);
+        await Remember(track, start);
+    }
+
+    private async Task AddBookmark()
+    {
+        if (open is null || module is null)
+        {
+            return;
+        }
+
+        var seconds = await module.InvokeAsync<int>("position");
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (open.Borrowed && !await db.Books.IgnoreQueryFilters().AnyAsync(item => item.Id == open.Book.Id && item.BorrowerId == db.ReaderId))
+        {
+            return;
+        }
+
+        db.AudioBookmarks.Add(new AudioBookmark
+        {
+            BookId = open.Book.Id,
+            ReaderId = open.Borrowed ? db.ReaderId : null,
+            Track = track,
+            Seconds = Math.Max(0, seconds),
+            Note = string.IsNullOrWhiteSpace(bookmarkNote) ? null : bookmarkNote.Trim()[..Math.Min(500, bookmarkNote.Trim().Length)],
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        bookmarkNote = "";
+        await ReloadBookmarks(db);
+    }
+
+    private async Task GoToBookmark(AudioBookmark mark)
+    {
+        if (mark.Track != track)
+        {
+            track = mark.Track;
+            resumeSeconds = mark.Seconds;
+            boundTrack = -1;
+            await Remember(track, mark.Seconds);
+            return;
+        }
+
+        if (module is not null)
+        {
+            await module.InvokeVoidAsync("seek", player, mark.Seconds);
+            await Remember(track, mark.Seconds);
+        }
+    }
+
+    private async Task RemoveBookmark(int id)
+    {
+        if (open is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var mark = await Lending.Bookmarks(db, open).FirstOrDefaultAsync(item => item.Id == id);
+        if (mark is not null)
+        {
+            db.AudioBookmarks.Remove(mark);
+            await db.SaveChangesAsync();
+        }
+
+        await ReloadBookmarks(db);
+    }
+
+    private async Task ReloadBookmarks(ShelfDb db) =>
+        bookmarks = await Lending.Bookmarks(db, open!).AsNoTracking().OrderBy(mark => mark.Track).ThenBy(mark => mark.Seconds).ToListAsync();
+
+    private string Where(AudioBookmark mark)
+    {
+        var place = Clock(mark.Seconds);
+        if (chapters.Count > 1)
+        {
+            return $"{chapters[ChapterAt(mark.Seconds)].Title} · {place}";
+        }
+
+        return tracks.Count > 1 && mark.Track < tracks.Count ? $"{tracks[mark.Track].Title} · {place}" : place;
+    }
+
+    private static string Clock(double seconds)
+    {
+        var time = TimeSpan.FromSeconds(Math.Max(0, seconds));
+        return time.TotalHours >= 1 ? time.ToString(@"h\:mm\:ss") : time.ToString(@"m\:ss");
+    }
 
     [JSInvokable]
     public Task Slept()

@@ -31,8 +31,8 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Install Tesseract and Poppler
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng poppler-utils
+      - name: Install Tesseract, Poppler, and ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng poppler-utils ffmpeg
 
       - run: dotnet test --configuration Release
 

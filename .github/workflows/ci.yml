@@ -18,9 +18,9 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      # The OCR tests read a real scan when these are installed.
-      - name: Install Tesseract and Poppler
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng poppler-utils
+      # The OCR and audiobook chapter tests read real files when these are installed.
+      - name: Install Tesseract, Poppler, and ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng poppler-utils ffmpeg
 
       - run: dotnet restore
       - run: dotnet build --no-restore --configuration Release

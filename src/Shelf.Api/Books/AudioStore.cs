@@ -96,6 +96,13 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
         return files.Select((path, index) => new AudioTrack(index, TrackTitle(path))).ToList();
     }
 
+    // The chapter marks inside a single-file audiobook (an .m4b, say); empty for a zip of tracks or a file without them.
+    public IReadOnlyList<AudioChapter> Chapters(string? storedName)
+    {
+        var files = TrackFiles(storedName);
+        return files.Count == 1 ? AudioChapters.Read(files[0]) : [];
+    }
+
     public string? TrackPath(string? storedName, int index)
     {
         var files = TrackFiles(storedName);

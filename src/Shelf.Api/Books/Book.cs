@@ -453,6 +453,20 @@ public sealed record HighlightResponse(
         highlight.NotedAt);
 }
 
+// A moment in an audiobook to come back to, with an optional note. Like a highlight, it is the owner's when
+// ReaderId is null, and a borrower's own otherwise.
+public sealed class AudioBookmark
+{
+    public int Id { get; set; }
+    public int BookId { get; set; }
+    public Book? Book { get; set; }
+    public int? ReaderId { get; set; }
+    public int Track { get; set; }
+    public int Seconds { get; set; }
+    public string? Note { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
 // Where a borrower stopped in a lent book, kept apart from the owner's place.
 public sealed class LoanPlace
 {

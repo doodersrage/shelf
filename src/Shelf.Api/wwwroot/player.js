@@ -41,6 +41,11 @@ export function attach(element, callback, playbackRate) {
   audio.addEventListener("timeupdate", onTime);
 }
 
+// Where playback is now, for a bookmark.
+export function position() {
+  return audio ? Math.floor(audio.currentTime || 0) : 0;
+}
+
 export function seek(element, seconds) {
   const go = () => {
     element.currentTime = seconds;
