@@ -1717,3 +1717,22 @@ blockquote mark {
     border-radius: var(--radius-control);
     text-align: center;
 }
+
+/* The offline reader shows a chapter's words directly, in a calm column. */
+.offline-page {
+    max-width: 40em;
+    margin: 0 auto;
+    padding: var(--space-6);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-card);
+    font-family: var(--font-serif);
+    line-height: 1.65;
+    overflow-wrap: break-word;
+}
+
+.offline-page img,
+.offline-page canvas {
+    max-width: 100%;
+    height: auto;
+}

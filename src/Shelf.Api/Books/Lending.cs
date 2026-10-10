@@ -17,6 +17,10 @@ public enum LendResult
 // Lending to another reader of this shelf: the book stays on the owner's shelf, and shows on the borrower's loans.
 public sealed record OpenBook(Book Book, bool Borrowed);
 
+public sealed record PlaceRequest(int? EbookChapter);
+
+public sealed record PlaceResponse(int? EbookChapter, int? AudioTrack, int? AudioSeconds);
+
 public static class Lending
 {
     public static async Task<LendResult> LendAsync(
@@ -212,6 +216,45 @@ public static class Lending
 
         move(kept);
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    // Where this reader stopped: the book's own place for the owner, their own for a borrower.
+    public static async Task<Results<Ok<PlaceResponse>, NotFound>> Place(int id, ShelfDb db, CancellationToken cancellationToken)
+    {
+        if (await OpenAsync(db, id, cancellationToken) is not { } open)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var place = await PlaceAsync(db, open, cancellationToken);
+        return TypedResults.Ok(new PlaceResponse(place.EbookChapter, place.AudioTrack, place.AudioSeconds));
+    }
+
+    // A place read elsewhere, offline say, moves this reader's place only forward, as sync does.
+    public static async Task<Results<NoContent, NotFound, ValidationProblem>> KeepPlace(
+        int id,
+        PlaceRequest request,
+        ShelfDb db,
+        CancellationToken cancellationToken)
+    {
+        if (request.EbookChapter is not int chapter || chapter < 0)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.EbookChapter)] = ["Give a chapter or page from 0 on."] });
+        }
+
+        if (await OpenAsync(db, id, cancellationToken) is not { } open)
+        {
+            return TypedResults.NotFound();
+        }
+
+        await KeepPlaceAsync(db, open, place =>
+        {
+            if (chapter > (place.EbookChapter ?? -1))
+            {
+                place.EbookChapter = chapter;
+            }
+        }, cancellationToken);
+        return TypedResults.NoContent();
     }
 
     public static string Describe(LendResult result) => result switch

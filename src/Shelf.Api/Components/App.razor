@@ -21,6 +21,12 @@
     <Routes />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="@Assets["upload.js"]"></script>
+    <script>
+        // Keeps the offline reader, and the books kept for it, on this device.
+        if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.register("/sw.js").catch(() => { });
+        }
+    </script>
 </body>
 
 </html>

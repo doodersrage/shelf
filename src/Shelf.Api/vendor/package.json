@@ -8,6 +8,7 @@
   "dependencies": {
     "@fontsource-variable/inter": "5.1.1",
     "@fontsource-variable/lora": "5.1.1",
+    "jszip": "3.10.1",
     "pdfjs-dist": "4.8.69"
   }
 }

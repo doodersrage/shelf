@@ -18,6 +18,8 @@ const files = [
   ["pdfjs-dist/build/pdf.min.mjs", "lib/pdfjs/pdf.min.mjs"],
   ["pdfjs-dist/build/pdf.worker.min.mjs", "lib/pdfjs/pdf.worker.min.mjs"],
   ["pdfjs-dist/LICENSE", "lib/pdfjs/LICENSE.txt"],
+  ["jszip/dist/jszip.min.js", "lib/jszip/jszip.min.js"],
+  ["jszip/LICENSE.markdown", "lib/jszip/LICENSE.md"],
 ];
 
 for (const [from, to] of files) {

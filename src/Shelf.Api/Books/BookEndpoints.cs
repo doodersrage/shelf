@@ -48,6 +48,8 @@ public static class BookEndpoints
         books.MapDelete("/{id:int}/sessions/{sessionId:int}", DeleteSession);
         books.MapPost("/{id:int}/return", ReturnBook);
         books.MapPost("/{id:int}/lend", Lending.Lend).WithTags("Lending");
+        books.MapGet("/{id:int}/place", Lending.Place);
+        books.MapPut("/{id:int}/place", Lending.KeepPlace);
         books.MapPost("/{id:int}/ask", Asking.Ask).WithTags("Lending");
         books.MapGet("/borrowed", Lending.Borrowed).WithTags("Lending");
         books.MapPost("/borrowed/{id:int}/return", Lending.GiveBack).WithTags("Lending");

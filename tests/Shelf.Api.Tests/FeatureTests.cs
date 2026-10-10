@@ -620,6 +620,19 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Contains("Dates and numbers", await reader.GetStringAsync("/account"));
     }
 
+    [Fact]
+    public async Task A_place_read_elsewhere_only_moves_forward()
+    {
+        var book = await CreateAsync(new CreateBookRequest("Read On A Train", "Someone", BookStatus.Reading, null));
+        Assert.Null((await _client.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!.EbookChapter);
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.PutAsJsonAsync($"/books/{book.Id}/place", new PlaceRequest(3), JsonOptions)).StatusCode);
+        await _client.PutAsJsonAsync($"/books/{book.Id}/place", new PlaceRequest(1), JsonOptions);
+        Assert.Equal(3, (await _client.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!.EbookChapter);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.PutAsJsonAsync($"/books/{book.Id}/place", new PlaceRequest(-1), JsonOptions)).StatusCode);
+        var stranger = await factory.SignUpAsync("Place Stranger");
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync($"/books/{book.Id}/place")).StatusCode);
+    }
+
     private async Task<HttpResponseMessage> PostCsvAsync(string csv, string name)
     {
         using var content = new MultipartFormDataContent { { new StringContent(csv), "file", name } };

@@ -4,6 +4,9 @@
 @inject NavigationManager Navigation
 @inject EbookStore Ebooks
 @inject AudioStore Audio
+@using Microsoft.JSInterop
+@inject IJSRuntime Js
+@implements IAsyncDisposable
 
 <PageTitle>@(book?.Title ?? "Shelf")</PageTitle>
 
@@ -107,6 +110,17 @@ else if (book is not null)
                 @if (!string.IsNullOrWhiteSpace(book.EbookStoredName))
                 {
                     <a class="button" href="/library/@book.Id/read">Read this e-book</a>
+                    @if (offlineSupported)
+                    {
+                        @if (keptOffline)
+                        {
+                            <button type="button" class="quiet" @onclick="ForgetOffline" aria-pressed="true">Kept offline · forget</button>
+                        }
+                        else
+                        {
+                            <button type="button" class="quiet" @onclick="KeepOffline" disabled="@keeping">@(keeping ? "Keeping…" : "Keep for reading offline")</button>
+                        }
+                    }
                 }
                 @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
                 {
@@ -387,6 +401,10 @@ else if (book is not null)
     <section class="panel" id="files">
         <h2>Files</h2>
     <h3>E-book</h3>
+    @if (offlineNote is not null)
+    {
+        <p class="hint" role="status">@offlineNote</p>
+    }
     @if (!string.IsNullOrWhiteSpace(book.EbookFileName))
     {
         <p>@book.EbookFileName</p>
@@ -471,6 +489,85 @@ else if (book is not null)
 }
 
 @code {
+    private IJSObjectReference? keepModule;
+    private bool offlineSupported;
+    private bool keptOffline;
+    private bool keeping;
+    private string? offlineNote;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || book is null || string.IsNullOrWhiteSpace(book.EbookStoredName))
+        {
+            return;
+        }
+
+        try
+        {
+            keepModule = await Js.InvokeAsync<IJSObjectReference>("import", "./keep.js");
+            offlineSupported = await keepModule.InvokeAsync<bool>("supported");
+            keptOffline = offlineSupported && await keepModule.InvokeAsync<bool>("isKept", book.Id);
+            StateHasChanged();
+        }
+        catch (JSException)
+        {
+            offlineSupported = false;
+        }
+    }
+
+    // The e-book goes into this browser's storage, for the offline reader to open without a connection.
+    private async Task KeepOffline()
+    {
+        if (keepModule is null || book is null)
+        {
+            return;
+        }
+
+        keeping = true;
+        try
+        {
+            var type = EbookStore.IsPdf(book.EbookStoredName) ? "pdf" : "epub";
+            keptOffline = await keepModule.InvokeAsync<bool>("keep", book.Id, book.Title, book.Author, type);
+            offlineNote = keptOffline
+                ? "Kept on this device. When the shelf cannot be reached, it opens in the offline reader, and your place comes back when you are online."
+                : "This e-book could not be kept on this device.";
+        }
+        catch (JSException)
+        {
+            offlineNote = "This browser would not keep the e-book. It may be out of space, or in a private window.";
+        }
+        finally
+        {
+            keeping = false;
+        }
+    }
+
+    private async Task ForgetOffline()
+    {
+        if (keepModule is null || book is null)
+        {
+            return;
+        }
+
+        await keepModule.InvokeVoidAsync("forget", book.Id);
+        keptOffline = false;
+        offlineNote = "No longer kept on this device.";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (keepModule is not null)
+        {
+            try
+            {
+                await keepModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+    }
+
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
 
     private Book? book;

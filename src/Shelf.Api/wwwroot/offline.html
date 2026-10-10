@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Offline · Shelf</title>
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+</head>
+<body>
+    <div class="app focus">
+        <header class="focus-bar">
+            <a class="wordmark" href="/">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><rect x="3" y="4" width="4" height="16" rx="1" /><rect x="9" y="6" width="4" height="14" rx="1" /><rect x="15.2" y="5.2" width="4" height="15" rx="1" transform="rotate(-12 17.2 12.7)" /></svg>
+                shelf
+            </a>
+            <span class="hint" id="connection">Offline</span>
+        </header>
+        <main id="main" class="focus-main">
+            <section id="shelf">
+                <h1>Kept for reading offline</h1>
+                <p class="hint">The shelf cannot be reached right now. The books you kept on this device are here, and where you stop is sent back when you are online again.</p>
+                <ul class="shelf-strip" id="kept"></ul>
+                <div class="empty" id="nothing" hidden>
+                    <h2>Nothing kept on this device</h2>
+                    <p>When you are online, open a book with an e-book and choose Keep for reading offline.</p>
+                </div>
+            </section>
+            <section id="reader" hidden>
+                <p class="hint"><a href="#" id="back">Kept books</a></p>
+                <h1 id="title"></h1>
+                <div class="reader-nav">
+                    <button type="button" id="previous">Previous</button>
+                    <span class="hint" id="where" aria-live="polite"></span>
+                    <button type="button" id="next">Next</button>
+                    <label>
+                        Text size
+                        <select id="size">
+                            <option value="85">Smaller</option>
+                            <option value="100" selected>Default</option>
+                            <option value="115">Larger</option>
+                            <option value="130">Large</option>
+                            <option value="150">Largest</option>
+                        </select>
+                    </label>
+                </div>
+                <article class="offline-page" id="page" tabindex="0"></article>
+            </section>
+        </main>
+    </div>
+    <script src="/lib/jszip/jszip.min.js"></script>
+    <script type="module" src="/offline.js"></script>
+</body>
+</html>
