@@ -37,6 +37,7 @@ public static class BookEndpoints
         books.MapGet("/copies", ListCopies);
         books.MapGet("/{id:int}", GetBook);
         books.MapPost("/", CreateBook);
+        books.MapPost("/bulk", Bulk.Apply);
         books.MapPut("/{id:int}", UpdateBook);
         books.MapDelete("/{id:int}", DeleteBook);
         books.MapGet("/{id:int}/quotes", ListQuotes);

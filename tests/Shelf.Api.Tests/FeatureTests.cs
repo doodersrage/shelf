@@ -165,6 +165,42 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Contains("csv=unreadable", junk.RequestMessage?.RequestUri?.Query);
     }
 
+    [Fact]
+    public async Task Many_books_change_at_once_and_only_the_readers_own()
+    {
+        var first = await CreateAsync(new CreateBookRequest("Bulk One", "Someone", BookStatus.Want, null));
+        var second = await CreateAsync(new CreateBookRequest("Bulk Two", "Someone", BookStatus.Want, null, Tags: ["old"]));
+        var other = await factory.SignUpAsync("Bulk Neighbour");
+        var theirs = await (await other.PostAsJsonAsync("/books", new CreateBookRequest("Not Yours", "Someone", BookStatus.Want, null), JsonOptions))
+            .Content.ReadFromJsonAsync<BookResponse>(JsonOptions);
+        int[] ids = [first.Id, second.Id, theirs!.Id];
+
+        async Task<int> BulkAsync(BulkRequest request) =>
+            (await (await _client.PostAsJsonAsync("/books/bulk", request, JsonOptions)).Content.ReadFromJsonAsync<BulkResult>(JsonOptions))!.Changed;
+
+        Assert.Equal(2, await BulkAsync(new BulkRequest(ids, Status: BookStatus.Finished)));
+        Assert.Equal(2, await BulkAsync(new BulkRequest(ids, AddTag: "  Summer Reads ")));
+        Assert.Equal(2, await BulkAsync(new BulkRequest(ids, RemoveTag: "old")));
+        Assert.Equal(2, await BulkAsync(new BulkRequest(ids, Loved: true)));
+
+        var one = await _client.GetFromJsonAsync<BookResponse>($"/books/{first.Id}", JsonOptions);
+        var two = await _client.GetFromJsonAsync<BookResponse>($"/books/{second.Id}", JsonOptions);
+        Assert.Equal(BookStatus.Finished, one!.Status);
+        Assert.NotNull(one.FinishedOn);
+        Assert.True(one.Loved);
+        Assert.Equal(["summer reads"], one.Tags);
+        Assert.Equal(["summer reads"], two!.Tags);
+        var untouched = await other.GetFromJsonAsync<BookResponse>($"/books/{theirs.Id}", JsonOptions);
+        Assert.Equal(BookStatus.Want, untouched!.Status);
+        Assert.Empty(untouched.Tags);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.PostAsJsonAsync("/books/bulk", new BulkRequest([]), JsonOptions)).StatusCode);
+        Assert.Equal(2, await BulkAsync(new BulkRequest(ids, Delete: true)));
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/books/{first.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await other.GetAsync($"/books/{theirs.Id}")).StatusCode);
+        Assert.Contains("Choose all shown", await _client.GetStringAsync("/?view=list"));
+    }
+
     private async Task<HttpResponseMessage> PostCsvAsync(string csv, string name)
     {
         using var content = new MultipartFormDataContent { { new StringContent(csv), "file", name } };

@@ -1635,3 +1635,51 @@ label > textarea {
     font-family: sans-serif;
     line-height: 1;
 }
+
+/* Choosing books in the list, and the bar that changes the chosen ones together. */
+.bulk-bar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    margin: var(--space-2) 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-control);
+    font-size: var(--text-sm);
+}
+
+.bulk-bar label {
+    margin: 0;
+}
+
+.bulk-bar label input:not([type=checkbox]),
+.bulk-bar label select {
+    width: auto;
+    margin: 0;
+    min-height: 2.25rem;
+}
+
+.bulk-bar button {
+    margin: 0;
+    min-height: 2.25rem;
+}
+
+.book-pick {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+}
+
+.book-pick input {
+    margin-top: var(--space-2);
+    flex: none;
+}
+
+.book-list .book {
+    grid-template-columns: 5.25rem minmax(0, 1fr);
+}

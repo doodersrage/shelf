@@ -3,6 +3,8 @@
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject IBookLookup Lookup
 @inject NavigationManager Navigation
+@inject EbookStore Ebooks
+@inject AudioStore Audio
 
 <PageTitle>Library · Shelf</PageTitle>
 
@@ -265,11 +267,57 @@ else if (visible.Count > 0)
     }
     else
     {
+        <div class="bulk-bar" role="group" aria-label="Change chosen books">
+            <label class="check">
+                <input type="checkbox" checked="@(visible.All(book => chosen.Contains(book.Id)))" @onchange="change => ChooseAll(visible, change.Value is true)" />
+                Choose all shown
+            </label>
+            @if (chosen.Count > 0)
+            {
+                <span class="hint">@chosen.Count chosen</span>
+                <label>
+                    <span class="visually-hidden">Status for the chosen books</span>
+                    <select @bind="bulkStatus">
+                        <option value="">Set status…</option>
+                        @foreach (var status in Enum.GetValues<BookStatus>())
+                        {
+                            <option value="@status">@BookRules.StatusLabel(status)</option>
+                        }
+                    </select>
+                </label>
+                <button type="button" disabled="@(bulkStatus.Length == 0)" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Status: Enum.Parse<BookStatus>(bulkStatus)))">Set</button>
+                <label>
+                    <span class="visually-hidden">Tag for the chosen books</span>
+                    <input @bind="bulkTag" placeholder="Tag" maxlength="@BookRules.MaxTagLength" />
+                </label>
+                <button type="button" disabled="@string.IsNullOrWhiteSpace(bulkTag)" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], AddTag: bulkTag))">Add tag</button>
+                <button type="button" disabled="@string.IsNullOrWhiteSpace(bulkTag)" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], RemoveTag: bulkTag))">Remove tag</button>
+                <button type="button" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Loved: true))">Love</button>
+                <button type="button" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Loved: false))">Unlove</button>
+                @if (!confirmingBulkDelete)
+                {
+                    <button type="button" class="danger" @onclick="() => confirmingBulkDelete = true">Delete…</button>
+                }
+                else
+                {
+                    <span class="hint">Delete @chosen.Count @(chosen.Count == 1 ? "book" : "books") with their quotes, highlights, reading logs, and files?</span>
+                    <button type="button" class="danger" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Delete: true))">Yes, delete</button>
+                    <button type="button" @onclick="() => confirmingBulkDelete = false">Cancel</button>
+                }
+            }
+            @if (bulkNote is not null)
+            {
+                <span class="saved" role="status">@bulkNote</span>
+            }
+        </div>
         <ul class="book-list">
         @foreach (var book in visible)
         {
             <li class="book">
-            <a href="/library/@book.Id" tabindex="-1" aria-hidden="true"><BookCover Title="@book.Title" Url="@book.CoverUrl" /></a>
+            <div class="book-pick">
+                <input type="checkbox" checked="@chosen.Contains(book.Id)" @onchange="change => Choose(book.Id, change.Value is true)" aria-label="@($"Choose {book.Title}")" />
+                <a href="/library/@book.Id" tabindex="-1" aria-hidden="true"><BookCover Title="@book.Title" Url="@book.CoverUrl" /></a>
+            </div>
             <div>
             <h2><a href="/library/@book.Id">@book.Title</a></h2>
             @if (!string.IsNullOrWhiteSpace(book.Subtitle))
@@ -428,6 +476,11 @@ else if (visible.Count > 0)
     private bool filling;
     private string? fillNote;
     private bool adding;
+    private readonly HashSet<int> chosen = [];
+    private string bulkStatus = "";
+    private string bulkTag = "";
+    private string? bulkNote;
+    private bool confirmingBulkDelete;
     private bool listView;
     private string? addedTitle;
 
@@ -514,6 +567,49 @@ else if (visible.Count > 0)
     private string Heading => Enum.TryParse<BookStatus>(statusFilter, out var status) && !UrlFiltered && string.IsNullOrWhiteSpace(query) && ChecksOn == 0
         ? BookRules.StatusLabel(status)
         : "Library";
+
+    private void Choose(int id, bool on)
+    {
+        bulkNote = null;
+        if (on)
+        {
+            chosen.Add(id);
+        }
+        else
+        {
+            chosen.Remove(id);
+        }
+    }
+
+    private void ChooseAll(IEnumerable<Book> shown, bool on)
+    {
+        bulkNote = null;
+        foreach (var book in shown)
+        {
+            Choose(book.Id, on);
+        }
+    }
+
+    private async Task ApplyBulk(BulkRequest request)
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            var result = await Bulk.ApplyAsync(db, Ebooks, Audio, request);
+            bulkNote = request.Delete
+                ? $"Deleted {result.Changed} {(result.Changed == 1 ? "book" : "books")}."
+                : $"Changed {result.Changed} {(result.Changed == 1 ? "book" : "books")}.";
+        }
+
+        if (request.Delete)
+        {
+            chosen.Clear();
+        }
+
+        confirmingBulkDelete = false;
+        bulkStatus = "";
+        await LoadAsync();
+        chosen.IntersectWith(books.Select(book => book.Id));
+    }
 
     private async Task ShowAsList(bool asList)
     {
