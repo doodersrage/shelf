@@ -29,6 +29,7 @@ public sealed class ShelfDb : DbContext
     public DbSet<OcrScan> OcrScans => Set<OcrScan>();
     public DbSet<OcrPage> OcrPages => Set<OcrPage>();
     public DbSet<BookText> BookTexts => Set<BookText>();
+    public DbSet<PasswordReset> PasswordResets => Set<PasswordReset>();
     public DbSet<ShelfSetting> Settings => Set<ShelfSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -109,6 +110,7 @@ public sealed class ShelfDb : DbContext
             reader.Property(r => r.KeyHash).HasMaxLength(64);
             reader.HasIndex(r => r.NormalizedName).IsUnique();
             reader.Property(r => r.Stamp).HasMaxLength(64).IsRequired();
+            reader.Property(r => r.Email).HasMaxLength(EmailRules.MaxAddressLength);
             reader.HasIndex(r => r.KeyHash).IsUnique();
         });
 
@@ -130,6 +132,16 @@ public sealed class ShelfDb : DbContext
                 .HasForeignKey(item => item.ScanId)
                 .OnDelete(DeleteBehavior.Cascade);
             page.HasIndex(item => new { item.ScanId, item.Page }).IsUnique();
+        });
+
+        modelBuilder.Entity<PasswordReset>(reset =>
+        {
+            reset.Property(item => item.TokenHash).HasMaxLength(64).IsRequired();
+            reset.HasIndex(item => item.TokenHash).IsUnique();
+            reset.HasOne<Reader>()
+                .WithMany()
+                .HasForeignKey(item => item.ReaderId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<BookText>(text =>

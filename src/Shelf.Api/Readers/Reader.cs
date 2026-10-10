@@ -17,7 +17,14 @@ public sealed class Reader
 
     // Changes when the password is reset or changed, which signs out every session made before.
     public string Stamp { get; set; } = ReaderRules.NewStamp();
+
+    // Optional, for password resets and, when EmailReminders is on, a daily note about loans.
+    public string? Email { get; set; }
+    public bool EmailReminders { get; set; }
+    public DateOnly? LastReminderOn { get; set; }
 }
+
+public sealed record EmailSettingsRequest(string? Email, bool Reminders);
 
 public sealed record ReaderResponse(int Id, string Name);
 

@@ -73,6 +73,8 @@ public static class ReaderRules
         AccountProblem.SignUpClosed => "This shelf is not taking new readers.",
         AccountProblem.LastAdmin => "The shelf needs at least one admin. Make another reader an admin first.",
         AccountProblem.NoSuchReader => "That reader is not on this shelf.",
+        AccountProblem.ResetExpired => "That reset link has expired or was used already. Ask for a new one.",
+        AccountProblem.EmailInvalid => "That does not look like an email address.",
         _ => "Something went wrong.",
     };
 
@@ -175,6 +177,41 @@ public static class ReaderRules
 
         reader.PasswordHash = Hasher.HashPassword(reader, password!);
         reader.Stamp = NewStamp();
+        await db.SaveChangesAsync(cancellationToken);
+        return null;
+    }
+
+    // A new password from a reset link: every session from before it ends.
+    public static async Task<bool> SetPasswordAsync(ShelfDb db, int readerId, string password, CancellationToken cancellationToken = default)
+    {
+        var reader = await db.Readers.FirstOrDefaultAsync(item => item.Id == readerId, cancellationToken);
+        if (reader is null)
+        {
+            return false;
+        }
+
+        reader.PasswordHash = Hasher.HashPassword(reader, password);
+        reader.Stamp = NewStamp();
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public static async Task<AccountProblem?> SetEmailAsync(ShelfDb db, int readerId, string? email, bool reminders, CancellationToken cancellationToken = default)
+    {
+        var address = EmailRules.CleanAddress(email);
+        if (address == "")
+        {
+            return AccountProblem.EmailInvalid;
+        }
+
+        var reader = await db.Readers.FirstOrDefaultAsync(item => item.Id == readerId, cancellationToken);
+        if (reader is null)
+        {
+            return AccountProblem.NoSuchReader;
+        }
+
+        reader.Email = address;
+        reader.EmailReminders = address is not null && reminders;
         await db.SaveChangesAsync(cancellationToken);
         return null;
     }
@@ -398,4 +435,6 @@ public enum AccountProblem
     SignUpClosed,
     LastAdmin,
     NoSuchReader,
+    ResetExpired,
+    EmailInvalid,
 }

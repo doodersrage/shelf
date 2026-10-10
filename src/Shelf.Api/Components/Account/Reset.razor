@@ -1,0 +1,54 @@
+@page "/reset"
+@attribute [AllowAnonymous]
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>Choose a new password · Shelf</PageTitle>
+
+<h1>Choose a new password</h1>
+
+@if (!live)
+{
+    <p>@ReaderRules.Describe(AccountProblem.ResetExpired)</p>
+    <p class="hint"><a href="/forgot">Ask for a new link</a></p>
+}
+else
+{
+    @if (Problem is AccountProblem problem)
+    {
+        <p class="validation-message" role="alert">@ReaderRules.Describe(problem)</p>
+    }
+
+    <form class="account" method="post" action="/account/reset">
+        <AntiforgeryToken />
+        <input type="hidden" name="token" value="@Token" />
+        <label>
+            New password, at least @ReaderRules.MinPasswordLength characters
+            <input type="password" name="password" minlength="@ReaderRules.MinPasswordLength" maxlength="@ReaderRules.MaxPasswordLength" autocomplete="new-password" required autofocus />
+        </label>
+        <label>
+            The new password again
+            <input type="password" name="confirm" minlength="@ReaderRules.MinPasswordLength" maxlength="@ReaderRules.MaxPasswordLength" autocomplete="new-password" required />
+        </label>
+        <p class="hint">Saving it signs you out everywhere else.</p>
+        <button type="submit">Save the new password</button>
+    </form>
+}
+
+@code {
+    private bool live;
+
+    [SupplyParameterFromQuery]
+    public string? Token { get; set; }
+
+    [SupplyParameterFromQuery(Name = "problem")]
+    public string? ProblemCode { get; set; }
+
+    private AccountProblem? Problem =>
+        Enum.TryParse<AccountProblem>(ProblemCode, out var problem) && Enum.IsDefined(problem) ? problem : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        live = await EmailRules.ResetIsLiveAsync(db, Token);
+    }
+}

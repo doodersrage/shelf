@@ -20,6 +20,10 @@ public static class AccountEndpoints
         account.MapPost("/signup", SignUp).AllowAnonymous().RequireRateLimiting(SignInLimit);
         account.MapPost("/signout", SignOut).AllowAnonymous();
         account.MapPost("/remove", RemoveSelf).RequireAuthorization();
+        account.MapPost("/forgot", Forgot).AllowAnonymous().RequireRateLimiting(SignInLimit);
+        account.MapPost("/reset", Reset).AllowAnonymous().RequireRateLimiting(SignInLimit);
+        account.MapPut("/email", SetEmail).RequireAuthorization();
+        account.MapPost("/email/test", TestEmail).RequireAuthorization();
 
         app.MapGet("/readers", Others).WithTags("Account").RequireAuthorization();
     }
@@ -101,6 +105,54 @@ public static class AccountEndpoints
         }
 
         await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        return TypedResults.NoContent();
+    }
+
+    // The answer is the same whether or not that reader exists, so the form tells no one who has an account.
+    private static async Task<RedirectHttpResult> Forgot(
+        [FromForm] string? who,
+        HttpContext http,
+        ShelfDb db,
+        IEmailSender email,
+        IConfiguration configuration,
+        CancellationToken cancellationToken)
+    {
+        await EmailRules.RequestResetAsync(db, email, who, EmailRules.PublicAddress(configuration, http.Request), cancellationToken);
+        return TypedResults.Redirect("/forgot?sent=1");
+    }
+
+    private static async Task<RedirectHttpResult> Reset(
+        [FromForm] string? token,
+        [FromForm] string? password,
+        [FromForm] string? confirm,
+        ShelfDb db,
+        CancellationToken cancellationToken)
+    {
+        var problem = !string.Equals(password, confirm, StringComparison.Ordinal)
+            ? AccountProblem.PasswordsDiffer
+            : await EmailRules.ResetAsync(db, token, password, cancellationToken);
+        return TypedResults.Redirect(problem is null
+            ? "/signin?notice=reset"
+            : Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString("/reset", new Dictionary<string, string?> { ["token"] = token, ["problem"] = problem.ToString() }));
+    }
+
+    private static async Task<Results<NoContent, ValidationProblem>> SetEmail(EmailSettingsRequest request, ShelfDb db, CancellationToken cancellationToken)
+    {
+        var problem = await ReaderRules.SetEmailAsync(db, db.ReaderId, request.Email, request.Reminders, cancellationToken);
+        return problem is null
+            ? TypedResults.NoContent()
+            : TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Email)] = [ReaderRules.Describe(problem.Value)] });
+    }
+
+    private static async Task<Results<NoContent, ValidationProblem>> TestEmail(ShelfDb db, IEmailSender email, CancellationToken cancellationToken)
+    {
+        var reader = await db.Readers.AsNoTracking().FirstAsync(item => item.Id == db.ReaderId, cancellationToken);
+        if (!email.Enabled || reader.Email is null)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Email"] = ["Add an address, and an admin has to set up a mail server, first."] });
+        }
+
+        await email.SendAsync(new EmailMessage(reader.Email, "Shelf can reach you", $"Hello {reader.Name},\n\nThis is a test from your shelf. Email works."), cancellationToken);
         return TypedResults.NoContent();
     }
 

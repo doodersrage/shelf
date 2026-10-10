@@ -5,6 +5,7 @@
 @inject NavigationManager Navigation
 @inject EbookStore Ebooks
 @inject AudioStore Audio
+@inject IEmailSender Email
 
 <PageTitle>Account · Shelf</PageTitle>
 
@@ -19,6 +20,36 @@
 </label>
 <p class="hint">Asks wait on your <a href="/loans">Loans</a> page until you lend the book or decline.</p>
 
+</section>
+
+<section class="panel">
+<h2>Email</h2>
+@if (!Email.Enabled)
+{
+    <p class="hint">This shelf has no mail server set up, so it cannot send password resets or reminders. An admin can add one in the Email settings.</p>
+}
+<label>
+    Email address
+    <input type="email" @bind="emailAddress" maxlength="@EmailRules.MaxAddressLength" autocomplete="email" />
+</label>
+<label class="check">
+    <input type="checkbox" @bind="emailReminders" disabled="@(string.IsNullOrWhiteSpace(emailAddress))" />
+    Email me once a day when a loan is overdue or due soon, or someone asks to borrow
+</label>
+<p class="hint">Used only for password resets and the reminders you choose.</p>
+<button type="button" class="primary" @onclick="SaveEmail">Save</button>
+@if (Email.Enabled)
+{
+    <button type="button" @onclick="SendTest" disabled="@string.IsNullOrWhiteSpace(savedEmail)">Send a test email</button>
+}
+@if (emailProblem is AccountProblem shownEmail)
+{
+    <p class="validation-message" role="alert">@ReaderRules.Describe(shownEmail)</p>
+}
+else if (emailNote is not null)
+{
+    <span class="saved" role="status">@emailNote</span>
+}
 </section>
 
 <section class="panel">
@@ -81,11 +112,20 @@ else
     private bool confirmingRemove;
     private string removePassword = "";
     private AccountProblem? removeProblem;
+    private string emailAddress = "";
+    private string? savedEmail;
+    private bool emailReminders;
+    private AccountProblem? emailProblem;
+    private string? emailNote;
 
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         shelfOpen = await Asking.IsShelfOpenAsync(db);
+        var me = await db.Readers.AsNoTracking().FirstAsync(item => item.Id == db.ReaderId);
+        savedEmail = me.Email;
+        emailAddress = me.Email ?? "";
+        emailReminders = me.EmailReminders;
     }
 
     private async Task ChangeShelfOpen(ChangeEventArgs change)
@@ -93,6 +133,33 @@ else
         shelfOpen = change.Value is true;
         await using var db = await DbFactory.CreateDbContextAsync();
         await Asking.SetShelfOpenAsync(db, shelfOpen);
+    }
+
+    private async Task SaveEmail()
+    {
+        emailNote = null;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        emailProblem = await ReaderRules.SetEmailAsync(db, db.ReaderId, emailAddress, emailReminders);
+        if (emailProblem is null)
+        {
+            savedEmail = EmailRules.CleanAddress(emailAddress);
+            emailReminders = savedEmail is not null && emailReminders;
+            emailNote = "Saved.";
+        }
+    }
+
+    private async Task SendTest()
+    {
+        emailProblem = null;
+        try
+        {
+            await Email.SendAsync(new EmailMessage(savedEmail!, "Shelf can reach you", $"Hello {Reader.Name},\n\nThis is a test from your shelf. Email works."), CancellationToken.None);
+            emailNote = $"Sent to {savedEmail}.";
+        }
+        catch (Exception ex) when (ex is System.Net.Mail.SmtpException or InvalidOperationException or IOException)
+        {
+            emailNote = $"The mail server did not take it: {ex.Message}";
+        }
     }
 
     private async Task ChangePassword()

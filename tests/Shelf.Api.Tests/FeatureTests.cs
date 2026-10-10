@@ -293,6 +293,72 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal(HttpStatusCode.Unauthorized, (await reader.GetAsync("/books")).StatusCode);
     }
 
+    [Fact]
+    public async Task A_forgotten_password_is_reset_from_an_emailed_link()
+    {
+        var reader = await factory.SignUpAsync("Forgetful Reader");
+        Assert.Equal(HttpStatusCode.BadRequest, (await reader.PutAsJsonAsync("/account/email", new EmailSettingsRequest("not an address", false), JsonOptions)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await reader.PutAsJsonAsync("/account/email", new EmailSettingsRequest("forgetful@example.org", true), JsonOptions)).StatusCode);
+
+        var visitor = factory.CreateClient(new() { AllowAutoRedirect = false });
+        var before = factory.Mail.Sent.Count;
+        var unknown = await ShelfApiFactory.PostFormAsync(visitor, "/forgot", "/account/forgot", new() { ["who"] = "Nobody Here" });
+        Assert.Equal("/forgot?sent=1", unknown.Headers.Location?.OriginalString);
+        Assert.Equal(before, factory.Mail.Sent.Count);
+
+        var asked = await ShelfApiFactory.PostFormAsync(visitor, "/forgot", "/account/forgot", new() { ["who"] = "FORGETFUL@example.org" });
+        Assert.Equal("/forgot?sent=1", asked.Headers.Location?.OriginalString);
+        var message = factory.Mail.Sent.Last();
+        Assert.Equal("forgetful@example.org", message.To);
+        var link = System.Text.RegularExpressions.Regex.Match(message.Body, @"/reset\?token=([A-Za-z0-9_-]+)");
+        Assert.True(link.Success);
+        Assert.Contains("Choose a new password", await visitor.GetStringAsync(link.Value));
+
+        var mismatch = await ShelfApiFactory.PostFormAsync(visitor, link.Value, "/account/reset", new()
+        {
+            ["token"] = link.Groups[1].Value,
+            ["password"] = "a brand new password",
+            ["confirm"] = "something different",
+        });
+        Assert.Contains("problem=PasswordsDiffer", mismatch.Headers.Location?.OriginalString);
+
+        var reset = await ShelfApiFactory.PostFormAsync(visitor, link.Value, "/account/reset", new()
+        {
+            ["token"] = link.Groups[1].Value,
+            ["password"] = "a brand new password",
+            ["confirm"] = "a brand new password",
+        });
+        Assert.Equal("/signin?notice=reset", reset.Headers.Location?.OriginalString);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await reader.GetAsync("/books")).StatusCode);
+        Assert.Contains("has expired or was used already", await visitor.GetStringAsync(link.Value));
+
+        var signedIn = await ShelfApiFactory.PostFormAsync(visitor, "/signin", "/account/signin", new()
+        {
+            ["name"] = "Forgetful Reader",
+            ["password"] = "a brand new password",
+        });
+        Assert.Equal("/", signedIn.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
+    public async Task A_daily_email_goes_out_when_a_loan_needs_attention()
+    {
+        var borrower = await factory.SignUpAsync("Reminded Reader");
+        var borrowerId = await factory.ReaderIdAsync("Reminded Reader");
+        await borrower.PutAsJsonAsync("/account/email", new EmailSettingsRequest("reminded@example.org", true), JsonOptions);
+        var book = await CreateAsync(new CreateBookRequest("Long Overdue Book", "Someone", BookStatus.Want, null));
+        await _client.PostAsJsonAsync($"/books/{book.Id}/lend", new LendRequest(borrowerId, DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-3)), JsonOptions);
+
+        var mailer = factory.Services.GetRequiredService<ReminderMailer>();
+        await mailer.SendDueAsync(CancellationToken.None);
+        var reminder = factory.Mail.Sent.Last(item => item.To == "reminded@example.org");
+        Assert.Contains("1 book you borrowed is overdue", reminder.Body);
+        var count = factory.Mail.Sent.Count(item => item.To == "reminded@example.org");
+
+        await mailer.SendDueAsync(CancellationToken.None);
+        Assert.Equal(count, factory.Mail.Sent.Count(item => item.To == "reminded@example.org"));
+    }
+
     private async Task<HttpResponseMessage> PostCsvAsync(string csv, string name)
     {
         using var content = new MultipartFormDataContent { { new StringContent(csv), "file", name } };

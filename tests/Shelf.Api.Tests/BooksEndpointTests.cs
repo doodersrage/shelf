@@ -1567,6 +1567,9 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
 
     public int ReaderId { get; private set; }
 
+    // Every email the shelf sends in these tests, instead of a mail server.
+    public CapturedMail Mail { get; } = new();
+
     public async Task InitializeAsync()
     {
         _client = await SignUpAsync("Tenar");
@@ -1621,7 +1624,11 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
         builder.UseSetting("Accounts:SignInsPerMinute", "1000");
         builder.UseSetting("DataProtection:KeysPath", _keysRoot);
         builder.UseEnvironment("Testing");
-        builder.ConfigureTestServices(services => services.AddSingleton<IBookLookup, StubBookLookup>());
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton<IBookLookup, StubBookLookup>();
+            services.AddSingleton<Shelf.Api.Readers.IEmailSender>(Mail);
+        });
     }
 
     public override async ValueTask DisposeAsync()
@@ -1695,5 +1702,20 @@ file sealed class StubBookLookup : IBookLookup
             "Ace Books",
             "English",
             "https://covers.openlibrary.org/b/id/1-M.jpg"));
+    }
+}
+
+public sealed class CapturedMail : Shelf.Api.Readers.IEmailSender
+{
+    private readonly System.Collections.Concurrent.ConcurrentQueue<Shelf.Api.Readers.EmailMessage> _sent = new();
+
+    public bool Enabled => true;
+
+    public IReadOnlyList<Shelf.Api.Readers.EmailMessage> Sent => [.. _sent];
+
+    public Task SendAsync(Shelf.Api.Readers.EmailMessage message, CancellationToken cancellationToken)
+    {
+        _sent.Enqueue(message);
+        return Task.CompletedTask;
     }
 }

@@ -1,5 +1,6 @@
 @page "/signin"
 @attribute [AllowAnonymous]
+@inject IEmailSender Email
 
 <PageTitle>Sign in · Shelf</PageTitle>
 
@@ -12,6 +13,10 @@
 else if (Notice == "removed")
 {
     <p class="hint" role="status">Your account is deleted.</p>
+}
+else if (Notice == "reset")
+{
+    <p class="hint" role="status">Your new password is saved. Sign in with it.</p>
 }
 
 @if (Problem is AccountProblem problem)
@@ -34,7 +39,14 @@ else if (Notice == "removed")
 </form>
 
 <p class="hint">New to this shelf? <a href="@SignUpHref">Make an account</a></p>
-<p class="hint">Forgot the password? An admin of this shelf can give you a new one.</p>
+@if (Email.Enabled)
+{
+    <p class="hint"><a href="/forgot">Forgot the password?</a></p>
+}
+else
+{
+    <p class="hint">Forgot the password? An admin of this shelf can give you a new one.</p>
+}
 
 @code {
     [SupplyParameterFromQuery(Name = "problem")]
