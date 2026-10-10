@@ -230,6 +230,26 @@ public static class ReaderRules
         return null;
     }
 
+    // The address Send to Kindle uses; empty clears it.
+    public static async Task<AccountProblem?> SetKindleAsync(ShelfDb db, int readerId, string? email, CancellationToken cancellationToken = default)
+    {
+        var address = EmailRules.CleanAddress(email);
+        if (address == "")
+        {
+            return AccountProblem.EmailInvalid;
+        }
+
+        var reader = await db.Readers.FirstOrDefaultAsync(item => item.Id == readerId, cancellationToken);
+        if (reader is null)
+        {
+            return AccountProblem.NoSuchReader;
+        }
+
+        reader.KindleEmail = address;
+        await db.SaveChangesAsync(cancellationToken);
+        return null;
+    }
+
     // For a reader who has forgotten their password: a new one to hand them, and every old session ends.
     public static async Task<string?> ResetPasswordAsync(ShelfDb db, int readerId, CancellationToken cancellationToken = default)
     {

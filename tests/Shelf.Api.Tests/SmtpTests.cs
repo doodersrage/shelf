@@ -37,6 +37,39 @@ public sealed class SmtpTests
         Assert.False(new SmtpEmailSender(new ConfigurationBuilder().Build()).Enabled);
     }
 
+    [Fact]
+    public async Task A_file_goes_with_an_email_as_an_attachment()
+    {
+        await using var server = new LoopbackSmtpServer();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Email:Host"] = "127.0.0.1",
+                ["Email:Port"] = server.Port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["Email:Security"] = "none",
+                ["Email:From"] = "shelf@example.org",
+            })
+            .Build();
+        var file = Path.Combine(Path.GetTempPath(), $"attached-{Guid.NewGuid():N}.epub");
+        await File.WriteAllBytesAsync(file, Encoding.ASCII.GetBytes("pretend this is an EPUB"));
+        try
+        {
+            await new SmtpEmailSender(configuration).SendAsync(
+                new EmailMessage("someone@kindle.com", "The Dispossessed", "Sent from Shelf.", [new EmailAttachment("Le Guin - The Dispossessed.epub", "application/epub+zip", file)]),
+                CancellationToken.None);
+            var mail = await server.Received.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Contains("multipart/mixed", mail.Data);
+            Assert.Contains("Content-Type: application/epub+zip", mail.Data);
+            Assert.Contains("Content-Disposition: attachment; filename=\"Le Guin - The Dispossessed.epub\"", mail.Data);
+            Assert.Contains(Convert.ToBase64String(Encoding.ASCII.GetBytes("pretend this is an EPUB")), mail.Data);
+            Assert.Contains("Sent from Shelf.", mail.Data);
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
     // Just enough SMTP to take one message: no TLS, and any sign-in is accepted.
     private sealed class LoopbackSmtpServer : IAsyncDisposable
     {

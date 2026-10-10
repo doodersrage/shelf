@@ -23,6 +23,16 @@ Shelf has an OPDS catalog, the format many reading apps browse, such as KOReader
 
 The catalog lists your e-books by status, and the books lent to you, ready to download.
 
+## Send to Kindle
+
+When the shelf has a mail server (see [Configuration](configuration.md#email)), each reader can send an e-book to their Kindle by email, the way Amazon's own Send to Kindle works:
+
+1. On **Account**, under **Send to Kindle**, enter your Kindle's address, such as `name_12@kindle.com`. It is in your Amazon account under **Devices**, or in the Kindle's settings.
+2. At Amazon, add the shelf's sending address (`Email:From`, shown on **Account**) to the **Approved Personal Document E-mail List**. Amazon quietly drops mail from anyone else.
+3. On a book's page, **Send to Kindle** emails its file. It arrives on the Kindle within a few minutes.
+
+Amazon takes EPUBs and PDFs by email, up to 50 MB; comics and Kindle-format files are not sent. Only your own books can be sent: a lent book's copy on a Kindle would outlast the loan.
+
 ## Keeping your place in step with KOReader
 
 KOReader's **progress sync** sends the page you reach to Shelf, and fetches the one you reached in Shelf's reader:

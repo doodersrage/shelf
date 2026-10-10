@@ -39,6 +39,9 @@ public sealed class Reader
     public bool EmailReminders { get; set; }
     public DateOnly? LastReminderOn { get; set; }
 
+    // Where Send to Kindle emails this reader's e-books: their Kindle's own address at Amazon.
+    public string? KindleEmail { get; set; }
+
     // Two-step sign-in: the authenticator secret, sealed with the shelf's own keys.
     public bool TwoFactorEnabled { get; set; }
     public string? TwoFactorSecret { get; set; }
@@ -54,6 +57,8 @@ public sealed record TwoFactorCodeRequest(string? Code);
 public sealed record RecoveryCodes(string[] Codes);
 
 public sealed record EmailSettingsRequest(string? Email, bool Reminders);
+
+public sealed record KindleSettingsRequest(string? Email);
 
 public sealed record ReaderResponse(int Id, string Name);
 

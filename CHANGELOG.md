@@ -11,6 +11,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - An import folder: set `Import:Folder`, and books dropped into a reader's folder inside it are added on their own, once they stop changing. A folder of tracks is one audiobook; added files move into `.imported`, and ones Shelf cannot take into `.not-added`.
 - Single sign-on through an OpenID Connect provider such as Authentik, Authelia, Keycloak, or Pocket ID (`Oidc:*`). Readers already here connect from Account; new people get an account while sign-ups are open. Readers are matched by the provider's subject, never by email.
 - Bring books from a Calibre library on the server: each book's best file, cover, series, tags, publisher, rating, ISBN, language, year, and description, read straight from `metadata.db` without changing it. Books with no usable file come in as catalog entries.
+- Send to Kindle: with a mail server set up, a reader saves their Kindle's address on Account, and an EPUB or PDF of their own goes to it by email from the book's page.
 - Docker images for arm64 as well as amd64: a Raspberry Pi 4 or 5, most NAS boxes, and Apple silicon. CI starts the arm64 image too.
 
 ## [1.3.1] - 2026-10-10

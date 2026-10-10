@@ -35,6 +35,7 @@ public static class AccountEndpoints
         account.MapPost("/reset", Reset).AllowAnonymous().RequireRateLimiting(SignInLimit);
         account.MapPut("/email", SetEmail).RequireAuthorization();
         account.MapPost("/email/test", TestEmail).RequireAuthorization();
+        account.MapPut("/kindle", SetKindle).RequireAuthorization();
 
         app.MapGet("/readers", Others).WithTags("Account").RequireAuthorization();
     }
@@ -268,6 +269,14 @@ public static class AccountEndpoints
     private static async Task<Results<NoContent, ValidationProblem>> SetEmail(EmailSettingsRequest request, ShelfDb db, CancellationToken cancellationToken)
     {
         var problem = await ReaderRules.SetEmailAsync(db, db.ReaderId, request.Email, request.Reminders, cancellationToken);
+        return problem is null
+            ? TypedResults.NoContent()
+            : TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Email)] = [ReaderRules.Describe(problem.Value)] });
+    }
+
+    private static async Task<Results<NoContent, ValidationProblem>> SetKindle(KindleSettingsRequest request, ShelfDb db, CancellationToken cancellationToken)
+    {
+        var problem = await ReaderRules.SetKindleAsync(db, db.ReaderId, request.Email, cancellationToken);
         return problem is null
             ? TypedResults.NoContent()
             : TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Email)] = [ReaderRules.Describe(problem.Value)] });

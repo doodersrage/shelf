@@ -8,7 +8,10 @@ using static Shelf.Api.Localization.Words;
 
 namespace Shelf.Api.Readers;
 
-public sealed record EmailMessage(string To, string Subject, string Body);
+public sealed record EmailMessage(string To, string Subject, string Body, IReadOnlyList<EmailAttachment>? Attachments = null);
+
+// A file sent with an email, read from disk as it goes.
+public sealed record EmailAttachment(string FileName, string ContentType, string Path);
 
 public interface IEmailSender
 {
@@ -37,7 +40,23 @@ public sealed class SmtpEmailSender(IConfiguration configuration) : IEmailSender
         mail.From.Add(new MimeKit.MailboxAddress("Shelf", configuration["Email:From"]!));
         mail.To.Add(MimeKit.MailboxAddress.Parse(message.To));
         mail.Subject = message.Subject;
-        mail.Body = new MimeKit.TextPart("plain") { Text = message.Body };
+        var streams = new List<Stream>();
+        if (message.Attachments is { Count: > 0 } attachments)
+        {
+            var body = new MimeKit.BodyBuilder { TextBody = message.Body };
+            foreach (var attachment in attachments)
+            {
+                var stream = File.OpenRead(attachment.Path);
+                streams.Add(stream);
+                await body.Attachments.AddAsync(attachment.FileName, stream, MimeKit.ContentType.Parse(attachment.ContentType), cancellationToken);
+            }
+
+            mail.Body = body.ToMessageBody();
+        }
+        else
+        {
+            mail.Body = new MimeKit.TextPart("plain") { Text = message.Body };
+        }
 
         using var client = new MailKit.Net.Smtp.SmtpClient();
         await client.ConnectAsync(configuration["Email:Host"]!, configuration.GetValue("Email:Port", 587), Security(), cancellationToken);
@@ -46,8 +65,18 @@ public sealed class SmtpEmailSender(IConfiguration configuration) : IEmailSender
             await client.AuthenticateAsync(user, configuration["Email:Password"] ?? "", cancellationToken);
         }
 
-        await client.SendAsync(mail, cancellationToken);
-        await client.DisconnectAsync(quit: true, cancellationToken);
+        try
+        {
+            await client.SendAsync(mail, cancellationToken);
+            await client.DisconnectAsync(quit: true, cancellationToken);
+        }
+        finally
+        {
+            foreach (var stream in streams)
+            {
+                await stream.DisposeAsync();
+            }
+        }
     }
 
     private MailKit.Security.SecureSocketOptions Security() =>

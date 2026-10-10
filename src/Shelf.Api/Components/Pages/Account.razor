@@ -59,6 +59,27 @@ else if (emailNote is not null)
 }
 </section>
 
+@if (Email.Enabled)
+{
+    <section class="panel" id="kindle">
+    <h2>@T("Send to Kindle")</h2>
+    <label>
+        @T("Your Kindle's email address")
+        <input type="email" @bind="kindleAddress" maxlength="@EmailRules.MaxAddressLength" placeholder="name@kindle.com" />
+    </label>
+    <p class="hint">@T("Find it in your Amazon account under Devices, or in the Kindle's own settings. Then add {0} to the Approved Personal Document E-mail List at Amazon, or Amazon drops what Shelf sends. Each e-book's page then has Send to Kindle, for EPUBs and PDFs of up to 50 MB.", Configuration["Email:From"] ?? "")</p>
+    <button type="button" class="primary" @onclick="SaveKindle">@T("Save")</button>
+    @if (kindleProblem is AccountProblem shownKindle)
+    {
+        <p class="validation-message" role="alert">@ReaderRules.Describe(shownKindle)</p>
+    }
+    else if (kindleSaved)
+    {
+        <span class="saved" role="status">@T("Saved.")</span>
+    }
+    </section>
+}
+
 <section class="panel">
 <h2>@T("Language and region")</h2>
 <label>
@@ -353,6 +374,16 @@ else
     public string? ProblemCode { get; set; }
 
     private bool passwordUnknown;
+    private string kindleAddress = "";
+    private AccountProblem? kindleProblem;
+    private bool kindleSaved;
+
+    private async Task SaveKindle()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        kindleProblem = await ReaderRules.SetKindleAsync(db, db.ReaderId, kindleAddress);
+        kindleSaved = kindleProblem is null;
+    }
     private bool ssoConnected;
 
     protected override async Task OnInitializedAsync()
@@ -369,6 +400,7 @@ else
         culture = me.Culture ?? "";
         language = me.Language ?? "";
         passwordUnknown = me.PasswordUnknown;
+        kindleAddress = me.KindleEmail ?? "";
         ssoConnected = me.OidcSubject is not null;
         currentSession = (await Authentication.GetAuthenticationStateAsync()).User.FindFirst(TwoFactor.SessionClaim)?.Value;
         sessions = await TwoFactor.SessionsAsync(db, db.ReaderId, currentSession);

@@ -9,6 +9,7 @@
 @inject Microsoft.AspNetCore.DataProtection.IDataProtectionProvider Protection
 @using Microsoft.JSInterop
 @inject IJSRuntime Js
+@inject IEmailSender Email
 @implements IAsyncDisposable
 
 <PageTitle>@(book?.Title ?? "Shelf")</PageTitle>
@@ -123,6 +124,14 @@ else if (book is not null)
                         {
                             <button type="button" class="quiet" @onclick="KeepOffline" disabled="@keeping">@(keeping ? T("Keeping…") : T("Keep for reading offline"))</button>
                         }
+                    }
+                    @if (Email.Enabled && Kindle.Takes(book))
+                    {
+                        <button type="button" class="quiet" @onclick="SendToKindle" disabled="@sendingToKindle">@(sendingToKindle ? T("Sending…") : T("Send to Kindle"))</button>
+                    }
+                    @if (kindleNote is not null)
+                    {
+                        <span class="@(kindleSent ? "saved" : "validation-message")" role="status">@kindleNote @if (!kindleSent && kindleNeedsAddress) { <a href="/account#kindle">@T("Account")</a> }</span>
                     }
                 }
                 @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
@@ -561,6 +570,33 @@ else if (book is not null)
     private bool keptOffline;
     private bool keeping;
     private string? offlineNote;
+    private bool sendingToKindle;
+    private string? kindleNote;
+    private bool kindleSent;
+    private bool kindleNeedsAddress;
+
+    private async Task SendToKindle()
+    {
+        if (book is null)
+        {
+            return;
+        }
+
+        sendingToKindle = true;
+        kindleNote = null;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var problem = await Kindle.SendAsync(db, Ebooks, Email, book.Id, CancellationToken.None);
+            kindleSent = problem is null;
+            kindleNeedsAddress = !kindleSent && !await db.Readers.AnyAsync(reader => reader.Id == db.ReaderId && reader.KindleEmail != null);
+            kindleNote = problem ?? T("Sent. It reaches the Kindle in a few minutes, once Amazon has it.");
+        }
+        finally
+        {
+            sendingToKindle = false;
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

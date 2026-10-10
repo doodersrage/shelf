@@ -235,7 +235,7 @@ public sealed class ImportTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
     // A PNG with its name after the end, which viewers ignore, so pages can be told apart.
     private static byte[] PngNamed(string name) => Png.Concat(Encoding.ASCII.GetBytes(name)).ToArray();
 
-    private static byte[] Comic()
+    internal static byte[] Comic()
     {
         using var memory = new MemoryStream();
         using (var zip = new ZipArchive(memory, ZipArchiveMode.Create, leaveOpen: true))
