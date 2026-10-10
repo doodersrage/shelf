@@ -164,7 +164,9 @@ On a book with an e-book, Keep for reading offline saves the file in that browse
 
 ## Dates and numbers
 
-Dates follow each reader's region: "Mar 14, 2024" in the US, "14 Mar 2024" in Britain, "14. März 2024" in Germany. The region comes from the browser's languages unless the reader picks one on their account. The words on the pages are in English.
+Dates follow each reader's region: "Mar 14, 2024" in the US, "14 Mar 2024" in Britain, "14. März 2024" in Germany. The region comes from the browser's languages unless the reader picks one on their account.
+
+The pages are in English, Spanish, French, and German: the browser's language, unless the reader picks one under Language and region on Account. Emails go out in the language the reader picked. The translations were made by machine and await review by native speakers; each language is one file, `src/Shelf.Api/Localization/<language>.json`, keyed by the English sentence, and a test fails when a sentence is missing from one.
 
 ## Activity log
 

@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Shelf.Api.Books;
 using Shelf.Api.Data;
+using static Shelf.Api.Localization.Words;
 
 namespace Shelf.Api.Readers;
 
@@ -122,18 +123,17 @@ public static class EmailRules
             ExpiresAt = DateTimeOffset.UtcNow.Add(ResetLasts),
         });
         await db.SaveChangesAsync(cancellationToken);
-        await email.SendAsync(new EmailMessage(
-            reader.Email,
-            "Reset your Shelf password",
-            $"""
-            Hello {reader.Name},
+        // In the language the reader chose, or else the one the request came in.
+        EmailMessage message;
+        using (Localization.Words.Speaking(reader.Language ?? Localization.Words.Current))
+        {
+            message = new EmailMessage(
+                reader.Email,
+                Localization.Words.T("Reset your Shelf password"),
+                Localization.Words.T("Hello {0},\n\nSomeone asked to reset the password for your shelf. If it was you, choose a new one here within the hour:\n\n{1}\n\nIf it was not you, ignore this email and your password stays as it is.", reader.Name, $"{publicAddress}/reset?token={token}"));
+        }
 
-            Someone asked to reset the password for your shelf. If it was you, choose a new one here within the hour:
-
-            {publicAddress}/reset?token={token}
-
-            If it was not you, ignore this email and your password stays as it is.
-            """), cancellationToken);
+        await email.SendAsync(message, cancellationToken);
     }
 
     public static async Task<AccountProblem?> ResetAsync(
@@ -190,26 +190,26 @@ public static class EmailRules
         var lines = new List<string>();
         if (due.LentOverdue > 0)
         {
-            lines.Add($"- {due.LentOverdue} {(due.LentOverdue == 1 ? "book you lent is" : "books you lent are")} overdue.");
+            lines.Add("- " + (due.LentOverdue == 1 ? T("1 book you lent is overdue.") : T("{0} books you lent are overdue.", due.LentOverdue)));
         }
 
         if (due.BorrowedOverdue > 0)
         {
-            lines.Add($"- {due.BorrowedOverdue} {(due.BorrowedOverdue == 1 ? "book you borrowed is" : "books you borrowed are")} overdue.");
+            lines.Add("- " + (due.BorrowedOverdue == 1 ? T("1 book you borrowed is overdue.") : T("{0} books you borrowed are overdue.", due.BorrowedOverdue)));
         }
 
         if (due.BorrowedDueSoon > 0)
         {
-            lines.Add($"- {due.BorrowedDueSoon} borrowed {(due.BorrowedDueSoon == 1 ? "book is" : "books are")} due within three days.");
+            lines.Add("- " + (due.BorrowedDueSoon == 1 ? T("1 borrowed book is due within three days.") : T("{0} borrowed books are due within three days.", due.BorrowedDueSoon)));
         }
 
         if (due.Asks > 0)
         {
-            lines.Add($"- {due.Asks} {(due.Asks == 1 ? "reader has" : "readers have")} asked to borrow a book of yours.");
+            lines.Add("- " + (due.Asks == 1 ? T("1 reader has asked to borrow a book of yours.") : T("{0} readers have asked to borrow a book of yours.", due.Asks)));
         }
 
-        var link = publicAddress.Length > 0 ? $"\n\nSee your loans: {publicAddress}/loans" : "\n\nOpen Shelf and go to Loans to see them.";
-        return $"Hello {name},\n\n{string.Join('\n', lines)}{link}\n\nYou can turn these reminders off from your account.";
+        var link = publicAddress.Length > 0 ? T("See your loans: {0}", $"{publicAddress}/loans") : T("Open Shelf and go to Loans to see them.");
+        return T("Hello {0},", name) + "\n\n" + string.Join('\n', lines) + "\n\n" + link + "\n\n" + T("You can turn these reminders off from your account.");
     }
 }
 
@@ -259,10 +259,19 @@ public sealed class ReminderMailer(IServiceScopeFactory scopes, IEmailSender ema
             scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
             var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
             var reader = await db.Readers.FirstAsync(item => item.Id == readerId, cancellationToken);
-            var body = EmailRules.ReminderBody(reader.Name, await Asking.RemindersAsync(db, cancellationToken), EmailRules.PublicAddress(configuration, null));
-            if (body is not null)
+            var reminders = await Asking.RemindersAsync(db, cancellationToken);
+            EmailMessage? message = null;
+            using (Localization.Words.Speaking(reader.Language))
             {
-                await email.SendAsync(new EmailMessage(reader.Email!, "Your loans on Shelf", body), cancellationToken);
+                if (EmailRules.ReminderBody(reader.Name, reminders, EmailRules.PublicAddress(configuration, null)) is { } body)
+                {
+                    message = new EmailMessage(reader.Email!, Localization.Words.T("Your loans on Shelf"), body);
+                }
+            }
+
+            if (message is not null)
+            {
+                await email.SendAsync(message, cancellationToken);
                 sent++;
             }
 

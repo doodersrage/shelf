@@ -174,7 +174,7 @@ else
         @T("Name it, to tell it apart")
         <input @bind="passkeyName" maxlength="80" placeholder="@(passkeys.Count == 0 ? T("My phone") : T("My laptop"))" />
     </label>
-    <button type="button" @onclick="AddPasskey" disabled="@addingPasskey">@(addingPasskey ? "Waiting for the device…" : "Add a passkey")</button>
+    <button type="button" @onclick="AddPasskey" disabled="@addingPasskey">@(addingPasskey ? T("Waiting for the device…") : T("Add a passkey"))</button>
 }
 else if (passkeyChecked)
 {

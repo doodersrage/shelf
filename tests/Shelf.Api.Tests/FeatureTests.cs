@@ -362,6 +362,37 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
     }
 
     [Fact]
+    public async Task Emails_are_in_the_language_the_reader_chose()
+    {
+        var reader = await factory.SignUpAsync("Lectora");
+        var readerId = await factory.ReaderIdAsync("Lectora");
+        await reader.PutAsJsonAsync("/account/email", new EmailSettingsRequest("lectora@example.org", true), JsonOptions);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            db.Readers.Single(item => item.Id == readerId).Language = "es";
+            await db.SaveChangesAsync();
+        }
+
+        var book = await CreateAsync(new CreateBookRequest("Libro Atrasado", "Alguien", BookStatus.Want, null));
+        await _client.PostAsJsonAsync($"/books/{book.Id}/lend", new LendRequest(readerId, DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-3)), JsonOptions);
+        await factory.Services.GetRequiredService<ReminderMailer>().SendDueAsync(CancellationToken.None);
+        var reminder = factory.Mail.Sent.Last(item => item.To == "lectora@example.org");
+        Assert.Equal("Tus préstamos en Shelf", reminder.Subject);
+        Assert.StartsWith("Hola, Lectora:", reminder.Body);
+        Assert.Contains("1 libro que tomaste prestado está atrasado.", reminder.Body);
+
+        // Asked for from an English browser, the reset still comes in Spanish; the work after it is in English again.
+        var visitor = factory.CreateClient(new() { AllowAutoRedirect = false });
+        visitor.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US");
+        await ShelfApiFactory.PostFormAsync(visitor, "/forgot", "/account/forgot", new() { ["who"] = "Lectora" });
+        var reset = factory.Mail.Sent.Last(item => item.To == "lectora@example.org");
+        Assert.Equal("Restablece tu contraseña de Shelf", reset.Subject);
+        Assert.Matches(@"/reset\?token=[A-Za-z0-9_-]+", reset.Body);
+        Assert.Contains("a link to choose a new password is on its way", await visitor.GetStringAsync("/forgot?sent=1"));
+    }
+
+    [Fact]
     public async Task The_running_version_is_shown_and_served()
     {
         var anonymous = factory.CreateClient();

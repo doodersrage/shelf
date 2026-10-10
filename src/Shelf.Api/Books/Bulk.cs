@@ -100,7 +100,7 @@ public static class Bulk
 
         if (request.Ids.Length > MaxBooks)
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Ids)] = [$"Change at most {MaxBooks} books at once."] });
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Ids)] = [Localization.Words.T("Change at most {0} books at once.", MaxBooks)] });
         }
 
         return TypedResults.Ok(await ApplyAsync(db, ebooks, audio, covers, request, cancellationToken));

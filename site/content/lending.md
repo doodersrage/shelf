@@ -9,7 +9,13 @@ One Shelf serves everyone you share it with. Each reader signs in to a shelf of 
 
 ## Readers
 
-Each person makes an account with a name and a password of at least eight characters; the first account is the admin. Each reader's settings are their own: text size, read-aloud voice, audiobook speed, region for dates, and the yearly goal. See [Accounts and security](security.md) for passkeys, two-step sign-in, and what an admin can do.
+Each person makes an account with a name and a password of at least eight characters; the first account is the admin. Each reader's settings are their own: language, region for dates, text size, read-aloud voice, audiobook speed, and the yearly goal. See [Accounts and security](security.md) for passkeys, two-step sign-in, and what an admin can do.
+
+## Languages
+
+Shelf's pages are in English, Spanish, French, and German. Each reader sees the language their browser asks for, unless they pick one under **Language and region** on **Account**. Emails, the reset link and the loan reminders, go out in the language the reader picked. Dates and numbers follow the region separately, so a reader can have the pages in English and the dates written the German way.
+
+The translations were made by machine and have not yet been read by native speakers. Corrections are welcome: each language is one file, `src/Shelf.Api/Localization/<language>.json`, keyed by the English sentence. A test fails when a sentence on a page is missing from a language, so a new sentence can't be left untranslated by accident.
 
 ## Lending to another reader
 

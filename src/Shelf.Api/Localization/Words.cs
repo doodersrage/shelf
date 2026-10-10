@@ -33,6 +33,19 @@ public static class Words
     public static string T(string format, params object?[] values) =>
         string.Format(CultureInfo.CurrentCulture, T(format), values);
 
+    // Writes in another language until disposed: an email in its reader's language, say, whatever the request's.
+    public static IDisposable Speaking(string? code)
+    {
+        var before = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(IsSupported(code) ? code! : English);
+        return new Restore(() => CultureInfo.CurrentUICulture = before);
+    }
+
+    private sealed class Restore(Action undo) : IDisposable
+    {
+        public void Dispose() => undo();
+    }
+
     // A sentence kept in English now (in the activity log, say) and translated with T when it is shown.
     public static string Say(string text) => text;
 

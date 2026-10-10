@@ -28,11 +28,11 @@ public static class Opds
         var feed = Feed("urn:shelf:opds", "Shelf", "/opds", Navigation);
         foreach (var (id, title, href, text) in new[]
         {
-            ("reading", "Reading", "/opds/books?status=Reading", "The e-books you are reading."),
-            ("want", "Want to read", "/opds/books?status=Want", "The e-books on your want list."),
-            ("finished", "Finished", "/opds/books?status=Finished", "The e-books you have finished."),
-            ("all", "All e-books", "/opds/books", "Every e-book on your shelf."),
-            ("borrowed", "Lent to you", "/opds/borrowed", "E-books other readers have lent you."),
+            ("reading", Localization.Words.T("Reading"), "/opds/books?status=Reading", Localization.Words.T("The e-books you are reading.")),
+            ("want", Localization.Words.T("Want to read"), "/opds/books?status=Want", Localization.Words.T("The e-books on your want list.")),
+            ("finished", Localization.Words.T("Finished"), "/opds/books?status=Finished", Localization.Words.T("The e-books you have finished.")),
+            ("all", Localization.Words.T("All e-books"), "/opds/books", Localization.Words.T("Every e-book on your shelf.")),
+            ("borrowed", Localization.Words.T("Lent to you"), "/opds/borrowed", Localization.Words.T("E-books other readers have lent you.")),
         })
         {
             feed.Add(new XElement(Atom + "entry",

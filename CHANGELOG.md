@@ -6,6 +6,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Added
 
+- Shelf speaks Spanish, French, and German as well as English. Each reader gets their browser's language or picks one on Account, separately from the region dates follow; emails go in the reader's language. The translations await review by native speakers.
 - Free books can be browsed: Gutenberg's most read books and its categories, LibriVox's newest recordings and its genres, a page at a time. About this book shows a book's summary or description, subjects, and more.
 - Bring books from Audiobookshelf: audio tracks in order, e-books, covers, series, narrators, genres, and where you stopped, from an API key or a user name and password.
 - Cover art: upload a picture of your own for any book, and an audiobook's embedded art becomes its cover when it has none. Kept covers travel in backups.

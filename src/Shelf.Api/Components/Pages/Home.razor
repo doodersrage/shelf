@@ -102,7 +102,7 @@
 
     @if (ReadNext.Count > 0 || Suggestion is not null)
     {
-        <h2 class="read-next">@(ReadNext.Count > 0 ? "Read next" : "From the want list")</h2>
+        <h2 class="read-next">@(ReadNext.Count > 0 ? T("Read next") : T("From the want list"))</h2>
         <ul class="shelf-strip">
             @foreach (var next in ReadNext.Count > 0 ? ReadNext : [Suggestion!])
             {
@@ -199,7 +199,7 @@
         </details>
         @if (books.Any(NeedsCatalog))
         {
-            <button type="button" class="quiet" @onclick="FillEmptyDetails" disabled="@filling">@(filling ? "Looking…" : "Fill empty details")</button>
+            <button type="button" class="quiet" @onclick="FillEmptyDetails" disabled="@filling">@(filling ? T("Looking…") : T("Fill empty details"))</button>
             @if (fillNote is not null)
             {
                 <span class="hint" role="status">@fillNote</span>
@@ -260,7 +260,7 @@
 else if (visible.Count > 0)
 {
     <p class="count">
-        @matching.Count @(matching.Count == 1 ? "book" : "books")@(matching.Count > visible.Count ? $", showing {visible.Count}" : "")
+        @Localization.Counts.Books(matching.Count)@(matching.Count > visible.Count ? T(", showing {0}", visible.Count) : "")
         @if (query.Trim().Length >= Search.MinLength)
         {
             <span> · <a href="@($"/search?q={Uri.EscapeDataString(query.Trim())}")">@T("Search inside your e-books for “{0}”", query.Trim())</a></span>
@@ -388,12 +388,12 @@ else if (visible.Count > 0)
                     </select>
                 </label>
                 <button type="button" class="@(book.Loved ? "loved" : null)" aria-pressed="@(book.Loved ? "true" : "false")" @onclick="() => ToggleLoved(book.Id)">
-                    @(book.Loved ? "Loved" : "Love")
+                    @(book.Loved ? T("Loved") : T("Love"))
                 </button>
                 @if (book.Status == BookStatus.Want)
                 {
                     <button type="button" class="@(book.Queued ? "queued" : null)" aria-pressed="@(book.Queued ? "true" : "false")" @onclick="() => ToggleQueued(book.Id)">
-                        @(book.Queued ? "Queued" : "Read next")
+                        @(book.Queued ? T("Queued") : T("Read next"))
                     </button>
                 }
                 @if (!string.IsNullOrWhiteSpace(book.EbookStoredName))
@@ -435,7 +435,7 @@ else if (visible.Count > 0)
                 }
                 @if (book.Acquisition is Acquisition arrived)
                 {
-                    <span>@(arrived == Acquisition.Gift ? "A gift" : arrived.ToString())</span>
+                    <span>@BookRules.AcquisitionLabel(arrived)</span>
                 }
                 @if (book.Condition is CopyCondition condition)
                 {
@@ -451,7 +451,7 @@ else if (visible.Count > 0)
                 }
                 @if (book.Quotes.Count > 0)
                 {
-                    <span>@book.Quotes.Count @(book.Quotes.Count == 1 ? "quote" : "quotes")</span>
+                    <span>@(book.Quotes.Count == 1 ? T("1 quote") : T("{0} quotes", book.Quotes.Count))</span>
                 }
             </p>
             @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
@@ -659,7 +659,7 @@ else if (visible.Count > 0)
 
     private string Heading => Enum.TryParse<BookStatus>(statusFilter, out var status) && !UrlFiltered && string.IsNullOrWhiteSpace(query) && ChecksOn == 0
         ? BookRules.StatusLabel(status)
-        : "Library";
+        : T("Library");
 
     private void Choose(int id, bool on)
     {

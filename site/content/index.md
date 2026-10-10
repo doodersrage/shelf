@@ -29,6 +29,7 @@ description: Shelf is a personal library you run yourself: your books, e-books, 
 <li><strong>Keep in step with devices</strong><span>KOReader downloads from Shelf's catalog and syncs its place back. Read offline on a phone.</span></li>
 <li><strong>Know your reading</strong><span>A yearly goal, a monthly chart, a calendar of reading days, a streak, and every quote in one place.</span></li>
 <li><strong>Yours, and private</strong><span>Your data stays on your server. Passkeys, two-step sign-in, an activity log, and nightly backups.</span></li>
+<li><strong>In four languages</strong><span>English, Spanish, French, and German, chosen by each reader, with dates written the way their region writes them.</span></li>
 </ul>
 
 <div class="gallery">
