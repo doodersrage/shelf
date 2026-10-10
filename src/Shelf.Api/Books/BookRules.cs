@@ -8,6 +8,8 @@ public static class BookRules
 {
     public const int MaxTags = 8;
     public const int MaxTagLength = 40;
+    public const int MaxHighlightLength = 1000;
+    public const int MaxHighlightNoteLength = 2000;
 
     public static Dictionary<string, string[]>? Validate(BookWrite write)
     {
@@ -101,7 +103,7 @@ public static class BookRules
         {
             errors[nameof(request.Text)] = [T("Select a passage to highlight.")];
         }
-        else if (request.Text.Trim().Length > 1000)
+        else if (request.Text.Trim().Length > MaxHighlightLength)
         {
             errors[nameof(request.Text)] = [T("Keep a highlight to 1000 characters.")];
         }
@@ -111,7 +113,7 @@ public static class BookRules
             errors[nameof(request.ChapterIndex)] = [T("That chapter is not in the book.")];
         }
 
-        if (!string.IsNullOrWhiteSpace(request.Note) && request.Note.Trim().Length > 2000)
+        if (!string.IsNullOrWhiteSpace(request.Note) && request.Note.Trim().Length > MaxHighlightNoteLength)
         {
             errors[nameof(request.Note)] = [T("Keep the note to 2000 characters.")];
         }
@@ -490,7 +492,7 @@ public static class BookRules
 
             foreach (var mark in source.Highlights ?? [])
             {
-                if (string.IsNullOrWhiteSpace(mark.Text) || mark.Text.Trim().Length > 1000 || mark.ChapterIndex < 0)
+                if (string.IsNullOrWhiteSpace(mark.Text) || mark.Text.Trim().Length > MaxHighlightLength || mark.ChapterIndex < 0)
                 {
                     continue;
                 }

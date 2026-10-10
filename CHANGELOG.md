@@ -13,6 +13,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - Bring books from a Calibre library on the server: each book's best file, cover, series, tags, publisher, rating, ISBN, language, year, and description, read straight from `metadata.db` without changing it. Books with no usable file come in as catalog entries.
 - Send to Kindle: with a mail server set up, a reader saves their Kindle's address on Account, and an EPUB or PDF of their own goes to it by email from the book's page.
 - Off-site backups: each night's backup can be copied to a second folder (`Backup:CopyTo`) and to S3-compatible storage such as Amazon S3, Backblaze B2, Wasabi, Cloudflare R2, or MinIO (`Backup:S3:*`), keeping as many as the backups folder. Readers shows how the last copy went.
+- Highlights from KOReader: upload the JSON file from KOReader's Export highlights on Devices, and each highlight lands in its chapter (or page) with its note. Books are matched by title or file name, and highlights already here are skipped.
 - Docker images for arm64 as well as amd64: a Raspberry Pi 4 or 5, most NAS boxes, and Apple silicon. CI starts the arm64 image too.
 
 ## [1.3.1] - 2026-10-10

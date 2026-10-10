@@ -46,6 +46,16 @@ A book matches when KOReader has the same file Shelf has, which it does when it 
 > [!NOTE]
 > KOReader sends its password as a hash. Shelf keeps only a hash of that, separate from your sign-in password, so the KOReader password can't sign in to Shelf itself.
 
+### Highlights from KOReader
+
+Progress sync carries your place, not your highlights. To bring highlights made in KOReader:
+
+1. In KOReader, open the menu, then **Tools**, **Export highlights**. Choose **JSON** as the format, then export the current book, or all books.
+2. Copy the `.json` file it writes to your computer or phone (KOReader can also share it).
+3. On **Devices**, under **Bring highlights from KOReader**, choose the file.
+
+Each book is matched by its title, or else by its file name, among the books on your shelf (or lent to you) that have an e-book. Each highlight goes to its chapter, or for a PDF its page, with its note and the time you made it. KOReader's position picks the chapter, and Shelf checks the words are there, so a highlight still lands right in a different edition. Highlights already on Shelf are not added twice, so exporting everything again later is fine.
+
 ## Trading with another shelf
 
 Two shelves, yours at home and one at a friend's, or yours on two servers, can trade e-books and audiobooks:

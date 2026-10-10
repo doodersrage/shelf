@@ -62,6 +62,17 @@ else if (hasKey)
         <button type="button" class="quiet" @onclick="StopKosync">@T("Stop syncing with KOReader")</button>
     }
 </p>
+
+<h3>@T("Bring highlights from KOReader")</h3>
+<p>@T("KOReader's sync carries your place, not your highlights. In KOReader, open the menu, then Tools, Export highlights, choose JSON as the format, and export the book or all books. Copy the file it makes to this device, and choose it here. Each highlight goes to its chapter, with its note.")</p>
+<label>
+    @T("The exported JSON file")
+    <InputFile OnChange="ImportHighlights" accept=".json,application/json,text/json" disabled="@importingHighlights" />
+</label>
+@if (highlightNote is not null)
+{
+    <p class="@(highlightProblem ? "validation-message" : "saved")" role="status">@highlightNote</p>
+}
 </section>
 
 <section class="panel">
@@ -99,6 +110,37 @@ else if (hasKey)
 </section>
 
 @code {
+    private bool importingHighlights;
+    private string? highlightNote;
+    private bool highlightProblem;
+
+    private async Task ImportHighlights(InputFileChangeEventArgs change)
+    {
+        importingHighlights = true;
+        highlightNote = null;
+        try
+        {
+            await using var stream = change.File.OpenReadStream(KoreaderHighlights.MaxBytes);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            buffer.Position = 0;
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var result = await KoreaderHighlights.ImportAsync(db, Ebooks, buffer, CancellationToken.None);
+            highlightProblem = false;
+            highlightNote = T("Added: {0}. Already here: {1}. Books matched: {2}.", result.Added, result.AlreadyHere, result.Books)
+                + (result.NotFound.Count > 0 ? " " + T("Not on your shelf with an e-book: {0}.", string.Join(", ", result.NotFound)) : "");
+        }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or IOException)
+        {
+            highlightProblem = true;
+            highlightNote = T("That is not a highlights file from KOReader. In KOReader, export highlights as JSON.");
+        }
+        finally
+        {
+            importingHighlights = false;
+        }
+    }
+
     private readonly AddressForm form = new();
     private bool saved;
 
