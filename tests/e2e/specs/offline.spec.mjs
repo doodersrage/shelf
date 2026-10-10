@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { createBook, ready, signUp, unique, upload } from "../helpers.mjs";
 
+test.skip(({ browserName }) => browserName !== "chromium", "Playwright runs service workers offline only in Chromium; offline reading is not checked in Firefox.");
+
 test("a kept book opens offline, and the place goes back when online", async ({ browser }) => {
   const page = await signUp(browser, unique("Traveller"));
   const book = await createBook(page, { title: unique("Moby-Dick"), author: "Herman Melville", status: "Reading" });

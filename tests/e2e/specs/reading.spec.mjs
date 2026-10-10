@@ -17,11 +17,12 @@ test("an EPUB takes text settings and keeps a highlight with a note", async ({ b
   const chapterFrame = () => page.frames().find((frame) => frame.url().includes("/ebook/chapters/0") && !frame.isDetached());
   await expect.poll(async () => {
     try {
-      return await chapterFrame()?.evaluate(() => getComputedStyle(document.documentElement).fontSize);
+      // A number, since Firefox rounds to 1/60 of a pixel (20.8125px) where Chromium says 20.8px.
+      return parseFloat(await chapterFrame()?.evaluate(() => getComputedStyle(document.documentElement).fontSize));
     } catch {
       return null;
     }
-  }).toBe("20.8px");
+  }).toBeCloseTo(20.8, 1);
 
   const frame = chapterFrame();
   await frame.evaluate(() => {

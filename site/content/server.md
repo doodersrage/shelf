@@ -91,6 +91,16 @@ Email lets readers reset a forgotten password themselves and get a daily reminde
 
 Plan for your files more than Shelf itself: e-books are a few megabytes each, audiobooks a few hundred, and the database stays small. Held uploads that nobody decided on are cleared after a day.
 
+## When buttons do nothing
+
+Most buttons on Shelf's pages work through a live connection to the server (a WebSocket, or a slower fallback when that is not allowed). If it cannot start, a banner at the bottom of the page says so. The usual causes:
+
+- **A browser extension** that blocks scripts or WebSockets, such as uBlock Origin in advanced mode, NoScript, or Privacy Badger. Allow your Shelf's address in it, then reload.
+- **A reverse proxy** that does not pass WebSockets on. In nginx, add `proxy_http_version 1.1;` and the `Upgrade` and `Connection` headers; Caddy and Traefik pass them on by themselves.
+- **A strict corporate or school network** that blocks WebSockets.
+
+Links and forms work without the connection. In the browser's developer tools, the page's `<html>` element carries `data-live`: `connected` when all is well, `failed` when the connection could not start.
+
 ## How big a library can be
 
 Shelf was tried with a library of 10,000 books, 2,000 of them with an e-book, on a desktop computer (a 12-core Ryzen 9, so a Raspberry Pi or a small NAS will be a few times slower):

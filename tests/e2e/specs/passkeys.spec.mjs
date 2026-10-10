@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { authenticatorCode, noProblems, ready, signUp, unique } from "../helpers.mjs";
 
+test.skip(({ browserName }) => browserName !== "chromium", "Passkeys are tested with Chromium's virtual authenticator.");
+
 // A virtual authenticator, as a phone or laptop would be: it keeps passkeys and confirms the reader.
 async function addAuthenticator(page) {
   const client = await page.context().newCDPSession(page);
@@ -49,6 +51,6 @@ test("a passkey signs in without the password or the authenticator code", async 
   await page.click('button:text-is("Sign in with a passkey")');
   await expect(page.locator("[data-passkey-status]")).toContainText("does not know that passkey");
   // That refusal is the one error the browser should have logged.
-  page.problems.splice(0, page.problems.length, ...page.problems.filter((problem) => !problem.includes("/account/passkey/signin")));
+  page.problems.splice(0, page.problems.length, ...page.problems.filter((problem) => !problem.text.includes("/account/passkey/signin")));
   noProblems(page);
 });

@@ -71,6 +71,12 @@ else
     </div>
 }
 
+@* Shown by live.js when a page's live connection cannot start, which Blazor itself does not show. *@
+<div id="live-unavailable" class="live-unavailable" role="alert" hidden data-nosnippet>
+    <p><strong>@T("This page's buttons cannot reach Shelf.")</strong> @T("The live connection they use did not start in this browser. A browser extension that blocks scripts or WebSockets (uBlock Origin, NoScript, Privacy Badger), or a strict privacy setting, is the usual cause: allow this site, then reload. Links and forms still work.")</p>
+    <a href="." class="reload">@T("Reload")</a>
+</div>
+
 <div id="blazor-error-ui" data-nosnippet>
     @T("The connection dropped.")
     <a href="." class="reload">@T("Reload")</a>

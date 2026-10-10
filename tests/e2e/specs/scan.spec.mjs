@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { fixture, noProblems, ready, signUp, unique } from "../helpers.mjs";
 
+test.skip(({ browserName }) => browserName !== "chromium", "The camera is Chromium's fake one, playing a picture of a barcode.");
+
 // Chromium plays this picture of a book's barcode as its camera.
 test.use({
   launchOptions: {

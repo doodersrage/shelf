@@ -51,7 +51,7 @@ jobs:
         working-directory: tests/e2e
         run: |
           npm ci --no-audit --no-fund
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium firefox
           npx playwright test
 
       - name: Keep the report when a test fails

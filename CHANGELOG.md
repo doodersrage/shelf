@@ -14,6 +14,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Fixed
 
+- A page whose live connection cannot start, because an extension or a privacy setting blocks it, now says so in a banner with the usual causes, instead of looking fine while its buttons do nothing. Shelf starts Blazor itself to watch for this, and marks the connection's state on the page as `data-live`.
 - A browser that refuses an audiobook's lock-screen details no longer leaves the player's buttons dead.
 - The library's Reading now and Read next show at most eight books, the latest started first, with a link to the rest. With hundreds marked as reading (after a Goodreads import, say), the page had grown to many times its size.
 - After a restore without the `keys` folder, a reader with two-step sign-in can get in with a recovery code, and turn two-step off with another, as the docs say. Before, the code was refused whenever the authenticator secret could not be unsealed.

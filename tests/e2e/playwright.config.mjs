@@ -20,9 +20,19 @@ export default defineConfig({
   use: {
     baseURL: base,
     trace: "retain-on-failure",
-    // CHROMIUM_PATH points at a browser already on the machine; otherwise Playwright's own is used.
-    launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
   },
+  // Chromium and Firefox both: a bug in one browser alone is a bug readers have.
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        browserName: "chromium",
+        // CHROMIUM_PATH points at a browser already on the machine; otherwise Playwright's own is used.
+        launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
+      },
+    },
+    { name: "firefox", use: { browserName: "firefox" } },
+  ],
   webServer: {
     command: "dotnet run --project ../../src/Shelf.Api --no-launch-profile",
     url: `http://127.0.0.1:${port}/alive`,

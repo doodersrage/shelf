@@ -16,12 +16,18 @@ export async function signUp(browser, name, options = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, ...options });
   const page = await context.newPage();
   page.problems = [];
+  // Each problem notes how many times the page had navigated when it came, so a live connection cut off by leaving
+  // the page (which Firefox reports and Chromium does not) can be told from one that failed on a page that stayed.
+  page.navigations = 0;
+  page.on("framenavigated", (frame) => {
+    if (frame === page.mainFrame()) page.navigations++;
+  });
   page.on("console", (message) => {
     if (message.type() === "error" && !/favicon/.test(message.location().url)) {
-      page.problems.push(`${message.text()} @ ${message.location().url}`);
+      page.problems.push({ text: `${message.text()} @ ${message.location().url}`, at: page.navigations });
     }
   });
-  page.on("pageerror", (error) => page.problems.push(error.message));
+  page.on("pageerror", (error) => page.problems.push({ text: error.message, at: page.navigations }));
   await page.goto("/signup");
   await page.fill("input[name=name]", name);
   await page.fill("input[name=password]", PASSWORD);
@@ -31,9 +37,12 @@ export async function signUp(browser, name, options = {}) {
 }
 
 // Interactive pages answer clicks once their live connection is up.
+// Waits until a page's live connection is up (live.js marks it on <html>), or a page with no interactive parts has
+// had its moment.
 export async function ready(page) {
   await page.waitForFunction(() => window.Blazor !== undefined);
-  await page.waitForTimeout(1200);
+  await page.waitForFunction(() => ["connected", "failed"].includes(document.documentElement.dataset.live), null, { timeout: 5_000 }).catch(() => {});
+  await page.waitForTimeout(250);
 }
 
 export async function createBook(page, book) {
@@ -66,6 +75,9 @@ export function authenticatorCode(secret) {
   return String(value % 1_000_000).padStart(6, "0");
 }
 
+const connecting = /NetworkError when attempting to fetch|Invocation canceled due to the underlying connection being closed|Circuit host not initialized|The operation was aborted|WebSocket is not in the OPEN state|connection was closed before the hub handshake|Failed to start the circuit|connection could not be found on the server|Failed to complete negotiation|Failed to start the (connection|transport)/;
+
 export function noProblems(page) {
-  expect(page.problems, page.problems.join("\n")).toEqual([]);
+  const left = page.problems.filter((problem) => !(connecting.test(problem.text) && problem.at < page.navigations)).map((problem) => problem.text);
+  expect(left, left.join("\n")).toEqual([]);
 }
