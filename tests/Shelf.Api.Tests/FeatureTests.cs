@@ -445,13 +445,14 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         var often = await WithTextAsync("Marmalade Everywhere", "Marmalade for breakfast. Marmalade for lunch. Marmalade, marmalade, marmalade.");
         var accented = await WithTextAsync("The Corner Café", "They met at the little café by the harbour.");
 
-        async Task<SearchHit[]> FindAsync(string query)
+        // Text is indexed in the background, so wait until as many books as expected have been read.
+        async Task<SearchHit[]> FindAsync(string query, int books = 1)
         {
             SearchHit[] hits = [];
             for (var attempt = 0; attempt < 60; attempt++)
             {
                 hits = await _client.GetFromJsonAsync<SearchHit[]>($"/books/search?q={Uri.EscapeDataString(query)}", JsonOptions) ?? [];
-                if (hits.Length > 0)
+                if (hits.Select(hit => hit.BookId).Distinct().Count() >= books)
                 {
                     break;
                 }
@@ -462,7 +463,7 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
             return hits;
         }
 
-        var marmalade = await FindAsync("marmalade");
+        var marmalade = await FindAsync("marmalade", books: 2);
         Assert.Equal([often.Id, once.Id], marmalade.Select(hit => hit.BookId).Distinct());
 
         var cafe = Assert.Single(await FindAsync("cafe by the"));
