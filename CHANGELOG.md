@@ -4,13 +4,15 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-10
+
 ### Added
 
 - Shelf is free software under the GNU AGPL-3.0. A Source code link sits beside the version at the foot of every page; `SourceUrl` points it at a changed copy's own source.
 
 ### Fixed
 
-- The Docker image could not make any page interactive: it left out `_framework/blazor.web.js`, so buttons such as Connect on the Audiobookshelf import, About this book, Add to shelf, and others handled on the page did nothing. Every image before this one is affected; running from source was not. The image's build now restores with the whole source in place, and CI and releases start the image and check that a page's scripts load before anything is published.
+- The Docker image could not make any page interactive: it left out `_framework/blazor.web.js`, so buttons such as Connect on the Audiobookshelf import, About this book, Add to shelf, and others handled on the page did nothing. Every image before this one is affected; running from source was not. The image's build now restores with the whole source in place, and CI and releases start the image and check that a page's scripts load before anything is published. After pulling the new image, reload Shelf once in the browser.
 - A new release's styles and translations reached a browser that had Shelf open before only once the offline helper itself changed. They now come from the shelf whenever it answers, with the copies on the device kept for offline reading.
 - Connecting to an Audiobookshelf address that never answers says it timed out, instead of that it did not answer as Audiobookshelf.
 - About this book on Free books could leave the whole page unresponsive when Project Gutenberg or LibriVox was slow: a timeout from the retry layer every outgoing request goes through was not caught, and it ended the page's connection. The same gap is closed for Open Library look-ups, shelf-to-shelf sync, free-book downloads, and the Audiobookshelf import.
@@ -124,7 +126,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/doodersrage/shelf/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/doodersrage/shelf/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/doodersrage/shelf/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/doodersrage/shelf/compare/v1.0.0...v1.1.0
