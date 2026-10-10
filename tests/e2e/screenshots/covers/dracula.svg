@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300" viewBox="0 0 200 300">
+<rect width="200" height="300" fill="#5b1414"/>
+<rect x="14" y="14" width="172" height="272" fill="none" stroke="#ead8c0" stroke-opacity="0.55" stroke-width="1.5"/>
+<rect x="22" y="22" width="156" height="256" fill="none" stroke="#ead8c0" stroke-opacity="0.3" stroke-width="1"/>
+<circle cx="100" cy="196" r="6" fill="#ead8c0" fill-opacity="0.7"/>
+<text x="100" y="136" text-anchor="middle" font-family="Georgia, serif" font-size="26" font-weight="700" fill="#ead8c0">Dracula</text>
+<text x="100" y="250" text-anchor="middle" font-family="Georgia, serif" font-size="13" letter-spacing="1.5" fill="#ead8c0" fill-opacity="0.9">BRAM STOKER</text>
+</svg>

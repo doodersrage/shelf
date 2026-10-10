@@ -1,10 +1,11 @@
 {
   "name": "shelf-e2e",
   "private": true,
-  "description": "Browser tests for Shelf: they start the app on a fresh data folder and drive it in Chromium.",
+  "description": "Browser tests for Shelf: they start the app on a fresh data folder and drive it in Chromium and Firefox. `npm run screenshots` remakes the pictures in docs/images.",
   "type": "module",
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test",
+    "screenshots": "node screenshots/shoot.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

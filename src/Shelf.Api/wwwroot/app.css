@@ -189,6 +189,11 @@ code {
     border-radius: 2px;
 }
 
+/* A page's heading takes the focus when the page opens, so a screen reader starts there; it is not a control. */
+h1:focus {
+    outline: none;
+}
+
 .visually-hidden {
     position: absolute !important;
     width: 1px;

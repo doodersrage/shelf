@@ -11,6 +11,11 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - Share a reading list: a saved search can be shared by link with anyone, signed in or not. The page shows the books' covers, authors, years, series, and your stars, never notes, reviews, or loans; Stop sharing ends the link.
 - Switch between the audiobook and the e-book at the same point: **Continue in the e-book** on the player, and **Continue in the audiobook** in the reader, for a book with both an EPUB and a recording. Chapters named alike are lined up; elsewhere it goes by how far through each you are.
 
+### Changed
+
+- The README is shorter, with fresh screenshots (the player and a shared list among them), a section on why Shelf rather than Calibre-Web or Audiobookshelf, and links into the documentation for the rest. `npm run screenshots` in `tests/e2e` remakes the pictures.
+- A page's heading no longer shows a focus ring when the page opens.
+
 ### Fixed
 
 - The service worker no longer answers for a chapter's frame inside the reader, so a frame cut short as the page changes is not taken for the shelf being offline.

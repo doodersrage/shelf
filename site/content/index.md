@@ -21,14 +21,15 @@ description: Shelf is a personal library you run yourself: your books, e-books, 
 ## What it does
 
 <ul class="features">
-<li><strong>A real catalog</strong><span>Series, translators, editions, where each copy sits, its condition, who recommended it, ratings, reviews, and tags. Fill it from an ISBN.</span></li>
+<li><strong>A real catalog</strong><span>Series, translators, editions, where each copy sits, its condition, who recommended it, ratings, reviews, and tags. Fill it from an ISBN, or scan the barcode. Saved searches, and reading lists shared by link.</span></li>
 <li><strong>Read in the browser</strong><span>EPUBs, PDFs, and comics, at your text size, back where you stopped, with highlights, notes, and read aloud. Scanned PDFs are read with OCR.</span></li>
-<li><strong>Listen to audiobooks</strong><span>One file or a folder of tracks, with chapters, bookmarks, a speed of your own, and a sleep timer.</span></li>
+<li><strong>Listen to audiobooks</strong><span>One file or a folder of tracks, with chapters, bookmarks, a speed of your own, a sleep timer, and lock-screen controls.</span></li>
+<li><strong>Switch formats</strong><span>Own the audiobook and the e-book? Carry on in one where you stopped in the other.</span></li>
 <li><strong>Lend to each other</strong><span>Every reader has a shelf of their own. Lend a book and the borrower reads or listens with their own place and notes.</span></li>
 <li><strong>Bring a library in</strong><span>Drop in a folder of files, import from Audiobookshelf, Goodreads, or StoryGraph, or add free public-domain books.</span></li>
 <li><strong>Keep in step with devices</strong><span>KOReader downloads from Shelf's catalog and syncs its place back. Read offline on a phone.</span></li>
-<li><strong>Know your reading</strong><span>A yearly goal, a monthly chart, a calendar of reading days, a streak, and every quote in one place.</span></li>
-<li><strong>Yours, and private</strong><span>Your data stays on your server. Passkeys, two-step sign-in, an activity log, and nightly backups.</span></li>
+<li><strong>Know your reading</strong><span>A yearly goal, a monthly chart, a calendar of reading days, a streak, every quote in one place, and a note when a series you read has a new book.</span></li>
+<li><strong>Yours, and private</strong><span>Your data stays on your server. Passkeys, two-step sign-in, single sign-on, an activity log, nightly backups, and API tokens for scripts and Home Assistant.</span></li>
 <li><strong>In four languages</strong><span>English, Spanish, French, and German, chosen by each reader, with dates written the way their region writes them.</span></li>
 </ul>
 
@@ -36,10 +37,16 @@ description: Shelf is a personal library you run yourself: your books, e-books, 
 <figure><img src="assets/images/covers.png" alt="Every book on the shelf as a grid of covers, with status labels" /><figcaption><strong>The whole shelf</strong> as covers or a compact list, with search, status, and sort.</figcaption></figure>
 <figure><img src="assets/images/book.png" alt="A book's page, led by its cover, status, and next step" /><figcaption><strong>A book's page</strong> leads with its cover and one next step.</figcaption></figure>
 <figure><img src="assets/images/reader.png" alt="The e-book reader with a highlighted passage and text settings" /><figcaption><strong>The reader</strong> keeps your place, your highlights, and your text settings.</figcaption></figure>
+<figure><img src="assets/images/listen.png" alt="The audiobook player with chapters, a bookmark, and a button to continue in the e-book" /><figcaption><strong>The player</strong> keeps chapters and bookmarks, and switches to the e-book at the same point.</figcaption></figure>
 <figure><img src="assets/images/stats.png" alt="Stats with the year's goal and books finished each month" /><figcaption><strong>Stats</strong> lead with the year's goal and a month-by-month chart.</figcaption></figure>
 <figure><img src="assets/images/loans.png" alt="Loans, with a book lent out and another reader asking to borrow" /><figcaption><strong>Loans</strong> between readers, and asks to borrow from an open shelf.</figcaption></figure>
+<figure><img src="assets/images/shared.png" alt="A reading list shared by link, as someone signed out sees it" /><figcaption><strong>A reading list</strong> shared by link, showing only the books.</figcaption></figure>
 <figure><img src="assets/images/dark.png" alt="The library in dark mode" /><figcaption><strong>Dark mode</strong> follows the system, and every page works on a phone.</figcaption></figure>
 </div>
+
+## Why Shelf
+
+[Calibre-Web](https://github.com/janeczku/calibre-web) is a fine front end to a Calibre library of e-books, and [Audiobookshelf](https://www.audiobookshelf.org) a fine audiobook and podcast server with phone apps. Each is built around one kind of book. Shelf is for a library of all of them at once: a paperback, its EPUB, and its audiobook are one book with one reading log, paper copies have places, conditions, and loans, and readers on the same server lend to each other. It brings in Calibre libraries and Audiobookshelf servers, so trying it costs nothing. What it lacks is phone apps: on a phone it is the website, with offline reading for kept e-books.
 
 ## Start in a minute
 

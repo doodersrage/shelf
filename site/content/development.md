@@ -88,4 +88,11 @@ npm run build        # into site/_site
 npm run serve        # build, then serve it at http://localhost:8000
 ```
 
+The screenshots in `docs/images`, used here and in the README, are made by a script that starts Shelf on an empty data folder, fills a demo shelf of public-domain books, and photographs the pages:
+
+```bash
+cd tests/e2e
+npm run screenshots
+```
+
 A workflow publishes it to GitHub Pages on every push to `main` that changes it.
