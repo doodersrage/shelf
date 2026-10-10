@@ -131,6 +131,10 @@ dotnet ef migrations add ExpandLibrary --project src/Shelf.Api
 
 The next run applies the new migration. `dotnet ef database update --project src/Shelf.Api` applies it without starting the site.
 
+## KOReader
+
+KOReader can download e-books from the OPDS catalog at `/opds` (any user name, the shelf's key from Devices as the password), and keep your place in step through its progress sync. On Devices, make a KOReader password; then in KOReader choose Tools, Progress sync, Custom sync server, and enter `https://<your shelf>/kosync`, your reader name, and that password. A book matches when KOReader has the same file Shelf has, which it does when it came from the catalog. A place read on the device moves Shelf's place forward, and a place read further in Shelf sends the device to the start of that chapter, or that page of a PDF.
+
 ## Reading offline
 
 On a book with an e-book, Keep for reading offline saves the file in that browser. When the shelf cannot be reached, any page opens the offline reader instead (`/offline.html`), which lists the kept books and reads them: EPUBs chapter by chapter, PDFs page by page, at your text size. The place you stop is kept on the device and sent back the next time the shelf answers, and the shelf keeps whichever place is further. Highlights and notes need the shelf. `GET /books/{id}/place` and `PUT /books/{id}/place {"ebookChapter": 3}` read and move a reader's place.

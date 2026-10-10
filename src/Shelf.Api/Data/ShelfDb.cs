@@ -33,6 +33,7 @@ public sealed class ShelfDb : DbContext
     public DbSet<AudioBookmark> AudioBookmarks => Set<AudioBookmark>();
     public DbSet<ReaderSession> ReaderSessions => Set<ReaderSession>();
     public DbSet<RecoveryCode> RecoveryCodes => Set<RecoveryCode>();
+    public DbSet<KosyncPlace> KosyncPlaces => Set<KosyncPlace>();
     public DbSet<ShelfSetting> Settings => Set<ShelfSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -145,6 +146,16 @@ public sealed class ShelfDb : DbContext
             session.Property(item => item.Id).HasMaxLength(32);
             session.Property(item => item.Device).HasMaxLength(200);
             session.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<KosyncPlace>(place =>
+        {
+            place.HasIndex(item => new { item.ReaderId, item.BookId }).IsUnique();
+            place.Property(item => item.Progress).HasMaxLength(500);
+            place.Property(item => item.Device).HasMaxLength(100);
+            place.Property(item => item.DeviceId).HasMaxLength(100);
+            place.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+            place.HasOne<Book>().WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<RecoveryCode>(code =>

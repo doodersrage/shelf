@@ -7,6 +7,9 @@ public sealed class Reader
     public required string NormalizedName { get; set; }
     public string PasswordHash { get; set; } = "";
     public string? KeyHash { get; set; }
+
+    // A hash of the MD5 KOReader sends for its own sync password.
+    public string? KosyncHash { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 
     // An admin can reset passwords and remove readers. The first reader is one.

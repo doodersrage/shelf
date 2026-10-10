@@ -8,11 +8,14 @@ public static class Covers
     public static string? For(int id, string? coverUrl, bool fileCover) =>
         !string.IsNullOrWhiteSpace(coverUrl) ? coverUrl : fileCover ? $"/books/{id}/cover" : null;
 
-    // Whether the e-book now on a book has a cover picture; called whenever a file is attached.
-    public static void Note(Book book, EbookStore store) =>
-        book.FileCover = EbookStore.IsEpub(book.EbookStoredName)
-            && store.OpenPath(book.EbookStoredName) is { } path
-            && EpubFile.Cover(path) is not null;
+    // What Shelf keeps about the e-book now on a book: whether it has a cover picture, and what KOReader calls it.
+    // Called whenever a file is attached or taken off.
+    public static void Note(Book book, EbookStore store)
+    {
+        var path = store.OpenPath(book.EbookStoredName);
+        book.FileCover = path is not null && EbookStore.IsEpub(book.EbookStoredName) && EpubFile.Cover(path) is not null;
+        book.KoreaderDigest = Kosync.Digest(path);
+    }
 
     // The picture itself, for the owner, a borrower, or anyone shown the book on an open shelf.
     public static async Task<IResult> File(int id, ShelfDb db, EbookStore store, HttpContext http, CancellationToken cancellationToken)
@@ -34,11 +37,11 @@ public static class Covers
         return Results.File(cover.Bytes, cover.ContentType);
     }
 
-    // Books from before covers were read from files: checked once, a few at a time, in the background.
+    // Books from before covers and KOReader names were read from files: checked once, in the background.
     public static async Task<int> BackfillAsync(ShelfDb db, EbookStore store, CancellationToken cancellationToken)
     {
         var books = await db.Books.IgnoreQueryFilters()
-            .Where(book => !book.FileCover && book.CoverUrl == null && book.EbookStoredName != null && book.EbookStoredName.EndsWith(".epub"))
+            .Where(book => book.EbookStoredName != null && book.KoreaderDigest == null)
             .ToListAsync(cancellationToken);
         var found = 0;
         foreach (var book in books)

@@ -33,6 +33,35 @@ else if (hasKey)
 <h2>E-reader apps</h2>
 <p>Reading apps that browse an OPDS catalog, such as KOReader, can download your e-books from this shelf. Add a catalog with this address, any user name, and this shelf's key as the password.</p>
 <p><code class="key">@CatalogAddress</code></p>
+
+<h3>Keep your place in step with KOReader</h3>
+<p>KOReader's progress sync sends the page you reach to Shelf and fetches the one you reached here. In KOReader, open a book, then Tools, Progress sync, Custom sync server, and enter:</p>
+<dl class="facts">
+    <dt>Server</dt>
+    <dd><code class="key">@KosyncAddress</code></dd>
+    <dt>Username</dt>
+    <dd><code class="key">@readerName</code></dd>
+    <dt>Password</dt>
+    <dd>
+        @if (newKosyncPassword is not null)
+        {
+            <code class="key">@newKosyncPassword</code>
+            <span class="hint">Copy it now. It is not shown again.</span>
+        }
+        else
+        {
+            <span class="hint">@(hasKosync ? "A KOReader password is in use." : "Make one below.")</span>
+        }
+    </dd>
+</dl>
+<p class="hint">Then choose Login. A book matches when KOReader has the same file Shelf has, downloaded from the catalog above, say. The furthest place is the one Shelf keeps.</p>
+<p>
+    <button type="button" @onclick="MakeKosyncPassword">@(hasKosync ? "Make a new KOReader password" : "Make a KOReader password")</button>
+    @if (hasKosync)
+    {
+        <button type="button" class="quiet" @onclick="StopKosync">Stop syncing with KOReader</button>
+    }
+</p>
 </section>
 
 <section class="panel">
@@ -74,6 +103,10 @@ else if (hasKey)
     private bool saved;
 
     private string CatalogAddress => Navigation.ToAbsoluteUri("/opds").ToString();
+    private string KosyncAddress => Navigation.ToAbsoluteUri("/kosync").ToString();
+    private string? readerName;
+    private bool hasKosync;
+    private string? newKosyncPassword;
     private bool busy;
     private bool hasKey;
     private string? newKey;
@@ -85,6 +118,29 @@ else if (hasKey)
         form.Address = await BookRules.GetSyncAddressAsync(db) ?? "";
         form.Key = await BookRules.GetSyncKeyAsync(db) ?? "";
         hasKey = await ReaderRules.HasKeyAsync(db, db.ReaderId);
+        var reader = await db.Readers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == db.ReaderId);
+        readerName = reader?.Name;
+        hasKosync = reader?.KosyncHash is not null;
+    }
+
+    private async Task MakeKosyncPassword()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var reader = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
+        newKosyncPassword = Kosync.NewPassword();
+        reader.KosyncHash = Kosync.HashOf(newKosyncPassword);
+        await db.SaveChangesAsync();
+        hasKosync = true;
+    }
+
+    private async Task StopKosync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var reader = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
+        reader.KosyncHash = null;
+        await db.SaveChangesAsync();
+        hasKosync = false;
+        newKosyncPassword = null;
     }
 
     private async Task MakeKey()

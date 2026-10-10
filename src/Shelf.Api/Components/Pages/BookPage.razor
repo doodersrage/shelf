@@ -890,6 +890,7 @@ else if (book is not null)
         Ebooks.Delete(existing.EbookStoredName);
         existing.EbookStoredName = null;
         existing.FileCover = false;
+        existing.KoreaderDigest = null;
         existing.EbookFileName = null;
         existing.EbookChapter = null;
         await db.SaveChangesAsync();

@@ -66,6 +66,9 @@ public sealed class Book
     // The e-book file carries a cover picture of its own, served at /books/{id}/cover.
     public bool FileCover { get; set; }
 
+    // How KOReader names this e-book when it syncs a place: an MD5 of samples through the file.
+    public string? KoreaderDigest { get; set; }
+
     // The cover to show: the address given for it, or else the e-book's own.
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public string? CoverShown => Covers.For(Id, CoverUrl, FileCover);

@@ -202,6 +202,7 @@ app.MapRazorComponents<App>()
 app.MapAccounts();
 app.MapAdmin();
 app.MapOpds();
+Kosync.Map(app);
 app.MapGet("/version", () => TypedResults.Ok(ShelfVersion.Response)).WithTags("Shelf").AllowAnonymous();
 app.MapBooks();
 await app.RunAsync();

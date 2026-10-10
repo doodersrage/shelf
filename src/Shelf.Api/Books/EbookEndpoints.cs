@@ -82,6 +82,7 @@ public static class EbookEndpoints
         book.EbookFileName = null;
         book.EbookChapter = null;
         book.FileCover = false;
+        book.KoreaderDigest = null;
         await db.SaveChangesAsync(cancellationToken);
         return TypedResults.NoContent();
     }

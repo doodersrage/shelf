@@ -764,6 +764,36 @@ code.key {
     font-weight: 500;
 }
 
+/* Short labelled facts, such as the settings to type into another app. */
+.facts {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: var(--space-2) var(--space-4);
+    margin: 0 0 var(--space-4);
+    align-items: baseline;
+}
+
+.facts dt {
+    font-weight: 500;
+}
+
+.facts dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 30rem) {
+    .facts {
+        grid-template-columns: 1fr;
+        gap: var(--space-1);
+    }
+
+    .facts dd {
+        margin-bottom: var(--space-2);
+    }
+}
+
 /* Copies on other readers' open shelves, each with its own ask. */
 .open-copies {
     list-style: none;

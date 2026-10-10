@@ -7,6 +7,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 ### Added
 
 - Uploading an e-book or audiobook that is already on another of your books asks first: keep both, or don't add it. `keepBoth=true` on the upload skips the question.
+- KOReader progress sync: Shelf answers KOReader's sync plugin at `/kosync`, so a place reached on an e-reader comes back, and the other way round. Devices makes the KOReader password.
 - Add books from files, as many at once as you like: each EPUB, PDF, zip of tracks, or album of audio files becomes a book named from what the file says, and a matching book already on the shelf takes the file instead.
 - An EPUB's own cover is shown for a book with no cover address.
 - Adding a book that another reader has on an open shelf offers to ask to borrow it instead, and a book's Files panel does the same when an open copy has a file yours lacks.
