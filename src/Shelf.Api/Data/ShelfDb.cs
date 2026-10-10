@@ -115,6 +115,7 @@ public sealed class ShelfDb : DbContext
             reader.Property(r => r.Stamp).HasMaxLength(64).IsRequired();
             reader.Property(r => r.Email).HasMaxLength(EmailRules.MaxAddressLength);
             reader.Property(r => r.TwoFactorSecret).HasMaxLength(500);
+            reader.Property(r => r.Culture).HasMaxLength(16);
             reader.HasIndex(r => r.KeyHash).IsUnique();
         });
 

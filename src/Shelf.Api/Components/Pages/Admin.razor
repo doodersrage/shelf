@@ -28,7 +28,7 @@ else
         {
             <li>
                 <strong>@reader.Name</strong>
-                <span class="hint"> · @reader.Books @(reader.Books == 1 ? "book" : "books") · since @reader.CreatedAt.ToString("MMM d, yyyy")@(reader.IsAdmin ? " · admin" : "")@(reader.Id == me ? " · you" : "")</span>
+                <span class="hint"> · @reader.Books @(reader.Books == 1 ? "book" : "books") · since @reader.CreatedAt.Medium()@(reader.IsAdmin ? " · admin" : "")@(reader.Id == me ? " · you" : "")</span>
                 @if (passwords.TryGetValue(reader.Id, out var password))
                 {
                     <p>New password: <code class="key">@password</code></p>
@@ -85,7 +85,7 @@ else
             @foreach (var backup in backups)
             {
                 <li>
-                    <a href="/admin/backups/@backup.Name">@backup.TakenAt.ToString("MMM d, yyyy HH:mm") UTC</a>
+                    <a href="/admin/backups/@backup.Name">@backup.TakenAt.Stamp() UTC</a>
                     <span class="hint">@Size(backup.Bytes)</span>
                 </li>
             }

@@ -183,6 +183,7 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
+app.UseRequestLocalization(Regions.Configure);
 app.UseRateLimiter();
 app.UseAuthorization();
 app.UseAntiforgery();

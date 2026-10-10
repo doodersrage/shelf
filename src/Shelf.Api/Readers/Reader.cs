@@ -26,6 +26,9 @@ public sealed class Reader
     // Two-step sign-in: the authenticator secret, sealed with the shelf's own keys.
     public bool TwoFactorEnabled { get; set; }
     public string? TwoFactorSecret { get; set; }
+
+    // How dates and numbers are written for this reader, such as en-GB; null follows the browser.
+    public string? Culture { get; set; }
 }
 
 public sealed record TwoFactorStart(string Secret, string Uri);

@@ -22,7 +22,7 @@ else
                     <a href="/library/@book.Id">@book.Title</a>
                     @if (book.FinishedOn is DateOnly finished)
                     {
-                        <span class="hint">@finished.ToString("MMM d")</span>
+                        <span class="hint">@finished.MonthDay()</span>
                     }
                 </li>
             }

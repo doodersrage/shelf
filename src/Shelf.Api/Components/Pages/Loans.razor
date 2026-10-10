@@ -43,7 +43,7 @@ else
             <li>
                 <strong>@ask.Title</strong>
                 <span class="hint"> · @ask.Author</span>
-                <p class="hint">@ask.Reader asked on @ask.AskedAt.ToString("MMM d, yyyy")@(ask.OnLoan ? ". It is on loan now." : "")</p>
+                <p class="hint">@ask.Reader asked on @ask.AskedAt.Medium()@(ask.OnLoan ? ". It is on loan now." : "")</p>
                 @if (!ask.OnLoan)
                 {
                     <label class="inline-date">
@@ -79,11 +79,11 @@ else
                     From @book.Owner
                     @if (book.LoanedOn is DateOnly since)
                     {
-                        <span> since @since.ToString("MMM d, yyyy")</span>
+                        <span> since @since.Medium()</span>
                     }
                     @if (book.DueOn is DateOnly due)
                     {
-                        <span class="@(due < Today ? "late" : null)"> · due @due.ToString("MMM d, yyyy")@(due < Today ? ", overdue" : "")</span>
+                        <span class="@(due < Today ? "late" : null)"> · due @due.Medium()@(due < Today ? ", overdue" : "")</span>
                     }
                 </p>
                 @if (book.HasEbook)
@@ -108,7 +108,7 @@ else
         {
             <li>
                 <strong>@ask.Title</strong>
-                <span class="hint"> · from @ask.Reader, asked @ask.AskedAt.ToString("MMM d, yyyy")</span>
+                <span class="hint"> · from @ask.Reader, asked @ask.AskedAt.Medium()</span>
                 <button type="button" @onclick="() => DropAsk(ask.Id)">Take it back</button>
             </li>
         }

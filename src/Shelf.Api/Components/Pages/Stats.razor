@@ -82,7 +82,7 @@ else
     </div>
 
     <section class="panel" aria-labelledby="month-heading">
-        <h2 id="month-heading">@shown.ToString("MMMM yyyy")</h2>
+        <h2 id="month-heading">@shown.MonthYear()</h2>
         <p>
             <button type="button" class="quiet" @onclick="Earlier">Earlier</button>
             @if (shown < ThisMonth)
@@ -104,7 +104,7 @@ else
                 var current = day;
                 if (Marked.Contains(current))
                 {
-                    <button type="button" class="@DayClass(current)" aria-pressed="@(chosen == new DateOnly(shown.Year, shown.Month, current) ? "true" : "false")" aria-label="@($"{new DateOnly(shown.Year, shown.Month, current):MMMM d}, read")" @onclick="() => ChooseDay(current)">@current</button>
+                    <button type="button" class="@DayClass(current)" aria-pressed="@(chosen == new DateOnly(shown.Year, shown.Month, current) ? "true" : "false")" aria-label="@($"{new DateOnly(shown.Year, shown.Month, current).FullMonthDay()}, read")" @onclick="() => ChooseDay(current)">@current</button>
                 }
                 else
                 {
@@ -122,7 +122,7 @@ else
         }
         @if (chosen is DateOnly selected)
         {
-            <h3>@selected.ToString("MMMM d")</h3>
+            <h3>@selected.FullMonthDay()</h3>
             <ul class="tag-counts">
                 @foreach (var reading in BookRules.ReadingsOn(shelf, selected))
                 {
@@ -150,7 +150,7 @@ else
             {
                 <li>
                     <a href="/library/@book.Id">@book.Title</a>
-                    <span class="hint">@book.FinishedOn.ToString("MMM d")</span>
+                    <span class="hint">@book.FinishedOn.MonthDay()</span>
                 </li>
             }
         </ul>
@@ -174,7 +174,7 @@ else
                             <span class="hint"> · to @end</span>
                         }
                     </span>
-                    <span class="hint">@session.Date.ToString("MMM d")</span>
+                    <span class="hint">@session.Date.MonthDay()</span>
                 </li>
             }
         </ul>
@@ -200,7 +200,15 @@ else
 }
 
 @code {
-    private static readonly string[] Weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    // Monday first, in the reader's own day names.
+    private static string[] Weekdays
+    {
+        get
+        {
+            var names = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedDayNames;
+            return [.. names.Skip(1), names[0]];
+        }
+    }
 
     private ShelfStatsResponse? stats;
     private List<Book> shelf = [];

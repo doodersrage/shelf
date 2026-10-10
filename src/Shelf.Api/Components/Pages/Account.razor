@@ -56,6 +56,21 @@ else if (emailNote is not null)
 </section>
 
 <section class="panel">
+<h2>Dates and numbers</h2>
+<label>
+    Write dates and numbers the way they are written in
+    <select @bind="culture" @bind:after="SaveCulture">
+        <option value="">My browser's language</option>
+        @foreach (var (name, label) in Regions.Choices)
+        {
+            <option value="@name">@label</option>
+        }
+    </select>
+</label>
+<p class="hint">Today is @DateOnly.FromDateTime(DateTime.UtcNow).Medium() here. The words on the pages stay in English.</p>
+</section>
+
+<section class="panel">
 <h2>Change the password</h2>
 <EditForm Model="form" OnValidSubmit="ChangePassword">
     <label>
@@ -132,7 +147,7 @@ else
         <li>
             <span>
                 <strong>@(session.Device ?? "A browser")</strong>@(session.Current ? " · this one" : "")
-                <span class="hint"> · signed in @session.CreatedAt.ToString("MMM d, yyyy") · last used @session.LastSeenAt.ToString("MMM d, HH:mm") UTC</span>
+                <span class="hint"> · signed in @session.CreatedAt.Medium() · last used @session.LastSeenAt.ShortStamp() UTC</span>
             </span>
             @if (!session.Current)
             {
@@ -182,6 +197,7 @@ else
     private bool confirmingRemove;
     private string removePassword = "";
     private AccountProblem? removeProblem;
+    private string culture = "";
     private bool twoFactorOn;
     private string? setupSecret;
     private string? setupUri;
@@ -206,6 +222,7 @@ else
         emailAddress = me.Email ?? "";
         emailReminders = me.EmailReminders;
         twoFactorOn = me.TwoFactorEnabled;
+        culture = me.Culture ?? "";
         currentSession = (await Authentication.GetAuthenticationStateAsync()).User.FindFirst(TwoFactor.SessionClaim)?.Value;
         sessions = await TwoFactor.SessionsAsync(db, db.ReaderId, currentSession);
     }
@@ -215,6 +232,16 @@ else
         shelfOpen = change.Value is true;
         await using var db = await DbFactory.CreateDbContextAsync();
         await Asking.SetShelfOpenAsync(db, shelfOpen);
+    }
+
+    // A live page keeps the culture it opened with, so the page reloads to show the new one.
+    private async Task SaveCulture()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var me = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
+        me.Culture = Regions.Clean(culture);
+        await db.SaveChangesAsync();
+        Navigation.NavigateTo("/account", forceLoad: true);
     }
 
     private async Task StartTwoFactor()

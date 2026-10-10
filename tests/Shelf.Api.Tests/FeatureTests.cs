@@ -559,6 +559,67 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal("/", back.Headers.Location?.OriginalString);
     }
 
+    [Fact]
+    public void Dates_follow_the_readers_region()
+    {
+        var date = new DateOnly(2024, 3, 14);
+        string In(string culture, Func<string> write)
+        {
+            var before = System.Globalization.CultureInfo.CurrentCulture;
+            System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo(culture);
+            try
+            {
+                return write();
+            }
+            finally
+            {
+                System.Globalization.CultureInfo.CurrentCulture = before;
+            }
+        }
+
+        Assert.Equal("Mar 14, 2024", In("en-US", () => date.Medium()));
+        Assert.Equal("14 Mar 2024", In("en-GB", () => date.Medium()));
+        Assert.Equal("14. März 2024", In("de-DE", () => date.Medium()));
+        Assert.Equal("2024 3月 14", In("ja-JP", () => date.Medium()));
+        Assert.Equal("March 2024", In("en-US", () => date.MonthYear()));
+        Assert.Equal("14 Mar", In("en-GB", () => date.MonthDay()));
+    }
+
+    [Fact]
+    public async Task A_page_writes_dates_for_the_browser_or_the_readers_choice()
+    {
+        var reader = await factory.SignUpAsync("Regional Reader");
+        await reader.PostAsJsonAsync("/books", new CreateBookRequest("Dated Book", "Someone", BookStatus.Finished, null, StartedOn: new DateOnly(2024, 3, 1), FinishedOn: new DateOnly(2024, 3, 14)), JsonOptions);
+
+        async Task<string> ListAsync(string? language)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/?view=list");
+            if (language is not null)
+            {
+                request.Headers.AcceptLanguage.ParseAdd(language);
+            }
+
+            // The page encodes letters such as ä as character references; read it as a browser would.
+            return WebUtility.HtmlDecode(await (await reader.SendAsync(request)).Content.ReadAsStringAsync());
+        }
+
+        Assert.Contains("Finished Mar 14, 2024", await ListAsync(null));
+        Assert.Contains("Finished 14. März 2024", await ListAsync("de-DE"));
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            var id = await factory.ReaderIdAsync("Regional Reader");
+            var me = db.Readers.Single(item => item.Id == id);
+            me.Culture = "en-GB";
+            await db.SaveChangesAsync();
+        }
+
+        // The reader's own choice wins over the browser's.
+        Assert.Contains("Finished 14 Mar 2024", await ListAsync("de-DE"));
+        Assert.Contains("Dates and numbers", await reader.GetStringAsync("/account"));
+    }
+
     private async Task<HttpResponseMessage> PostCsvAsync(string csv, string name)
     {
         using var content = new MultipartFormDataContent { { new StringContent(csv), "file", name } };

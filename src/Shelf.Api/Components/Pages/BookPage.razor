@@ -97,7 +97,7 @@ else if (book is not null)
                     case BookStatus.Finished:
                         @if (book.FinishedOn is DateOnly finishedOn)
                         {
-                            <span class="hint">Finished @finishedOn.ToString("MMMM d, yyyy")</span>
+                            <span class="hint">Finished @finishedOn.Long()</span>
                         }
                         break;
                     case BookStatus.Abandoned:
@@ -172,7 +172,7 @@ else if (book is not null)
             {
                 <li>
                     <span>
-                        @session.Date.ToString("MMM d, yyyy")
+                        @session.Date.Medium()
                         @if (session.FromPage is int from && session.ToPage is int to)
                         {
                             <span> · @from–@to</span>
@@ -239,11 +239,11 @@ else if (book is not null)
                 Loaned to <a href="@($"/?loanedTo={Uri.EscapeDataString(book.LoanedTo)}")">@book.LoanedTo</a>@(book.BorrowerId is null ? "" : ", a reader here")
                 @if (book.LoanedOn is DateOnly loanedOn)
                 {
-                    <span> since @loanedOn.ToString("MMM d, yyyy")</span>
+                    <span> since @loanedOn.Medium()</span>
                 }
                 @if (book.DueOn is DateOnly due)
                 {
-                    <span class="@(due < Today ? "late" : null)"> · due @due.ToString("MMM d, yyyy")@(due < Today ? ", overdue" : "")</span>
+                    <span class="@(due < Today ? "late" : null)"> · due @due.Medium()@(due < Today ? ", overdue" : "")</span>
                 }
             </p>
             <button type="button" @onclick="ReturnLoan">Mark returned</button>
@@ -292,7 +292,7 @@ else if (book is not null)
                 }
                 @if (book.AcquiredOn is DateOnly acquired)
                 {
-                    <span>@(book.Acquisition is null && string.IsNullOrWhiteSpace(book.Location) ? "" : " · ")Acquired @acquired.ToString("MMM d, yyyy")</span>
+                    <span>@(book.Acquisition is null && string.IsNullOrWhiteSpace(book.Location) ? "" : " · ")Acquired @acquired.Medium()</span>
                 }
                 @if (book.Condition is CopyCondition condition)
                 {

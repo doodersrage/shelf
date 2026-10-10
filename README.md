@@ -129,6 +129,10 @@ dotnet ef migrations add ExpandLibrary --project src/Shelf.Api
 
 The next run applies the new migration. `dotnet ef database update --project src/Shelf.Api` applies it without starting the site.
 
+## Dates and numbers
+
+Dates follow each reader's region: "Mar 14, 2024" in the US, "14 Mar 2024" in Britain, "14. März 2024" in Germany. The region comes from the browser's languages unless the reader picks one on their account. The words on the pages are in English.
+
 ## Health and nightly backups
 
 `/health` answers `Healthy` when the app and its database are up, and `/alive` when the app is; both answer without signing in, with a single word and nothing else. The Docker image checks `/alive` on its own.
