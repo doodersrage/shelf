@@ -1,0 +1,13 @@
+{
+  "name": "shelf-vendor",
+  "private": true,
+  "description": "Front-end files Shelf serves from wwwroot. Bump a version here, then run npm ci && npm run vendor to copy the new files in.",
+  "scripts": {
+    "vendor": "node copy.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "5.1.1",
+    "@fontsource-variable/lora": "5.1.1",
+    "pdfjs-dist": "4.8.69"
+  }
+}

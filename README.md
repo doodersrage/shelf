@@ -166,7 +166,7 @@ To release, bump `VersionPrefix`, add a section for that version to the changelo
 git tag v1.1.0 && git push origin v1.1.0
 ```
 
-The release workflow checks the tag against `Directory.Build.props`, runs the tests, publishes `ghcr.io/doodersrage/shelf:1.1.0` and `:latest`, and creates a GitHub release from the changelog entry. CI runs the tests and builds the image on every push to `main` and every pull request.
+The release workflow checks the tag against `Directory.Build.props`, runs the tests, publishes `ghcr.io/doodersrage/shelf:1.1.0` and `:latest`, and creates a GitHub release from the changelog entry. CI runs the tests and builds the image on every push to `main` and every pull request. Dependabot keeps the dependencies current; [docs/maintenance.md](docs/maintenance.md) covers updating PDF.js and the fonts, which are copied into `wwwroot`.
 
 ## Tests
 

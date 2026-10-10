@@ -488,3 +488,4 @@ $RECYCLE.BIN/
 src/Shelf.Api/ebooks/
 src/Shelf.Api/audio/
 src/Shelf.Api/keys/
+src/Shelf.Api/vendor/node_modules/

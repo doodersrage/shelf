@@ -1,0 +1,26 @@
+# Weekly pull requests for out-of-date dependencies. CI runs on each one.
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dotnet:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+
+  # PDF.js and the fonts are copied into wwwroot; a bump here needs `npm run vendor` (CI says so if it is missing).
+  - package-ecosystem: npm
+    directory: /src/Shelf.Api/vendor
+    schedule:
+      interval: weekly

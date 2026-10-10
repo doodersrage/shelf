@@ -26,6 +26,24 @@ jobs:
       - run: dotnet build --no-restore --configuration Release
       - run: dotnet test --no-build --configuration Release --logger "console;verbosity=normal"
 
+  vendored:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check wwwroot holds the pinned PDF.js and fonts
+        working-directory: src/Shelf.Api/vendor
+        run: |
+          npm ci --no-audit --no-fund
+          npm run vendor
+          if ! git diff --quiet -- ../wwwroot; then
+            git diff --stat -- ../wwwroot
+            echo "::error::wwwroot does not match src/Shelf.Api/vendor/package.json. Run 'npm ci && npm run vendor' in src/Shelf.Api/vendor and commit the result."
+            exit 1
+          fi
+
   docker:
     runs-on: ubuntu-latest
     steps:
