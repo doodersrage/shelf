@@ -1887,6 +1887,15 @@ blockquote mark {
     overflow-wrap: break-word;
 }
 
+.offline-page .pdf-page {
+    position: relative;
+    margin: 0 auto;
+}
+
+.offline-marking {
+    margin: var(--space-4) 0;
+}
+
 .offline-page img,
 .offline-page canvas {
     max-width: 100%;

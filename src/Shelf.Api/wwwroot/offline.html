@@ -45,6 +45,20 @@
                     </label>
                 </div>
                 <article class="offline-page" id="page" tabindex="0"></article>
+                <div class="reader offline-marking" id="marking" hidden>
+                    <blockquote class="passage" id="marking-text"></blockquote>
+                    <label>
+                        Note, if you like
+                        <textarea id="marking-note" maxlength="2000" rows="3"></textarea>
+                    </label>
+                    <button type="button" class="primary" id="marking-save">Highlight</button>
+                    <button type="button" class="quiet" id="marking-cancel">Cancel</button>
+                </div>
+                <section id="marks-here" hidden>
+                    <h2 id="marks-heading">In this chapter</h2>
+                    <ul class="quotes" id="marks"></ul>
+                </section>
+                <p class="hint" id="marks-waiting" hidden>Highlights made here are kept on this device and sent to the shelf when you are online again.</p>
             </section>
         </main>
     </div>

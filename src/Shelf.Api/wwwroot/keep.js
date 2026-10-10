@@ -1,4 +1,6 @@
-// Keeps a book's e-book on this device for reading offline, and remembers which books are kept.
+// Keeps a book's e-book on this device for reading offline, with its highlights, and remembers which books are kept.
+import * as marks from "./offline-marks.js";
+
 const BOOKS = "shelf-books";
 const LIST = "shelf-kept";
 
@@ -34,6 +36,7 @@ export async function keep(id, title, author, type) {
 
   const cache = await caches.open(BOOKS);
   await cache.put(`/books/${id}/ebook/file`, response);
+  await marks.download(id);
   save([...list().filter((book) => book.id !== id), { id, title, author, type, keptAt: new Date().toISOString() }]);
   return true;
 }
@@ -42,6 +45,7 @@ export async function forget(id) {
   const cache = await caches.open(BOOKS);
   await cache.delete(`/books/${id}/ebook/file`);
   save(list().filter((book) => book.id !== id));
+  marks.forget(id);
   try {
     localStorage.removeItem(`shelf-place-${id}`);
   } catch {

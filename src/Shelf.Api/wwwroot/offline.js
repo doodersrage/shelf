@@ -1,5 +1,6 @@
 // The offline reader: the books kept on this device, read from the cache, with the place sent back later.
 import * as pdfjs from "/lib/pdfjs/pdf.min.mjs";
+import * as marks from "/offline-marks.js";
 
 pdfjs.GlobalWorkerOptions.workerSrc = "/lib/pdfjs/pdf.worker.min.mjs";
 
@@ -9,6 +10,7 @@ let book = null;
 let index = 0;
 let count = 0;
 let show = null;
+let picked = null;
 
 function kept() {
   try {
@@ -30,6 +32,21 @@ function remember(id, at) {
   try {
     localStorage.setItem(`shelf-place-${id}`, JSON.stringify({ at, waiting: true }));
   } catch {
+  }
+}
+
+// Highlights made or removed here go to the shelf, and its own come back down; then the open page is redrawn.
+async function sendMarks() {
+  for (const item of kept()) {
+    try {
+      await marks.send(item.id);
+    } catch {
+      return;
+    }
+  }
+
+  if (book) {
+    showMarks();
   }
 }
 
@@ -112,6 +129,8 @@ async function turn(step) {
   $("next").disabled = index >= count - 1;
   $("where").textContent = `${book.type === "pdf" ? "Page" : "Chapter"} ${index + 1} of ${count}`;
   await show(index);
+  hideMarking();
+  showMarks();
   remember(book.id, index);
   $("page").scrollTop = 0;
   window.scrollTo(0, 0);
@@ -123,15 +142,28 @@ async function pdfReader(data) {
   return async (at) => {
     const page = await doc.getPage(at + 1);
     const natural = page.getViewport({ scale: 1 });
-    const width = Math.max(240, $("page").clientWidth - 16);
+    // The width inside the page's padding, so the text layer lies exactly over the drawing.
+    const style = getComputedStyle($("page"));
+    const width = Math.max(240, $("page").clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
     const viewport = page.getViewport({ scale: (width / natural.width) * (Number($("size").value) / 100) });
+    const sheet = document.createElement("div");
+    sheet.className = "pdf-page";
+    sheet.style.width = `${Math.floor(viewport.width)}px`;
+    sheet.style.height = `${Math.floor(viewport.height)}px`;
+    sheet.style.setProperty("--scale-factor", String(viewport.scale));
     const canvas = document.createElement("canvas");
     const ratio = window.devicePixelRatio || 1;
     canvas.width = Math.floor(viewport.width * ratio);
     canvas.height = Math.floor(viewport.height * ratio);
-    canvas.style.width = `${Math.floor(viewport.width)}px`;
+    canvas.style.width = sheet.style.width;
+    canvas.style.height = sheet.style.height;
+    canvas.setAttribute("aria-hidden", "true");
+    const text = document.createElement("div");
+    text.className = "textLayer";
+    sheet.append(canvas, text);
+    $("page").replaceChildren(sheet);
     await page.render({ canvasContext: canvas.getContext("2d"), viewport, transform: ratio === 1 ? undefined : [ratio, 0, 0, ratio, 0, 0] }).promise;
-    $("page").replaceChildren(canvas);
+    await new pdfjs.TextLayer({ textContentSource: page.streamTextContent(), container: text, viewport }).render();
   };
 }
 
@@ -185,6 +217,90 @@ async function epubReader(data) {
   };
 }
 
+// Where a book's words are on the page: the PDF's text layer, or the chapter itself.
+function words() {
+  return book?.type === "pdf" ? $("page").querySelector(".textLayer") : $("page");
+}
+
+function showMarks() {
+  const container = words();
+  const here = marks.load(book.id).filter((mark) => mark.chapter === index && !mark.deleted);
+  if (container) {
+    marks.paint(container, here);
+  }
+
+  $("marks-heading").textContent = book.type === "pdf" ? "On this page" : "In this chapter";
+  $("marks-here").hidden = here.length === 0;
+  $("marks-waiting").hidden = !marks.waiting(book.id);
+  const list = $("marks");
+  list.replaceChildren();
+  for (const mark of here) {
+    const item = document.createElement("li");
+    const quote = document.createElement("blockquote");
+    const words = document.createElement("p");
+    words.textContent = mark.text;
+    quote.append(words);
+    item.append(quote);
+    if (mark.note) {
+      const note = document.createElement("p");
+      note.textContent = mark.note;
+      item.append(note);
+    }
+
+    if (mark.pending) {
+      const hint = document.createElement("p");
+      hint.className = "hint";
+      hint.textContent = "On this device; sent to the shelf when you are online.";
+      item.append(hint);
+    }
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = "Remove";
+    remove.addEventListener("click", () => {
+      marks.remove(book.id, mark.id);
+      showMarks();
+      if (navigator.onLine) {
+        sendMarks();
+      }
+    });
+    item.append(remove);
+    list.append(item);
+  }
+}
+
+function pick() {
+  const container = words();
+  const chosen = container ? marks.selected(container) : null;
+  if (!chosen) {
+    return;
+  }
+
+  picked = chosen;
+  $("marking-text").textContent = chosen.text;
+  $("marking-note").value = "";
+  $("marking").hidden = false;
+}
+
+function hideMarking() {
+  picked = null;
+  $("marking").hidden = true;
+}
+
+function saveMarking() {
+  if (!picked || !book) {
+    return;
+  }
+
+  marks.add(book.id, { ...picked, chapter: index, note: $("marking-note").value.trim() });
+  window.getSelection()?.removeAllRanges();
+  hideMarking();
+  showMarks();
+  if (navigator.onLine) {
+    sendMarks();
+  }
+}
+
 function resolve(base, relative) {
   const parts = (base + decodeURIComponent(relative.split("#")[0])).split("/");
   const out = [];
@@ -215,6 +331,7 @@ function connection() {
   $("connection").textContent = navigator.onLine ? "Online again" : "Offline";
   if (navigator.onLine) {
     sendPlaces();
+    sendMarks();
   }
 }
 
@@ -229,6 +346,13 @@ $("page").addEventListener("keydown", (event) => {
   if (event.key === "ArrowRight") turn(1);
   if (event.key === "ArrowLeft") turn(-1);
 });
+$("page").addEventListener("mouseup", pick);
+$("page").addEventListener("keyup", (event) => {
+  if (event.shiftKey) pick();
+});
+$("page").addEventListener("touchend", () => setTimeout(pick, 50));
+$("marking-save").addEventListener("click", saveMarking);
+$("marking-cancel").addEventListener("click", hideMarking);
 window.addEventListener("hashchange", route);
 window.addEventListener("online", connection);
 window.addEventListener("offline", connection);

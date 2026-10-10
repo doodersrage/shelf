@@ -6,6 +6,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Added
 
+- Highlights while offline: a kept book brings its highlights, and passages highlighted or removed offline are sent to the shelf when it answers again. Offline PDF pages gain a text layer for selecting words.
 - Passkeys: sign in with a phone's or laptop's fingerprint, face, or PIN, or a password manager, instead of the password. A passkey counts as both steps of two-step sign-in. An admin's password reset also removes a reader's passkeys.
 
 ## [1.2.0] - 2026-10-10

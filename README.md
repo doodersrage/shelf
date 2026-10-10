@@ -150,7 +150,7 @@ Free books searches Project Gutenberg for public-domain e-books and LibriVox for
 
 ## Reading offline
 
-On a book with an e-book, Keep for reading offline saves the file in that browser. When the shelf cannot be reached, any page opens the offline reader instead (`/offline.html`), which lists the kept books and reads them: EPUBs chapter by chapter, PDFs page by page, at your text size. The place you stop is kept on the device and sent back the next time the shelf answers, and the shelf keeps whichever place is further. Highlights and notes need the shelf. `GET /books/{id}/place` and `PUT /books/{id}/place {"ebookChapter": 3}` read and move a reader's place.
+On a book with an e-book, Keep for reading offline saves the file in that browser. When the shelf cannot be reached, any page opens the offline reader instead (`/offline.html`), which lists the kept books and reads them: EPUBs chapter by chapter, PDFs page by page, at your text size. The place you stop is kept on the device and sent back the next time the shelf answers, and the shelf keeps whichever place is further. Highlights come along too: the ones you had are shown, and passages highlighted offline, with their notes, are kept on the device and sent to the shelf when it answers, as are highlights removed offline. A PDF's words can be selected offline as well; a scanned PDF's OCR words cannot. `GET /books/{id}/place` and `PUT /books/{id}/place {"ebookChapter": 3}` read and move a reader's place.
 
 ## Dates and numbers
 
