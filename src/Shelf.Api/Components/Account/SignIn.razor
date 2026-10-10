@@ -38,6 +38,13 @@ else if (Notice == "reset")
     <button type="submit">Sign in</button>
 </form>
 
+@* Shown by passkey.js when the browser can use passkeys. *@
+<div class="account passkey-signin" data-passkey-panel hidden>
+    <p class="hint">Or, with a passkey saved on this device or in a password manager:</p>
+    <button type="button" data-passkey-signin data-return-url="@SafeReturnUrl">Sign in with a passkey</button>
+    <p class="validation-message" data-passkey-status role="alert" hidden></p>
+</div>
+
 <p class="hint">New to this shelf? <a href="@SignUpHref">Make an account</a></p>
 @if (Email.Enabled)
 {

@@ -1,5 +1,6 @@
 @page "/account"
 @using Microsoft.AspNetCore.DataProtection
+@using Microsoft.JSInterop
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject ShelfReader Reader
@@ -9,6 +10,7 @@
 @inject IEmailSender Email
 @inject Microsoft.AspNetCore.DataProtection.IDataProtectionProvider Protection
 @inject AuthenticationStateProvider Authentication
+@inject Microsoft.JSInterop.IJSRuntime Js
 
 <PageTitle>Account · Shelf</PageTitle>
 
@@ -140,6 +142,40 @@ else
 </section>
 
 <section class="panel">
+<h2>Passkeys</h2>
+<p class="hint">A passkey signs you in with this device's fingerprint, face, or PIN, or a password manager, with no password to type and no code to copy. It counts as both steps of two-step sign-in.</p>
+@if (passkeys.Count > 0)
+{
+    <ul class="tag-counts">
+        @foreach (var key in passkeys)
+        {
+            <li>
+                <span>@key.Name</span>
+                <span class="hint">added @key.CreatedAt.Medium()@(key.LastUsedAt is { } used ? $", last used {used.Medium()}" : ", not used yet")</span>
+                <button type="button" class="quiet" @onclick="() => RemovePasskey(key.Id)" aria-label="@($"Remove the passkey {key.Name}")">Remove</button>
+            </li>
+        }
+    </ul>
+}
+@if (passkeySupported)
+{
+    <label class="inline-date">
+        Name it, to tell it apart
+        <input @bind="passkeyName" maxlength="80" placeholder="@($"My {(passkeys.Count == 0 ? "phone" : "laptop")}")" />
+    </label>
+    <button type="button" @onclick="AddPasskey" disabled="@addingPasskey">@(addingPasskey ? "Waiting for the device…" : "Add a passkey")</button>
+}
+else if (passkeyChecked)
+{
+    <p class="hint">This browser cannot make passkeys.</p>
+}
+@if (passkeyProblem is not null)
+{
+    <p class="validation-message" role="alert">@passkeyProblem</p>
+}
+</section>
+
+<section class="panel">
 <h2>Signed-in devices</h2>
 <ul class="tag-counts">
     @foreach (var session in sessions)
@@ -220,6 +256,51 @@ else
     private string? emailNote;
 
     private IReadOnlyList<AuditLine> activity = [];
+    private IReadOnlyList<PasskeySummary> passkeys = [];
+    private bool passkeySupported;
+    private bool passkeyChecked;
+    private bool addingPasskey;
+    private string passkeyName = "";
+    private string? passkeyProblem;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await using var module = await Js.InvokeAsync<Microsoft.JSInterop.IJSObjectReference>("import", "./passkey.js");
+            passkeySupported = await module.InvokeAsync<bool>("supported");
+            passkeyChecked = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task AddPasskey()
+    {
+        addingPasskey = true;
+        passkeyProblem = null;
+        await using (var module = await Js.InvokeAsync<Microsoft.JSInterop.IJSObjectReference>("import", "./passkey.js"))
+        {
+            passkeyProblem = await module.InvokeAsync<string?>("register", passkeyName.Trim());
+        }
+
+        addingPasskey = false;
+        if (passkeyProblem is null)
+        {
+            passkeyName = "";
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        passkeys = await Passkeys.ListAsync(db, db.ReaderId);
+        activity = await Audit.RecentAsync(db, db.ReaderId, take: 20);
+    }
+
+    private async Task RemovePasskey(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Passkeys.RemoveAsync(db, db.ReaderId, id);
+        passkeys = await Passkeys.ListAsync(db, db.ReaderId);
+        activity = await Audit.RecentAsync(db, db.ReaderId, take: 20);
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -227,6 +308,7 @@ else
         shelfOpen = await Asking.IsShelfOpenAsync(db);
         var me = await db.Readers.AsNoTracking().FirstAsync(item => item.Id == db.ReaderId);
         activity = await Audit.RecentAsync(db, me.Id, take: 20);
+        passkeys = await Passkeys.ListAsync(db, me.Id);
         savedEmail = me.Email;
         emailAddress = me.Email ?? "";
         emailReminders = me.EmailReminders;

@@ -35,6 +35,7 @@ public sealed class ShelfDb : DbContext
     public DbSet<RecoveryCode> RecoveryCodes => Set<RecoveryCode>();
     public DbSet<KosyncPlace> KosyncPlaces => Set<KosyncPlace>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+    public DbSet<ReaderPasskey> ReaderPasskeys => Set<ReaderPasskey>();
     public DbSet<ShelfSetting> Settings => Set<ShelfSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -147,6 +148,14 @@ public sealed class ShelfDb : DbContext
             session.Property(item => item.Id).HasMaxLength(32);
             session.Property(item => item.Device).HasMaxLength(200);
             session.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ReaderPasskey>(key =>
+        {
+            key.HasIndex(item => item.CredentialId).IsUnique();
+            key.Property(item => item.CredentialId).HasMaxLength(1024);
+            key.Property(item => item.Name).HasMaxLength(80);
+            key.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<AuditEntry>(entry =>

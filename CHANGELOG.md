@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Added
+
+- Passkeys: sign in with a phone's or laptop's fingerprint, face, or PIN, or a password manager, instead of the password. A passkey counts as both steps of two-step sign-in. An admin's password reset also removes a reader's passkeys.
+
 ## [1.2.0] - 2026-10-10
 
 ### Added

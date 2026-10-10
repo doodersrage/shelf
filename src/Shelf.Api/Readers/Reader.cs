@@ -10,6 +10,9 @@ public sealed class Reader
 
     // A hash of the MD5 KOReader sends for its own sync password.
     public string? KosyncHash { get; set; }
+
+    // The random id a passkey carries for this reader, made with the first one.
+    public byte[]? PasskeyHandle { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 
     // An admin can reset passwords and remove readers. The first reader is one.

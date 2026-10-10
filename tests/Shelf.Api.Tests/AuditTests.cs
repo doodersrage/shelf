@@ -55,6 +55,41 @@ public sealed class AuditTests(ShelfApiFactory factory) : IClassFixture<ShelfApi
 
 
     [Fact]
+    public async Task Passkey_options_name_this_shelf_and_an_admin_reset_clears_passkeys()
+    {
+        var reader = await factory.SignUpAsync("Passkey Reader");
+        var readerId = await factory.ReaderIdAsync("Passkey Reader");
+        var options = await (await reader.PostAsync("/account/passkeys/options", null)).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("localhost", options.GetProperty("rp").GetProperty("id").GetString());
+        Assert.Equal("Passkey Reader", options.GetProperty("user").GetProperty("name").GetString());
+        Assert.Equal("required", options.GetProperty("authenticatorSelection").GetProperty("residentKey").GetString());
+        Assert.Equal("required", options.GetProperty("authenticatorSelection").GetProperty("userVerification").GetString());
+
+        // Finishing without having started, or after five minutes, is refused.
+        var stranger = factory.CreateClient();
+        var late = await stranger.PostAsJsonAsync("/account/passkey/signin", new { credential = new { id = "AAAA", rawId = "AAAA", type = "public-key", response = new { authenticatorData = "AAAA", clientDataJSON = "AAAA", signature = "AAAA" }, clientExtensionResults = new { } } });
+        Assert.Equal(HttpStatusCode.BadRequest, late.StatusCode);
+        Assert.Contains("took too long", await late.Content.ReadAsStringAsync());
+        Assert.Equal("localhost", (await (await stranger.PostAsync("/account/passkey/options", null)).Content.ReadFromJsonAsync<JsonElement>()).GetProperty("rpId").GetString());
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            db.ReaderPasskeys.Add(new ReaderPasskey { ReaderId = readerId, CredentialId = [1, 2, 3], PublicKey = [4, 5, 6], Name = "Old phone", CreatedAt = DateTimeOffset.UtcNow });
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Single(await reader.GetFromJsonAsync<PasskeySummary[]>("/account/passkeys", JsonOptions) ?? []);
+        await factory.Client.PostAsync($"/admin/readers/{readerId}/password", null);
+        using (var scope = factory.Services.CreateScope())
+        {
+            Assert.False(scope.ServiceProvider.GetRequiredService<ShelfDb>().ReaderPasskeys.Any(key => key.ReaderId == readerId));
+        }
+
+        Assert.Contains(await factory.Client.GetFromJsonAsync<AuditLine[]>("/admin/audit", JsonOptions) ?? [], line => line.Action == "Removed every passkey" && line.Target == "Passkey Reader");
+    }
+
+    [Fact]
     public async Task Only_the_newest_entries_are_kept()
     {
         using var scope = factory.Services.CreateScope();

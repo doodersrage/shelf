@@ -240,6 +240,13 @@ public static class ReaderRules
 
         await Audit.NoteAsync(db, "Gave a new password", reader, cancellationToken: cancellationToken);
 
+        // Passkeys go too: if someone else got in, they may have added one of their own.
+        var passkeys = await db.ReaderPasskeys.Where(key => key.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
+        if (passkeys > 0)
+        {
+            await Audit.NoteAsync(db, "Removed every passkey", reader, $"{passkeys} removed", cancellationToken);
+        }
+
         // An admin's reset is the way back in after a lost phone, so it turns two-step sign-in off too.
         await TwoFactor.DisableAsync(db, reader, cancellationToken);
         return password;

@@ -47,9 +47,9 @@ A book can be lent to another reader from its page. It stays on the owner's shel
 
 A reader can open their shelf from their account. The other readers then see its titles under Shelves, never the notes, reviews, quotes, or highlights, and can ask to borrow a book. Asks wait on the owner's Loans page until they lend the book or decline, and the reader who asked can take an ask back. A notice under the header points to Loans when a loan is overdue, a borrowed book is due within three days, or someone has asked to borrow.
 
-Two-step sign-in asks for a code from an authenticator app after the password. Turning it on gives ten single-use recovery codes, and the secret is sealed with the shelf's keys, so a copy of the database alone cannot use it. Every sign-in is a session the account page lists, with its browser and when it was last used, and any of them can be signed out from there.
+Two-step sign-in asks for a code from an authenticator app after the password. Turning it on gives ten single-use recovery codes, and the secret is sealed with the shelf's keys, so a copy of the database alone cannot use it. A passkey, saved on a phone, laptop, or password manager, signs in with the device's fingerprint, face, or PIN instead of the password, and counts as both steps. Add one on Account, then choose Sign in with a passkey. Browsers make passkeys only for an `https://` address (or `localhost`), for the shelf's host name; behind a proxy that hides the address Shelf is reached at, set `Passkeys:Origin` to it, such as `https://shelf.example.org`. Every sign-in is a session the account page lists, with its browser and when it was last used, and any of them can be signed out from there.
 
-The first account is an admin. An admin manages readers from the Readers link in the footer: a new password for a reader who forgot theirs, admin for another reader, or deleting a reader. A new or changed password signs that reader out everywhere, and an admin's new password also turns off two-step sign-in, which is the way back in after a lost phone. Deleting a reader, or a reader deleting their own account from `/account`, removes their books and files, and sends books lent to them back to their owners. The shelf always keeps at least one admin. If the only admin forgets their password, reset it from the command line:
+The first account is an admin. An admin manages readers from the Readers link in the footer: a new password for a reader who forgot theirs, admin for another reader, or deleting a reader. A new or changed password signs that reader out everywhere, and an admin's new password also turns off two-step sign-in and removes the reader's passkeys, which is the way back in after a lost phone, and shuts out anyone who added a passkey of their own. Deleting a reader, or a reader deleting their own account from `/account`, removes their books and files, and sends books lent to them back to their owners. The shelf always keeps at least one admin. If the only admin forgets their password, reset it from the command line:
 
 ```bash
 dotnet run --project src/Shelf.Api -- --reset-password "Their Name"
@@ -61,7 +61,7 @@ Set `Accounts:AllowSignUp` to `false` to stop new accounts once the first one ex
 | URL | What you get |
 | --- | --- |
 | `/signin`, `/signup` | Sign in, or make an account. |
-| `/account` | Open your shelf to the other readers, set up two-step sign-in with an authenticator app, see and sign out the devices you are signed in on, change the password, or delete the account. |
+| `/account` | Open your shelf to the other readers, set up two-step sign-in with an authenticator app, add and remove passkeys, see and sign out the devices you are signed in on, change the password, or delete the account. |
 | `/signin/code` | The second step of signing in, for a reader with two-step sign-in: a code from the authenticator, or a recovery code. |
 | `/shelves` | The shelves other readers have opened. `/shelves/{id}` lists one and asks to borrow a book. |
 | `/admin` | For an admin: readers, new passwords, admins, and a server snapshot. |
@@ -158,7 +158,7 @@ Dates follow each reader's region: "Mar 14, 2024" in the US, "14 Mar 2024" in Br
 
 ## Activity log
 
-Shelf keeps a record of sign-ups, failed sign-ins (for names that exist), password changes and resets, admin rights given or taken, removed accounts, two-step sign-in turned on or off, devices signed out from the list, device keys and KOReader passwords made, restores, snapshots, and backups taken by hand. An admin reads it on Readers, or as JSON at `/admin/audit`; every reader sees the lines about their own account on Account. The newest 5,000 entries are kept.
+Shelf keeps a record of sign-ups, failed sign-ins (for names that exist), password changes and resets, admin rights given or taken, removed accounts, two-step sign-in turned on or off, passkeys added or removed, devices signed out from the list, device keys and KOReader passwords made, restores, snapshots, and backups taken by hand. An admin reads it on Readers, or as JSON at `/admin/audit`; every reader sees the lines about their own account on Account. The newest 5,000 entries are kept.
 
 ## Health and nightly backups
 

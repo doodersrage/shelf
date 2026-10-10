@@ -26,6 +26,7 @@ public static class AccountEndpoints
         account.MapPost("/two-factor/start", StartTwoFactor).RequireAuthorization();
         account.MapPost("/two-factor/confirm", ConfirmTwoFactor).RequireAuthorization();
         account.MapPost("/two-factor/disable", DisableTwoFactor).RequireAuthorization();
+        Passkeys.Map(account, SignInLimit);
         account.MapPost("/signup", SignUp).AllowAnonymous().RequireRateLimiting(SignInLimit);
         account.MapPost("/signout", SignOut).AllowAnonymous();
         account.MapPost("/remove", RemoveSelf).RequireAuthorization();
@@ -289,7 +290,7 @@ public static class AccountEndpoints
         configuration.GetValue("Accounts:AllowSignUp", true);
 
     // Every sign-in is a session of its own, listed on the account page until it signs out.
-    private static async Task SignInAsync(HttpContext http, ShelfDb db, Reader reader, CancellationToken cancellationToken)
+    internal static async Task SignInAsync(HttpContext http, ShelfDb db, Reader reader, CancellationToken cancellationToken)
     {
         var session = await TwoFactor.StartSessionAsync(db, reader.Id, TwoFactor.DeviceName(http.Request.Headers.UserAgent), cancellationToken);
         await http.SignInAsync(

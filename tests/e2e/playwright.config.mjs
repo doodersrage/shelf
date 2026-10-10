@@ -6,7 +6,8 @@ import { join } from "node:path";
 // Each run gets an empty shelf of its own, removed by the system's temp cleanup.
 const data = process.env.SHELF_E2E_DATA ?? (process.env.SHELF_E2E_DATA = mkdtempSync(join(tmpdir(), "shelf-e2e-")));
 const port = process.env.SHELF_E2E_PORT ?? "5199";
-const base = `http://127.0.0.1:${port}`;
+// localhost rather than 127.0.0.1: browsers keep passkeys for a host name, never for an address.
+const base = `http://localhost:${port}`;
 
 export default defineConfig({
   testDir: "./specs",
@@ -24,7 +25,7 @@ export default defineConfig({
   },
   webServer: {
     command: "dotnet run --project ../../src/Shelf.Api --no-launch-profile",
-    url: `${base}/alive`,
+    url: `http://127.0.0.1:${port}/alive`,
     timeout: 240_000,
     reuseExistingServer: false,
     env: {
