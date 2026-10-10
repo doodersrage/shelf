@@ -10,6 +10,6 @@
     "@fontsource-variable/lora": "5.1.1",
     "barcode-detector": "3.2.2",
     "jszip": "3.10.1",
-    "pdfjs-dist": "4.8.69"
+    "pdfjs-dist": "6.4.299"
   }
 }
