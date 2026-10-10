@@ -12,6 +12,8 @@ Books come in five ways, and Shelf keeps out what you already have.
 
 **Add a book** takes a title and author, or an ISBN that fills the rest from Open Library. If the same book is already on your shelf, the form says so. If another reader has it on an [open shelf](lending.md#open-shelves), the form says that too, with a button to ask to borrow it instead.
 
+**Scan the barcode** reads the ISBN from the back of a book with a phone's camera, then looks the book up. Where Shelf is opened over `https://` (or on the computer it runs on), the camera shows live and reads the code as soon as it is in view. Over plain `http://` on your network, browsers keep the camera to themselves, so the button takes a photo of the barcode instead, which works just as well. The barcode is read in the browser; the picture never leaves the phone.
+
 ## From files
 
 Under **Add a book**, **Or add from files** takes as many files as you like at once, up to 1 GB in total, and makes a book of each:

@@ -37,6 +37,12 @@
       "Highlight": "Subrayar",
       "Cancel": "Cancelar",
       "Highlights made here are kept on this device and sent to the shelf when you are online again.": "Los subrayados que hagas aquí se guardan en este dispositivo y se envían a Shelf cuando vuelvas a tener conexión.",
+      "Scan the barcode": "Escanear el código de barras",
+      "Hold the barcode on the back of the book inside the frame.": "Coloca el código de barras de la contraportada dentro del marco.",
+      "No ISBN barcode was found. Try again closer, with more light, or type the number in.": "No se ha encontrado ningún código ISBN. Inténtalo más cerca, con más luz, o escribe el número.",
+      "The camera could not be opened here. Press Scan the barcode again to take a photo of it instead.": "No se ha podido abrir la cámara aquí. Pulsa de nuevo Escanear el código de barras para hacerle una foto.",
+      "Reading the barcode…": "Leyendo el código de barras…",
+      "That photo could not be read. Try again, or type the number in.": "No se ha podido leer esa foto. Inténtalo de nuevo o escribe el número.",
     },
     fr: {
       "That did not work. Try again.": "Cela n'a pas fonctionné. Réessayez.",
@@ -72,6 +78,12 @@
       "Highlight": "Surligner",
       "Cancel": "Annuler",
       "Highlights made here are kept on this device and sent to the shelf when you are online again.": "Les surlignages faits ici sont gardés sur cet appareil et envoyés à Shelf quand vous serez de nouveau en ligne.",
+      "Scan the barcode": "Scanner le code-barres",
+      "Hold the barcode on the back of the book inside the frame.": "Placez le code-barres au dos du livre dans le cadre.",
+      "No ISBN barcode was found. Try again closer, with more light, or type the number in.": "Aucun code-barres ISBN n'a été trouvé. Réessayez de plus près, avec plus de lumière, ou saisissez le numéro.",
+      "The camera could not be opened here. Press Scan the barcode again to take a photo of it instead.": "La caméra n'a pas pu s'ouvrir ici. Appuyez de nouveau sur Scanner le code-barres pour le prendre en photo.",
+      "Reading the barcode…": "Lecture du code-barres…",
+      "That photo could not be read. Try again, or type the number in.": "Cette photo n'a pas pu être lue. Réessayez, ou saisissez le numéro.",
     },
     de: {
       "That did not work. Try again.": "Das hat nicht geklappt. Versuch es noch einmal.",
@@ -107,6 +119,12 @@
       "Highlight": "Markieren",
       "Cancel": "Abbrechen",
       "Highlights made here are kept on this device and sent to the shelf when you are online again.": "Markierungen, die du hier machst, bleiben auf diesem Gerät und werden an Shelf gesendet, sobald du wieder online bist.",
+      "Scan the barcode": "Barcode scannen",
+      "Hold the barcode on the back of the book inside the frame.": "Halte den Barcode auf der Rückseite des Buchs in den Rahmen.",
+      "No ISBN barcode was found. Try again closer, with more light, or type the number in.": "Kein ISBN-Barcode gefunden. Versuch es näher, mit mehr Licht, oder tipp die Nummer ein.",
+      "The camera could not be opened here. Press Scan the barcode again to take a photo of it instead.": "Die Kamera ließ sich hier nicht öffnen. Drück noch einmal auf Barcode scannen, um ein Foto davon zu machen.",
+      "Reading the barcode…": "Barcode wird gelesen…",
+      "That photo could not be read. Try again, or type the number in.": "Dieses Foto ließ sich nicht lesen. Versuch es noch einmal oder tipp die Nummer ein.",
     },
   };
 

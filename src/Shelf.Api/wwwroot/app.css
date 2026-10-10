@@ -797,6 +797,48 @@ code.key {
     font-size: var(--text-sm);
 }
 
+/* Look up and Scan the barcode, side by side under the ISBN. */
+.scan {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+}
+
+.scan [data-scan-status]:empty {
+    display: none;
+}
+
+/* The live camera while a barcode is read. */
+dialog.scanner {
+    width: min(32rem, calc(100vw - 2 * var(--space-4)));
+    padding: var(--space-4);
+    border: 1px solid var(--color-rule);
+    border-radius: 8px;
+    background: var(--color-surface);
+    color: var(--color-ink);
+}
+
+dialog.scanner::backdrop {
+    background: rgb(0 0 0 / 0.6);
+}
+
+dialog.scanner video {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: 4px;
+    background: #000;
+    /* A frame to aim with, drawn over the picture. */
+    outline: 3px solid var(--color-accent);
+    outline-offset: -3px;
+}
+
+dialog.scanner p {
+    margin: var(--space-3) 0;
+}
+
 /* A free book's details, opened under its row. */
 .free-results .free-about {
     display: block;

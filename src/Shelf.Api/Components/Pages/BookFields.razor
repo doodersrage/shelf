@@ -1,3 +1,5 @@
+@implements IDisposable
+@using Microsoft.JSInterop
 <label>
     @T("Title")
     <InputText @bind-Value="Model.Title" maxlength="200" required />
@@ -60,7 +62,13 @@
         </InputSelect>
     </label>
 </div>
-<button type="button" @onclick="LookUp" disabled="@looking">@(looking ? T("Looking…") : T("Look up"))</button>
+<div class="scan" @ref="scanArea">
+    <button type="button" @onclick="LookUp" disabled="@looking">@(looking ? T("Looking…") : T("Look up"))</button>
+    @* Shown, and handled, by scan.js once the page is live: a live camera where the page is secure, a photo elsewhere. *@
+    <button type="button" class="quiet" data-scan hidden>@T("Scan the barcode")</button>
+    <input type="file" accept="image/*" capture="environment" data-scan-photo hidden tabindex="-1" aria-hidden="true" />
+    <span class="hint" data-scan-status role="status"></span>
+</div>
 @if (lookupNote is not null)
 {
     <p class="hint">@lookupNote</p>
@@ -238,6 +246,42 @@ else if (Borrowable.Length > 0)
 
     private bool looking;
     private string? lookupNote;
+
+    [Inject]
+    public IJSRuntime JS { get; set; } = default!;
+
+    private ElementReference scanArea;
+    private DotNetObjectReference<BookFields>? self;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            self = DotNetObjectReference.Create(this);
+            var scan = await JS.InvokeAsync<IJSObjectReference>("import", "/scan.js");
+            await scan.InvokeVoidAsync("attach", scanArea, self);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
+        {
+            // Without it, the ISBN is typed in as before.
+        }
+    }
+
+    // A barcode read on the page: the ISBN goes in, and the rest is looked up from it.
+    [JSInvokable]
+    public async Task Scanned(string isbn)
+    {
+        Model.Isbn = isbn;
+        await LookUp();
+        StateHasChanged();
+    }
+
+    public void Dispose() => self?.Dispose();
 
     private async Task LookUp()
     {

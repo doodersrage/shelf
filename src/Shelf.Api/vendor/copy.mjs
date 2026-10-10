@@ -20,6 +20,11 @@ const files = [
   ["pdfjs-dist/LICENSE", "lib/pdfjs/LICENSE.txt"],
   ["jszip/dist/jszip.min.js", "lib/jszip/jszip.min.js"],
   ["jszip/LICENSE.markdown", "lib/jszip/LICENSE.md"],
+  // Barcode reading where the browser has none of its own: ZXing compiled to WebAssembly, served from here.
+  ["barcode-detector/dist/iife/ponyfill.js", "lib/barcode/barcode-detector.js"],
+  ["barcode-detector/LICENSE", "lib/barcode/LICENSE-barcode-detector.txt"],
+  ["zxing-wasm/dist/reader/zxing_reader.wasm", "lib/barcode/zxing_reader.wasm"],
+  ["zxing-wasm/LICENSE", "lib/barcode/LICENSE-zxing-wasm.txt"],
 ];
 
 for (const [from, to] of files) {
