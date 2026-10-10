@@ -345,6 +345,28 @@ public static class BookRules
         return setting?.SyncAddress;
     }
 
+    public const int DefaultAudioSpeed = 100;
+
+    // Playback speed in percent, kept per reader and clamped to what browsers play well.
+    public static async Task<int> GetAudioSpeedAsync(ShelfDb db, CancellationToken cancellationToken = default)
+    {
+        var setting = await db.Settings.AsNoTracking().FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
+        return Math.Clamp(setting?.AudioSpeed ?? DefaultAudioSpeed, 50, 300);
+    }
+
+    public static async Task SetAudioSpeedAsync(ShelfDb db, int speed, CancellationToken cancellationToken = default)
+    {
+        var setting = await db.Settings.FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
+        if (setting is null)
+        {
+            setting = new ShelfSetting { Id = SettingId(db) };
+            db.Settings.Add(setting);
+        }
+
+        setting.AudioSpeed = Math.Clamp(speed, 50, 300);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public static async Task<bool> GetLibraryAsListAsync(ShelfDb db, CancellationToken cancellationToken = default) =>
         await db.Settings.AsNoTracking().AnyAsync(item => item.Id == db.ReaderId && item.LibraryAsList, cancellationToken);
 

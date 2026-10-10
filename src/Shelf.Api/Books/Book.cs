@@ -108,6 +108,7 @@ public sealed class ShelfSetting
     public int? ReaderLineHeight { get; set; }
     public int? ReaderWidth { get; set; }
     public bool LibraryAsList { get; set; }
+    public int? AudioSpeed { get; set; }
 }
 
 // How a reader likes an e-book set: text size in percent, line height in hundredths, and line length in ems.

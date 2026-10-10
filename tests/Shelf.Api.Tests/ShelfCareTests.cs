@@ -105,8 +105,9 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
         }
 
         var ebookRoot = factory.Services.GetRequiredService<EbookStore>().Root;
-        Assert.NotEmpty(Directory.GetFiles(ebookRoot));
-        var before = Directory.GetFiles(ebookRoot).Length;
+        int Books() => Directory.GetFiles(ebookRoot).Count(path => !path.EndsWith(Fingerprint.Extension, StringComparison.Ordinal));
+        Assert.NotEqual(0, Books());
+        var before = Books();
 
         var lent = await CreateAsync(_admin, new CreateBookRequest("Lent Away", "Someone", BookStatus.Want, null));
         await _admin.PostAsJsonAsync($"/books/{lent.Id}/lend", new LendRequest(leavingId), JsonOptions);
@@ -114,7 +115,7 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.Equal(HttpStatusCode.NoContent, (await _admin.DeleteAsync($"/admin/readers/{leavingId}")).StatusCode);
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await leaving.GetAsync("/books")).StatusCode);
-        Assert.Equal(before - 1, Directory.GetFiles(ebookRoot).Length);
+        Assert.Equal(before - 1, Books());
         var home = await _admin.GetFromJsonAsync<BookResponse>($"/books/{lent.Id}", JsonOptions);
         Assert.Null(home?.LoanedTo);
         Assert.Null(home?.BorrowerId);

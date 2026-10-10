@@ -52,12 +52,43 @@ else if (book is not null)
                 <p class="hint">@tracks[0].Title</p>
             }
             <audio @key="track" @ref="player" controls preload="metadata" src="/books/@book.Id/audio/tracks/@track"></audio>
+            <div class="reader-settings">
+                <label>
+                    Speed
+                    <select @bind="speed" @bind:after="SaveSpeed">
+                        <option value="80">0.8×</option>
+                        <option value="100">1×</option>
+                        <option value="125">1.25×</option>
+                        <option value="150">1.5×</option>
+                        <option value="175">1.75×</option>
+                        <option value="200">2×</option>
+                    </select>
+                </label>
+                <label>
+                    Sleep timer
+                    <select @bind="sleep" @bind:after="SetSleep">
+                        <option value="">Off</option>
+                        <option value="15">In 15 minutes</option>
+                        <option value="30">In 30 minutes</option>
+                        <option value="45">In 45 minutes</option>
+                        <option value="60">In an hour</option>
+                        <option value="track">At the end of this track</option>
+                    </select>
+                </label>
+            </div>
+            @if (sleepNote is not null)
+            {
+                <p class="hint" role="status">@sleepNote</p>
+            }
         }
     </div>
 }
 
 @code {
     private Book? book;
+    private int speed = BookRules.DefaultAudioSpeed;
+    private string sleep = "";
+    private string? sleepNote;
     private OpenBook? open;
     private bool borrowed;
     private bool missing;
@@ -79,6 +110,7 @@ else if (book is not null)
         book = open?.Book;
         borrowed = open?.Borrowed == true;
         missing = book is null;
+        speed = await BookRules.GetAudioSpeedAsync(db);
         tracks = [];
         track = 0;
         resumeSeconds = 0;
@@ -114,7 +146,7 @@ else if (book is not null)
         }
 
         boundTrack = track;
-        await module.InvokeVoidAsync("attach", player, self);
+        await module.InvokeVoidAsync("attach", player, self, speed / 100.0);
         if (resumeSeconds > 0)
         {
             await module.InvokeVoidAsync("seek", player, resumeSeconds);
@@ -125,8 +157,60 @@ else if (book is not null)
     public Task Progress(int seconds) => Remember(track, Math.Max(0, seconds));
 
     [JSInvokable]
+    public Task Slept()
+    {
+        sleep = "";
+        sleepNote = "Paused by the sleep timer. Play to carry on from here.";
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SaveSpeed()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await BookRules.SetAudioSpeedAsync(db, speed);
+        if (module is not null)
+        {
+            await module.InvokeVoidAsync("speed", speed / 100.0);
+        }
+    }
+
+    private async Task SetSleep()
+    {
+        sleepNote = null;
+        var minutes = int.TryParse(sleep, out var value) ? value : 0;
+        if (module is not null)
+        {
+            await module.InvokeVoidAsync("sleep", minutes);
+        }
+
+        sleepNote = sleep switch
+        {
+            "" => null,
+            "track" => "Stops at the end of this track.",
+            _ => $"Stops in {minutes} minutes.",
+        };
+    }
+
+    [JSInvokable]
     public async Task Ended()
     {
+        if (sleep == "track")
+        {
+            // The sleep timer said this track was the last one tonight; the next one starts from its beginning.
+            sleep = "";
+            sleepNote = "Stopped at the end of the track, as the sleep timer asked.";
+            if (track < tracks.Count - 1)
+            {
+                track++;
+                resumeSeconds = 0;
+                boundTrack = -1;
+            }
+
+            await Remember(track, 0);
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
         if (track >= tracks.Count - 1)
         {
             await Remember(track, 0);

@@ -1,6 +1,8 @@
 let audio = null;
 let dotNet = null;
 let last = 0;
+let rate = 1;
+let sleepTimer = 0;
 
 function onPause() {
   if (dotNet && audio) {
@@ -25,11 +27,15 @@ function onTime() {
   }
 }
 
-export function attach(element, callback) {
+export function attach(element, callback, playbackRate) {
   detach();
   audio = element;
   dotNet = callback;
   last = 0;
+  rate = playbackRate || rate;
+  // A new track is a new element, so the reader's speed is set on each one.
+  audio.defaultPlaybackRate = rate;
+  audio.playbackRate = rate;
   audio.addEventListener("pause", onPause);
   audio.addEventListener("ended", onEnded);
   audio.addEventListener("timeupdate", onTime);
@@ -46,6 +52,34 @@ export function seek(element, seconds) {
   }
 
   element.addEventListener("loadedmetadata", go, { once: true });
+}
+
+export function speed(playbackRate) {
+  rate = playbackRate || 1;
+  if (audio) {
+    audio.defaultPlaybackRate = rate;
+    audio.playbackRate = rate;
+  }
+}
+
+// Pause after this many minutes of the timer running; 0 turns it off. The pause saves the place as usual.
+export function sleep(minutes) {
+  clearTimeout(sleepTimer);
+  sleepTimer = 0;
+  if (!minutes) {
+    return;
+  }
+
+  sleepTimer = setTimeout(() => {
+    sleepTimer = 0;
+    if (audio && !audio.paused) {
+      audio.pause();
+    }
+
+    if (dotNet) {
+      dotNet.invokeMethodAsync("Slept");
+    }
+  }, minutes * 60 * 1000);
 }
 
 export function detach() {

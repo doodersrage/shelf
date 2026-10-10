@@ -2,42 +2,53 @@
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 
-<PageTitle>Quotes · Shelf</PageTitle>
+<PageTitle>Quotes &amp; highlights · Shelf</PageTitle>
 
-<h1>Quotes</h1>
+<h1>Quotes &amp; highlights</h1>
 
-@if (quotes.Count == 0)
+@if (passages.Count == 0)
 {
-    <EmptyState Title="No quotes yet" Text="Quotes saved on a book's page gather here, where you can search their words, the book, or the author." ActionHref="/" ActionLabel="Open the library" />
+    <EmptyState Title="No quotes or highlights yet" Text="Quotes saved on a book's page, and passages highlighted in the reader, gather here, where you can search their words, your notes, the book, or the author." ActionHref="/" ActionLabel="Open the library" />
 }
 else
 {
     <div class="filters">
         <label>
             Search
-            <input @bind="query" @bind:event="oninput" />
+            <input type="search" @bind="query" @bind:event="oninput" placeholder="Words, notes, titles, authors" />
         </label>
+    </div>
+    <div class="segmented" role="group" aria-label="Show">
+        <button type="button" aria-pressed="@(kind == "" ? "true" : "false")" @onclick="@(() => kind = "")">Both</button>
+        <button type="button" aria-pressed="@(kind == "quote" ? "true" : "false")" @onclick="@(() => kind = "quote")">Quotes</button>
+        <button type="button" aria-pressed="@(kind == "highlight" ? "true" : "false")" @onclick="@(() => kind = "highlight")">Highlights</button>
     </div>
     @if (!Visible.Any())
     {
-        <p class="hint">No quote matches that search.</p>
+        <p class="hint">Nothing matches that search.</p>
     }
     else
     {
     <ul class="quotes">
-        @foreach (var quote in Visible)
+        @foreach (var passage in Visible)
         {
             <li>
                 <blockquote>
-                    <p>@quote.Text</p>
-                    @if (quote.Page is int page)
-                    {
-                        <span class="hint">p. @(page)</span>
-                    }
+                    <p>@passage.Text</p>
+                    <span class="hint">@passage.Where</span>
                 </blockquote>
+                @if (!string.IsNullOrWhiteSpace(passage.Note))
+                {
+                    <p>@passage.Note</p>
+                }
                 <p class="hint">
-                    <a href="/library/@quote.BookId">@quote.Title</a>
-                    · <a href="@($"/?author={Uri.EscapeDataString(quote.Author)}")">@quote.Author</a>
+                    <span class="badge plain">@(passage.Highlight ? "Highlight" : "Quote")</span>
+                    <a href="/library/@passage.BookId">@passage.Title</a>
+                    · <a href="@($"/?author={Uri.EscapeDataString(passage.Author)}")">@passage.Author</a>
+                    @if (passage.Open is string open)
+                    {
+                        <span> · <a href="@open">Open in the reader</a></span>
+                    }
                 </p>
             </li>
         }
@@ -46,21 +57,57 @@ else
 }
 
 @code {
-    private List<QuoteListItem> quotes = [];
+    private List<Passage> passages = [];
     private string query = "";
+    private string kind = "";
 
-    private IEnumerable<QuoteListItem> Visible => BookRules.MatchingQuotes(quotes, query);
+    private IEnumerable<Passage> Visible
+    {
+        get
+        {
+            var term = query.Trim();
+            return passages.Where(passage =>
+                (kind == "" || (kind == "highlight") == passage.Highlight)
+                && (term.Length == 0
+                    || passage.Text.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || (passage.Note?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || passage.Title.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || passage.Author.Contains(term, StringComparison.OrdinalIgnoreCase)));
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        quotes = await db.Quotes.AsNoTracking()
+        var quotes = await db.Quotes.AsNoTracking()
             .Join(
                 db.Books.AsNoTracking(),
                 quote => quote.BookId,
                 book => book.Id,
-                (quote, book) => new QuoteListItem(quote.Id, book.Id, book.Title, book.Author, quote.Text, quote.Page, quote.NotedAt))
+                (quote, book) => new { quote.BookId, book.Title, book.Author, quote.Text, quote.Page, quote.NotedAt })
             .ToListAsync();
-        quotes = quotes.OrderByDescending(quote => quote.NotedAt).ThenByDescending(quote => quote.Id).ToList();
+        var marks = await db.Highlights.AsNoTracking()
+            .Join(
+                db.Books.AsNoTracking(),
+                mark => mark.BookId,
+                book => book.Id,
+                (mark, book) => new { mark.BookId, book.Title, book.Author, mark.Text, mark.Note, mark.ChapterIndex, mark.NotedAt, book.EbookStoredName })
+            .ToListAsync();
+        passages = quotes
+            .Select(quote => new Passage(false, quote.BookId, quote.Title, quote.Author, quote.Text, null, quote.Page is int page ? $"p. {page}" : "", quote.NotedAt, null))
+            .Concat(marks.Select(mark => new Passage(
+                true,
+                mark.BookId,
+                mark.Title,
+                mark.Author,
+                mark.Text,
+                mark.Note,
+                $"{(EbookStore.IsPdf(mark.EbookStoredName) ? "Page" : "Chapter")} {mark.ChapterIndex + 1}",
+                mark.NotedAt,
+                $"/library/{mark.BookId}/read?chapter={mark.ChapterIndex}")))
+            .OrderByDescending(passage => passage.NotedAt)
+            .ToList();
     }
+
+    private sealed record Passage(bool Highlight, int BookId, string Title, string Author, string Text, string? Note, string Where, DateTimeOffset NotedAt, string? Open);
 }

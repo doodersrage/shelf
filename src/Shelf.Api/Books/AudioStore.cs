@@ -110,6 +110,12 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
             return null;
         }
 
+        // Kept beside the recording's folder, not in it, so it is never taken for a track.
+        return await Fingerprint.ReadOrComputeAsync(OpenDirectory(storedName)! + Fingerprint.Extension, () => ComputeAsync(files, cancellationToken), cancellationToken);
+    }
+
+    private static async Task<string?> ComputeAsync(IReadOnlyList<string> files, CancellationToken cancellationToken)
+    {
         using var incremental = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var buffer = new byte[81920];
         foreach (var file in files)
@@ -164,6 +170,8 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
         catch (IOException)
         {
         }
+
+        Fingerprint.Forget(directory + Fingerprint.Extension);
     }
 
     public static string ContentType(string path) => Path.GetExtension(path).ToLowerInvariant() switch
