@@ -148,6 +148,10 @@ A comic book archive (`.cbz`) reads page by page, in name order, with its first 
 
 KOReader can download e-books from the OPDS catalog at `/opds` (any user name, the shelf's key from Devices as the password), and keep your place in step through its progress sync. On Devices, make a KOReader password; then in KOReader choose Tools, Progress sync, Custom sync server, and enter `https://<your shelf>/kosync`, your reader name, and that password. A book matches when KOReader has the same file Shelf has, which it does when it came from the catalog. A place read on the device moves Shelf's place forward, and a place read further in Shelf sends the device to the start of that chapter, or that page of a PDF.
 
+## Bringing books from Audiobookshelf
+
+Backup & restore links to an import from an [Audiobookshelf](https://www.audiobookshelf.org) server (2.x). Give its address and an API key (Audiobookshelf's Settings, API Keys, turned on) or a user name and password; the key or password is used for that import only and never saved. Choose a library and the books to bring, and each comes across with its audio tracks in Audiobookshelf's order, its e-book, cover, series, narrator, and genres, and, if you like, where you stopped listening or reading and which books you finished. Books already on your shelf are marked and left out. The import runs in the background, one book at a time, so the page can be left. The Audiobookshelf user needs permission to download, and nothing on that server changes.
+
 ## Free books
 
 Free books searches Project Gutenberg for public-domain e-books and LibriVox for public-domain audiobooks read by volunteers, and adds one to your shelf with its file, tagged `public domain`. A download runs in the background, so a long recording (they can be several hundred megabytes) does not hold the page open; its progress shows on the page. The shelf has to reach gutenberg.org, librivox.org, and archive.org; set `FreeBooks:Enabled` to `false` to turn it off. Public domain differs by country, and Project Gutenberg follows United States law.

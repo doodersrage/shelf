@@ -135,9 +135,9 @@ public sealed class BookImport(EbookStore ebooks, AudioStore audio, CoverStore c
         }
     }
 
-    public async Task<ImportedFile> AudioAsync(ShelfDb db, IReadOnlyList<ImportFile> files, string label, FileDetails? known, bool keepBoth, CancellationToken cancellationToken)
+    public async Task<ImportedFile> AudioAsync(ShelfDb db, IReadOnlyList<ImportFile> files, string label, FileDetails? known, bool keepBoth, CancellationToken cancellationToken, bool keepOrder = false)
     {
-        var saved = await audio.SaveAsync(files.Select(file => new AudioUpload(file.Name, file.Content, file.Length)).ToList(), cancellationToken);
+        var saved = await audio.SaveAsync(files.Select(file => new AudioUpload(file.Name, file.Content, file.Length)).ToList(), cancellationToken, keepOrder);
         if (saved.Status != AudioSaveStatus.Saved || saved.StoredName is null || saved.FileName is null)
         {
             return new ImportedFile(label, saved.Status == AudioSaveStatus.TooLarge ? ImportOutcome.TooLarge : ImportOutcome.Unsupported);

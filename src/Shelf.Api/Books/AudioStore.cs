@@ -16,7 +16,8 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
     public string Root { get; } = configuration["AudioStore:Root"]
         ?? Path.Combine(environment.ContentRootPath, "audio");
 
-    public async Task<AudioSave> SaveAsync(IReadOnlyList<AudioUpload> files, CancellationToken cancellationToken)
+    // Tracks are played in file-name order unless the caller already knows the order (a catalog's, say).
+    public async Task<AudioSave> SaveAsync(IReadOnlyList<AudioUpload> files, CancellationToken cancellationToken, bool keepOrder = false)
     {
         if (files.Count == 0 || files.Sum(file => file.Length) > MaxBytes)
         {
@@ -45,7 +46,11 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
             }
             else
             {
-                var audio = files.Where(file => IsAudio(file.Name)).OrderBy(file => Path.GetFileName(file.Name), StringComparer.Ordinal).ToList();
+                var audio = files.Where(file => IsAudio(file.Name)).ToList();
+                if (!keepOrder)
+                {
+                    audio = audio.OrderBy(file => Path.GetFileName(file.Name), StringComparer.Ordinal).ToList();
+                }
                 if (audio.Count == 0)
                 {
                     Directory.Delete(directory, recursive: true);

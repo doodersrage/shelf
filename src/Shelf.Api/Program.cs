@@ -75,6 +75,11 @@ builder.Services.AddHttpClient(FreeCatalog.ClientName, client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd($"Shelf/{ShelfVersion.Response.Version} (personal library; +https://github.com/doodersrage/shelf)");
 });
 builder.Services.AddSingleton<FreeBooks>();
+
+// Audiobookshelf, to bring a library across. Its address is the reader's to give.
+builder.Services.AddHttpClient(AbsClient.ClientName, client => client.Timeout = TimeSpan.FromMinutes(30));
+builder.Services.AddSingleton<AbsImporter>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<AbsImporter>());
 builder.Services.AddHostedService(static services => services.GetRequiredService<FreeBooks>());
 builder.Services.AddSingleton<EbookStore>();
 builder.Services.AddSingleton<AudioStore>();
