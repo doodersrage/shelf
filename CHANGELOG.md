@@ -4,6 +4,31 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-10
+
+### Added
+
+- Two-step sign-in with an authenticator app, with ten single-use recovery codes, and a list of signed-in devices that can each be signed out.
+- Offline reading: keep an e-book on a device, read it when the shelf cannot be reached, and have the place sent back later. `GET` and `PUT /books/{id}/place` read and move a reader's place.
+- Audiobook chapters, read from the marks inside an `.m4b` or `.m4a`, and bookmarks with a note.
+- Nightly database backups, keeping the last seven, listed and downloadable from Readers.
+- `/health` and `/alive` in every environment, and a health check in the Docker image.
+- Dates written the way each reader's region writes them, from the browser or a choice on the account.
+- `skip` and `take` on `/books`, with the total in `X-Total-Count`.
+- Browser tests in CI, covering every interactive feature and an accessibility audit in both themes.
+- Dependabot, and a pinned, checked copy of PDF.js, the fonts, and JSZip.
+
+### Changed
+
+- Search inside books uses a full-text index: places come back best match first, accents and case do not matter, and the last word can be partial.
+- The library loads only what it shows and draws sixty books at a time.
+- Email goes out through MailKit; `Email:Security` chooses the connection.
+- An admin's new password also turns off two-step sign-in. Everyone signs in once more after updating, since sign-ins are now sessions.
+
+### Fixed
+
+- The bulk tag box and the account's email box now count what is typed straight away, instead of once the field loses focus.
+
 ## [1.0.0] - 2026-10-09
 
 The first versioned release.
@@ -48,5 +73,6 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/doodersrage/shelf/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/doodersrage/shelf/releases/tag/v1.0.0
