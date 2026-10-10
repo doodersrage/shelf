@@ -25,8 +25,8 @@ updates:
       docker:
         patterns: ["*"]
 
-  # PDF.js, JSZip, the barcode reader, and the fonts are copied into wwwroot, so this pull request fails CI until
-  # someone runs `npm ci && npm run vendor` in src/Shelf.Api/vendor and commits the copied files.
+  # PDF.js, JSZip, the barcode reader, and the fonts are copied into wwwroot; vendor-updates.yml copies them into
+  # this pull request and runs CI again.
   - package-ecosystem: npm
     directory: /src/Shelf.Api/vendor
     schedule:

@@ -1,0 +1,63 @@
+name: Vendor Dependabot updates
+
+# PDF.js, JSZip, the barcode reader, and the fonts are copied from src/Shelf.Api/vendor into wwwroot. When Dependabot
+# bumps one, this copies the new files into its pull request and runs CI again, so the pull request arrives ready.
+on:
+  pull_request:
+    paths:
+      - src/Shelf.Api/vendor/package.json
+      - src/Shelf.Api/vendor/package-lock.json
+
+# Dependabot's pull requests get a read-only token unless a workflow asks for more, as this one does: to push the
+# copied files, and to start CI on them.
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  vendor:
+    if: github.actor == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # The packages' own install scripts never run here, and the copying is done by copy.mjs as it is on the
+      # base branch, not as the pull request has it: nothing from the update runs with this token.
+      - name: Copy the updated files into wwwroot
+        working-directory: src/Shelf.Api/vendor
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          git show "origin/$BASE:src/Shelf.Api/vendor/copy.mjs" > copy.mjs
+          node copy.mjs
+          git checkout -- copy.mjs
+
+      - name: Commit them to the pull request
+        id: commit
+        run: |
+          if git diff --quiet -- src/Shelf.Api/wwwroot; then
+            echo "wwwroot already matches."
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/Shelf.Api/wwwroot
+          git commit -m "Copy the updated vendor files into wwwroot."
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      # A push made with this workflow's token starts no workflows of its own, so CI is started by hand.
+      - name: Run CI on the new commit
+        if: steps.commit.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref "${{ github.event.pull_request.head.ref }}"
