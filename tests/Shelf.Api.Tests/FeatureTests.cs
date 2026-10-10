@@ -244,6 +244,55 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Single(await stranger.GetFromJsonAsync<SearchHit[]>("/books/search?q=heron", JsonOptions) ?? []);
     }
 
+    [Fact]
+    public async Task An_e_reader_browses_the_opds_catalog_with_the_device_key()
+    {
+        var book = await CreateAsync(new CreateBookRequest("Catalogued <Tales>", "Someone & Co", BookStatus.Reading, null, CoverUrl: "https://example.org/cover.jpg"));
+        await CreateAsync(new CreateBookRequest("No File Here", "Someone", BookStatus.Reading, null));
+        var epub = BooksEndpointTests.SampleEpub("For the e-reader.");
+        using (var content = new MultipartFormDataContent { { new ByteArrayContent(epub), "file", "tales.epub" } })
+        {
+            await _client.PostAsync($"/books/{book.Id}/ebook", content);
+        }
+
+        string key;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            key = await ReaderRules.NewKeyAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), factory.ReaderId);
+        }
+
+        var anonymous = factory.CreateClient();
+        var refused = await anonymous.GetAsync("/opds");
+        Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
+        Assert.Contains("Basic", refused.Headers.WwwAuthenticate.ToString());
+
+        var wrong = factory.CreateClient();
+        wrong.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String("kobo:not-the-key"u8.ToArray()));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await wrong.GetAsync("/opds")).StatusCode);
+
+        var reader = factory.CreateClient();
+        reader.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"kobo:{key}")));
+        var root = await reader.GetAsync("/opds");
+        Assert.Equal("application/atom+xml", root.Content.Headers.ContentType?.MediaType);
+        var rootXml = System.Xml.Linq.XDocument.Parse(await root.Content.ReadAsStringAsync());
+        Assert.Contains(rootXml.Descendants().Where(element => element.Name.LocalName == "link"), link => (string?)link.Attribute("href") == "/opds/books?status=Reading");
+
+        var reading = System.Xml.Linq.XDocument.Parse(await reader.GetStringAsync("/opds/books?status=Reading"));
+        var entries = reading.Descendants().Where(element => element.Name.LocalName == "entry").ToList();
+        var entry = entries.Single(item => item.Elements().Single(element => element.Name.LocalName == "title").Value == "Catalogued <Tales>");
+        Assert.DoesNotContain(entries, item => item.Value.Contains("No File Here"));
+        var acquisition = entry.Elements().Single(element => element.Name.LocalName == "link" && (string?)element.Attribute("rel") == "http://opds-spec.org/acquisition");
+        Assert.Equal("application/epub+zip", (string?)acquisition.Attribute("type"));
+        Assert.Contains(entry.Elements(), element => element.Name.LocalName == "link" && (string?)element.Attribute("href") == "https://example.org/cover.jpg");
+
+        var file = await reader.GetAsync((string)acquisition.Attribute("href")!);
+        Assert.Equal(epub, await file.Content.ReadAsByteArrayAsync());
+        Assert.Equal("tales.epub", file.Content.Headers.ContentDisposition?.FileName?.Trim('"'));
+
+        // The key reaches the catalog and sync, never the rest of the API.
+        Assert.Equal(HttpStatusCode.Unauthorized, (await reader.GetAsync("/books")).StatusCode);
+    }
+
     private async Task<HttpResponseMessage> PostCsvAsync(string csv, string name)
     {
         using var content = new MultipartFormDataContent { { new StringContent(csv), "file", name } };

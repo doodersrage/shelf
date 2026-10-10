@@ -191,6 +191,7 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.MapAccounts();
 app.MapAdmin();
+app.MapOpds();
 app.MapBooks();
 await app.RunAsync();
 return 0;
@@ -213,7 +214,8 @@ static Task Refuse(RedirectContext<CookieAuthenticationOptions> context, int sta
 {
     var path = context.Request.Path;
     if (path.StartsWithSegments("/books") || path.StartsWithSegments("/settings") || path.StartsWithSegments("/readers")
-        || path.StartsWithSegments("/admin/readers") || path.StartsWithSegments("/admin/snapshot") || path.StartsWithSegments("/account/remove"))
+        || path.StartsWithSegments("/admin/readers") || path.StartsWithSegments("/admin/snapshot") || path.StartsWithSegments("/account/remove")
+        || path.StartsWithSegments("/opds"))
     {
         context.Response.StatusCode = status;
         return Task.CompletedTask;
