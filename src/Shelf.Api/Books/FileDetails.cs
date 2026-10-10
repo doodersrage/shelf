@@ -156,6 +156,121 @@ public static class AudioDetails
         }
     }
 
+    public static (byte[] Bytes, string ContentType)? EmbeddedCover(string path)
+    {
+        try
+        {
+            return Path.GetExtension(path).ToLowerInvariant() switch
+            {
+                ".m4b" or ".m4a" or ".mp4" or ".aac" => Mp4Cover(path),
+                ".mp3" => Id3Cover(path),
+                _ => null,
+            };
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException or IndexOutOfRangeException or OverflowException)
+        {
+            return null;
+        }
+    }
+
+    private static (byte[] Bytes, string ContentType)? Mp4Cover(string path)
+    {
+        using var file = File.OpenRead(path);
+        var moov = AudioChapters.MoovOf(file);
+        if (moov is null || FindBox(moov, 0, moov.Length, ["udta", "meta", "ilst", "covr", "data"], 0) is not { } box || box.End - box.Start <= 8)
+        {
+            return null;
+        }
+
+        // A data box: a type (13 JPEG, 14 PNG) and four reserved bytes, then the picture.
+        var kind = BinaryPrimitives.ReadUInt32BigEndian(moov.AsSpan(box.Start)) & 0xFFFFFF;
+        var bytes = moov[(box.Start + 8)..box.End];
+        return (bytes, kind == 14 ? "image/png" : "image/jpeg");
+    }
+
+    private static (int Start, int End)? FindBox(byte[] data, int start, int end, string[] path, int depth)
+    {
+        var offset = start;
+        while (offset + 8 <= end)
+        {
+            var size = (int)BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(offset));
+            var type = Encoding.Latin1.GetString(data, offset + 4, 4);
+            if (size < 8 || offset + size > end)
+            {
+                return null;
+            }
+
+            if (type == path[depth])
+            {
+                var childStart = offset + 8 + (type == "meta" ? 4 : 0);
+                return depth == path.Length - 1 ? (childStart, offset + size) : FindBox(data, childStart, offset + size, path, depth + 1);
+            }
+
+            offset += size;
+        }
+
+        return null;
+    }
+
+    private static (byte[] Bytes, string ContentType)? Id3Cover(string path)
+    {
+        using var file = File.OpenRead(path);
+        Span<byte> header = stackalloc byte[10];
+        if (file.Read(header) != 10 || header[0] != 'I' || header[1] != 'D' || header[2] != '3' || header[3] is not (3 or 4))
+        {
+            return null;
+        }
+
+        var version = header[3];
+        var length = Synchsafe(header[6..10]);
+        if (length is <= 0 or > 16 * 1024 * 1024)
+        {
+            return null;
+        }
+
+        var tag = new byte[length];
+        file.ReadExactly(tag);
+        var offset = 0;
+        while (offset + 10 <= tag.Length && tag[offset] != 0)
+        {
+            var id = Encoding.Latin1.GetString(tag, offset, 4);
+            var size = version == 4 ? Synchsafe(tag.AsSpan(offset + 4, 4)) : (int)BinaryPrimitives.ReadUInt32BigEndian(tag.AsSpan(offset + 4));
+            if (size <= 0 || offset + 10 + size > tag.Length)
+            {
+                return null;
+            }
+
+            if (id == "APIC")
+            {
+                // Text encoding, a MIME type ending in zero, the picture's kind, a description ending in zero (two in UTF-16), then the picture.
+                var body = tag.AsSpan(offset + 10, size);
+                var encoding = body[0];
+                var mimeEnd = body[1..].IndexOf((byte)0) + 1;
+                var mime = Encoding.Latin1.GetString(body[1..mimeEnd]).ToLowerInvariant();
+                var at = mimeEnd + 2;
+                if (encoding is 1 or 2)
+                {
+                    while (at + 1 < body.Length && !(body[at] == 0 && body[at + 1] == 0))
+                    {
+                        at += 2;
+                    }
+
+                    at += 2;
+                }
+                else
+                {
+                    at += body[at..].IndexOf((byte)0) + 1;
+                }
+
+                return at < body.Length ? (body[at..].ToArray(), mime is "image/png" or "png" ? "image/png" : "image/jpeg") : null;
+            }
+
+            offset += 10 + size;
+        }
+
+        return null;
+    }
+
     // moov/udta/meta/ilst: each tag is a box named ©nam, ©ART, aART, ©alb, ©day holding a "data" box.
     private static FileDetails? Mp4(string path)
     {

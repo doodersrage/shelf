@@ -34,6 +34,7 @@ export default defineConfig({
       ConnectionStrings__Shelf: `Data Source=${join(data, "shelf.db")}`,
       EbookStore__Root: join(data, "ebooks"),
       AudioStore__Root: join(data, "audio"),
+      CoverStore__Root: join(data, "covers"),
       DataProtection__KeysPath: join(data, "keys"),
       Backup__Enabled: "false",
       Accounts__SignInsPerMinute: "1000",

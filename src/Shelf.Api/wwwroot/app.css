@@ -894,6 +894,15 @@ code.key {
     }
 }
 
+/* A book's cover beside the ways to change it. */
+.cover-choice {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--space-4);
+    align-items: start;
+    margin: 0 0 var(--space-6);
+}
+
 /* Copies on other readers' open shelves, each with its own ask. */
 .open-copies {
     list-style: none;

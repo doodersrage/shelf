@@ -78,6 +78,7 @@ builder.Services.AddSingleton<FreeBooks>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<FreeBooks>());
 builder.Services.AddSingleton<EbookStore>();
 builder.Services.AddSingleton<AudioStore>();
+builder.Services.AddSingleton<CoverStore>();
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddSingleton<ReminderMailer>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<ReminderMailer>());

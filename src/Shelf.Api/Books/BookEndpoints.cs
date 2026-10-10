@@ -51,6 +51,8 @@ public static class BookEndpoints
         books.MapPost("/{id:int}/lend", Lending.Lend).WithTags("Lending");
         books.MapGet("/{id:int}/place", Lending.Place);
         books.MapGet("/{id:int}/cover", Covers.File);
+        books.MapPost("/{id:int}/cover", Covers.Upload).DisableAntiforgery();
+        books.MapDelete("/{id:int}/cover", Covers.Remove);
         books.MapGet("/{id:int}/notes.md", NotesExport.Book);
         books.MapGet("/notes.zip", NotesExport.All);
         books.MapPut("/{id:int}/place", Lending.KeepPlace);
@@ -194,6 +196,7 @@ public static class BookEndpoints
         ShelfDb db,
         EbookStore store,
         AudioStore audio,
+        CoverStore covers,
         CancellationToken cancellationToken)
     {
         var book = await db.Books.FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
@@ -204,6 +207,7 @@ public static class BookEndpoints
 
         store.Delete(book.EbookStoredName);
         audio.Delete(book.AudioStoredName);
+        covers.Delete(book.CoverImage);
         db.Books.Remove(book);
         await db.SaveChangesAsync(cancellationToken);
         await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
@@ -288,10 +292,11 @@ public static class BookEndpoints
         ShelfDb db,
         EbookStore ebooks,
         AudioStore audio,
+        CoverStore covers,
         CancellationToken cancellationToken)
     {
         var path = TempFileResult.NewPath(".zip");
-        await Backup.WriteShelfAsync(db, ebooks, audio, path, cancellationToken);
+        await Backup.WriteShelfAsync(db, ebooks, audio, covers, path, cancellationToken);
         return new TempFileResult(path, "application/zip", $"shelf-backup-{DateTime.UtcNow:yyyy-MM-dd}.zip");
     }
 
@@ -320,6 +325,7 @@ public static class BookEndpoints
         ShelfDb db,
         EbookStore ebooks,
         AudioStore audio,
+        CoverStore covers,
         CancellationToken cancellationToken)
     {
         if (file is null || file.Length == 0)
@@ -338,7 +344,7 @@ public static class BookEndpoints
             RestoreResult? result;
             try
             {
-                result = await Backup.RestoreShelfAsync(db, ebooks, audio, path, cancellationToken);
+                result = await Backup.RestoreShelfAsync(db, ebooks, audio, covers, path, cancellationToken);
             }
             catch (InvalidDataException)
             {

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Shelf.Api.Data;
 
@@ -5,8 +6,16 @@ namespace Shelf.Api.Books;
 
 public static class Covers
 {
-    public static string? For(int id, string? coverUrl, bool fileCover) =>
-        !string.IsNullOrWhiteSpace(coverUrl) ? coverUrl : fileCover ? $"/books/{id}/cover" : null;
+    // A picture kept on the shelf comes first, then the cover address given, then the e-book's own. The kept
+    // picture's name goes in the address, so a new one is never mistaken for the old in a browser's cache.
+    public static string? For(int id, string? coverUrl, bool fileCover, string? coverImage) =>
+        coverImage is { Length: >= 8 } ? $"/books/{id}/cover?v={coverImage[..8]}"
+        : !string.IsNullOrWhiteSpace(coverUrl) ? coverUrl
+        : fileCover ? $"/books/{id}/cover"
+        : null;
+
+    // Whether a book shows any cover at all, so art found later does not replace one already chosen.
+    public static bool HasCover(Book book) => book.CoverImage is not null || !string.IsNullOrWhiteSpace(book.CoverUrl) || book.FileCover;
 
     // What Shelf keeps about the e-book now on a book: whether it has a cover picture, and what KOReader calls it.
     // Called whenever a file is attached or taken off.
@@ -18,23 +27,80 @@ public static class Covers
     }
 
     // The picture itself, for the owner, a borrower, or anyone shown the book on an open shelf.
-    public static async Task<IResult> File(int id, ShelfDb db, EbookStore store, HttpContext http, CancellationToken cancellationToken)
+    public static async Task<IResult> File(int id, ShelfDb db, EbookStore store, CoverStore covers, HttpContext http, CancellationToken cancellationToken)
     {
         var me = db.ReaderId;
-        var storedName = await db.Books.IgnoreQueryFilters().AsNoTracking()
-            .Where(book => book.Id == id && book.FileCover && me != 0
+        var files = await db.Books.IgnoreQueryFilters().AsNoTracking()
+            .Where(book => book.Id == id && (book.FileCover || book.CoverImage != null) && me != 0
                 && (book.OwnerId == me || book.BorrowerId == me || (book.Owner != null && book.Owner.ShelfOpen)))
-            .Select(book => book.EbookStoredName)
+            .Select(book => new { book.EbookStoredName, book.CoverImage })
             .FirstOrDefaultAsync(cancellationToken);
-        var path = store.OpenPath(storedName);
-        if (path is null || Picture(storedName, path) is not { } cover)
+        http.Response.Headers.CacheControl = "private, max-age=86400";
+        http.Response.Headers.ContentSecurityPolicy = "default-src 'none'";
+        if (covers.OpenPath(files?.CoverImage) is { } kept)
+        {
+            return Results.File(kept, CoverStore.ContentType(files!.CoverImage!));
+        }
+
+        var path = store.OpenPath(files?.EbookStoredName);
+        if (path is null || Picture(files!.EbookStoredName, path) is not { } cover)
         {
             return TypedResults.NotFound();
         }
 
-        http.Response.Headers.CacheControl = "private, max-age=86400";
-        http.Response.Headers.ContentSecurityPolicy = "default-src 'none'";
         return Results.File(cover.Bytes, cover.ContentType);
+    }
+
+    // A reader's own picture for a book, replacing any picture kept before.
+    public static async Task<IResult> Upload(int id, IFormFile? file, ShelfDb db, CoverStore covers, CancellationToken cancellationToken)
+    {
+        var book = await db.Books.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (book is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        string? saved = null;
+        if (file is { Length: > 0 and <= CoverStore.MaxBytes })
+        {
+            await using var stream = file.OpenReadStream();
+            saved = await covers.SaveAsync(stream, cancellationToken);
+        }
+
+        if (saved is null)
+        {
+            return TypedResults.Redirect($"/library/{id}?cover=unsupported");
+        }
+
+        covers.Delete(book.CoverImage);
+        book.CoverImage = saved;
+        await db.SaveChangesAsync(cancellationToken);
+        return TypedResults.Redirect($"/library/{id}?cover=saved");
+    }
+
+    public static async Task<Results<NoContent, NotFound>> Remove(int id, ShelfDb db, CoverStore covers, CancellationToken cancellationToken)
+    {
+        var book = await db.Books.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (book is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        covers.Delete(book.CoverImage);
+        book.CoverImage = null;
+        await db.SaveChangesAsync(cancellationToken);
+        return TypedResults.NoContent();
+    }
+
+    // Art inside an audiobook's first track, kept as the book's cover when it has none yet.
+    public static async Task NoteAudioArtAsync(Book book, AudioStore audio, CoverStore covers, CancellationToken cancellationToken)
+    {
+        if (HasCover(book) || audio.TrackPath(book.AudioStoredName, 0) is not { } first || AudioDetails.EmbeddedCover(first) is not { } art)
+        {
+            return;
+        }
+
+        book.CoverImage = await covers.SaveAsync(art.Bytes, cancellationToken);
     }
 
     // An EPUB's cover picture, or a comic's first page.

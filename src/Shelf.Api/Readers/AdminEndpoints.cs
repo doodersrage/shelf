@@ -54,13 +54,14 @@ public static class AdminEndpoints
         ShelfDb db,
         EbookStore ebooks,
         AudioStore audio,
+        CoverStore covers,
         CancellationToken cancellationToken) =>
-        Answer(await ReaderRules.RemoveAsync(db, ebooks, audio, id, cancellationToken));
+        Answer(await ReaderRules.RemoveAsync(db, ebooks, audio, covers, id, cancellationToken));
 
-    private static async Task<TempFileResult> Snapshot(ShelfDb db, EbookStore ebooks, AudioStore audio, CancellationToken cancellationToken)
+    private static async Task<TempFileResult> Snapshot(ShelfDb db, EbookStore ebooks, AudioStore audio, CoverStore covers, CancellationToken cancellationToken)
     {
         var path = TempFileResult.NewPath(".zip");
-        await Backup.WriteSnapshotAsync(db, ebooks, audio, path, cancellationToken);
+        await Backup.WriteSnapshotAsync(db, ebooks, audio, covers, path, cancellationToken);
         await Audit.NoteAsync(db, "Downloaded a snapshot of the whole server", cancellationToken: cancellationToken);
         return new TempFileResult(path, "application/zip", $"shelf-snapshot-{DateTime.UtcNow:yyyy-MM-dd}.zip");
     }

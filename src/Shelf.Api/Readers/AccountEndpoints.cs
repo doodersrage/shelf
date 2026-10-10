@@ -220,9 +220,10 @@ public static class AccountEndpoints
         ShelfDb db,
         EbookStore ebooks,
         AudioStore audio,
+        CoverStore covers,
         CancellationToken cancellationToken)
     {
-        var problem = await ReaderRules.RemoveSelfAsync(db, ebooks, audio, db.ReaderId, request.Password, cancellationToken);
+        var problem = await ReaderRules.RemoveSelfAsync(db, ebooks, audio, covers, db.ReaderId, request.Password, cancellationToken);
         if (problem is not null)
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>

@@ -12,6 +12,7 @@ public static class AudioEndpoints
         HttpContext http,
         ShelfDb db,
         AudioStore store,
+        CoverStore covers,
         IDataProtectionProvider protection,
         CancellationToken cancellationToken)
     {
@@ -58,7 +59,7 @@ public static class AudioEndpoints
                 return TypedResults.Redirect($"/library/{id}?audio=duplicate&held={Uri.EscapeDataString(token)}");
             }
 
-            await AttachAsync(db, store, book, saved.StoredName, saved.FileName, cancellationToken);
+            await AttachAsync(db, store, covers, book, saved.StoredName, saved.FileName, cancellationToken);
             return TypedResults.Redirect($"/library/{id}?audio=saved");
         }
         finally
@@ -70,7 +71,7 @@ public static class AudioEndpoints
         }
     }
 
-    public static async Task AttachAsync(ShelfDb db, AudioStore store, Book book, string storedName, string fileName, CancellationToken cancellationToken)
+    public static async Task AttachAsync(ShelfDb db, AudioStore store, CoverStore covers, Book book, string storedName, string fileName, CancellationToken cancellationToken)
     {
         store.Delete(book.AudioStoredName);
         book.AudioStoredName = storedName;
@@ -78,6 +79,7 @@ public static class AudioEndpoints
         book.AudioTrack = 0;
         book.AudioSeconds = 0;
         book.Format ??= BookFormat.Audiobook;
+        await Covers.NoteAudioArtAsync(book, store, covers, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
     }
 

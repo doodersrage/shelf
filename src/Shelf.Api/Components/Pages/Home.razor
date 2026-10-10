@@ -5,6 +5,7 @@
 @inject NavigationManager Navigation
 @inject EbookStore Ebooks
 @inject AudioStore Audio
+@inject CoverStore Covers
 
 <PageTitle>Library · Shelf</PageTitle>
 
@@ -688,7 +689,7 @@ else if (visible.Count > 0)
     {
         await using (var db = await DbFactory.CreateDbContextAsync())
         {
-            var result = await Bulk.ApplyAsync(db, Ebooks, Audio, request);
+            var result = await Bulk.ApplyAsync(db, Ebooks, Audio, Covers, request);
             bulkNote = request.Delete
                 ? $"Deleted {result.Changed} {(result.Changed == 1 ? "book" : "books")}."
                 : $"Changed {result.Changed} {(result.Changed == 1 ? "book" : "books")}.";

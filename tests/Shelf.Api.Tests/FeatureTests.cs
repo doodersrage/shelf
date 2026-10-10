@@ -395,6 +395,7 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
                 configuration,
                 factory.Services.GetRequiredService<EbookStore>(),
                 factory.Services.GetRequiredService<AudioStore>(),
+                factory.Services.GetRequiredService<CoverStore>(),
                 Microsoft.Extensions.Logging.Abstractions.NullLogger<BackupSchedule>.Instance);
             for (var round = 0; round < 3; round++)
             {

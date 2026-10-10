@@ -406,7 +406,7 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
     {
         var book = await CreateAsync(_admin, new CreateBookRequest("Uploaded Slowly", "Someone", BookStatus.Want, null));
         var page = await _admin.GetStringAsync($"/library/{book.Id}");
-        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(page, "data-upload(?!-)").Count);
+        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(page, "data-upload(?!-)").Count);
         Assert.Contains("data-upload-progress", page);
         Assert.Contains("data-upload", await _admin.GetStringAsync("/backup"));
         Assert.Contains("upload", await _admin.GetStringAsync("/upload.js"));

@@ -301,6 +301,7 @@ public static class ReaderRules
         ShelfDb db,
         EbookStore ebooks,
         AudioStore audio,
+        CoverStore covers,
         int readerId,
         string? password,
         CancellationToken cancellationToken = default)
@@ -312,7 +313,7 @@ public static class ReaderRules
             return AccountProblem.CurrentPasswordWrong;
         }
 
-        return await RemoveAsync(db, ebooks, audio, readerId, cancellationToken);
+        return await RemoveAsync(db, ebooks, audio, covers, readerId, cancellationToken);
     }
 
     // Removing a reader takes their shelf with them: their books and files go, and books lent to them go home.
@@ -320,6 +321,7 @@ public static class ReaderRules
         ShelfDb db,
         EbookStore ebooks,
         AudioStore audio,
+        CoverStore covers,
         int readerId,
         CancellationToken cancellationToken = default)
     {
@@ -334,7 +336,7 @@ public static class ReaderRules
             return AccountProblem.LastAdmin;
         }
 
-        var files = new List<(string? Ebook, string? Audio)>();
+        var files = new List<(string? Ebook, string? Audio, string? Cover)>();
         await using (var transaction = await db.Database.BeginTransactionAsync(cancellationToken))
         {
             var borrowed = await db.Books.IgnoreQueryFilters().Where(book => book.BorrowerId == readerId).ToListAsync(cancellationToken);
@@ -344,7 +346,7 @@ public static class ReaderRules
             }
 
             var owned = await db.Books.IgnoreQueryFilters().Where(book => book.OwnerId == readerId).ToListAsync(cancellationToken);
-            files.AddRange(owned.Select(book => (book.EbookStoredName, book.AudioStoredName)));
+            files.AddRange(owned.Select(book => (book.EbookStoredName, book.AudioStoredName, book.CoverImage)));
             db.Books.RemoveRange(owned);
             db.Settings.RemoveRange(await db.Settings.Where(setting => setting.Id == readerId).ToListAsync(cancellationToken));
             db.Readers.Remove(reader);
@@ -352,10 +354,11 @@ public static class ReaderRules
             await transaction.CommitAsync(cancellationToken);
         }
 
-        foreach (var (ebook, recording) in files)
+        foreach (var (ebook, recording, cover) in files)
         {
             ebooks.Delete(ebook);
             audio.Delete(recording);
+            covers.Delete(cover);
         }
 
         await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);

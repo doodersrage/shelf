@@ -23,6 +23,7 @@ public static class Bulk
         ShelfDb db,
         EbookStore ebooks,
         AudioStore audio,
+        CoverStore covers,
         BulkRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -39,6 +40,7 @@ public static class Bulk
             {
                 ebooks.Delete(book.EbookStoredName);
                 audio.Delete(book.AudioStoredName);
+                covers.Delete(book.CoverImage);
             }
 
             db.Books.RemoveRange(books);
@@ -88,6 +90,7 @@ public static class Bulk
         ShelfDb db,
         EbookStore ebooks,
         AudioStore audio,
+        CoverStore covers,
         CancellationToken cancellationToken)
     {
         if (request.Ids is null || request.Ids.Length == 0)
@@ -100,6 +103,6 @@ public static class Bulk
             return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Ids)] = [$"Change at most {MaxBooks} books at once."] });
         }
 
-        return TypedResults.Ok(await ApplyAsync(db, ebooks, audio, request, cancellationToken));
+        return TypedResults.Ok(await ApplyAsync(db, ebooks, audio, covers, request, cancellationToken));
     }
 }

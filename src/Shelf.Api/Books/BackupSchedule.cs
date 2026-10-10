@@ -14,6 +14,7 @@ public sealed class BackupSchedule(
     IConfiguration configuration,
     EbookStore ebooks,
     AudioStore audio,
+    CoverStore covers,
     ILogger<BackupSchedule> logger) : BackgroundService
 {
     public const string Prefix = "shelf-backup-";
@@ -63,7 +64,7 @@ public sealed class BackupSchedule(
         await using (var scope = scopes.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
-            await Backup.WriteSnapshotAsync(db, ebooks, audio, partial, cancellationToken, IncludeFiles);
+            await Backup.WriteSnapshotAsync(db, ebooks, audio, covers, partial, cancellationToken, IncludeFiles);
         }
 
         // Only a finished zip carries the real name, so a half-written one is never mistaken for a backup.

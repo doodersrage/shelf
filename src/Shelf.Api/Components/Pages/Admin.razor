@@ -3,6 +3,7 @@
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject EbookStore Ebooks
 @inject AudioStore Audio
+@inject CoverStore Covers
 @inject BackupSchedule Schedule
 
 <PageTitle>Readers · Shelf</PageTitle>
@@ -198,7 +199,7 @@ else
                 return;
             }
 
-            problem = await ReaderRules.RemoveAsync(db, Ebooks, Audio, id);
+            problem = await ReaderRules.RemoveAsync(db, Ebooks, Audio, Covers, id);
         }
 
         removing = null;

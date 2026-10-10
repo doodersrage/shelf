@@ -66,7 +66,7 @@ public static class Asking
                 book.Id,
                 book.Title,
                 book.Author,
-                Covers.For(book.Id, book.CoverUrl, book.FileCover),
+                Covers.For(book.Id, book.CoverUrl, book.FileCover, book.CoverImage),
                 book.Year,
                 book.LoanedTo != null,
                 book.EbookStoredName != null,

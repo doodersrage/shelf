@@ -25,6 +25,7 @@ public static class Backup
         ShelfDb db,
         EbookStore ebooks,
         AudioStore audio,
+        CoverStore covers,
         string zipPath,
         CancellationToken cancellationToken = default)
     {
@@ -45,6 +46,12 @@ public static class Backup
                 zip.CreateEntryFromFile(ebookPath, $"{Folder(index)}/ebook/{SafeName(fileName)}", CompressionLevel.NoCompression);
             }
 
+            // A kept cover picture travels with its book; a cover address is in the catalog already.
+            if (covers.OpenPath(book.CoverImage) is { } coverPath)
+            {
+                zip.CreateEntryFromFile(coverPath, $"{Folder(index)}/cover{Path.GetExtension(coverPath)}", CompressionLevel.NoCompression);
+            }
+
             foreach (var track in audio.Tracks(book.AudioStoredName))
             {
                 if (audio.TrackPath(book.AudioStoredName, track.Index) is { } trackPath)
@@ -59,6 +66,7 @@ public static class Backup
         ShelfDb db,
         EbookStore ebooks,
         AudioStore audio,
+        CoverStore covers,
         string zipPath,
         CancellationToken cancellationToken = default)
     {
@@ -111,6 +119,16 @@ public static class Backup
                 }
             }
 
+            if (zip.Entries.FirstOrDefault(item => item.FullName.StartsWith(prefix + "cover.", StringComparison.Ordinal)) is { } cover)
+            {
+                await using var stream = cover.Open();
+                if (await covers.SaveAsync(stream, cancellationToken) is { } kept)
+                {
+                    book.CoverImage = kept;
+                    files++;
+                }
+            }
+
             var tracks = zip.Entries
                 .Where(item => item.FullName.StartsWith(prefix + "audio/", StringComparison.Ordinal) && item.Name.Length > 0)
                 .OrderBy(item => item.Name, StringComparer.Ordinal)
@@ -134,6 +152,7 @@ public static class Backup
         ShelfDb db,
         EbookStore ebooks,
         AudioStore audio,
+        CoverStore covers,
         string zipPath,
         CancellationToken cancellationToken = default,
         bool includeFiles = true)
@@ -151,6 +170,9 @@ public static class Backup
                 AddFolder(zip, ebooks.Root, "ebooks");
                 AddFolder(zip, audio.Root, "audio");
             }
+
+            // Cover pictures are small, and nothing else has them, so they always come along.
+            AddFolder(zip, covers.Root, "covers");
         }
         finally
         {

@@ -25,7 +25,8 @@ RUN mkdir -p /data && chown app:app /data
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     ConnectionStrings__Shelf="Data Source=/data/shelf.db" \
     EbookStore__Root=/data/ebooks \
-    AudioStore__Root=/data/audio
+    AudioStore__Root=/data/audio \
+    CoverStore__Root=/data/covers
 USER app
 VOLUME /data
 EXPOSE 8080

@@ -21,7 +21,7 @@ public sealed record ImportFile(string Name, Stream Content, long Length);
 // Turns files into books: each e-book, each zip of tracks, and each run of audio files sharing an album becomes one.
 // What the files say fills the catalog. A file already on another book is skipped unless both are wanted, and a
 // book already on the shelf without that kind of file takes it instead of a second book being made.
-public sealed class BookImport(EbookStore ebooks, AudioStore audio, IConfiguration configuration)
+public sealed class BookImport(EbookStore ebooks, AudioStore audio, CoverStore covers, IConfiguration configuration)
 {
     public const string UnknownAuthor = "Unknown author";
 
@@ -153,7 +153,7 @@ public sealed class BookImport(EbookStore ebooks, AudioStore audio, IConfigurati
         var details = known ?? (audio.TrackPath(saved.StoredName, 0) is { } first ? AudioDetails.Read(first) : null);
         var fallback = files.Count == 1 ? files[0].Name : label;
         var (book, existing) = await PlaceAsync(db, details, fallback, book => book.AudioStoredName is null, BookFormat.Audiobook, cancellationToken);
-        await AudioEndpoints.AttachAsync(db, audio, book, saved.StoredName, saved.FileName, cancellationToken);
+        await AudioEndpoints.AttachAsync(db, audio, covers, book, saved.StoredName, saved.FileName, cancellationToken);
         return new ImportedFile(label, existing ? ImportOutcome.AddedToExisting : ImportOutcome.Added, book.Id, book.Title);
     }
 

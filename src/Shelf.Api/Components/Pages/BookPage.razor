@@ -4,6 +4,7 @@
 @inject NavigationManager Navigation
 @inject EbookStore Ebooks
 @inject AudioStore Audio
+@inject CoverStore Covers
 @inject OcrService Ocr
 @inject Microsoft.AspNetCore.DataProtection.IDataProtectionProvider Protection
 @using Microsoft.JSInterop
@@ -155,6 +156,14 @@ else if (book is not null)
     else if (EbookMessage == "convert")
     {
         <p class="validation-message" role="alert">That Kindle file could not be turned into an EPUB. Shelf needs Calibre installed on the server for that, and a file locked with DRM cannot be converted at all.</p>
+    }
+    @if (CoverMessage == "saved")
+    {
+        <p class="saved" role="status">The cover is on the shelf.</p>
+    }
+    else if (CoverMessage == "unsupported")
+    {
+        <p class="validation-message" role="alert">Choose a JPEG, PNG, GIF, or WebP picture of 10 MB or less.</p>
     }
     @if (AudioMessage == "saved")
     {
@@ -433,6 +442,26 @@ else if (book is not null)
 
     <section class="panel" id="files">
         <h2>Files</h2>
+    <h3>Cover</h3>
+    <div class="cover-choice">
+        <BookCover Title="@book.Title" Url="@book.CoverShown" Width="5rem" />
+        <div>
+            <p class="hint">@CoverSource</p>
+            <form action="/books/@book.Id/cover" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
+                <label>
+                    @(book.CoverImage is null ? "Use a picture of your own" : "Use a different picture"), JPEG, PNG, GIF, or WebP, up to 10 MB
+                    <input type="file" name="file" accept="image/jpeg,image/png,image/gif,image/webp" required />
+                </label>
+                <progress data-upload-progress max="100" hidden></progress>
+                <p class="hint" data-upload-status role="status" hidden></p>
+                <button type="submit">Upload the picture</button>
+                @if (book.CoverImage is not null)
+                {
+                    <button type="button" class="quiet" @onclick="RemoveCover">Remove the picture</button>
+                }
+            </form>
+        </div>
+    </div>
     @if (borrowable.Count > 0)
     {
         <p class="hint">Before uploading: another reader has this book with a file you could borrow.</p>
@@ -635,6 +664,32 @@ else if (book is not null)
     [SupplyParameterFromQuery(Name = "audio")]
     public string? AudioMessage { get; set; }
 
+    [SupplyParameterFromQuery(Name = "cover")]
+    public string? CoverMessage { get; set; }
+
+    // Where the cover showing comes from, in a few words.
+    private string CoverSource => book switch
+    {
+        { CoverImage: not null } => "A picture kept on the shelf: one you uploaded, or one that came with the book's files.",
+        { CoverUrl: { Length: > 0 } } => "From the cover address in the details below.",
+        { FileCover: true } => "From inside the e-book.",
+        _ => "No cover yet: upload a picture, fill the details from Open Library, or add an e-book with a cover inside.",
+    };
+
+    private async Task RemoveCover()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var existing = await db.Books.FirstOrDefaultAsync(item => item.Id == Id);
+        if (existing is not null)
+        {
+            Covers.Delete(existing.CoverImage);
+            existing.CoverImage = null;
+            await db.SaveChangesAsync();
+        }
+
+        await LoadAsync(replaceDraft: false);
+    }
+
     [SupplyParameterFromQuery(Name = "imported")]
     public string? ImportedMessage { get; set; }
 
@@ -692,7 +747,7 @@ else if (book is not null)
             }
             else
             {
-                await AudioEndpoints.AttachAsync(db, Audio, existing, upload.StoredName, upload.FileName, default);
+                await AudioEndpoints.AttachAsync(db, Audio, Covers, existing, upload.StoredName, upload.FileName, default);
             }
         }
 
@@ -876,6 +931,7 @@ else if (book is not null)
         {
             Ebooks.Delete(existing.EbookStoredName);
             Audio.Delete(existing.AudioStoredName);
+            Covers.Delete(existing.CoverImage);
             db.Books.Remove(existing);
             await db.SaveChangesAsync();
             await BookRules.RemoveUnusedTagsAsync(db, CancellationToken.None);

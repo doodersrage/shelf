@@ -7,6 +7,7 @@
 @inject NavigationManager Navigation
 @inject EbookStore Ebooks
 @inject AudioStore Audio
+@inject CoverStore Covers
 @inject IEmailSender Email
 @inject Microsoft.AspNetCore.DataProtection.IDataProtectionProvider Protection
 @inject AuthenticationStateProvider Authentication
@@ -447,7 +448,7 @@ else
     private async Task RemoveAccount()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        removeProblem = await ReaderRules.RemoveSelfAsync(db, Ebooks, Audio, db.ReaderId, removePassword);
+        removeProblem = await ReaderRules.RemoveSelfAsync(db, Ebooks, Audio, Covers, db.ReaderId, removePassword);
         if (removeProblem is null)
         {
             Navigation.NavigateTo("/signin?notice=removed", forceLoad: true);

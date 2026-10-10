@@ -1559,6 +1559,7 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
     private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"shelf-{Guid.NewGuid():N}.db");
     private readonly string _ebookRoot = Path.Combine(Path.GetTempPath(), $"shelf-ebooks-{Guid.NewGuid():N}");
     private readonly string _audioRoot = Path.Combine(Path.GetTempPath(), $"shelf-audio-{Guid.NewGuid():N}");
+    private readonly string _coverRoot = Path.Combine(Path.GetTempPath(), $"shelf-covers-{Guid.NewGuid():N}");
     private readonly string _keysRoot = Path.Combine(Path.GetTempPath(), $"shelf-keys-{Guid.NewGuid():N}");
     private HttpClient? _client;
 
@@ -1621,6 +1622,7 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
         builder.UseSetting("ConnectionStrings:Shelf", $"Data Source={_databasePath}");
         builder.UseSetting("EbookStore:Root", _ebookRoot);
         builder.UseSetting("AudioStore:Root", _audioRoot);
+        builder.UseSetting("CoverStore:Root", _coverRoot);
         builder.UseSetting("Accounts:SignInsPerMinute", "1000");
         builder.UseSetting("DataProtection:KeysPath", _keysRoot);
         builder.UseSetting("Backup:Enabled", "false");
@@ -1645,7 +1647,7 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
             Directory.Delete(_ebookRoot, recursive: true);
         }
 
-        foreach (var folder in new[] { _audioRoot, _keysRoot })
+        foreach (var folder in new[] { _audioRoot, _coverRoot, _keysRoot })
         {
             if (Directory.Exists(folder))
             {

@@ -108,7 +108,7 @@ Set `Accounts:AllowSignUp` to `false` to stop new accounts once the first one ex
 | `/books/borrowed` | The books other readers have lent you. `POST /books/borrowed/{id}/return` gives one back. |
 | `/books/import` | `POST` any number of EPUBs, PDFs, audio files, and zips of tracks as `file` fields; each becomes a book named from what the file says (an EPUB's title, author, ISBN, publisher, language, and cover; a PDF's title and author through Poppler's `pdfinfo`; an audiobook's album and artist tags). Tracks that share an album make one audiobook. A file already on another book is skipped unless `keepBoth=true`, and a book already on the shelf without that kind of file takes it. Ask for `application/json` to get what happened to each file. |
 | `/books/{id}/notes.md` | A book's quotes, highlights (by chapter or page), notes, and review as Markdown with YAML front matter. A borrower gets only their own highlights. `/books/notes.zip` has one file for every book with something written about it. |
-| `/books/{id}/cover` | The cover picture inside the book's EPUB, shown when the book has no cover address of its own. |
+| `/books/{id}/cover` | The book's cover picture: one kept on the shelf, else the one inside its EPUB or a comic's first page. `POST` a JPEG, PNG, GIF, or WebP (up to 10 MB) as `file` to keep a picture of your own; `DELETE` removes it. |
 | `/books/{id}/ebook` | `POST` an EPUB or PDF (up to 80 MB). `DELETE` removes it. `/books/{id}/ebook/file` returns the file, and an EPUB's chapters are at `/books/{id}/ebook/chapters/{index}`. `/books/{id}/ebook/ocr/{page}` returns the words read from a scanned PDF page, with where each sits on the page. |
 | `/books/{id}/audio` | `POST` an audio file or a zip of tracks (up to 1 GB): mp3, m4a, m4b, aac, ogg, opus, wav, or flac. `DELETE` removes it. `/books/{id}/audio/tracks/{index}` returns one track. |
 | `/books/sync` | The e-books and audiobooks another shelf can take, with the place each one stopped. `GET /books/sync/{key}/ebook` and `GET /books/sync/{key}/audio` return a file. `PUT /books/sync/{key}/progress` keeps the furthest place. Another shelf calls these with `Authorization: Bearer <key>`, using a key made on `/sync`. A key reaches only these sync calls, and only its own reader's books. |
@@ -135,6 +135,10 @@ The next run applies the new migration. `dotnet ef database update --project src
 ## Read aloud
 
 The reader can read an EPUB or a PDF aloud with the browser's own voices, sentence by sentence, going on into the next chapter or page. The speed and voice are kept in that browser. Nothing is sent to the server or anywhere else; how it sounds depends on the voices the device has.
+
+## Covers
+
+A book's cover is, in order: a picture kept on the shelf, the cover address in its details (Open Library fills one in), or the cover inside its EPUB or a comic's first page. A picture is kept by uploading one under Files on the book's page, or comes by itself: an audiobook's embedded art (an `.m4b`'s cover or an MP3's front-cover picture), or an import's cover, is kept when the book has none yet. Kept pictures live in `CoverStore:Root` (`/data/covers` in Docker), travel in the full backup, and are always in an admin's snapshot.
 
 ## Comics and Kindle files
 

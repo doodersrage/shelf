@@ -70,7 +70,7 @@ public static partial class Search
                 where ids.Contains(text.Id)
                     && (book.OwnerId == me || book.BorrowerId == me)
                     && book.EbookStoredName == scan.StoredName
-                select new { TextId = text.Id, book.Id, book.Title, book.Author, CoverUrl = Covers.For(book.Id, book.CoverUrl, book.FileCover), book.EbookStoredName, text.Part, text.Text })
+                select new { TextId = text.Id, book.Id, book.Title, book.Author, CoverUrl = Covers.For(book.Id, book.CoverUrl, book.FileCover, book.CoverImage), book.EbookStoredName, text.Part, text.Text })
             .ToListAsync(cancellationToken);
 
         return rows

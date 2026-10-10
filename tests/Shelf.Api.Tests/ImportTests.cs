@@ -253,6 +253,144 @@ public sealed class ImportTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
         return memory.ToArray();
     }
 
+    [Fact]
+    public async Task A_picture_of_your_own_becomes_the_cover_and_goes_with_the_book()
+    {
+        var client = factory.Client;
+        var covers = factory.Services.GetRequiredService<CoverStore>();
+        var book = await (await client.PostAsJsonAsync("/books", new CreateBookRequest("A Pictured Book", "Someone", BookStatus.Want, null), JsonOptions))
+            .Content.ReadFromJsonAsync<BookResponse>(JsonOptions);
+        async Task<HttpResponseMessage> UploadAsync(byte[] picture, string name)
+        {
+            using var content = new MultipartFormDataContent { { new ByteArrayContent(picture), "file", name } };
+            return await client.PostAsync($"/books/{book!.Id}/cover", content);
+        }
+
+        // A file named like a picture that is not one is refused.
+        Assert.Equal("?cover=unsupported", (await UploadAsync("not a picture"u8.ToArray(), "fake.png")).RequestMessage!.RequestUri!.Query);
+
+        var saved = await UploadAsync(PngNamed("first"), "first.png");
+        Assert.Equal("?cover=saved", saved.RequestMessage!.RequestUri!.Query);
+        var page = await saved.Content.ReadAsStringAsync();
+        var src = System.Text.RegularExpressions.Regex.Match(page, $"src=\"(/books/{book!.Id}/cover\\?v=[0-9a-f]{{8}})\"").Groups[1].Value;
+        Assert.NotEmpty(src);
+        Assert.Equal(PngNamed("first"), await client.GetByteArrayAsync(src));
+        Assert.Contains("A picture kept on the shelf", WebUtility.HtmlDecode(page));
+
+        // A new picture replaces the old one, on disk too, and gets a new address.
+        await UploadAsync(PngNamed("second"), "second.png");
+        Assert.Single(Directory.GetFiles(covers.Root), path => File.ReadAllBytes(path).SequenceEqual(PngNamed("second")));
+        Assert.DoesNotContain(Directory.GetFiles(covers.Root), path => File.ReadAllBytes(path).SequenceEqual(PngNamed("first")));
+        Assert.DoesNotContain(src, await client.GetStringAsync($"/library/{book.Id}"));
+
+        // It travels in the full backup, and comes back with a restore onto another shelf.
+        var backup = await client.GetByteArrayAsync("/books/export/full");
+        using (var zip = new ZipArchive(new MemoryStream(backup)))
+        {
+            Assert.Contains(zip.Entries, entry => entry.Name == "cover.png" && Bytes(entry).SequenceEqual(PngNamed("second")));
+        }
+
+        var other = await factory.SignUpAsync("Cover Restorer");
+        using (var restore = new MultipartFormDataContent { { new ByteArrayContent(backup), "file", "backup.zip" } })
+        {
+            await other.PostAsync("/books/import/full", restore);
+        }
+
+        var restored = (await other.GetFromJsonAsync<BookResponse[]>("/books", JsonOptions))!.Single(item => item.Title == "A Pictured Book");
+        var restoredPage = await other.GetStringAsync($"/library/{restored.Id}");
+        var restoredSrc = System.Text.RegularExpressions.Regex.Match(restoredPage, $"src=\"(/books/{restored.Id}/cover\\?v=[0-9a-f]{{8}})\"").Groups[1].Value;
+        Assert.Equal(PngNamed("second"), await other.GetByteArrayAsync(restoredSrc));
+
+        // Removing it, or the book, removes the file.
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/books/{book.Id}/cover")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/books/{book.Id}/cover")).StatusCode);
+        await other.DeleteAsync($"/books/{restored.Id}");
+        Assert.DoesNotContain(Directory.GetFiles(covers.Root), path => File.ReadAllBytes(path).SequenceEqual(PngNamed("second")));
+    }
+
+    [Fact]
+    public async Task Art_inside_an_audiobook_becomes_its_cover_when_it_has_none()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"shelf-art-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        try
+        {
+            // An MP3 whose ID3 tag carries a front cover.
+            var mp3 = Path.Combine(folder, "art.mp3");
+            await File.WriteAllBytesAsync(mp3, Mp3WithArt(PngNamed("mp3 art")));
+            var fromMp3 = AudioDetails.EmbeddedCover(mp3)!.Value;
+            Assert.Equal(PngNamed("mp3 art"), fromMp3.Bytes);
+            Assert.Equal("image/png", fromMp3.ContentType);
+
+            // An .m4b with attached art, made by ffmpeg as audiobook tools make them; skipped without ffmpeg.
+            var png = Path.Combine(folder, "cover.png");
+            await File.WriteAllBytesAsync(png, Png);
+            var m4b = Path.Combine(folder, "art.m4b");
+            if (!await FfmpegAsync(["-y", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=2", "-i", png,
+                    "-map", "0", "-map", "1", "-c:a", "aac", "-c:v", "copy", "-disposition:v", "attached_pic", m4b]))
+            {
+                return;
+            }
+
+            var art = AudioDetails.EmbeddedCover(m4b);
+            Assert.Equal("image/png", art?.ContentType);
+            Assert.Equal(Png, art!.Value.Bytes);
+
+            var client = factory.Client;
+            var result = Assert.Single(await ImportAsync(client, false, ("art.m4b", await File.ReadAllBytesAsync(m4b))));
+            Assert.Equal(Png, await client.GetByteArrayAsync(System.Text.RegularExpressions.Regex.Match(
+                await client.GetStringAsync($"/library/{result.BookId}"), $"/books/{result.BookId}/cover\\?v=[0-9a-f]{{8}}").Value));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    private static byte[] Bytes(ZipArchiveEntry entry)
+    {
+        using var stream = entry.Open();
+        using var copy = new MemoryStream();
+        stream.CopyTo(copy);
+        return copy.ToArray();
+    }
+
+    private static async Task<bool> FfmpegAsync(string[] arguments)
+    {
+        try
+        {
+            using var ffmpeg = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ffmpeg", arguments) { RedirectStandardError = true, UseShellExecute = false })!;
+            await ffmpeg.WaitForExitAsync();
+            return ffmpeg.ExitCode == 0;
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
+    }
+
+    // An ID3v2.3 tag with a title and an APIC front cover, then stand-in audio.
+    private static byte[] Mp3WithArt(byte[] picture)
+    {
+        var frames = new MemoryStream();
+        void Frame(string id, byte[] body)
+        {
+            frames.Write(Encoding.ASCII.GetBytes(id));
+            frames.Write([(byte)(body.Length >> 24), (byte)(body.Length >> 16), (byte)(body.Length >> 8), (byte)body.Length, 0, 0]);
+            frames.Write(body);
+        }
+
+        Frame("TIT2", [3, .. Encoding.UTF8.GetBytes("With Art")]);
+        Frame("APIC", [0, .. Encoding.ASCII.GetBytes("image/png"), 0, 3, .. Encoding.ASCII.GetBytes("cover"), 0, .. picture]);
+        var size = (int)frames.Length;
+        var output = new MemoryStream();
+        output.Write("ID3"u8);
+        output.Write([3, 0, 0, (byte)((size >> 21) & 0x7f), (byte)((size >> 14) & 0x7f), (byte)((size >> 7) & 0x7f), (byte)(size & 0x7f)]);
+        output.Write(frames.ToArray());
+        output.Write("audio"u8);
+        return output.ToArray();
+    }
+
     private static async Task<List<ImportedFile>> ImportAsync(HttpClient client, bool keepBoth, params (string Name, byte[] Bytes)[] files)
     {
         using var content = new MultipartFormDataContent();
