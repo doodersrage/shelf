@@ -33,7 +33,7 @@
 }
 <label>
     Email address
-    <input type="email" @bind="emailAddress" maxlength="@EmailRules.MaxAddressLength" autocomplete="email" />
+    <input type="email" @bind="emailAddress" @bind:event="oninput" maxlength="@EmailRules.MaxAddressLength" autocomplete="email" />
 </label>
 <label class="check">
     <input type="checkbox" @bind="emailReminders" disabled="@(string.IsNullOrWhiteSpace(emailAddress))" />

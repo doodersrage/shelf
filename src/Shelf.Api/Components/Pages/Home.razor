@@ -299,7 +299,7 @@ else if (visible.Count > 0)
                 <button type="button" disabled="@(bulkStatus.Length == 0)" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Status: Enum.Parse<BookStatus>(bulkStatus)))">Set</button>
                 <label>
                     <span class="visually-hidden">Tag for the chosen books</span>
-                    <input @bind="bulkTag" placeholder="Tag" maxlength="@BookRules.MaxTagLength" />
+                    <input @bind="bulkTag" @bind:event="oninput" placeholder="Tag" maxlength="@BookRules.MaxTagLength" />
                 </label>
                 <button type="button" disabled="@string.IsNullOrWhiteSpace(bulkTag)" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], AddTag: bulkTag))">Add tag</button>
                 <button type="button" disabled="@string.IsNullOrWhiteSpace(bulkTag)" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], RemoveTag: bulkTag))">Remove tag</button>

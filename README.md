@@ -129,6 +129,10 @@ dotnet ef migrations add ExpandLibrary --project src/Shelf.Api
 
 The next run applies the new migration. `dotnet ef database update --project src/Shelf.Api` applies it without starting the site.
 
+## Reading offline
+
+On a book with an e-book, Keep for reading offline saves the file in that browser. When the shelf cannot be reached, any page opens the offline reader instead (`/offline.html`), which lists the kept books and reads them: EPUBs chapter by chapter, PDFs page by page, at your text size. The place you stop is kept on the device and sent back the next time the shelf answers, and the shelf keeps whichever place is further. Highlights and notes need the shelf. `GET /books/{id}/place` and `PUT /books/{id}/place {"ebookChapter": 3}` read and move a reader's place.
+
 ## Dates and numbers
 
 Dates follow each reader's region: "Mar 14, 2024" in the US, "14 Mar 2024" in Britain, "14. März 2024" in Germany. The region comes from the browser's languages unless the reader picks one on their account. The words on the pages are in English.
@@ -180,6 +184,17 @@ The release workflow checks the tag against `Directory.Build.props`, runs the te
 ```bash
 dotnet test
 ```
+
+The browser tests start the app on an empty data folder and drive it in Chromium: lending, two-step sign-in, uploads, bulk changes, search, the EPUB and PDF readers, OCR, the audiobook player, offline reading, and an accessibility audit of every page in both themes.
+
+```bash
+cd tests/e2e
+npm ci
+npx playwright install chromium   # or set CHROMIUM_PATH to a Chromium already installed
+npx playwright test
+```
+
+CI runs both on every push and pull request.
 
 ## OCR for scanned PDFs
 
