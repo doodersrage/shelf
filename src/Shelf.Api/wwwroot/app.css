@@ -764,6 +764,34 @@ code.key {
     font-weight: 500;
 }
 
+/* The activity log: a time, then what happened. */
+.audit {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--space-4);
+    font-size: var(--text-sm);
+}
+
+.audit li {
+    display: grid;
+    grid-template-columns: 11rem 1fr;
+    gap: var(--space-3);
+    padding: var(--space-1) 0;
+    border-bottom: 1px solid var(--color-rule);
+}
+
+.audit time {
+    color: var(--color-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 30rem) {
+    .audit li {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+}
+
 /* Read aloud: its buttons and settings in a row, and the sentence being spoken beneath. */
 .read-aloud {
     display: flex;

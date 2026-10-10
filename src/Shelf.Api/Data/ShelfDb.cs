@@ -34,6 +34,7 @@ public sealed class ShelfDb : DbContext
     public DbSet<ReaderSession> ReaderSessions => Set<ReaderSession>();
     public DbSet<RecoveryCode> RecoveryCodes => Set<RecoveryCode>();
     public DbSet<KosyncPlace> KosyncPlaces => Set<KosyncPlace>();
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<ShelfSetting> Settings => Set<ShelfSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -146,6 +147,16 @@ public sealed class ShelfDb : DbContext
             session.Property(item => item.Id).HasMaxLength(32);
             session.Property(item => item.Device).HasMaxLength(200);
             session.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AuditEntry>(entry =>
+        {
+            entry.Property(item => item.ActorName).HasMaxLength(120);
+            entry.Property(item => item.TargetName).HasMaxLength(120);
+            entry.Property(item => item.Action).HasMaxLength(200);
+            entry.Property(item => item.Detail).HasMaxLength(300);
+            entry.HasIndex(item => item.ActorId);
+            entry.HasIndex(item => item.TargetId);
         });
 
         modelBuilder.Entity<KosyncPlace>(place =>

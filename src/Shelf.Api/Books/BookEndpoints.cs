@@ -345,6 +345,11 @@ public static class BookEndpoints
                 result = null;
             }
 
+            if (result is not null)
+            {
+                await Readers.Audit.NoteAsync(db, "Restored a backup", detail: $"{result.Added} books added, {result.Skipped} already there, {result.Files} files", cancellationToken: cancellationToken);
+            }
+
             return TypedResults.Redirect(result is null
                 ? "/backup?restore=unreadable"
                 : $"/backup?restore=done&added={result.Added}&skipped={result.Skipped}&files={result.Files}");

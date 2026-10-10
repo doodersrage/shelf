@@ -179,12 +179,17 @@ public sealed class FileSweep(EbookStore ebooks, AudioStore audio, IServiceScope
             try
             {
                 var removed = Duplicates.Sweep(ebooks, audio, DateTimeOffset.UtcNow);
+                using (var scope = scopes.CreateScope())
+                {
+                    await Readers.Audit.TrimAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), stoppingToken);
+                }
+
                 if (removed > 0)
                 {
                     logger.LogInformation("Removed {Count} stored files no book uses.", removed);
                 }
             }
-            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or Microsoft.EntityFrameworkCore.DbUpdateException)
             {
                 logger.LogWarning(ex, "Could not sweep stored files.");
             }

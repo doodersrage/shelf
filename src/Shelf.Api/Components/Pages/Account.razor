@@ -169,6 +169,12 @@ else
 </section>
 
 <section class="panel">
+<h2>Recent activity</h2>
+<p class="hint">Changes to this account, and sign-ins that failed. If something here was not you, change the password.</p>
+<AuditList Lines="activity" />
+</section>
+
+<section class="panel">
 <h2>Delete the account</h2>
 @if (!confirmingRemove)
 {
@@ -213,11 +219,14 @@ else
     private AccountProblem? emailProblem;
     private string? emailNote;
 
+    private IReadOnlyList<AuditLine> activity = [];
+
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         shelfOpen = await Asking.IsShelfOpenAsync(db);
         var me = await db.Readers.AsNoTracking().FirstAsync(item => item.Id == db.ReaderId);
+        activity = await Audit.RecentAsync(db, me.Id, take: 20);
         savedEmail = me.Email;
         emailAddress = me.Email ?? "";
         emailReminders = me.EmailReminders;
@@ -270,6 +279,7 @@ else
         var me = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
         me.TwoFactorEnabled = true;
         await db.SaveChangesAsync();
+        await Audit.NoteAsync(db, "Turned on two-step sign-in", me);
         recovery = await TwoFactor.NewRecoveryCodesAsync(db, me.Id);
         twoFactorOn = true;
         twoFactorProblem = null;
@@ -298,7 +308,7 @@ else
     private async Task EndSession(string id)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        await TwoFactor.EndSessionAsync(db, db.ReaderId, id);
+        await TwoFactor.SignOutDeviceAsync(db, db.ReaderId, id);
         sessions = await TwoFactor.SessionsAsync(db, db.ReaderId, currentSession);
     }
 

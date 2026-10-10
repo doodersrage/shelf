@@ -133,6 +133,11 @@ public static class TwoFactor
 
     public static async Task DisableAsync(ShelfDb db, Reader reader, CancellationToken cancellationToken = default)
     {
+        if (reader.TwoFactorEnabled)
+        {
+            await Audit.NoteAsync(db, "Turned off two-step sign-in", reader, cancellationToken: cancellationToken);
+        }
+
         reader.TwoFactorEnabled = false;
         reader.TwoFactorSecret = null;
         await db.RecoveryCodes.Where(code => code.ReaderId == reader.Id).ExecuteDeleteAsync(cancellationToken);
@@ -190,8 +195,29 @@ public static class TwoFactor
     public static Task<int> EndSessionAsync(ShelfDb db, int readerId, string sessionId, CancellationToken cancellationToken = default) =>
         db.ReaderSessions.Where(item => item.ReaderId == readerId && item.Id == sessionId).ExecuteDeleteAsync(cancellationToken);
 
-    public static Task<int> EndOtherSessionsAsync(ShelfDb db, int readerId, string? keep, CancellationToken cancellationToken = default) =>
-        db.ReaderSessions.Where(item => item.ReaderId == readerId && item.Id != keep).ExecuteDeleteAsync(cancellationToken);
+    // Signing another device out from the list, which the log keeps; signing out of this browser is everyday.
+    public static async Task<int> SignOutDeviceAsync(ShelfDb db, int readerId, string sessionId, CancellationToken cancellationToken = default)
+    {
+        var device = await db.ReaderSessions.Where(item => item.ReaderId == readerId && item.Id == sessionId).Select(item => item.Device).FirstOrDefaultAsync(cancellationToken);
+        var ended = await EndSessionAsync(db, readerId, sessionId, cancellationToken);
+        if (ended > 0)
+        {
+            await Audit.NoteAsync(db, "Signed out a device", await db.Readers.FindAsync([readerId], cancellationToken), device, cancellationToken);
+        }
+
+        return ended;
+    }
+
+    public static async Task<int> EndOtherSessionsAsync(ShelfDb db, int readerId, string? keep, CancellationToken cancellationToken = default)
+    {
+        var ended = await db.ReaderSessions.Where(item => item.ReaderId == readerId && item.Id != keep).ExecuteDeleteAsync(cancellationToken);
+        if (ended > 0)
+        {
+            await Audit.NoteAsync(db, "Signed out every other device", await db.Readers.FindAsync([readerId], cancellationToken), $"{ended} signed out", cancellationToken);
+        }
+
+        return ended;
+    }
 
     // A short name for a browser, from its User-Agent: enough to tell devices apart, nothing more.
     public static string DeviceName(string? userAgent)

@@ -15,7 +15,13 @@ public static class AdminEndpoints
         admin.MapDelete("/readers/{id:int}", Remove);
         admin.MapGet("/snapshot", Snapshot);
         admin.MapGet("/backups", (BackupSchedule schedule) => TypedResults.Ok(schedule.List()));
-        admin.MapPost("/backups", async (BackupSchedule schedule, CancellationToken cancellationToken) => TypedResults.Ok(await schedule.TakeAsync(cancellationToken)));
+        admin.MapPost("/backups", async (BackupSchedule schedule, ShelfDb db, CancellationToken cancellationToken) =>
+        {
+            var taken = await schedule.TakeAsync(cancellationToken);
+            await Audit.NoteAsync(db, "Took a backup", detail: taken.Name, cancellationToken: cancellationToken);
+            return TypedResults.Ok(taken);
+        });
+        admin.MapGet("/audit", async (ShelfDb db, CancellationToken cancellationToken) => TypedResults.Ok(await Audit.RecentAsync(db, take: 500, cancellationToken: cancellationToken)));
         admin.MapGet("/backups/{name}", (string name, BackupSchedule schedule) =>
             schedule.PathOf(name) is { } path ? Results.File(path, "application/zip", name) : Results.NotFound());
     }
@@ -55,6 +61,7 @@ public static class AdminEndpoints
     {
         var path = TempFileResult.NewPath(".zip");
         await Backup.WriteSnapshotAsync(db, ebooks, audio, path, cancellationToken);
+        await Audit.NoteAsync(db, "Downloaded a snapshot of the whole server", cancellationToken: cancellationToken);
         return new TempFileResult(path, "application/zip", $"shelf-snapshot-{DateTime.UtcNow:yyyy-MM-dd}.zip");
     }
 

@@ -1,0 +1,44 @@
+@* Lines from the activity log, newest first: when, who, what, and to whom. *@
+@if (Lines.Count == 0)
+{
+    <p class="hint">Nothing yet.</p>
+}
+else
+{
+    <ul class="audit">
+        @foreach (var line in Lines)
+        {
+            <li>
+                <time datetime="@line.At.ToString("o")">@line.At.ToUniversalTime().ShortStamp() UTC</time>
+                <span>
+                    @if (ShowActor && line.Actor is not null)
+                    {
+                        <strong>@line.Actor</strong> @Lower(line.Action)
+                    }
+                    else
+                    {
+                        @line.Action
+                    }
+                    @if (line.Target is not null)
+                    {
+                        <text> · @line.Target</text>
+                    }
+                    @if (line.Detail is not null)
+                    {
+                        <span class="hint"> · @line.Detail</span>
+                    }
+                </span>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<AuditLine> Lines { get; set; } = [];
+
+    [Parameter]
+    public bool ShowActor { get; set; } = true;
+
+    private static string Lower(string action) => action.Length > 0 ? char.ToLowerInvariant(action[0]) + action[1..] : action;
+}

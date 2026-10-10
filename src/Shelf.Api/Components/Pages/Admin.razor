@@ -93,6 +93,12 @@ else
     }
     <button type="button" @onclick="BackUpNow" disabled="@backingUp">@(backingUp ? "Backing up…" : "Back up now")</button>
     </section>
+
+    <section class="panel">
+    <h2>Activity</h2>
+    <p class="hint">Sign-ups, failed sign-ins, passwords, admin rights, two-step sign-in, devices signed out, keys, restores, and backups, newest first. The last @Audit.Keep are kept; <a href="/admin/audit">the newest 500 as JSON</a>.</p>
+    <AuditList Lines="activity" />
+    </section>
 }
 
 @code {
@@ -124,7 +130,9 @@ else
             await using var db = await DbFactory.CreateDbContextAsync();
             if (await StillAdminAsync(db))
             {
-                await Schedule.TakeAsync(CancellationToken.None);
+                var taken = await Schedule.TakeAsync(CancellationToken.None);
+                await Audit.NoteAsync(db, "Took a backup", detail: taken.Name);
+                activity = await Audit.RecentAsync(db, take: 100);
             }
         }
         finally
@@ -143,7 +151,10 @@ else
         allowed = await ReaderRules.IsAdminAsync(db, me);
         readers = allowed ? (await ReaderRules.SummariesAsync(db)).ToList() : [];
         backups = allowed ? Schedule.List() : [];
+        activity = allowed ? await Audit.RecentAsync(db, take: 100) : [];
     }
+
+    private IReadOnlyList<AuditLine> activity = [];
 
     private async Task<bool> StillAdminAsync(ShelfDb db) => allowed = await ReaderRules.IsAdminAsync(db, db.ReaderId);
 

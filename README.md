@@ -152,6 +152,10 @@ On a book with an e-book, Keep for reading offline saves the file in that browse
 
 Dates follow each reader's region: "Mar 14, 2024" in the US, "14 Mar 2024" in Britain, "14. März 2024" in Germany. The region comes from the browser's languages unless the reader picks one on their account. The words on the pages are in English.
 
+## Activity log
+
+Shelf keeps a record of sign-ups, failed sign-ins (for names that exist), password changes and resets, admin rights given or taken, removed accounts, two-step sign-in turned on or off, devices signed out from the list, device keys and KOReader passwords made, restores, snapshots, and backups taken by hand. An admin reads it on Readers, or as JSON at `/admin/audit`; every reader sees the lines about their own account on Account. The newest 5,000 entries are kept.
+
 ## Health and nightly backups
 
 `/health` answers `Healthy` when the app and its database are up, and `/alive` when the app is; both answer without signing in, with a single word and nothing else. The Docker image checks `/alive` on its own.

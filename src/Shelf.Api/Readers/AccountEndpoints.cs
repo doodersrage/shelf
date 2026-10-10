@@ -120,7 +120,7 @@ public static class AccountEndpoints
         TypedResults.Ok(await TwoFactor.SessionsAsync(db, db.ReaderId, http.User.FindFirst(TwoFactor.SessionClaim)?.Value, cancellationToken));
 
     private static async Task<Results<NoContent, NotFound>> EndSession(string id, ShelfDb db, CancellationToken cancellationToken) =>
-        await TwoFactor.EndSessionAsync(db, db.ReaderId, id, cancellationToken) > 0 ? TypedResults.NoContent() : TypedResults.NotFound();
+        await TwoFactor.SignOutDeviceAsync(db, db.ReaderId, id, cancellationToken) > 0 ? TypedResults.NoContent() : TypedResults.NotFound();
 
     private static async Task<Ok<TwoFactorStart>> StartTwoFactor(ShelfDb db, IDataProtectionProvider protection, CancellationToken cancellationToken)
     {
@@ -147,6 +147,7 @@ public static class AccountEndpoints
 
         reader.TwoFactorEnabled = true;
         await db.SaveChangesAsync(cancellationToken);
+        await Audit.NoteAsync(db, "Turned on two-step sign-in", reader, cancellationToken: cancellationToken);
         return TypedResults.Ok(new RecoveryCodes(await TwoFactor.NewRecoveryCodesAsync(db, reader.Id, cancellationToken)));
     }
 

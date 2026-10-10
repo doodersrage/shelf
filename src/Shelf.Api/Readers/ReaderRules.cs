@@ -121,6 +121,7 @@ public static class ReaderRules
             await ClaimUnownedAsync(db, reader.Id, cancellationToken);
         }
 
+        await Audit.NoteAsync(db, reader.IsAdmin ? "Signed up, the first reader and admin" : "Signed up", reader, cancellationToken: cancellationToken);
         return (reader, null);
     }
 
@@ -145,6 +146,7 @@ public static class ReaderRules
         var result = Hasher.VerifyHashedPassword(reader, reader.PasswordHash, password);
         if (result == PasswordVerificationResult.Failed)
         {
+            await Audit.NoteAsync(db, "A sign-in failed: wrong password", reader, cancellationToken: cancellationToken);
             return null;
         }
 
@@ -180,6 +182,7 @@ public static class ReaderRules
         reader.Stamp = NewStamp();
         await db.SaveChangesAsync(cancellationToken);
         await db.ReaderSessions.Where(session => session.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
+        await Audit.NoteAsync(db, "Changed the password", reader, cancellationToken: cancellationToken);
         return null;
     }
 
@@ -196,6 +199,7 @@ public static class ReaderRules
         reader.Stamp = NewStamp();
         await db.SaveChangesAsync(cancellationToken);
         await db.ReaderSessions.Where(session => session.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
+        await Audit.NoteAsync(db, "Set a new password", reader, cancellationToken: cancellationToken);
         return true;
     }
 
@@ -233,6 +237,8 @@ public static class ReaderRules
         reader.Stamp = NewStamp();
         await db.SaveChangesAsync(cancellationToken);
         await db.ReaderSessions.Where(session => session.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
+
+        await Audit.NoteAsync(db, "Gave a new password", reader, cancellationToken: cancellationToken);
 
         // An admin's reset is the way back in after a lost phone, so it turns two-step sign-in off too.
         await TwoFactor.DisableAsync(db, reader, cancellationToken);
@@ -273,8 +279,14 @@ public static class ReaderRules
             return AccountProblem.LastAdmin;
         }
 
+        var changed = reader.IsAdmin != isAdmin;
         reader.IsAdmin = isAdmin;
         await db.SaveChangesAsync(cancellationToken);
+        if (changed)
+        {
+            await Audit.NoteAsync(db, isAdmin ? "Made an admin" : "Took away admin rights", reader, cancellationToken: cancellationToken);
+        }
+
         return null;
     }
 
@@ -340,6 +352,7 @@ public static class ReaderRules
         }
 
         await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
+        await Audit.NoteAsync(db, "Removed the account and its shelf", reader, $"{files.Count} books", cancellationToken);
         return null;
     }
 
@@ -382,6 +395,7 @@ public static class ReaderRules
             .Replace('/', '_');
         reader.KeyHash = HashKey(key);
         await db.SaveChangesAsync(cancellationToken);
+        await Audit.NoteAsync(db, "Made a new device key", reader, cancellationToken: cancellationToken);
         return key;
     }
 

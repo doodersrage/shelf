@@ -229,7 +229,7 @@ static Task Refuse(RedirectContext<CookieAuthenticationOptions> context, int sta
 {
     var path = context.Request.Path;
     if (path.StartsWithSegments("/books") || path.StartsWithSegments("/settings") || path.StartsWithSegments("/readers")
-        || path.StartsWithSegments("/admin/readers") || path.StartsWithSegments("/admin/snapshot") || path.StartsWithSegments("/admin/backups") || path.StartsWithSegments("/account/remove")
+        || path.StartsWithSegments("/admin/readers") || path.StartsWithSegments("/admin/snapshot") || path.StartsWithSegments("/admin/backups") || path.StartsWithSegments("/admin/audit") || path.StartsWithSegments("/account/remove")
         || path.StartsWithSegments("/opds"))
     {
         context.Response.StatusCode = status;
