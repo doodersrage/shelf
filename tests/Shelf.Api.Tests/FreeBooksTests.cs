@@ -113,6 +113,39 @@ public sealed class FreeBooksTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.Contains("Show more", page);
         Assert.Contains("Crime, Thrillers and Mystery", WebUtility.HtmlDecode(await client.GetStringAsync("/free?shelf=640")));
         Assert.Contains("Newest recordings", WebUtility.HtmlDecode(await client.GetStringAsync("/free?kind=audio")));
+
+        // About is a link, so the server can open a book's details itself, without the page's live connection.
+        Assert.Contains("href=\"http://localhost/free?about=Gutenberg-84#book-Gutenberg-84\"", page);
+        var opened = WebUtility.HtmlDecode(await client.GetStringAsync("/free?about=Gutenberg-84"));
+        Assert.Contains("A young scientist makes a living creature.", opened);
+        Assert.Contains("Hide the details", opened);
+        Assert.DoesNotContain("A young scientist", WebUtility.HtmlDecode(await client.GetStringAsync("/free?about=Gutenberg-99999")));
+    }
+
+    [Fact]
+    public async Task A_catalog_that_breaks_off_leaves_the_page_working()
+    {
+        await using var app = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddHttpClient(FreeCatalog.ClientName).ConfigurePrimaryHttpMessageHandler(() => new BreaksOnDetails())));
+        var client = app.CreateClient();
+        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Unlucky Reader", ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
+
+        // The connection drops halfway through a book's record: the page says so instead of failing.
+        var response = await client.GetAsync("/free?about=Gutenberg-84");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var page = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+        Assert.Contains("Pride and Prejudice", page);
+        Assert.Contains("The catalog has nothing more on this book just now.", page);
+    }
+
+    private sealed class BreaksOnDetails : HttpMessageHandler
+    {
+        private readonly FakeCatalogs catalogs = new();
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            request.RequestUri!.AbsolutePath == "/ebooks/84.opds"
+                ? throw new IOException("The connection was reset.")
+                : new HttpMessageInvoker(catalogs).SendAsync(request, cancellationToken);
     }
 
     private static async Task<FreeDownload> FinishAsync(FreeBooks downloads, FreeDownload started, int readerId)

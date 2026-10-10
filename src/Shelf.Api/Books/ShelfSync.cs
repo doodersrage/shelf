@@ -117,7 +117,7 @@ public static class ShelfSync
                 async (key, progress, token) => await client.PutAsJsonAsync($"books/sync/{key}/progress", progress, token),
                 cancellationToken);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        catch (Exception ex) when (ex is HttpRequestException or Polly.ExecutionRejectedException or TaskCanceledException or JsonException)
         {
             return [Localization.Words.T("That shelf could not be reached.")];
         }
@@ -299,7 +299,7 @@ public static class ShelfSync
                             : []),
                     cancellationToken);
             }
-            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            catch (Exception ex) when (ex is HttpRequestException or Polly.ExecutionRejectedException or TaskCanceledException)
             {
             }
         }
@@ -631,7 +631,7 @@ public static class ShelfSync
 
             return new TempFileStream(temp);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+        catch (Exception ex) when (ex is HttpRequestException or Polly.ExecutionRejectedException or TaskCanceledException or IOException)
         {
             return null;
         }

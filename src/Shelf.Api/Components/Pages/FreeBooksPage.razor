@@ -1,8 +1,12 @@
 @page "/free"
 @rendermode InteractiveServer
+@using Microsoft.Extensions.Caching.Memory
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject IHttpClientFactory Http
 @inject FreeBooks Downloads
+@inject NavigationManager Navigation
+@inject IMemoryCache Cache
+@inject ILogger<FreeBooksPage> Logger
 @implements IDisposable
 
 <PageTitle>@T("Free books") · Shelf</PageTitle>
@@ -97,9 +101,9 @@ else
             @foreach (var book in results)
             {
                 var added = downloads.Any(download => download.Book.Source == book.Source && download.Book.Id == book.Id && download.State != DownloadState.Failed);
-                var key = $"{book.Source}-{book.Id}";
+                var key = Key(book);
                 var open = about.TryGetValue(key, out var shown);
-                <li>
+                <li id="@($"book-{key}")">
                     <BookCover Title="@book.Title" Url="@book.CoverUrl" Width="3.5rem" />
                     <div>
                         <strong>@book.Title</strong>
@@ -108,9 +112,19 @@ else
                         {
                             <span class="hint">@string.Join(" · ", new[] { book.Language, book.Length is null ? null : T("{0} long", book.Length) }.Where(part => part is not null))</span>
                         }
-                        <button type="button" class="link about-toggle" @onclick="() => ToggleAbout(book)" aria-expanded="@(open ? "true" : "false")" aria-controls="@($"about-{key}")">
-                            @(open ? T("Hide the details") : T("About this book"))
-                        </button>
+                        @if (RendererInfo.IsInteractive)
+                        {
+                            <button type="button" class="link about-toggle" @onclick="() => ToggleAbout(book)" aria-expanded="@(open ? "true" : "false")" aria-controls="@($"about-{key}")">
+                                @(open ? T("Hide the details") : T("About this book"))
+                            </button>
+                        }
+                        else
+                        {
+                            @* Until the page's live connection is up, or without one, a link: the server opens the details itself. *@
+                            <a class="about-toggle" href="@AboutHref(key, open)" aria-expanded="@(open ? "true" : "false")" aria-controls="@($"about-{key}")">
+                                @(open ? T("Hide the details") : T("About this book"))
+                            </a>
+                        }
                     </div>
                     <button type="button" @onclick="() => Add(book)" disabled="@added" aria-label="@T("Add {0} to your shelf", book.Title)">@(added ? T("Added") : T("Add to shelf"))</button>
                     @if (open)
@@ -204,6 +218,10 @@ else
     [SupplyParameterFromQuery(Name = "shelf")]
     public string? Shelf { get; set; }
 
+    // The book whose details are open, as Source-Id, when the page was asked for without its live connection.
+    [SupplyParameterFromQuery(Name = "about")]
+    public string? About { get; set; }
+
     private readonly Dictionary<string, Shown?> about = [];
     private bool more;
     private bool loadingMore;
@@ -234,7 +252,7 @@ else
         }
 
         var query = Q?.Trim();
-        using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(45));
         var http = Http.CreateClient(FreeCatalog.ClientName);
         try
         {
@@ -243,18 +261,60 @@ else
                 results = Audio
                     ? await FreeCatalog.SearchLibriVoxAsync(http, query[..Math.Min(query.Length, 200)], limit.Token)
                     : await FreeCatalog.SearchGutenbergAsync(http, query[..Math.Min(query.Length, 200)], limit.Token);
-                return;
             }
-
-            // With nothing searched for, the catalog is browsed: the most read, the newest, or one part of it.
-            var page = await BrowseAsync(http, 0, limit.Token);
-            results = page.Books;
-            more = page.More;
-            position = page.Books.Count;
+            else
+            {
+                // With nothing searched for, the catalog is browsed: the most read, the newest, or one part of it.
+                var page = await BrowseAsync(http, 0, limit.Token);
+                results = page.Books;
+                more = page.More;
+                position = page.Books.Count;
+            }
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Xml.XmlException or System.Text.Json.JsonException)
+        catch (Exception ex) when (Unreached(ex))
         {
+            Logger.LogInformation(ex, "Free books could not reach the catalog.");
             problem = Unreachable;
+        }
+
+        if (About is { } wanted && results?.FirstOrDefault(book => Key(book) == wanted) is { } chosen)
+        {
+            about[wanted] = new Shown(await LookUpAsync(chosen));
+        }
+    }
+
+    private static string Key(FreeBook book) => $"{book.Source}-{book.Id}";
+
+    // This page with one book's details open, or closed again, and scrolled to that book.
+    private string AboutHref(string key, bool open) =>
+        Navigation.GetUriWithQueryParameter("about", open ? null : key) + $"#book-{key}";
+
+    // A catalog that is slow, cut off, or answering nonsense; never a reason to stop the page. Every outgoing request
+    // goes through the standard resilience handler, whose timeouts and open circuit throw Polly's rejections.
+    private static bool Unreached(Exception ex) =>
+        ex is HttpRequestException or Polly.ExecutionRejectedException or OperationCanceledException or IOException or System.Xml.XmlException or System.Text.Json.JsonException;
+
+    // A book's details, kept for half an hour so opening them twice asks the catalog once.
+    private async Task<FreeDetails?> LookUpAsync(FreeBook book)
+    {
+        var cacheKey = $"free-about:{Key(book)}";
+        if (Cache.TryGetValue(cacheKey, out FreeDetails? kept))
+        {
+            return kept;
+        }
+
+        try
+        {
+            // Gutenberg can take most of a minute for one book's record when it is busy.
+            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(50));
+            var details = await FreeCatalog.DetailsAsync(Http.CreateClient(FreeCatalog.ClientName), book.Source, book.Id, limit.Token);
+            Cache.Set(cacheKey, details, TimeSpan.FromMinutes(30));
+            return details;
+        }
+        catch (Exception ex) when (Unreached(ex))
+        {
+            Logger.LogInformation(ex, "Could not look up {Source} book {Id}.", book.Source, book.Id);
+            return null;
         }
     }
 
@@ -268,7 +328,7 @@ else
         loadingMore = true;
         try
         {
-            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(45));
             var page = await BrowseAsync(Http.CreateClient(FreeCatalog.ClientName), position, limit.Token);
             results ??= [];
             var known = results.Select(book => book.Id).ToHashSet();
@@ -276,8 +336,9 @@ else
             position += page.Books.Count;
             more = page.More && page.Books.Count > 0;
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Xml.XmlException or System.Text.Json.JsonException)
+        catch (Exception ex) when (Unreached(ex))
         {
+            Logger.LogInformation(ex, "Free books could not reach the catalog.");
             problem = Unreachable;
         }
         finally
@@ -289,23 +350,14 @@ else
     // The details are fetched the first time a book is opened, and kept while the page is.
     private async Task ToggleAbout(FreeBook book)
     {
-        var key = $"{book.Source}-{book.Id}";
+        var key = Key(book);
         if (about.Remove(key))
         {
             return;
         }
 
         about[key] = null;
-        FreeDetails? details = null;
-        try
-        {
-            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-            details = await FreeCatalog.DetailsAsync(Http.CreateClient(FreeCatalog.ClientName), book.Source, book.Id, limit.Token);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Xml.XmlException or System.Text.Json.JsonException)
-        {
-        }
-
+        var details = await LookUpAsync(book);
         if (about.ContainsKey(key))
         {
             about[key] = new Shown(details);

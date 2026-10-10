@@ -8,6 +8,12 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 - Shelf is free software under the GNU AGPL-3.0. A Source code link sits beside the version at the foot of every page; `SourceUrl` points it at a changed copy's own source.
 
+### Fixed
+
+- About this book on Free books could leave the whole page unresponsive when Project Gutenberg or LibriVox was slow: a timeout from the retry layer every outgoing request goes through was not caught, and it ended the page's connection. The same gap is closed for Open Library look-ups, shelf-to-shelf sync, free-book downloads, and the Audiobookshelf import.
+- Gutenberg and LibriVox requests may take up to 45 seconds an attempt, and Audiobookshelf up to two minutes, instead of the standard ten, so a busy catalog or a large library still answers.
+- About this book works before the page's live connection is up, or without one: it opens the details from the server instead.
+
 ## [1.3.0] - 2026-10-10
 
 ### Added

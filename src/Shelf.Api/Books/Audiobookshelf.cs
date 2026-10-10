@@ -135,7 +135,7 @@ public static partial class AbsClient
         {
             return await http.SendAsync(request, completion, cancellationToken);
         }
-        catch (HttpRequestException)
+        catch (Exception ex) when (ex is HttpRequestException or Polly.ExecutionRejectedException)
         {
             throw new AbsProblem(T("Shelf could not reach {0}. Check the address, and that this server can reach it.", url.GetLeftPart(UriPartial.Authority)));
         }
@@ -233,7 +233,7 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
                 {
                     await ImportAsync(job, item, stoppingToken);
                 }
-                catch (Exception ex) when (ex is AbsProblem or HttpRequestException or IOException or TaskCanceledException or JsonException or KeyNotFoundException or InvalidOperationException)
+                catch (Exception ex) when (ex is AbsProblem or HttpRequestException or Polly.ExecutionRejectedException or IOException or TaskCanceledException or JsonException or KeyNotFoundException or InvalidOperationException)
                 {
                     if (stoppingToken.IsCancellationRequested)
                     {

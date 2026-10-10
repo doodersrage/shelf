@@ -25,7 +25,7 @@ public sealed class OpenLibraryLookup(HttpClient http) : IBookLookup
                 return await FindTitleAsync(title.Trim(), author.Trim(), cancellationToken);
             }
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        catch (Exception ex) when (ex is HttpRequestException or Polly.ExecutionRejectedException or TaskCanceledException or JsonException)
         {
             return null;
         }
@@ -116,7 +116,7 @@ public sealed class OpenLibraryLookup(HttpClient http) : IBookLookup
         {
             list = await ReadAsync<OpenLibraryEditions>($"{key}/editions.json?limit=100", cancellationToken);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        catch (Exception ex) when (ex is HttpRequestException or Polly.ExecutionRejectedException or TaskCanceledException or JsonException)
         {
             return null;
         }

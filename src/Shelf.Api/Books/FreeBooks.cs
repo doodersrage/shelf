@@ -171,7 +171,7 @@ public sealed class FreeBooks(IServiceScopeFactory scopes, IHttpClientFactory cl
                 var bookId = await DownloadAsync(download, stoppingToken);
                 _downloads[id] = _downloads[id] with { State = DownloadState.Done, BookId = bookId };
             }
-            catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException or InvalidOperationException or FreeBookProblem)
+            catch (Exception ex) when (ex is HttpRequestException or Polly.ExecutionRejectedException or IOException or TaskCanceledException or InvalidOperationException or FreeBookProblem)
             {
                 if (stoppingToken.IsCancellationRequested)
                 {

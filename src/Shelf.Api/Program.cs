@@ -68,16 +68,21 @@ builder.Services.AddHttpClient<IBookLookup, OpenLibraryLookup>(client =>
 
 builder.Services.AddHttpClient("shelf-sync", client => client.Timeout = TimeSpan.FromMinutes(10));
 
+// Free books keeps a book's details for a while, so opening them twice asks the catalog once.
+builder.Services.AddMemoryCache();
 // Project Gutenberg and LibriVox, for free public-domain books. A long recording can take a while to come down.
+// Gutenberg in particular can take most of a minute to answer, so these get longer than the standard ten seconds an attempt.
 builder.Services.AddHttpClient(FreeCatalog.ClientName, client =>
 {
     client.Timeout = TimeSpan.FromMinutes(30);
     client.DefaultRequestHeaders.UserAgent.ParseAdd($"Shelf/{ShelfVersion.Response.Version} (personal library; +https://github.com/doodersrage/shelf)");
-});
+}).Patient(attempt: TimeSpan.FromSeconds(45), total: TimeSpan.FromMinutes(2));
 builder.Services.AddSingleton<FreeBooks>();
 
 // Audiobookshelf, to bring a library across. Its address is the reader's to give.
-builder.Services.AddHttpClient(AbsClient.ClientName, client => client.Timeout = TimeSpan.FromMinutes(30));
+// A large library takes a while to list.
+builder.Services.AddHttpClient(AbsClient.ClientName, client => client.Timeout = TimeSpan.FromMinutes(30))
+    .Patient(attempt: TimeSpan.FromMinutes(2), total: TimeSpan.FromMinutes(5));
 builder.Services.AddSingleton<AbsImporter>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<AbsImporter>());
 builder.Services.AddHostedService(static services => services.GetRequiredService<FreeBooks>());
@@ -256,3 +261,23 @@ static Task Refuse(RedirectContext<CookieAuthenticationOptions> context, int sta
 }
 
 public partial class Program { }
+
+static class SlowServers
+{
+    // Every client gets the standard retries and circuit breaker from ServiceDefaults, ten seconds an attempt, under one
+    // shared set of options. This swaps a client's for ones with room for a slow server; the breaker must watch at least
+    // two attempts' worth. RemoveAllResilienceHandlers is the library's way to do it, marked experimental only as to its shape.
+    public static IHttpClientBuilder Patient(this IHttpClientBuilder client, TimeSpan attempt, TimeSpan total)
+    {
+#pragma warning disable EXTEXP0001
+        client.RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
+        client.AddStandardResilienceHandler(options =>
+        {
+            options.AttemptTimeout.Timeout = attempt;
+            options.TotalRequestTimeout.Timeout = total;
+            options.CircuitBreaker.SamplingDuration = attempt * 2;
+        });
+        return client;
+    }
+}
