@@ -7,7 +7,12 @@ export function listen(dotNet) {
 
   handler = (event) => {
     const data = event.data;
-    if (!data || (data.source !== "shelf-selection" && data.source !== "shelf-mark")) {
+    if (!data || (data.source !== "shelf-selection" && data.source !== "shelf-mark" && data.source !== "shelf-place")) {
+      return;
+    }
+
+    if (data.source === "shelf-place") {
+      dotNet.invokeMethodAsync("Scrolled", Number(data.at) || 0);
       return;
     }
 

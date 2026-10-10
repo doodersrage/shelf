@@ -5,6 +5,9 @@
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject AudioStore Audio
 @inject IJSRuntime Js
+@inject EbookStore Ebooks
+@inject NavigationManager Navigation
+@inject Microsoft.Extensions.Caching.Memory.IMemoryCache Cache
 
 <PageTitle>@(book?.Title ?? "Shelf")</PageTitle>
 
@@ -52,6 +55,10 @@ else if (book is not null)
                 <p class="hint">@tracks[0].Title</p>
             }
             <audio @key="track" @ref="player" controls preload="metadata" src="/books/@book.Id/audio/tracks/@track"></audio>
+            @if (EbookStore.IsEpub(book.EbookStoredName))
+            {
+                <p><button type="button" class="quiet" @onclick="ContinueInEbook">@T("Continue in the e-book")</button></p>
+            }
             <div class="reader-settings">
                 <label>
                     @T("Speed")
@@ -154,6 +161,17 @@ else if (book is not null)
     [Parameter]
     public int Id { get; set; }
 
+    // The way in from the e-book: a part (a chapter marked in the file, or else a track) and how far through it.
+    [SupplyParameterFromQuery(Name = "part")]
+    public int? PartQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "at")]
+    public double? AtQuery { get; set; }
+
+    private (double From, double? To, double Fraction)? arriving;
+
+    public sealed record PlayerWhere(double Seconds, double Duration);
+
     protected override async Task OnParametersSetAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
@@ -184,6 +202,22 @@ else if (book is not null)
         track = saved >= 0 && saved < tracks.Count ? saved : 0;
         resumeSeconds = Math.Max(0, place.AudioSeconds ?? 0);
         chapterIndex = chapters.Count > 1 ? ChapterAt(resumeSeconds) : 0;
+        arriving = null;
+        if (PartQuery is int part && AtQuery is double within)
+        {
+            if (chapters.Count > 1)
+            {
+                var index = Math.Clamp(part, 0, chapters.Count - 1);
+                track = 0;
+                chapterIndex = index;
+                arriving = (chapters[index].Start, index + 1 < chapters.Count ? chapters[index + 1].Start : null, within);
+            }
+            else
+            {
+                track = Math.Clamp(part, 0, tracks.Count - 1);
+                arriving = (0, null, within);
+            }
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -201,7 +235,12 @@ else if (book is not null)
 
         boundTrack = track;
         await module.InvokeVoidAsync("attach", player, self, speed / 100.0);
-        if (resumeSeconds > 0)
+        if (arriving is { } way)
+        {
+            arriving = null;
+            await module.InvokeVoidAsync("seekWithin", player, way.From, way.To, way.Fraction);
+        }
+        else if (resumeSeconds > 0)
         {
             await module.InvokeVoidAsync("seek", player, resumeSeconds);
         }
@@ -265,6 +304,38 @@ else if (book is not null)
                 await InvokeAsync(StateHasChanged);
             }
         }
+    }
+
+    // The same place in the e-book: by the chapters' titles where they agree, and how far through otherwise.
+    private async Task ContinueInEbook()
+    {
+        if (module is null || book is null || open is null || Crossover.EbookParts(Ebooks, book.EbookStoredName, Cache) is not { } text)
+        {
+            return;
+        }
+
+        var now = await module.InvokeAsync<PlayerWhere>("where");
+        PartSpot heard;
+        if (chapters.Count > 1)
+        {
+            var index = ChapterAt(now.Seconds);
+            var start = chapters[index].Start;
+            var end = index + 1 < chapters.Count ? chapters[index + 1].Start : now.Duration;
+            heard = new PartSpot(index, end > start ? (now.Seconds - start) / (end - start) : 0);
+        }
+        else
+        {
+            heard = new PartSpot(track, now.Duration > 0 ? now.Seconds / now.Duration : 0);
+        }
+
+        var spot = new Crossover(Crossover.AudioParts(Audio, book.AudioStoredName), text).ToEbook(heard);
+        await Remember(track, (int)now.Seconds);
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            await Lending.KeepPlaceAsync(db, open, place => place.EbookChapter = spot.Part);
+        }
+
+        Navigation.NavigateTo($"/library/{book.Id}/read?chapter={spot.Part}&at={spot.Within.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)}");
     }
 
     private int ChapterAt(double seconds) => chapters.LastOrDefault(chapter => chapter.Start <= seconds + 0.5)?.Index ?? 0;

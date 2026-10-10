@@ -5,6 +5,9 @@
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject EbookStore Ebooks
 @inject IJSRuntime Js
+@inject AudioStore Audio
+@inject NavigationManager Navigation
+@inject Microsoft.Extensions.Caching.Memory.IMemoryCache Cache
 
 <PageTitle>@(book?.Title ?? "Shelf")</PageTitle>
 
@@ -106,6 +109,10 @@ else if (book is not null)
                     </select>
                 </label>
                 <button type="button" @onclick="Next" disabled="@(chapter >= chapters.Count - 1)">@T("Next")</button>
+                @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
+                {
+                    <button type="button" class="quiet" @onclick="ContinueInAudio">@T("Continue in the audiobook")</button>
+                }
             </div>
             <details>
                 <summary>@T("Text settings")</summary>
@@ -140,7 +147,7 @@ else if (book is not null)
             </details>
             @ReadAloud
             @Passage
-            <iframe @key="@($"{chapter}:{markRevision}:{typeRevision}")" class="reader-frame" title="@chapters[chapter].Title" src="/books/@book.Id/ebook/chapters/@chapter?t=@typeRevision"></iframe>
+            <iframe @key="@($"{chapter}:{markRevision}:{typeRevision}")" class="reader-frame" title="@chapters[chapter].Title" src="@FrameSrc"></iframe>
             @MarkList(T("In this chapter"))
         }
     </div>
@@ -237,6 +244,17 @@ else if (book is not null)
     [SupplyParameterFromQuery(Name = "chapter")]
     public int? ChapterQuery { get; set; }
 
+    // How far down the chapter to open it, from 0 to 1: the way in from the audiobook.
+    [SupplyParameterFromQuery(Name = "at")]
+    public double? AtQuery { get; set; }
+
+    // How far down the chapter the reader is now, and how far down the frame opened it.
+    private double chapterAt;
+    private double frameAt;
+
+    private string FrameSrc => $"/books/{book!.Id}/ebook/chapters/{chapter}?t={typeRevision}"
+        + (frameAt > 0 ? "&at=" + frameAt.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) : "");
+
     protected override async Task OnParametersSetAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
@@ -275,6 +293,7 @@ else if (book is not null)
         {
             var place = ChapterQuery ?? (await Lending.PlaceAsync(db, open!)).EbookChapter ?? 0;
             chapter = place >= 0 && place < chapters.Count ? place : 0;
+            chapterAt = frameAt = ChapterQuery is not null && AtQuery is > 0 and <= 1 ? AtQuery.Value : 0;
         }
     }
 
@@ -570,6 +589,7 @@ else if (book is not null)
         }
 
         ClearSelection();
+        chapterAt = frameAt = 0;
         if (open is null)
         {
             return;
@@ -577,6 +597,21 @@ else if (book is not null)
 
         await using var db = await DbFactory.CreateDbContextAsync();
         await Lending.KeepPlaceAsync(db, open, place => place.EbookChapter = chapter);
+    }
+
+    [JSInvokable]
+    public void Scrolled(double at) => chapterAt = Math.Clamp(at, 0, 1);
+
+    // The same place in the audiobook: by the chapters' titles where they agree, and how far through otherwise.
+    private void ContinueInAudio()
+    {
+        if (book is null || Crossover.EbookParts(Ebooks, book.EbookStoredName, Cache) is not { } text || Crossover.AudioParts(Audio, book.AudioStoredName) is not { Count: > 0 } recording)
+        {
+            return;
+        }
+
+        var spot = new Crossover(recording, text).ToAudio(new PartSpot(chapter, chapterAt));
+        Navigation.NavigateTo($"/library/{book.Id}/listen?part={spot.Part}&at={spot.Within.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)}");
     }
 
     private void Edit(Highlight mark)
@@ -647,6 +682,7 @@ else if (book is not null)
         }
 
         ClearSelection();
+        frameAt = chapterAt;
         markRevision++;
         await ReloadMarks();
     }
@@ -672,6 +708,7 @@ else if (book is not null)
             ClearSelection();
         }
 
+        frameAt = chapterAt;
         markRevision++;
         await ReloadMarks();
     }
@@ -747,6 +784,7 @@ else if (book is not null)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         await BookRules.SetReaderTypeAsync(db, new ReaderType(type.Size, type.Leading, type.Width));
+        frameAt = chapterAt;
         typeRevision++;
         if (pdf is not null)
         {

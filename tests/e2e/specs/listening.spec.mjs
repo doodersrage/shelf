@@ -70,3 +70,35 @@ test("the lock screen shows the chapter, the book, and its author, and its butto
   await expect.poll(metadata).toBeNull();
   noProblems(page);
 });
+
+test("a book in both formats carries the place from the audiobook to the e-book and back", async ({ browser }) => {
+  const page = await signUp(browser, unique("Switcher"));
+  const book = await createBook(page, { title: "Moby-Dick", author: "Herman Melville", status: "Reading" });
+  await upload(page, book.id, "audio", "chapters.m4b", "audio/mp4");
+  await upload(page, book.id, "ebook", "moby.epub", "application/epub+zip");
+
+  await page.goto(`/library/${book.id}/listen`);
+  await ready(page);
+  await page.locator("audio").evaluate((audio) => new Promise((done) => {
+    const go = () => { audio.currentTime = 6; done(); };
+    if (audio.readyState >= 1) go(); else audio.addEventListener("loadedmetadata", go, { once: true });
+  }));
+
+  // Six seconds in, nearly half way through the recording, is about half way through the first chapter's text.
+  await Promise.all([page.waitForURL(/\/read\?chapter=0&at=0\.5\d*$/), page.click('button:text-is("Continue in the e-book")')]);
+  await ready(page);
+  await expect(page.locator("iframe.reader-frame")).toHaveAttribute("src", /chapters\/0\?t=0&at=0\.5\d*$/);
+  // On a narrow screen the chapter runs long, and opens part way down.
+  await page.setViewportSize({ width: 360, height: 640 });
+  await page.reload();
+  await ready(page);
+  const chapter = () => page.frames().find((frame) => frame.url().includes("/ebook/chapters/0"));
+  await expect.poll(() => chapter()?.evaluate(() => window.scrollY > 0 && window.scrollY < document.documentElement.scrollHeight - window.innerHeight)).toBe(true);
+
+  // And back again to the same moment.
+  await Promise.all([page.waitForURL(/\/listen\?part=1&at=0\.4/), page.click('button:text-is("Continue in the audiobook")')]);
+  await ready(page);
+  await expect.poll(() => page.locator("audio").evaluate((audio) => Math.round(audio.currentTime))).toBe(6);
+  await expect(page.getByText("Now in The Middle Part")).toBeVisible();
+  noProblems(page);
+});

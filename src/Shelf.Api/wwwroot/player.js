@@ -155,6 +155,33 @@ export function position() {
   return audio ? Math.floor(audio.currentTime || 0) : 0;
 }
 
+// Where playback is now and how long the track is, to carry the place to the e-book.
+export function where() {
+  return {
+    seconds: audio ? audio.currentTime || 0 : 0,
+    duration: audio && Number.isFinite(audio.duration) ? audio.duration : 0,
+  };
+}
+
+// Seeks a fraction of the way from one point to another (the track's end, when there is none), once the track's
+// length is known, and keeps the new place: the way in from the e-book.
+export function seekWithin(element, from, to, fraction) {
+  const go = () => {
+    const end = to ?? (Number.isFinite(element.duration) ? element.duration : from);
+    element.currentTime = from + Math.max(0, Math.min(1, fraction)) * Math.max(0, end - from);
+    if (dotNet) {
+      dotNet.invokeMethodAsync("Progress", Math.floor(element.currentTime));
+    }
+  };
+
+  if (element.readyState >= 1) {
+    go();
+    return;
+  }
+
+  element.addEventListener("loadedmetadata", go, { once: true });
+}
+
 export function seek(element, seconds) {
   const go = () => {
     element.currentTime = seconds;

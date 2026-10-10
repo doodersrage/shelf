@@ -9,6 +9,11 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - API tokens, for scripts and home dashboards such as Home Assistant: make one on Account and send it as `Authorization: Bearer shelf_…`. A token opens the books API, never the account or the admin pages, and can be read-only. The API docs have a Home Assistant sensor to start from.
 - Series alerts: turn them on under Series, and once a day Shelf asks Open Library about the series you are reading. A newer book that is not on your shelf shows under New in your series, with a count beside Series in the sidebar, and goes to the want list in one click.
 - Share a reading list: a saved search can be shared by link with anyone, signed in or not. The page shows the books' covers, authors, years, series, and your stars, never notes, reviews, or loans; Stop sharing ends the link.
+- Switch between the audiobook and the e-book at the same point: **Continue in the e-book** on the player, and **Continue in the audiobook** in the reader, for a book with both an EPUB and a recording. Chapters named alike are lined up; elsewhere it goes by how far through each you are.
+
+### Fixed
+
+- The service worker no longer answers for a chapter's frame inside the reader, so a frame cut short as the page changes is not taken for the shelf being offline.
 
 ## [1.4.1] - 2026-10-10
 

@@ -28,3 +28,9 @@ A borrower listening to a book lent to them has their own place and bookmarks.
 ## Audiobooks and e-books together
 
 A book can have both an e-book and an audiobook. Each keeps its own place. Bringing a book from Audiobookshelf that has both brings both onto one book.
+
+### Switching between them
+
+With an EPUB and an audiobook on the same book, the player has **Continue in the e-book**, and the reader has **Continue in the audiobook**. Each opens the other at the same point: the chapter, and how far through it.
+
+Shelf finds the point by the chapters' names first. When the recording's chapters (or its tracks) are named like the book's (*Chapter 7*, *Seven*, *03 - Chapter VII*), those are lined up with each other. Between them, and in a recording whose parts are named nothing useful, it goes by how far through the text or the recording you are, leaving out the e-book's cover, title page, and contents. It does not listen to the recording, so the point is usually within a page or two; a recording with an introduction the book lacks, or an abridged one, can land further off. PDFs and comics do not switch.

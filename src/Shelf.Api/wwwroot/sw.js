@@ -39,9 +39,12 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // A page that cannot load becomes the offline reader.
+  // A page that cannot load becomes the offline reader. A frame inside a page (a chapter of a book) is left alone:
+  // the offline reader inside it would make no sense, and one cut short as its page changes is no failure.
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match("/offline.html")));
+    if (request.destination === "document") {
+      event.respondWith(fetch(request).catch(() => caches.match("/offline.html").then((page) => page || Response.error())));
+    }
     return;
   }
 

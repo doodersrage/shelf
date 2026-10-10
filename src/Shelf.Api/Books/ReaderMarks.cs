@@ -120,6 +120,19 @@ public static class ReaderMarks
             });
           }
           paint();
+          // How far down the chapter the reader is, for carrying the place to the audiobook; and the way in from it.
+          const room = () => Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+          const at = Number(new URLSearchParams(location.search).get("at"));
+          if (at > 0 && at <= 1) {
+            const go = () => window.scrollTo(0, at * room());
+            go();
+            window.addEventListener("load", go, { once: true });
+          }
+          let told = 0;
+          window.addEventListener("scroll", () => {
+            clearTimeout(told);
+            told = setTimeout(() => parent.postMessage({ source: "shelf-place", at: Math.min(1, window.scrollY / room()) }, "*"), 300);
+          }, { passive: true });
           document.addEventListener("mouseup", () => {
             const sel = window.getSelection();
             if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
