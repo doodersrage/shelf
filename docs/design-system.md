@@ -54,7 +54,7 @@ Measured contrast on the canvas: ink 12.9:1, green 10.2:1, muted 4.5:1, danger 8
 
 | Your library | Discover & reflect | Your copies | Settings |
 | --- | --- | --- | --- |
-| Library, Reading, Want to read, Finished, Loans, Shelves | Authors, Series, Quotes, Stats, Years | Places, Condition, Recommenders | Account, Backup & restore, Devices, Readers (admins) |
+| Library, Reading, Want to read, Finished, Loans, Shelves | Authors, Series, Quotes & highlights, Search inside books, Stats, Years | Places, Condition, Recommenders | Account, Backup & restore, Devices, Readers (admins) |
 
 The current link is marked with `aria-current="page"`. The library's views share a path and differ by `?status=`, so their links are matched on that query.
 
@@ -82,6 +82,9 @@ The current link is marked with `aria-current="page"`. The library's views share
 - **PDFs:** drawn by PDF.js (self-hosted in `wwwroot/lib/pdfjs`, with eval and XFA turned off) one page at a time, with selectable text. The text size setting zooms from *Fit the width*; spacing and width do not apply, because a PDF keeps its own layout. Arrow keys and Page Up/Down turn pages, and the page is kept like an EPUB chapter. Selecting text on a page opens the same highlight and note panel as an EPUB; a PDF highlight is stored with its page in place of the chapter, found again by its words and the words around them, and painted in tan over the page. A scanned page gets the same treatment from OCR: the server reads it in the background (Tesseract, through `Books/Ocr.cs`), and the viewer lays each word over the picture at its box, with a one-line note above the page saying whether its words were read, are being read, or cannot be.
 - **Library view:** Covers or List is remembered for each reader; a `?view=` link still wins.
 - **Uploads:** e-book, audiobook, and backup forms carry `data-upload`. `wwwroot/upload.js` sends them with a progress bar and an honest status line, then follows the server's redirect to the result. Without the script they post the ordinary way.
+- **Bulk changes:** the list view's checkboxes bring up a sticky bar for status, tags, loved, and delete; delete asks again and says what goes.
+- **Search inside books:** results group by book, each match shown in context with the words marked in tan, and an *Open here* link into the reader.
+- **Player:** speed and a sleep timer sit under the audio controls, in the same settings row as the reader's text settings; the timer says when it will stop, and says so again when it has.
 - **Backup & restore:** downloading is a solid green action that changes nothing. Restoring is a quiet action, says plainly that it only adds books, and reports exactly what it did.
 
 ## Accessibility
