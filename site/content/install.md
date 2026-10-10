@@ -14,7 +14,7 @@ docker run -d --name shelf -p 8080:8080 -v shelf-data:/data \
   --restart unless-stopped ghcr.io/doodersrage/shelf:latest
 ```
 
-Then open [http://localhost:8080](http://localhost:8080). Images are published for both amd64 and arm64 (a Raspberry Pi 4 or 5, most NAS boxes, Apple silicon). Every release is also published under its own version, such as `ghcr.io/doodersrage/shelf:1.4.0`, which is the better choice when you want to decide when to update.
+Then open [http://localhost:8080](http://localhost:8080). Images are published for both amd64 and arm64 (a Raspberry Pi 4 or 5, most NAS boxes, Apple silicon). Every release is also published under its own version, such as `ghcr.io/doodersrage/shelf:1.4.1`, which is the better choice when you want to decide when to update.
 
 Everything Shelf keeps is under `/data` in the container:
 

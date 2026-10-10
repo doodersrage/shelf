@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-10
+
 ### Added
 
 - Templates for Unraid, TrueNAS SCALE, and CasaOS in `deploy/`, and a section in the install guide for each.
@@ -165,7 +167,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/doodersrage/shelf/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/doodersrage/shelf/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/doodersrage/shelf/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/doodersrage/shelf/compare/v1.2.0...v1.3.0
