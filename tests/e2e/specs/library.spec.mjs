@@ -92,3 +92,42 @@ test("files added together become books, each named from what it says", async ({
   await expect(page.locator('[role=status]:has-text("Already on another book: ")')).toBeVisible();
   noProblems(page);
 });
+
+test("a filtered library is saved as a search, listed in the sidebar, and forgotten", async ({ browser }) => {
+  const page = await signUp(browser, unique("Searcher"));
+  const loved = await createBook(page, { title: unique("Loved Book"), author: "Someone", status: "Want" });
+  await createBook(page, { title: unique("Plain Book"), author: "Someone", status: "Want" });
+  await page.request.post("/books/bulk", { data: { ids: [loved.id], loved: true } });
+
+  await page.goto("/?status=Want");
+  await ready(page);
+  await page.locator("summary", { hasText: "More filters" }).click();
+  await page.getByLabel("Loved", { exact: true }).check();
+  await page.getByLabel("Sort").selectOption("added");
+  await expect(page.locator(".book-grid > li, .book-list > li")).toHaveCount(1);
+
+  await page.getByRole("button", { name: "Save this search" }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Loved and waiting");
+  await Promise.all([page.waitForURL(/saved=\d+/), page.getByRole("button", { name: "Save", exact: true }).click()]);
+  await ready(page);
+  await expect(page.locator("h1")).toHaveText("Loved and waiting");
+  await expect(page).toHaveURL(/status=Want/);
+  await expect(page).toHaveURL(/loved=1/);
+  await expect(page).toHaveURL(/sort=added/);
+  await expect(page.locator(".book-grid > li, .book-list > li")).toHaveCount(1);
+
+  // From anywhere, the sidebar opens it again with the same filters.
+  await page.goto("/stats");
+  await ready(page);
+  await page.getByRole("link", { name: "Loved and waiting" }).first().click();
+  await page.waitForURL(/saved=\d+/);
+  await ready(page);
+  await expect(page.locator("h1")).toHaveText("Loved and waiting");
+  await expect(page.getByRole("link", { name: "Loved and waiting" }).first()).toHaveAttribute("aria-current", "page");
+  await expect(page.getByLabel("Loved", { exact: true })).toBeChecked();
+
+  await Promise.all([page.waitForURL((url) => !url.search.includes("saved=")), page.getByRole("button", { name: "Forget this search" }).click()]);
+  await ready(page);
+  await expect(page.getByRole("link", { name: "Loved and waiting" })).toHaveCount(0);
+  noProblems(page);
+});

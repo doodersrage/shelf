@@ -208,6 +208,25 @@
         @if (Filtered)
         {
             <button type="button" class="quiet" @onclick="ClearFilters">@T("Clear filters")</button>
+            @if (saved is not null)
+            {
+                <button type="button" class="quiet" @onclick="ForgetSearch">@T("Forget this search")</button>
+            }
+            else if (naming)
+            {
+                <form class="save-search" @onsubmit="SaveSearch" @onsubmit:preventDefault>
+                    <label>
+                        @T("Name")
+                        <input @bind="savedName" maxlength="@SavedSearch.MaxNameLength" placeholder="@T("Short sci-fi to read")" required autofocus />
+                    </label>
+                    <button type="submit" class="primary">@T("Save")</button>
+                    <button type="button" class="quiet" @onclick="() => naming = false">@T("Cancel")</button>
+                </form>
+            }
+            else
+            {
+                <button type="button" class="quiet" @onclick="() => naming = true">@T("Save this search")</button>
+            }
         }
     </div>
 
@@ -607,6 +626,91 @@ else if (visible.Count > 0)
     [SupplyParameterFromQuery(Name = "loanedTo")]
     public string? LoanedTo { get; set; }
 
+    // The rest of a view, so any filtered library is an address to keep, and a saved search is just that.
+    [SupplyParameterFromQuery(Name = "sort")]
+    public string? Sort { get; set; }
+
+    [SupplyParameterFromQuery(Name = "loved")]
+    public string? Loved { get; set; }
+
+    [SupplyParameterFromQuery(Name = "loaned")]
+    public string? Loaned { get; set; }
+
+    [SupplyParameterFromQuery(Name = "queued")]
+    public string? Queued { get; set; }
+
+    [SupplyParameterFromQuery(Name = "file")]
+    public string? WithFile { get; set; }
+
+    [SupplyParameterFromQuery(Name = "audio")]
+    public string? WithAudio { get; set; }
+
+    [SupplyParameterFromQuery(Name = "saved")]
+    public int? Saved { get; set; }
+
+    private static readonly string[] Sorts = ["title", "author", "series", "year", "rating", "added"];
+    private SavedSearch? saved;
+    private string savedName = "";
+    private bool naming;
+
+    // The library's address for what is shown now.
+    private string CurrentQuery()
+    {
+        var parts = new Dictionary<string, string?>
+        {
+            ["q"] = string.IsNullOrWhiteSpace(query) ? null : query.Trim(),
+            ["status"] = statusFilter.Length > 0 ? statusFilter : null,
+            ["sort"] = sort != "title" ? sort : null,
+            ["tag"] = tagFilter,
+            ["author"] = authorFilter,
+            ["series"] = seriesFilter,
+            ["place"] = placeFilter,
+            ["recommendedBy"] = recommendedFilter,
+            ["loanedTo"] = loanedFilter,
+            ["loved"] = lovedOnly ? "1" : null,
+            ["loaned"] = loanedOnly ? "1" : null,
+            ["queued"] = queuedOnly ? "1" : null,
+            ["file"] = fileOnly ? "1" : null,
+            ["audio"] = audioOnly ? "1" : null,
+        };
+        return string.Join("&", parts.Where(part => part.Value is not null).Select(part => $"{part.Key}={Uri.EscapeDataString(part.Value!)}"));
+    }
+
+    private async Task SaveSearch()
+    {
+        var name = savedName.Trim();
+        var address = CurrentQuery();
+        if (name.Length == 0 || address.Length == 0)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var kept = new SavedSearch
+        {
+            OwnerId = db.ReaderId,
+            Name = name[..Math.Min(name.Length, SavedSearch.MaxNameLength)],
+            Query = address[..Math.Min(address.Length, SavedSearch.MaxQueryLength)],
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        db.SavedSearches.Add(kept);
+        await db.SaveChangesAsync();
+        // A full load, so the sidebar lists it.
+        Navigation.NavigateTo($"/?{kept.Query}&saved={kept.Id}", forceLoad: true);
+    }
+
+    private async Task ForgetSearch()
+    {
+        if (saved is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.SavedSearches.Where(item => item.Id == saved.Id).ExecuteDeleteAsync();
+        Navigation.NavigateTo($"/?{saved.Query}", forceLoad: true);
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         tagFilter = string.IsNullOrWhiteSpace(Tag) ? null : Tag.Trim();
@@ -617,7 +721,24 @@ else if (visible.Count > 0)
         loanedFilter = string.IsNullOrWhiteSpace(LoanedTo) ? null : LoanedTo.Trim();
         query = Query?.Trim() ?? "";
         statusFilter = Enum.TryParse<BookStatus>(Status, ignoreCase: true, out var status) ? status.ToString() : "";
+        sort = Sorts.Contains(Sort) ? Sort! : "title";
+        lovedOnly = Loved == "1";
+        loanedOnly = Loaned == "1";
+        queuedOnly = Queued == "1";
+        fileOnly = WithFile == "1";
+        audioOnly = WithAudio == "1";
         adding = Add == "1";
+        naming = false;
+        if (Saved is int savedId)
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            saved = await db.SavedSearches.AsNoTracking().FirstOrDefaultAsync(item => item.Id == savedId);
+        }
+        else
+        {
+            saved = null;
+        }
+
         await LoadAsync();
 
         // A ?view= link wins; otherwise the library opens the way this reader last left it.
@@ -657,7 +778,8 @@ else if (visible.Count > 0)
     // The overview sections lead the page only while the whole shelf is in view.
     private bool IsOverview => !Filtered;
 
-    private string Heading => Enum.TryParse<BookStatus>(statusFilter, out var status) && !UrlFiltered && string.IsNullOrWhiteSpace(query) && ChecksOn == 0
+    private string Heading => saved is not null ? saved.Name
+        : Enum.TryParse<BookStatus>(statusFilter, out var status) && !UrlFiltered && string.IsNullOrWhiteSpace(query) && ChecksOn == 0
         ? BookRules.StatusLabel(status)
         : T("Library");
 
@@ -717,7 +839,8 @@ else if (visible.Count > 0)
         query = "";
         statusFilter = "";
         lovedOnly = loanedOnly = queuedOnly = fileOnly = audioOnly = false;
-        if (UrlFiltered || Query is not null || Status is not null)
+        sort = "title";
+        if (new Uri(Navigation.Uri).Query.Length > 0)
         {
             Navigation.NavigateTo(listView ? "/?view=list" : "/");
         }

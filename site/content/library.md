@@ -41,6 +41,10 @@ The library shows covers or a list, and remembers your choice. Search, status, a
 
 Pages gathered from the catalog give other ways in: **Authors**, **Series** in reading order, **Places** where books sit, **Condition**, **Recommenders**, and **Years** of finished books.
 
+### Saved searches
+
+A view you come back to, such as *loved, want to read, newest first*, can be kept: set the filters and order, choose **Save this search**, and give it a name. It joins **Your library** in the sidebar, and opens with the same filters and order every time. **Forget this search**, on the open search, removes it. Saved searches are yours alone; every filtered view is also a plain address you can bookmark.
+
 ## Changing many books at once
 
 In the list view, tick books to change their status, add or remove a tag, mark them loved, or delete them, up to a thousand at a time.

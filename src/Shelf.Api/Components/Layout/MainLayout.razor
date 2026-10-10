@@ -82,6 +82,13 @@ else
     private bool isAdmin;
     private string? readerName;
     private Reminders? reminders;
+    private List<SavedSearch> savedSearches = [];
+
+    private string? SavedCurrent(int id) =>
+        new Uri(Navigation.Uri) is { AbsolutePath: "/" } here
+            && Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(here.Query).TryGetValue("saved", out var value) && value == id.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            ? "page"
+            : null;
 
     [CascadingParameter]
     private Task<AuthenticationState>? Authentication { get; set; }
@@ -117,6 +124,10 @@ else
                     </a>
                 </li>
                 <li><a href="/shelves" aria-current="@Current("/shelves")">@T("Shelves")</a></li>
+                @foreach (var search in savedSearches)
+                {
+                    <li><a href="@($"/?{search.Query}&saved={search.Id}")" aria-current="@SavedCurrent(search.Id)">@search.Name</a></li>
+                }
             </ul>
         </nav>
         <nav class="nav-group" aria-label="@T("Discover and reflect")">
@@ -185,6 +196,7 @@ else
             await using var db = await DbFactory.CreateDbContextAsync();
             reminders = await Asking.RemindersAsync(db);
             isAdmin = await ReaderRules.IsAdminAsync(db, db.ReaderId);
+            savedSearches = await db.SavedSearches.AsNoTracking().OrderBy(search => search.Name).ToListAsync();
         }
     }
 
@@ -199,7 +211,7 @@ else
         var adding = here.Query.Contains("add=1", StringComparison.Ordinal);
         var matches = href switch
         {
-            "/" => here.AbsolutePath == "/" && status.Length == 0 && !adding,
+            "/" => here.AbsolutePath == "/" && status.Length == 0 && !adding && !here.Query.Contains("saved=", StringComparison.Ordinal),
             "/?add=1" => here.AbsolutePath == "/" && adding,
             _ when href.StartsWith("/?status=", StringComparison.Ordinal) =>
                 here.AbsolutePath == "/" && string.Equals(status, href["/?status=".Length..], StringComparison.OrdinalIgnoreCase),

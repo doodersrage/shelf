@@ -112,6 +112,19 @@ public sealed class ReadingSession
     public string? Note { get; set; }
 }
 
+// A library view a reader keeps: its filters and order as the library's own address, under a name of their choosing.
+public sealed class SavedSearch
+{
+    public const int MaxNameLength = 60;
+    public const int MaxQueryLength = 2000;
+
+    public int Id { get; set; }
+    public int OwnerId { get; set; }
+    public required string Name { get; set; }
+    public required string Query { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
 public sealed class ShelfSetting
 {
     public int Id { get; set; }

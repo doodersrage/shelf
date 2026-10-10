@@ -37,6 +37,7 @@ public sealed class ShelfDb : DbContext
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<ReaderPasskey> ReaderPasskeys => Set<ReaderPasskey>();
     public DbSet<ShelfSetting> Settings => Set<ShelfSetting>();
+    public DbSet<SavedSearch> SavedSearches => Set<SavedSearch>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -101,6 +102,15 @@ public sealed class ShelfDb : DbContext
         });
 
         // A setting row belongs to the reader with the same id.
+        modelBuilder.Entity<SavedSearch>(saved =>
+        {
+            saved.Property(s => s.Name).HasMaxLength(SavedSearch.MaxNameLength).IsRequired();
+            saved.Property(s => s.Query).HasMaxLength(SavedSearch.MaxQueryLength).IsRequired();
+            saved.HasIndex(s => s.OwnerId);
+            saved.HasOne<Reader>().WithMany().HasForeignKey(s => s.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            saved.HasQueryFilter(s => s.OwnerId == ReaderId);
+        });
+
         modelBuilder.Entity<ShelfSetting>(setting =>
         {
             setting.Property(s => s.Id).ValueGeneratedNever();
