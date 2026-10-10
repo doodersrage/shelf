@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-10
+
 ### Added
 
 - Shelf speaks Spanish, French, and German as well as English. Each reader gets their browser's language or picks one on Account, separately from the region dates follow; emails go in the reader's language. The translations await review by native speakers.
@@ -13,13 +15,13 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - Highlights while offline: a kept book brings its highlights, and passages highlighted or removed offline are sent to the shelf when it answers again. Offline PDF pages gain a text layer for selecting words.
 - Passkeys: sign in with a phone's or laptop's fingerprint, face, or PIN, or a password manager, instead of the password. A passkey counts as both steps of two-step sign-in. An admin's password reset also removes a reader's passkeys.
 
-### Fixed
-
-- A book with no cover keeps whole words on its small spine, and a very long title wraps instead of running out of its card.
-
 ### Changed
 
 - Adding books from files moved to `POST /books/import/files`, so it no longer shares an address with restoring a JSON backup at `POST /books/import`.
+
+### Fixed
+
+- A book with no cover keeps whole words on its small spine, and a very long title wraps instead of running out of its card.
 
 ## [1.2.0] - 2026-10-10
 
@@ -109,7 +111,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/doodersrage/shelf/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/doodersrage/shelf/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/doodersrage/shelf/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/doodersrage/shelf/releases/tag/v1.0.0
