@@ -3,6 +3,7 @@
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject EbookStore Ebooks
 @inject AudioStore Audio
+@inject BackupSchedule Schedule
 
 <PageTitle>Readers · Shelf</PageTitle>
 
@@ -63,6 +64,35 @@ else
     <p class="hint">Everything on this server in one zip: the database with every reader, and every e-book and audiobook. To restore it, stop the shelf and unpack it into a new data folder: <code>shelf.db</code> beside the app, and the <code>ebooks</code> and <code>audio</code> folders where they were.</p>
     <a class="button primary" href="/admin/snapshot">Download a snapshot</a>
     </section>
+
+    <section class="panel">
+    <h2>Nightly backups</h2>
+    @if (!Schedule.Enabled)
+    {
+        <p class="hint">Nightly backups are off (Backup:Enabled is false).</p>
+    }
+    else
+    {
+        <p class="hint">Each night after @Schedule.Hour.ToString("00"):00 UTC the shelf saves a snapshot of the database@(Schedule.IncludeFiles ? ", with every e-book and audiobook," : "") in <code>@Schedule.Folder</code>, keeping the last @Schedule.Keep. @(Schedule.IncludeFiles ? "" : "E-books and audiobooks never change once saved; copy their folders along with these to keep everything.")</p>
+    }
+    @if (backups.Count == 0)
+    {
+        <p class="hint">None yet.</p>
+    }
+    else
+    {
+        <ul class="tag-counts">
+            @foreach (var backup in backups)
+            {
+                <li>
+                    <a href="/admin/backups/@backup.Name">@backup.TakenAt.ToString("MMM d, yyyy HH:mm") UTC</a>
+                    <span class="hint">@Size(backup.Bytes)</span>
+                </li>
+            }
+        </ul>
+    }
+    <button type="button" @onclick="BackUpNow" disabled="@backingUp">@(backingUp ? "Backing up…" : "Back up now")</button>
+    </section>
 }
 
 @code {
@@ -72,6 +102,37 @@ else
     private readonly Dictionary<int, string> passwords = [];
     private AccountProblem? problem;
     private int? removing;
+    private IReadOnlyList<AutomaticBackup> backups = [];
+    private bool backingUp;
+
+    private static string Size(long bytes)
+    {
+        const double megabyte = 1024 * 1024;
+        if (bytes >= megabyte * 1024)
+        {
+            return $"{bytes / (megabyte * 1024):0.##} GB";
+        }
+
+        return bytes >= megabyte ? $"{bytes / megabyte:0.#} MB" : $"{Math.Max(1, bytes / 1024)} KB";
+    }
+
+    private async Task BackUpNow()
+    {
+        backingUp = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            if (await StillAdminAsync(db))
+            {
+                await Schedule.TakeAsync(CancellationToken.None);
+            }
+        }
+        finally
+        {
+            backingUp = false;
+            backups = Schedule.List();
+        }
+    }
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -81,6 +142,7 @@ else
         me = db.ReaderId;
         allowed = await ReaderRules.IsAdminAsync(db, me);
         readers = allowed ? (await ReaderRules.SummariesAsync(db)).ToList() : [];
+        backups = allowed ? Schedule.List() : [];
     }
 
     private async Task<bool> StillAdminAsync(ShelfDb db) => allowed = await ReaderRules.IsAdminAsync(db, db.ReaderId);

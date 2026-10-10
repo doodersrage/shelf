@@ -126,6 +126,12 @@ dotnet ef migrations add ExpandLibrary --project src/Shelf.Api
 
 The next run applies the new migration. `dotnet ef database update --project src/Shelf.Api` applies it without starting the site.
 
+## Health and nightly backups
+
+`/health` answers `Healthy` when the app and its database are up, and `/alive` when the app is; both answer without signing in, with a single word and nothing else. The Docker image checks `/alive` on its own.
+
+Each night after 03:00 UTC the shelf saves a snapshot of its database in a `backups` folder beside it, keeping the last 7. Readers sees the list, can download any of them, and can take one at once. E-books and audiobooks never change once saved, so they are left out of the nightly copy; back up their folders alongside. Settings: `Backup:Enabled` (default `true`), `Backup:Hour` (UTC, default 3), `Backup:Keep` (default 7), `Backup:Folder`, and `Backup:IncludeFiles` (default `false`).
+
 ## Email
 
 With a mail server set, readers can add an email address on their account to reset a forgotten password from the sign-in page, and to get one email a day when a loan is overdue, a borrowed book is due within three days, or someone has asked to borrow. Without one, an admin resets passwords and reminders stay in the app.

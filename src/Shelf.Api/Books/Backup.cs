@@ -134,7 +134,8 @@ public static class Backup
         EbookStore ebooks,
         AudioStore audio,
         string zipPath,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool includeFiles = true)
     {
         var database = Path.Combine(Path.GetTempPath(), $"shelf-snapshot-{Guid.NewGuid():N}.db");
         try
@@ -144,8 +145,11 @@ public static class Backup
             await using var output = File.Create(zipPath);
             using var zip = new ZipArchive(output, ZipArchiveMode.Create);
             zip.CreateEntryFromFile(database, "shelf.db");
-            AddFolder(zip, ebooks.Root, "ebooks");
-            AddFolder(zip, audio.Root, "audio");
+            if (includeFiles)
+            {
+                AddFolder(zip, ebooks.Root, "ebooks");
+                AddFolder(zip, audio.Root, "audio");
+            }
         }
         finally
         {

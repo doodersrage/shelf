@@ -14,6 +14,10 @@ public static class AdminEndpoints
         admin.MapPut("/readers/{id:int}/admin", SetAdmin);
         admin.MapDelete("/readers/{id:int}", Remove);
         admin.MapGet("/snapshot", Snapshot);
+        admin.MapGet("/backups", (BackupSchedule schedule) => TypedResults.Ok(schedule.List()));
+        admin.MapPost("/backups", async (BackupSchedule schedule, CancellationToken cancellationToken) => TypedResults.Ok(await schedule.TakeAsync(cancellationToken)));
+        admin.MapGet("/backups/{name}", (string name, BackupSchedule schedule) =>
+            schedule.PathOf(name) is { } path ? Results.File(path, "application/zip", name) : Results.NotFound());
     }
 
     private static async ValueTask<object?> AdminsOnly(EndpointFilterInvocationContext context, EndpointFilterDelegate next)

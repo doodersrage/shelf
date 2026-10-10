@@ -72,6 +72,9 @@ builder.Services.AddSingleton<AudioStore>();
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddSingleton<ReminderMailer>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<ReminderMailer>());
+builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
+builder.Services.AddSingleton<BackupSchedule>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<BackupSchedule>());
 builder.Services.AddSingleton<OcrTools>();
 builder.Services.AddSingleton<OcrService>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<OcrService>());
@@ -219,7 +222,7 @@ static Task Refuse(RedirectContext<CookieAuthenticationOptions> context, int sta
 {
     var path = context.Request.Path;
     if (path.StartsWithSegments("/books") || path.StartsWithSegments("/settings") || path.StartsWithSegments("/readers")
-        || path.StartsWithSegments("/admin/readers") || path.StartsWithSegments("/admin/snapshot") || path.StartsWithSegments("/account/remove")
+        || path.StartsWithSegments("/admin/readers") || path.StartsWithSegments("/admin/snapshot") || path.StartsWithSegments("/admin/backups") || path.StartsWithSegments("/account/remove")
         || path.StartsWithSegments("/opds"))
     {
         context.Response.StatusCode = status;

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Shelf.Api.Books;
 using Shelf.Api.Data;
@@ -367,6 +368,65 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Matches(@"^\d+\.\d+\.\d+", version!.Version);
         Assert.Equal(typeof(Program).Assembly.GetName().Version!.ToString(3), version.Version.Split('-')[0]);
         Assert.Contains($"Shelf {version.Version}", await _client.GetStringAsync("/"));
+    }
+
+    [Fact]
+    public async Task Health_checks_answer_without_signing_in()
+    {
+        var anonymous = factory.CreateClient();
+        var health = await anonymous.GetAsync("/health");
+        Assert.Equal(HttpStatusCode.OK, health.StatusCode);
+        Assert.Equal("Healthy", await health.Content.ReadAsStringAsync());
+        Assert.Equal("Healthy", await anonymous.GetStringAsync("/alive"));
+    }
+
+    [Fact]
+    public async Task Nightly_backups_keep_the_last_few_and_an_admin_can_take_one()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"shelf-backups-{Guid.NewGuid():N}");
+        try
+        {
+            var configuration = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?> { ["Backup:Folder"] = folder, ["Backup:Keep"] = "2" })
+                .Build();
+            var schedule = new BackupSchedule(
+                factory.Services.GetRequiredService<IServiceScopeFactory>(),
+                configuration,
+                factory.Services.GetRequiredService<EbookStore>(),
+                factory.Services.GetRequiredService<AudioStore>(),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<BackupSchedule>.Instance);
+            for (var round = 0; round < 3; round++)
+            {
+                await schedule.TakeAsync(CancellationToken.None);
+                await Task.Delay(5);
+            }
+
+            var kept = schedule.List();
+            Assert.Equal(2, kept.Count);
+            using (var zip = System.IO.Compression.ZipFile.OpenRead(Path.Combine(folder, kept[0].Name)))
+            {
+                Assert.NotNull(zip.GetEntry("shelf.db"));
+                Assert.DoesNotContain(zip.Entries, entry => entry.FullName.StartsWith("ebooks/", StringComparison.Ordinal));
+            }
+
+            Assert.Null(schedule.PathOf("../shelf.db"));
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+            {
+                Directory.Delete(folder, recursive: true);
+            }
+        }
+
+        var taken = await _client.PostAsync("/admin/backups", null);
+        Assert.Equal(HttpStatusCode.OK, taken.StatusCode);
+        var backup = await taken.Content.ReadFromJsonAsync<AutomaticBackup>(JsonOptions);
+        Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync($"/admin/backups/{backup!.Name}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync("/admin/backups/not-a-backup.zip")).StatusCode);
+        Assert.Contains("Nightly backups", await _client.GetStringAsync("/admin"));
+        var reader = await factory.SignUpAsync("Backup Bystander");
+        Assert.Equal(HttpStatusCode.Forbidden, (await reader.GetAsync($"/admin/backups/{backup.Name}")).StatusCode);
     }
 
     private async Task<HttpResponseMessage> PostCsvAsync(string csv, string name)

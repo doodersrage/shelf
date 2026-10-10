@@ -1623,6 +1623,8 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
         builder.UseSetting("AudioStore:Root", _audioRoot);
         builder.UseSetting("Accounts:SignInsPerMinute", "1000");
         builder.UseSetting("DataProtection:KeysPath", _keysRoot);
+        builder.UseSetting("Backup:Enabled", "false");
+        builder.UseSetting("Backup:Folder", Path.Combine(_keysRoot, "backups"));
         builder.UseEnvironment("Testing");
         builder.ConfigureTestServices(services =>
         {
