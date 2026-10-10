@@ -21,7 +21,7 @@ else if (book is not null)
 {
     <p class="hint"><a href="/">Library</a></p>
     <header class="book-hero">
-        <BookCover Title="@book.Title" Url="@book.CoverUrl" Decorative="false" />
+        <BookCover Title="@book.Title" Url="@book.CoverShown" Decorative="false" />
         <div>
             <h1>@book.Title</h1>
             @if (!string.IsNullOrWhiteSpace(book.Subtitle))
@@ -136,6 +136,10 @@ else if (book is not null)
         </div>
     </header>
 
+    @if (ImportedMessage == "1")
+    {
+        <p class="saved" role="status">Made from the file. Check the details below; anything the file did not say is blank.</p>
+    }
     @if (EbookMessage == "saved")
     {
         <p class="saved" role="status">The e-book is on the shelf.</p>
@@ -623,6 +627,9 @@ else if (book is not null)
     [SupplyParameterFromQuery(Name = "audio")]
     public string? AudioMessage { get; set; }
 
+    [SupplyParameterFromQuery(Name = "imported")]
+    public string? ImportedMessage { get; set; }
+
     [SupplyParameterFromQuery(Name = "held")]
     public string? HeldToken { get; set; }
 
@@ -882,6 +889,7 @@ else if (book is not null)
 
         Ebooks.Delete(existing.EbookStoredName);
         existing.EbookStoredName = null;
+        existing.FileCover = false;
         existing.EbookFileName = null;
         existing.EbookChapter = null;
         await db.SaveChangesAsync();

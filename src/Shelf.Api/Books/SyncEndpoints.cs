@@ -140,6 +140,7 @@ public static class SyncEndpoints
         book.EbookFileName = saved.FileName;
         book.EbookChapter ??= 0;
         book.Format ??= BookFormat.Ebook;
+        Covers.Note(book, store);
         await db.SaveChangesAsync(cancellationToken);
         return TypedResults.NoContent();
     }

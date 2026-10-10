@@ -62,6 +62,14 @@ public sealed class Book
     public string? Series { get; set; }
     public int? SeriesNumber { get; set; }
     public string? CoverUrl { get; set; }
+
+    // The e-book file carries a cover picture of its own, served at /books/{id}/cover.
+    public bool FileCover { get; set; }
+
+    // The cover to show: the address given for it, or else the e-book's own.
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string? CoverShown => Covers.For(Id, CoverUrl, FileCover);
+
     public string? Review { get; set; }
     public bool Loved { get; set; }
     public bool Queued { get; set; }

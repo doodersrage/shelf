@@ -74,7 +74,7 @@ public static class Lending
                 book.Id,
                 book.Title,
                 book.Author,
-                book.CoverUrl,
+                Covers.For(book.Id, book.CoverUrl, book.FileCover),
                 book.Owner == null ? "" : book.Owner.Name,
                 book.LoanedOn,
                 book.DueOn,

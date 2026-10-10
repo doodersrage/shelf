@@ -514,6 +514,7 @@ public static class ShelfSync
             book.EbookFileName = saved.FileName;
             book.EbookChapter = incoming.EbookChapter is > 0 ? incoming.EbookChapter : 0;
             book.Format ??= BookFormat.Ebook;
+            Covers.Note(book, ebooks);
             return true;
         }
     }

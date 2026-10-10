@@ -60,6 +60,7 @@ public static class EbookEndpoints
         book.EbookStoredName = storedName;
         book.EbookFileName = fileName;
         book.EbookChapter = 0;
+        Covers.Note(book, store);
         book.Format ??= BookFormat.Ebook;
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -80,6 +81,7 @@ public static class EbookEndpoints
         book.EbookStoredName = null;
         book.EbookFileName = null;
         book.EbookChapter = null;
+        book.FileCover = false;
         await db.SaveChangesAsync(cancellationToken);
         return TypedResults.NoContent();
     }

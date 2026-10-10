@@ -43,11 +43,32 @@
                 <button type="button" class="quiet" @onclick="() => adding = false">Cancel</button>
             }
         </EditForm>
+
+        <h3>Or add from files</h3>
+        <p class="hint">Choose e-books, audiobooks, or zips of tracks, as many as you like. Each becomes a book, named from what the file says; tracks that share an album become one audiobook. <a href="/free">Find free public-domain books</a></p>
+        <form action="/books/import" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
+            <label>
+                EPUB, PDF, audio, or zip, up to 1 GB at a time
+                <input type="file" name="file" multiple required
+                       accept=".epub,.pdf,.mp3,.m4a,.m4b,.aac,.ogg,.opus,.wav,.flac,.zip,application/epub+zip,application/pdf,audio/*" />
+            </label>
+            <label class="check">
+                <input type="checkbox" name="keepBoth" value="true" />
+                Add a file even when the same one is already on another book
+            </label>
+            <progress data-upload-progress max="100" hidden></progress>
+            <p class="hint" data-upload-status role="status" hidden></p>
+            <button type="submit">Add from files</button>
+        </form>
     </section>
 }
 @if (addedTitle is not null)
 {
     <p class="saved" role="status">Added @addedTitle.</p>
+}
+@if (ImportSummary is { } summary)
+{
+    <p class="saved" role="status">@summary</p>
 }
 
 @if (books.Count > 0 && IsOverview)
@@ -59,7 +80,7 @@
             @foreach (var open in ReadingNow)
             {
                 <li class="strip-card">
-                    <BookCover Title="@open.Title" Url="@open.CoverUrl" />
+                    <BookCover Title="@open.Title" Url="@open.CoverShown" />
                     <div>
                         <p class="title"><a href="/library/@open.Id">@open.Title</a></p>
                         <p class="by">@open.Author</p>
@@ -85,7 +106,7 @@
             @foreach (var next in ReadNext.Count > 0 ? ReadNext : [Suggestion!])
             {
                 <li class="strip-card">
-                    <BookCover Title="@next.Title" Url="@next.CoverUrl" />
+                    <BookCover Title="@next.Title" Url="@next.CoverShown" />
                     <div>
                         <p class="title"><a href="/library/@next.Id">@next.Title</a></p>
                         <p class="by">@next.Author</p>
@@ -102,7 +123,7 @@
             @foreach (var done in RecentlyFinished)
             {
                 <li class="strip-card">
-                    <BookCover Title="@done.Title" Url="@done.CoverUrl" />
+                    <BookCover Title="@done.Title" Url="@done.CoverShown" />
                     <div>
                         <p class="title"><a href="/library/@done.Id">@done.Title</a></p>
                         <p class="by">@done.Author</p>
@@ -250,7 +271,7 @@ else if (visible.Count > 0)
             @foreach (var book in visible)
             {
                 <li class="book-card">
-                    <BookCover Title="@book.Title" Url="@book.CoverUrl" />
+                    <BookCover Title="@book.Title" Url="@book.CoverShown" />
                     <h3 class="title"><a href="/library/@book.Id">@book.Title</a></h3>
                     <p class="by">@book.Author@(book.Year is int year ? $" · {year}" : "")</p>
                     @if (book.Status == BookStatus.Reading && book.Pages is int pages)
@@ -327,7 +348,7 @@ else if (visible.Count > 0)
             <li class="book">
             <div class="book-pick">
                 <input type="checkbox" checked="@chosen.Contains(book.Id)" @onchange="change => Choose(book.Id, change.Value is true)" aria-label="@($"Choose {book.Title}")" />
-                <a href="/library/@book.Id" tabindex="-1" aria-hidden="true"><BookCover Title="@book.Title" Url="@book.CoverUrl" /></a>
+                <a href="/library/@book.Id" tabindex="-1" aria-hidden="true"><BookCover Title="@book.Title" Url="@book.CoverShown" /></a>
             </div>
             <div>
             <h2><a href="/library/@book.Id">@book.Title</a></h2>
@@ -516,6 +537,50 @@ else if (visible.Count > 0)
 
     [SupplyParameterFromQuery(Name = "add")]
     public string? Add { get; set; }
+
+    [SupplyParameterFromQuery(Name = "imported")]
+    public int? Imported { get; set; }
+
+    [SupplyParameterFromQuery(Name = "joined")]
+    public int? Joined { get; set; }
+
+    [SupplyParameterFromQuery(Name = "skipped")]
+    public int? Skipped { get; set; }
+
+    [SupplyParameterFromQuery(Name = "failed")]
+    public int? Failed { get; set; }
+
+    // "Added 3 books. 1 file went on a book you had. 2 were already on the shelf."
+    private string? ImportSummary
+    {
+        get
+        {
+            if (Imported is null)
+            {
+                return null;
+            }
+
+            static string Books(int count) => count == 1 ? "1 book" : $"{count} books";
+            static string Files(int count) => count == 1 ? "1 file" : $"{count} files";
+            var parts = new List<string> { $"Added {Books(Imported.Value)}." };
+            if (Joined is > 0)
+            {
+                parts.Add($"{Files(Joined.Value)} went on {(Joined == 1 ? "a book" : "books")} you had.");
+            }
+
+            if (Skipped is > 0)
+            {
+                parts.Add($"{Files(Skipped.Value)} {(Skipped == 1 ? "was" : "were")} already on another book; tick the box to add {(Skipped == 1 ? "it" : "them")} anyway.");
+            }
+
+            if (Failed is > 0)
+            {
+                parts.Add($"{Files(Failed.Value)} could not be added: Shelf takes EPUB, PDF, audio, and zips, up to 1 GB.");
+            }
+
+            return string.Join(" ", parts);
+        }
+    }
 
     [SupplyParameterFromQuery(Name = "tag")]
     public string? Tag { get; set; }

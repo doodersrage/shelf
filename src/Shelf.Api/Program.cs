@@ -77,6 +77,7 @@ builder.Services.AddSingleton<BackupSchedule>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<BackupSchedule>());
 builder.Services.AddSingleton<OcrTools>();
 builder.Services.AddHostedService<FileSweep>();
+builder.Services.AddSingleton<BookImport>();
 builder.Services.AddSingleton<OcrService>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<OcrService>());
 var uploadLimit = Math.Max(EbookStore.MaxBytes, AudioStore.MaxBytes);

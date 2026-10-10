@@ -106,6 +106,7 @@ public static class Backup
                     book.EbookStoredName = saved.StoredName;
                     book.EbookFileName = saved.FileName;
                     book.EbookChapter = 0;
+                    Covers.Note(book, ebooks);
                     files++;
                 }
             }

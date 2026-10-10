@@ -38,6 +38,9 @@ public static class AudioChapters
         }
     }
 
+    // The "moov" index of an MP4 file, for readers of its other parts (its tags, say).
+    public static byte[]? MoovOf(FileStream file) => FindTopLevel(file, "moov");
+
     private static byte[]? FindTopLevel(FileStream file, string wanted)
     {
         Span<byte> header = stackalloc byte[16];

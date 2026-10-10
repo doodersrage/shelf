@@ -158,11 +158,21 @@ public static class Duplicates
     }
 }
 
-// Every few hours, clears held uploads nobody decided on.
-public sealed class FileSweep(EbookStore ebooks, AudioStore audio, ILogger<FileSweep> logger) : BackgroundService
+// Every few hours, clears held uploads nobody decided on; at the start, also finds the covers inside older e-books.
+public sealed class FileSweep(EbookStore ebooks, AudioStore audio, IServiceScopeFactory scopes, ILogger<FileSweep> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        try
+        {
+            using var scope = scopes.CreateScope();
+            await Covers.BackfillAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), ebooks, stoppingToken);
+        }
+        catch (Exception ex) when (ex is IOException or Microsoft.EntityFrameworkCore.DbUpdateException or InvalidOperationException)
+        {
+            logger.LogWarning(ex, "Could not look for covers inside e-books.");
+        }
+
         using var timer = new PeriodicTimer(TimeSpan.FromHours(6));
         do
         {

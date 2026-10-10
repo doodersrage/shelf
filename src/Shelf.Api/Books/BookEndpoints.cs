@@ -38,6 +38,7 @@ public static class BookEndpoints
         books.MapGet("/copies", ListCopies);
         books.MapGet("/{id:int}", GetBook);
         books.MapPost("/", CreateBook);
+        books.MapPost("/import", ImportEndpoints.Import).DisableAntiforgery();
         books.MapPost("/bulk", Bulk.Apply);
         books.MapPut("/{id:int}", UpdateBook);
         books.MapDelete("/{id:int}", DeleteBook);
@@ -49,6 +50,7 @@ public static class BookEndpoints
         books.MapPost("/{id:int}/return", ReturnBook);
         books.MapPost("/{id:int}/lend", Lending.Lend).WithTags("Lending");
         books.MapGet("/{id:int}/place", Lending.Place);
+        books.MapGet("/{id:int}/cover", Covers.File);
         books.MapPut("/{id:int}/place", Lending.KeepPlace);
         books.MapPost("/{id:int}/ask", Asking.Ask).WithTags("Lending");
         books.MapGet("/borrowed", Lending.Borrowed).WithTags("Lending");
