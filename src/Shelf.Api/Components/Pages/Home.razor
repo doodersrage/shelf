@@ -7,23 +7,23 @@
 @inject AudioStore Audio
 @inject CoverStore Covers
 
-<PageTitle>Library · Shelf</PageTitle>
+<PageTitle>@T("Library") · Shelf</PageTitle>
 
 <div class="page-head">
     <h1>@Heading</h1>
     @if (!adding && books.Count > 0)
     {
-        <button type="button" class="primary" @onclick="() => adding = true">Add a book</button>
+        <button type="button" class="primary" @onclick="() => adding = true">@T("Add a book")</button>
     }
 </div>
 
 @if (adding || books.Count == 0)
 {
     <section id="add" class="panel" aria-labelledby="add-heading">
-        <h2 id="add-heading">Add a book</h2>
+        <h2 id="add-heading">@T("Add a book")</h2>
         @if (books.Count == 0)
         {
-            <p class="hint">Your shelf is empty. Start with a title and an author; an ISBN lets Shelf fill in the rest from Open Library.</p>
+            <p class="hint">@T("Your shelf is empty. Start with a title and an author; an ISBN lets Shelf fill in the rest from Open Library.")</p>
         }
         <EditForm Model="draft" OnValidSubmit="AddBook">
             <DataAnnotationsValidator />
@@ -38,34 +38,34 @@
                 </ul>
             }
             <BookFields Model="draft" Shelf="books" />
-            <button type="submit">Add</button>
+            <button type="submit">@T("Add")</button>
             @if (books.Count > 0)
             {
-                <button type="button" class="quiet" @onclick="() => adding = false">Cancel</button>
+                <button type="button" class="quiet" @onclick="() => adding = false">@T("Cancel")</button>
             }
         </EditForm>
 
-        <h3>Or add from files</h3>
-        <p class="hint">Choose e-books, audiobooks, or zips of tracks, as many as you like. Each becomes a book, named from what the file says; tracks that share an album become one audiobook. <a href="/free">Find free public-domain books</a>, or <a href="/import/audiobookshelf">bring books from Audiobookshelf</a>.</p>
+        <h3>@T("Or add from files")</h3>
+        <p class="hint">@T("Choose e-books, audiobooks, or zips of tracks, as many as you like. Each becomes a book, named from what the file says; tracks that share an album become one audiobook.") <a href="/free">@T("Find free public-domain books")</a> · <a href="/import/audiobookshelf">@T("Bring books from Audiobookshelf")</a></p>
         <form action="/books/import/files" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
             <label>
-                EPUB, PDF, comic, Kindle, audio, or zip, up to 1 GB at a time
+                @T("EPUB, PDF, comic, Kindle, audio, or zip, up to 1 GB at a time")
                 <input type="file" name="file" multiple required
                        accept=".epub,.pdf,.cbz,.mobi,.azw3,.azw,.mp3,.m4a,.m4b,.aac,.ogg,.opus,.wav,.flac,.zip,application/epub+zip,application/pdf,audio/*" />
             </label>
             <label class="check">
                 <input type="checkbox" name="keepBoth" value="true" />
-                Add a file even when the same one is already on another book
+                @T("Add a file even when the same one is already on another book")
             </label>
             <progress data-upload-progress max="100" hidden></progress>
             <p class="hint" data-upload-status role="status" hidden></p>
-            <button type="submit">Add from files</button>
+            <button type="submit">@T("Add from files")</button>
         </form>
     </section>
 }
 @if (addedTitle is not null)
 {
-    <p class="saved" role="status">Added @addedTitle.</p>
+    <p class="saved" role="status">@T("Added {0}.", addedTitle ?? "")</p>
 }
 @if (ImportSummary is { } summary)
 {
@@ -76,7 +76,7 @@
 {
     @if (ReadingNow.Count > 0)
     {
-        <h2 class="reading-now">Reading now</h2>
+        <h2 class="reading-now">@T("Reading now")</h2>
         <ul class="shelf-strip">
             @foreach (var open in ReadingNow)
             {
@@ -87,12 +87,12 @@
                         <p class="by">@open.Author</p>
                         @if (open.Pages is int pages)
                         {
-                            <progress max="@pages" value="@(open.CurrentPage ?? 0)" aria-label="@($"Page {open.CurrentPage ?? 0} of {pages}")"></progress>
-                            <p class="hint">@(open.CurrentPage ?? 0) of @(pages) pages</p>
+                            <progress max="@pages" value="@(open.CurrentPage ?? 0)" aria-label="@T("Page {0} of {1}", open.CurrentPage ?? 0, pages)"></progress>
+                            <p class="hint">@T("{0} of {1} pages", open.CurrentPage ?? 0, pages)</p>
                         }
                         else if (open.CurrentPage is int at)
                         {
-                            <p class="hint">Page @at</p>
+                            <p class="hint">@T("Page {0}", at)</p>
                         }
                     </div>
                 </li>
@@ -119,7 +119,7 @@
 
     @if (RecentlyFinished.Count > 0)
     {
-        <h2>Recently finished</h2>
+        <h2>@T("Recently finished")</h2>
         <ul class="shelf-strip">
             @foreach (var done in RecentlyFinished)
             {
@@ -135,20 +135,20 @@
         </ul>
     }
 
-    <h2>All books</h2>
+    <h2>@T("All books")</h2>
 }
 
 @if (books.Count > 0)
 {
     <div class="filters" role="search">
         <label>
-            Search
-            <input type="search" @bind="query" @bind:event="oninput" placeholder="Title, author, ISBN, notes, quotes" />
+            @T("Search")
+            <input type="search" @bind="query" @bind:event="oninput" placeholder="@T("Title, author, ISBN, notes, quotes")" />
         </label>
         <label>
-            Status
+            @T("Status")
             <select @bind="statusFilter">
-                <option value="">All</option>
+                <option value="">@T("All")</option>
                 @foreach (var status in Enum.GetValues<BookStatus>())
                 {
                     <option value="@status">@BookRules.StatusLabel(status)</option>
@@ -156,44 +156,44 @@
             </select>
         </label>
         <label>
-            Sort
+            @T("Sort")
             <select @bind="sort">
-                <option value="title">Title</option>
-                <option value="author">Author</option>
-                <option value="series">Series</option>
-                <option value="year">Year</option>
-                <option value="rating">Rating</option>
-                <option value="added">Recently added</option>
+                <option value="title">@T("Title")</option>
+                <option value="author">@T("Author")</option>
+                <option value="series">@T("Series")</option>
+                <option value="year">@T("Year")</option>
+                <option value="rating">@T("Rating")</option>
+                <option value="added">@T("Recently added")</option>
             </select>
         </label>
     </div>
     <div class="toolbar">
-        <div class="segmented" role="group" aria-label="Show books as">
-            <button type="button" aria-pressed="@(!listView ? "true" : "false")" @onclick="() => ShowAsList(false)">Covers</button>
-            <button type="button" aria-pressed="@(listView ? "true" : "false")" @onclick="() => ShowAsList(true)">List</button>
+        <div class="segmented" role="group" aria-label="@T("Show books as")">
+            <button type="button" aria-pressed="@(!listView ? "true" : "false")" @onclick="() => ShowAsList(false)">@T("Covers")</button>
+            <button type="button" aria-pressed="@(listView ? "true" : "false")" @onclick="() => ShowAsList(true)">@T("List")</button>
         </div>
         <details>
-            <summary>More filters@(ChecksOn > 0 ? $" ({ChecksOn})" : "")</summary>
+            <summary>@T("More filters")@(ChecksOn > 0 ? $" ({ChecksOn})" : "")</summary>
             <div class="checks">
                 <label class="check">
                     <input type="checkbox" @bind="lovedOnly" />
-                    Loved
+                    @T("Loved")
                 </label>
                 <label class="check">
                     <input type="checkbox" @bind="loanedOnly" />
-                    On loan
+                    @T("On loan")
                 </label>
                 <label class="check">
                     <input type="checkbox" @bind="queuedOnly" />
-                    Read next
+                    @T("Read next")
                 </label>
                 <label class="check">
                     <input type="checkbox" @bind="fileOnly" />
-                    E-book
+                    @T("E-book")
                 </label>
                 <label class="check">
                     <input type="checkbox" @bind="audioOnly" />
-                    Audiobook
+                    @T("Audiobook")
                 </label>
             </div>
         </details>
@@ -207,7 +207,7 @@
         }
         @if (Filtered)
         {
-            <button type="button" class="quiet" @onclick="ClearFilters">Clear filters</button>
+            <button type="button" class="quiet" @onclick="ClearFilters">@T("Clear filters")</button>
         }
     </div>
 
@@ -216,27 +216,27 @@
         <p class="active-filters">
             @if (!string.IsNullOrWhiteSpace(authorFilter))
             {
-                <span>By <strong>@authorFilter</strong></span>
+                <span>@T("By") <strong>@authorFilter</strong></span>
             }
             @if (!string.IsNullOrWhiteSpace(seriesFilter))
             {
-                <span>In <strong>@seriesFilter</strong></span>
+                <span>@T("In") <strong>@seriesFilter</strong></span>
             }
             @if (!string.IsNullOrWhiteSpace(placeFilter))
             {
-                <span>At <strong>@placeFilter</strong></span>
+                <span>@T("At") <strong>@placeFilter</strong></span>
             }
             @if (!string.IsNullOrWhiteSpace(recommendedFilter))
             {
-                <span>From <strong>@recommendedFilter</strong></span>
+                <span>@T("From") <strong>@recommendedFilter</strong></span>
             }
             @if (!string.IsNullOrWhiteSpace(loanedFilter))
             {
-                <span>Loaned to <strong>@loanedFilter</strong></span>
+                <span>@T("Loaned to") <strong>@loanedFilter</strong></span>
             }
             @if (!string.IsNullOrWhiteSpace(tagFilter))
             {
-                <span>Tagged <strong>@tagFilter</strong></span>
+                <span>@T("Tagged") <strong>@tagFilter</strong></span>
             }
         </p>
     }
@@ -249,11 +249,11 @@
 
 @if (books.Count > 0 && matching.Count == 0)
 {
-    <EmptyState Title="Nothing matches" Text="No book on your shelf fits these filters and this search.">
-        <button type="button" class="primary" @onclick="ClearFilters">Clear filters</button>
+    <EmptyState Title="@T("Nothing matches")" Text="@T("No book on your shelf fits these filters and this search.")">
+        <button type="button" class="primary" @onclick="ClearFilters">@T("Clear filters")</button>
         @if (query.Trim().Length >= Search.MinLength)
         {
-            <a class="button" href="@($"/search?q={Uri.EscapeDataString(query.Trim())}")">Search inside your e-books</a>
+            <a class="button" href="@($"/search?q={Uri.EscapeDataString(query.Trim())}")">@T("Search inside your e-books")</a>
         }
     </EmptyState>
 }
@@ -263,7 +263,7 @@ else if (visible.Count > 0)
         @matching.Count @(matching.Count == 1 ? "book" : "books")@(matching.Count > visible.Count ? $", showing {visible.Count}" : "")
         @if (query.Trim().Length >= Search.MinLength)
         {
-            <span> · <a href="@($"/search?q={Uri.EscapeDataString(query.Trim())}")">Search inside your e-books for “@query.Trim()”</a></span>
+            <span> · <a href="@($"/search?q={Uri.EscapeDataString(query.Trim())}")">@T("Search inside your e-books for “{0}”", query.Trim())</a></span>
         }
     </p>
     @if (!listView)
@@ -277,21 +277,21 @@ else if (visible.Count > 0)
                     <p class="by">@book.Author@(book.Year is int year ? $" · {year}" : "")</p>
                     @if (book.Status == BookStatus.Reading && book.Pages is int pages)
                     {
-                        <progress max="@pages" value="@(book.CurrentPage ?? 0)" aria-label="@($"Page {book.CurrentPage ?? 0} of {pages}")"></progress>
+                        <progress max="@pages" value="@(book.CurrentPage ?? 0)" aria-label="@T("Page {0} of {1}", book.CurrentPage ?? 0, pages)"></progress>
                     }
                     <div class="badges">
                         <StatusBadge Status="book.Status" />
                         @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
                         {
-                            <span class="badge loan">On loan</span>
+                            <span class="badge loan">@T("On loan")</span>
                         }
                         @if (!string.IsNullOrWhiteSpace(book.EbookStoredName))
                         {
-                            <span class="badge plain">E-book</span>
+                            <span class="badge plain">@T("E-book")</span>
                         }
                         @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
                         {
-                            <span class="badge plain">Audio</span>
+                            <span class="badge plain">@T("Audio")</span>
                         }
                     </div>
                 </li>
@@ -300,42 +300,42 @@ else if (visible.Count > 0)
     }
     else
     {
-        <div class="bulk-bar" role="group" aria-label="Change chosen books">
+        <div class="bulk-bar" role="group" aria-label="@T("Change chosen books")">
             <label class="check">
                 <input type="checkbox" checked="@(visible.All(book => chosen.Contains(book.Id)))" @onchange="change => ChooseAll(visible, change.Value is true)" />
-                Choose all shown
+                @T("Choose all shown")
             </label>
             @if (chosen.Count > 0)
             {
-                <span class="hint">@chosen.Count chosen</span>
+                <span class="hint">@T("Chosen: {0}", chosen.Count)</span>
                 <label>
-                    <span class="visually-hidden">Status for the chosen books</span>
+                    <span class="visually-hidden">@T("Status for the chosen books")</span>
                     <select @bind="bulkStatus">
-                        <option value="">Set status…</option>
+                        <option value="">@T("Set status…")</option>
                         @foreach (var status in Enum.GetValues<BookStatus>())
                         {
                             <option value="@status">@BookRules.StatusLabel(status)</option>
                         }
                     </select>
                 </label>
-                <button type="button" disabled="@(bulkStatus.Length == 0)" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Status: Enum.Parse<BookStatus>(bulkStatus)))">Set</button>
+                <button type="button" disabled="@(bulkStatus.Length == 0)" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Status: Enum.Parse<BookStatus>(bulkStatus)))">@T("Set")</button>
                 <label>
-                    <span class="visually-hidden">Tag for the chosen books</span>
-                    <input @bind="bulkTag" @bind:event="oninput" placeholder="Tag" maxlength="@BookRules.MaxTagLength" />
+                    <span class="visually-hidden">@T("Tag for the chosen books")</span>
+                    <input @bind="bulkTag" @bind:event="oninput" placeholder="@T("Tag")" maxlength="@BookRules.MaxTagLength" />
                 </label>
-                <button type="button" disabled="@string.IsNullOrWhiteSpace(bulkTag)" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], AddTag: bulkTag))">Add tag</button>
-                <button type="button" disabled="@string.IsNullOrWhiteSpace(bulkTag)" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], RemoveTag: bulkTag))">Remove tag</button>
-                <button type="button" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Loved: true))">Love</button>
-                <button type="button" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Loved: false))">Unlove</button>
+                <button type="button" disabled="@string.IsNullOrWhiteSpace(bulkTag)" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], AddTag: bulkTag))">@T("Add tag")</button>
+                <button type="button" disabled="@string.IsNullOrWhiteSpace(bulkTag)" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], RemoveTag: bulkTag))">@T("Remove tag")</button>
+                <button type="button" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Loved: true))">@T("Love")</button>
+                <button type="button" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Loved: false))">@T("Unlove")</button>
                 @if (!confirmingBulkDelete)
                 {
-                    <button type="button" class="danger" @onclick="() => confirmingBulkDelete = true">Delete…</button>
+                    <button type="button" class="danger" @onclick="() => confirmingBulkDelete = true">@T("Delete…")</button>
                 }
                 else
                 {
-                    <span class="hint">Delete @chosen.Count @(chosen.Count == 1 ? "book" : "books") with their quotes, highlights, reading logs, and files?</span>
-                    <button type="button" class="danger" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Delete: true))">Yes, delete</button>
-                    <button type="button" @onclick="() => confirmingBulkDelete = false">Cancel</button>
+                    <span class="hint">@T("Delete these with their quotes, highlights, reading logs, and files? {0}", Localization.Counts.Books(chosen.Count))</span>
+                    <button type="button" class="danger" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Delete: true))">@T("Yes, delete")</button>
+                    <button type="button" @onclick="() => confirmingBulkDelete = false">@T("Cancel")</button>
                 }
             }
             @if (bulkNote is not null)
@@ -348,7 +348,7 @@ else if (visible.Count > 0)
         {
             <li class="book">
             <div class="book-pick">
-                <input type="checkbox" checked="@chosen.Contains(book.Id)" @onchange="change => Choose(book.Id, change.Value is true)" aria-label="@($"Choose {book.Title}")" />
+                <input type="checkbox" checked="@chosen.Contains(book.Id)" @onchange="change => Choose(book.Id, change.Value is true)" aria-label="@T("Choose {0}", book.Title)" />
                 <a href="/library/@book.Id" tabindex="-1" aria-hidden="true"><BookCover Title="@book.Title" Url="@book.CoverShown" /></a>
             </div>
             <div>
@@ -375,11 +375,11 @@ else if (visible.Count > 0)
             </p>
             @if (!string.IsNullOrWhiteSpace(book.OriginalTitle))
             {
-                <p class="hint">Originally @book.OriginalTitle</p>
+                <p class="hint">@T("Originally {0}", book.OriginalTitle)</p>
             }
             <p class="meta">
                 <label>
-                    <span class="visually-hidden">Status of @book.Title</span>
+                    <span class="visually-hidden">@T("Status of {0}", book.Title)</span>
                     <select @bind:get="book.Status" @bind:set="status => UpdateStatus(book.Id, status)">
                         @foreach (var status in Enum.GetValues<BookStatus>())
                         {
@@ -398,11 +398,11 @@ else if (visible.Count > 0)
                 }
                 @if (!string.IsNullOrWhiteSpace(book.EbookStoredName))
                 {
-                    <a href="/library/@book.Id/read">Read</a>
+                    <a href="/library/@book.Id/read">@T("Read")</a>
                 }
                 @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
                 {
-                    <a href="/library/@book.Id/listen">Listen</a>
+                    <a href="/library/@book.Id/listen">@T("Listen")</a>
                 }
             </p>
             <p class="meta">
@@ -417,7 +417,7 @@ else if (visible.Count > 0)
                 @if (book.Status == BookStatus.Reading && book.Pages is int pages)
                 {
                     <span class="progress-wrap">
-                        <progress max="@pages" value="@(book.CurrentPage ?? 0)" aria-label="@($"Page {book.CurrentPage ?? 0} of {pages}")"></progress>
+                        <progress max="@pages" value="@(book.CurrentPage ?? 0)" aria-label="@T("Page {0} of {1}", book.CurrentPage ?? 0, pages)"></progress>
                         <span>@(book.CurrentPage ?? 0)/@pages</span>
                     </span>
                 }
@@ -427,11 +427,11 @@ else if (visible.Count > 0)
                 }
                 else if (book.Pages is int total)
                 {
-                    <span>@total pages</span>
+                    <span>@T("{0} pages", total)</span>
                 }
                 @if (book.FinishedOn is DateOnly finished)
                 {
-                    <span>Finished @finished.Medium()</span>
+                    <span>@T("Finished {0}", finished.Medium())</span>
                 }
                 @if (book.Acquisition is Acquisition arrived)
                 {
@@ -447,7 +447,7 @@ else if (visible.Count > 0)
                 }
                 @if (!string.IsNullOrWhiteSpace(book.RecommendedBy))
                 {
-                    <a href="@($"/?recommendedBy={Uri.EscapeDataString(book.RecommendedBy)}")">From @book.RecommendedBy</a>
+                    <a href="@($"/?recommendedBy={Uri.EscapeDataString(book.RecommendedBy)}")">@T("From {0}", book.RecommendedBy)</a>
                 }
                 @if (book.Quotes.Count > 0)
                 {
@@ -457,19 +457,19 @@ else if (visible.Count > 0)
             @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
             {
                 <p class="meta">
-                    <span class="badge loan">On loan</span>
+                    <span class="badge loan">@T("On loan")</span>
                     <span>
-                        to <a href="@($"/?loanedTo={Uri.EscapeDataString(book.LoanedTo)}")">@book.LoanedTo</a>
+                        @T("to") <a href="@($"/?loanedTo={Uri.EscapeDataString(book.LoanedTo)}")">@book.LoanedTo</a>
                         @if (book.LoanedOn is DateOnly loanedOn)
                         {
-                            <span> since @loanedOn.Medium()</span>
+                            <span> @T("since {0}", loanedOn.Medium())</span>
                         }
                         @if (book.DueOn is DateOnly due)
                         {
-                            <span class="@(due < Today ? "late" : null)"> · due @due.Medium()@(due < Today ? ", overdue" : "")</span>
+                            <span class="@(due < Today ? "late" : null)"> · @T("due {0}", due.Medium())@(due < Today ? T(", overdue") : "")</span>
                         }
                     </span>
-                    <button type="button" @onclick="() => ReturnLoan(book.Id)">Mark returned</button>
+                    <button type="button" @onclick="() => ReturnLoan(book.Id)">@T("Mark returned")</button>
                 </p>
             }
             @if (book.Tags.Count > 0)
@@ -489,8 +489,8 @@ else if (visible.Count > 0)
     @if (matching.Count > visible.Count)
     {
         <p>
-            <button type="button" @onclick="() => shown += PageSize">Show @Math.Min(PageSize, matching.Count - visible.Count) more</button>
-            <span class="hint">@(matching.Count - visible.Count) not shown yet</span>
+            <button type="button" @onclick="() => shown += PageSize">@T("Show {0} more", Math.Min(PageSize, matching.Count - visible.Count))</button>
+            <span class="hint">@T("Not shown yet: {0}", matching.Count - visible.Count)</span>
         </p>
     }
 }
@@ -554,7 +554,7 @@ else if (visible.Count > 0)
     [SupplyParameterFromQuery(Name = "kindle")]
     public int? Kindle { get; set; }
 
-    // "Added 3 books. 1 file went on a book you had. 2 were already on the shelf."
+    // "Added: 3 books. Went on books you had: 1 file."
     private string? ImportSummary
     {
         get
@@ -564,27 +564,25 @@ else if (visible.Count > 0)
                 return null;
             }
 
-            static string Books(int count) => count == 1 ? "1 book" : $"{count} books";
-            static string Files(int count) => count == 1 ? "1 file" : $"{count} files";
-            var parts = new List<string> { $"Added {Books(Imported.Value)}." };
+            var parts = new List<string> { T("Added: {0}.", Localization.Counts.Books(Imported.Value)) };
             if (Joined is > 0)
             {
-                parts.Add($"{Files(Joined.Value)} went on {(Joined == 1 ? "a book" : "books")} you had.");
+                parts.Add(T("Went on books you had: {0}.", Localization.Counts.Files(Joined.Value)));
             }
 
             if (Skipped is > 0)
             {
-                parts.Add($"{Files(Skipped.Value)} {(Skipped == 1 ? "was" : "were")} already on another book; tick the box to add {(Skipped == 1 ? "it" : "them")} anyway.");
+                parts.Add(T("Already on another book: {0}. Tick the box to add them anyway.", Localization.Counts.Files(Skipped.Value)));
             }
 
             if (Failed is > 0)
             {
-                parts.Add($"{Files(Failed.Value)} could not be added: Shelf takes EPUB, PDF, comics, audio, and zips, up to 1 GB.");
+                parts.Add(T("Could not be added: {0}. Shelf takes EPUB, PDF, comics, audio, and zips, up to 1 GB.", Localization.Counts.Files(Failed.Value)));
             }
 
             if (Kindle is > 0)
             {
-                parts.Add($"{Files(Kindle.Value)} from a Kindle could not be turned into EPUB: that needs Calibre on the server, and a file locked with DRM cannot be converted.");
+                parts.Add(T("Kindle files that could not be turned into EPUB: {0}. That needs Calibre on the server, and a file locked with DRM cannot be converted.", Localization.Counts.Files(Kindle.Value)));
             }
 
             return string.Join(" ", parts);
@@ -691,8 +689,8 @@ else if (visible.Count > 0)
         {
             var result = await Bulk.ApplyAsync(db, Ebooks, Audio, Covers, request);
             bulkNote = request.Delete
-                ? $"Deleted {result.Changed} {(result.Changed == 1 ? "book" : "books")}."
-                : $"Changed {result.Changed} {(result.Changed == 1 ? "book" : "books")}.";
+                ? T("Deleted: {0}.", Localization.Counts.Books(result.Changed))
+                : T("Changed: {0}.", Localization.Counts.Books(result.Changed));
         }
 
         if (request.Delete)
@@ -951,9 +949,8 @@ else if (visible.Count > 0)
 
         fillNote = filled switch
         {
-            0 => "Nothing new turned up.",
-            1 => "Filled 1 book.",
-            _ => $"Filled {filled} books.",
+            0 => T("Nothing new turned up."),
+            _ => T("Filled: {0}.", Localization.Counts.Books(filled)),
         };
         await LoadAsync();
     }

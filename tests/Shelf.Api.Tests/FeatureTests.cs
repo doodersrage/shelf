@@ -607,7 +607,8 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         }
 
         Assert.Contains("Finished Mar 14, 2024", await ListAsync(null));
-        Assert.Contains("Finished 14. März 2024", await ListAsync("de-DE"));
+        // A German browser gets the page in German, with German dates.
+        Assert.Contains("Gelesen am 14. März 2024", await ListAsync("de-DE"));
 
         await using (var scope = factory.Services.CreateAsyncScope())
         {
@@ -618,8 +619,8 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
             await db.SaveChangesAsync();
         }
 
-        // The reader's own choice wins over the browser's.
-        Assert.Contains("14 Mar 2024", await ListAsync("de-DE"));
+        // The reader's own choice of region wins over the browser's; the language still follows the browser.
+        Assert.Contains("Gelesen am 14 Mar 2024", await ListAsync("de-DE"));
         Assert.Contains("Language and region", await reader.GetStringAsync("/account"));
     }
 

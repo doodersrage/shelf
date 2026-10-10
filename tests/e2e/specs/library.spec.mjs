@@ -25,7 +25,7 @@ test("many books change at once, the list view is remembered, and search finds w
   await page.check(`input[aria-label="Choose ${second.title}"]`);
   await page.fill('.bulk-bar input[placeholder="Tag"]', tag);
   await page.click('.bulk-bar button:text-is("Add tag")');
-  await expect(page.locator(".bulk-bar [role=status]")).toHaveText("Changed 2 books.");
+  await expect(page.locator(".bulk-bar [role=status]")).toHaveText("Changed: 2 books.");
   const books = await (await page.request.get(`/books?tag=${encodeURIComponent(tag)}`)).json();
   expect(books.map((book) => book.id).sort()).toEqual([first.id, second.id].sort());
 
@@ -58,7 +58,7 @@ test("the same file on a second book asks first, then keeps both or lets it go",
     await page.locator('form[action$="/ebook"] input[name=file]').setInputFiles(fixture("moby.epub"));
     await Promise.all([page.waitForURL(/ebook=duplicate/), page.locator('form[action$="/ebook"] button[type=submit]').click()]);
     await ready(page);
-    await expect(page.locator(".notice.ask")).toContainText(`is already on ${first.title}`);
+    await expect(page.locator(".notice.ask")).toContainText(`already on another book, byte for byte: ${first.title}`);
   };
 
   await send(second.id);
@@ -79,7 +79,7 @@ test("files added together become books, each named from what it says", async ({
   await ready(page);
   await page.locator('form[action="/books/import/files"] input[name=file]').setInputFiles([fixture("moby.epub"), fixture("chapters.m4b"), fixture("comic.cbz")]);
   await Promise.all([page.waitForURL(/imported=/), page.locator('form[action="/books/import/files"] button[type=submit]').click()]);
-  await expect(page.locator('[role=status]:has-text("Added 3 books.")')).toBeVisible();
+  await expect(page.locator('[role=status]:has-text("Added: 3 books.")')).toBeVisible();
   const books = await (await page.request.get("/books")).json();
   expect(books.map((book) => book.format).sort()).toEqual(["Audiobook", "Ebook", "Ebook"]);
   expect(books.some((book) => book.title === "A Comic" && book.author === "Someone")).toBe(true);
@@ -89,6 +89,6 @@ test("files added together become books, each named from what it says", async ({
   await ready(page);
   await page.locator('form[action="/books/import/files"] input[name=file]').setInputFiles([fixture("moby.epub")]);
   await Promise.all([page.waitForURL(/imported=/), page.locator('form[action="/books/import/files"] button[type=submit]').click()]);
-  await expect(page.locator('[role=status]:has-text("already on another book")')).toBeVisible();
+  await expect(page.locator('[role=status]:has-text("Already on another book: ")')).toBeVisible();
   noProblems(page);
 });

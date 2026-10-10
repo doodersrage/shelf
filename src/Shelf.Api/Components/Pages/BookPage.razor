@@ -15,12 +15,12 @@
 
 @if (missing)
 {
-    <h1>Not on the shelf</h1>
-    <p>That book is not here. <a href="/">Back to the library</a></p>
+    <h1>@T("Not on the shelf")</h1>
+    <p>@T("That book is not here.") <a href="/">@T("Back to the library")</a></p>
 }
 else if (book is not null)
 {
-    <p class="hint"><a href="/">Library</a></p>
+    <p class="hint"><a href="/">@T("Library")</a></p>
     <header class="book-hero">
         <BookCover Title="@book.Title" Url="@book.CoverShown" Decorative="false" />
         <div>
@@ -33,12 +33,12 @@ else if (book is not null)
                 <a href="@($"/?author={Uri.EscapeDataString(book.Author)}")">@book.Author</a>
                 @if (!string.IsNullOrWhiteSpace(book.Translator))
                 {
-                    <span class="hint"> · translated by @book.Translator</span>
+                    <span class="hint"> · @T("translated by {0}", book.Translator)</span>
                 }
             </p>
             @if (!string.IsNullOrWhiteSpace(book.OriginalTitle))
             {
-                <p class="hint">Originally @book.OriginalTitle</p>
+                <p class="hint">@T("Originally {0}", book.OriginalTitle)</p>
             }
             @if (!string.IsNullOrWhiteSpace(book.Series))
             {
@@ -46,46 +46,46 @@ else if (book is not null)
                     <a href="@($"/?series={Uri.EscapeDataString(book.Series)}")">@book.Series</a>
                     @if (book.SeriesNumber is int number)
                     {
-                        <span> · book @number</span>
+                        <span> · @T("book {0}", number)</span>
                     }
                 </p>
             }
             @if (nextVolume is not null)
             {
-                <p class="hint">Next: <a href="/library/@nextVolume.Id">@nextVolume.Title</a></p>
+                <p class="hint">@T("Next:") <a href="/library/@nextVolume.Id">@nextVolume.Title</a></p>
             }
             <div class="badges">
                 <StatusBadge Status="book.Status" />
                 @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
                 {
-                    <span class="badge loan">On loan</span>
+                    <span class="badge loan">@T("On loan")</span>
                 }
                 @if (book.Loved)
                 {
-                    <span class="badge plain">Loved</span>
+                    <span class="badge plain">@T("Loved")</span>
                 }
                 @if (book.Rating is int rating)
                 {
-                    <span class="badge plain">@rating of 5</span>
+                    <span class="badge plain">@T("{0} of 5", rating)</span>
                 }
             </div>
             @if (book.Queued)
             {
-                <p class="hint">On the read-next list.</p>
+                <p class="hint">@T("On the read-next list.")</p>
             }
             @if (BookRules.PagesRemaining(book) is int left)
             {
                 <p class="hint">
                     @if (left == 0)
                     {
-                        <span>At the last page.</span>
+                        <span>@T("At the last page.")</span>
                     }
                     else
                     {
-                        <span>@left @(left == 1 ? "page" : "pages") left</span>
+                        <span>@(left == 1 ? T("1 page left") : T("{0} pages left", left))</span>
                         @if (BookRules.DaysRemaining(book) is int days)
                         {
-                            <span> · about @days @(days == 1 ? "day" : "days")</span>
+                            <span> · @(days == 1 ? T("about 1 day") : T("about {0} days", days))</span>
                         }
                     }
                 </p>
@@ -94,107 +94,107 @@ else if (book is not null)
                 @switch (book.Status)
                 {
                     case BookStatus.Want:
-                        <button type="button" class="primary" @onclick="() => MoveTo(BookStatus.Reading)">Start reading</button>
+                        <button type="button" class="primary" @onclick="() => MoveTo(BookStatus.Reading)">@T("Start reading")</button>
                         break;
                     case BookStatus.Reading:
-                        <button type="button" class="primary" @onclick="() => MoveTo(BookStatus.Finished)">Mark finished</button>
-                        <button type="button" class="quiet" @onclick="() => MoveTo(BookStatus.Abandoned)">Stop reading</button>
+                        <button type="button" class="primary" @onclick="() => MoveTo(BookStatus.Finished)">@T("Mark finished")</button>
+                        <button type="button" class="quiet" @onclick="() => MoveTo(BookStatus.Abandoned)">@T("Stop reading")</button>
                         break;
                     case BookStatus.Finished:
                         @if (book.FinishedOn is DateOnly finishedOn)
                         {
-                            <span class="hint">Finished @finishedOn.Long()</span>
+                            <span class="hint">@T("Finished {0}", finishedOn.Long())</span>
                         }
                         break;
                     case BookStatus.Abandoned:
-                        <button type="button" class="quiet" @onclick="() => MoveTo(BookStatus.Reading)">Pick it up again</button>
+                        <button type="button" class="quiet" @onclick="() => MoveTo(BookStatus.Reading)">@T("Pick it up again")</button>
                         break;
                 }
                 @if (!string.IsNullOrWhiteSpace(book.EbookStoredName))
                 {
-                    <a class="button" href="/library/@book.Id/read">Read this e-book</a>
+                    <a class="button" href="/library/@book.Id/read">@T("Read this e-book")</a>
                     @if (offlineSupported && !EbookStore.IsComic(book.EbookStoredName))
                     {
                         @if (keptOffline)
                         {
-                            <button type="button" class="quiet" @onclick="ForgetOffline" aria-pressed="true">Kept offline · forget</button>
+                            <button type="button" class="quiet" @onclick="ForgetOffline" aria-pressed="true">@T("Kept offline · forget")</button>
                         }
                         else
                         {
-                            <button type="button" class="quiet" @onclick="KeepOffline" disabled="@keeping">@(keeping ? "Keeping…" : "Keep for reading offline")</button>
+                            <button type="button" class="quiet" @onclick="KeepOffline" disabled="@keeping">@(keeping ? T("Keeping…") : T("Keep for reading offline"))</button>
                         }
                     }
                 }
                 @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
                 {
-                    <a class="button" href="/library/@book.Id/listen">Listen to this audiobook</a>
+                    <a class="button" href="/library/@book.Id/listen">@T("Listen to this audiobook")</a>
                 }
             </div>
             @if (!string.IsNullOrWhiteSpace(book.AudioStoredName) && ((book.AudioTrack ?? 0) > 0 || (book.AudioSeconds ?? 0) > 0))
             {
-                <p class="hint">Paused at @PausedAt(book)</p>
+                <p class="hint">@T("Paused at {0}", PausedAt(book))</p>
             }
         </div>
     </header>
 
     @if (ImportedMessage == "1")
     {
-        <p class="saved" role="status">Made from the file. Check the details below; anything the file did not say is blank.</p>
+        <p class="saved" role="status">@T("Made from the file. Check the details below; anything the file did not say is blank.")</p>
     }
     @if (EbookMessage == "saved")
     {
-        <p class="saved" role="status">The e-book is on the shelf.</p>
+        <p class="saved" role="status">@T("The e-book is on the shelf.")</p>
     }
     else if (EbookMessage == "unsupported")
     {
-        <p class="validation-message" role="alert">Choose an EPUB, a PDF, a comic (CBZ), or a Kindle file.</p>
+        <p class="validation-message" role="alert">@T("Choose an EPUB, a PDF, a comic (CBZ), or a Kindle file.")</p>
     }
     else if (EbookMessage == "large")
     {
-        <p class="validation-message" role="alert">That file is larger than 80 MB.</p>
+        <p class="validation-message" role="alert">@T("That file is larger than 80 MB.")</p>
     }
     else if (EbookMessage == "convert")
     {
-        <p class="validation-message" role="alert">That Kindle file could not be turned into an EPUB. Shelf needs Calibre installed on the server for that, and a file locked with DRM cannot be converted at all.</p>
+        <p class="validation-message" role="alert">@T("That Kindle file could not be turned into an EPUB. Shelf needs Calibre installed on the server for that, and a file locked with DRM cannot be converted at all.")</p>
     }
     @if (CoverMessage == "saved")
     {
-        <p class="saved" role="status">The cover is on the shelf.</p>
+        <p class="saved" role="status">@T("The cover is on the shelf.")</p>
     }
     else if (CoverMessage == "unsupported")
     {
-        <p class="validation-message" role="alert">Choose a JPEG, PNG, GIF, or WebP picture of 10 MB or less.</p>
+        <p class="validation-message" role="alert">@T("Choose a JPEG, PNG, GIF, or WebP picture of 10 MB or less.")</p>
     }
     @if (AudioMessage == "saved")
     {
-        <p class="saved" role="status">The audiobook is on the shelf.</p>
+        <p class="saved" role="status">@T("The audiobook is on the shelf.")</p>
     }
     else if (AudioMessage == "unsupported")
     {
-        <p class="validation-message" role="alert">Choose an audio file, or a zip of them.</p>
+        <p class="validation-message" role="alert">@T("Choose an audio file, or a zip of them.")</p>
     }
     else if (AudioMessage == "large")
     {
-        <p class="validation-message" role="alert">That audiobook is larger than 1 GB.</p>
+        <p class="validation-message" role="alert">@T("That audiobook is larger than 1 GB.")</p>
     }
 
     @if (held is not null)
     {
         <div class="notice ask" role="alert">
             <p>
-                That @(held.Kind == UploadKind.Ebook ? "e-book" : "audiobook") is already on
-                <a href="/library/@held.SameAsId">@heldSameTitle</a>, byte for byte.
-                Keep a second copy here as well?
+                @(held.Kind == UploadKind.Ebook ? T("That e-book is already on another book, byte for byte:") : T("That audiobook is already on another book, byte for byte:"))
+                <a href="/library/@held.SameAsId">@heldSameTitle</a>.
+                @T("Keep a second copy here as well?")
             </p>
             <div class="status-actions">
-                <button type="button" @onclick="KeepHeld" disabled="@deciding">Keep both</button>
-                <button type="button" class="quiet" @onclick="LetHeldGo" disabled="@deciding">Don't add it</button>
+                <button type="button" @onclick="KeepHeld" disabled="@deciding">@T("Keep both")</button>
+                <button type="button" class="quiet" @onclick="LetHeldGo" disabled="@deciding">@T("Don't add it")</button>
             </div>
         </div>
     }
     else if (heldExpired)
     {
-        <p class="validation-message" role="alert">That upload was not kept. Choose the file again to add it.</p>
+        <p class="validation-message" role="alert">@T("That upload was not kept. Choose the file again to add it.")</p>
     }
 
     @if (!string.IsNullOrWhiteSpace(book.Inscription))
@@ -202,20 +202,20 @@ else if (book is not null)
         <p class="inscription">@book.Inscription</p>
     }
 
-    <nav class="section-nav" aria-label="On this page">
-        <a href="/library/@book.Id#reading">Reading</a>
-        <a href="/library/@book.Id#lending">Lending</a>
-        <a href="/library/@book.Id#quotes">Quotes</a>
-        <a href="/library/@book.Id#highlights">Highlights</a>
-        <a href="/library/@book.Id#files">Files</a>
-        <a href="/library/@book.Id#details">Details</a>
+    <nav class="section-nav" aria-label="@T("On this page")">
+        <a href="/library/@book.Id#reading">@T("Reading")</a>
+        <a href="/library/@book.Id#lending">@T("Lending")</a>
+        <a href="/library/@book.Id#quotes">@T("Quotes")</a>
+        <a href="/library/@book.Id#highlights">@T("Highlights")</a>
+        <a href="/library/@book.Id#files">@T("Files")</a>
+        <a href="/library/@book.Id#details">@T("Details")</a>
     </nav>
 
     <section class="panel" id="reading">
-    <h2>Reading log</h2>
+    <h2>@T("Reading log")</h2>
     @if (book.Sessions.Count == 0)
     {
-        <p class="hint">No sessions yet.</p>
+        <p class="hint">@T("No sessions yet.")</p>
     }
     else
     {
@@ -231,20 +231,20 @@ else if (book is not null)
                         }
                         else if (session.ToPage is int end)
                         {
-                            <span> · to @end</span>
+                            <span> · @T("to {0}", end)</span>
                         }
                         @if (!string.IsNullOrWhiteSpace(session.Note))
                         {
                             <span> · @session.Note</span>
                         }
                     </span>
-                    <button type="button" @onclick="() => RemoveSession(session.Id)">Remove</button>
+                    <button type="button" @onclick="() => RemoveSession(session.Id)">@T("Remove")</button>
                 </li>
             }
         </ul>
         @if (BookRules.PagesPerDay(book.Sessions) is int pace)
         {
-            <p class="hint">About @pace @(pace == 1 ? "page" : "pages") a day.</p>
+            <p class="hint">@(pace == 1 ? T("About 1 page a day.") : T("About {0} pages a day.", pace))</p>
         }
     }
 
@@ -261,57 +261,57 @@ else if (book is not null)
         }
         <div class="pair">
             <label>
-                Date
+                @T("Date")
                 <InputDate @bind-Value="sessionDraft.Date" />
             </label>
             <label>
-                Note
+                @T("Note")
                 <InputText @bind-Value="sessionDraft.Note" maxlength="500" />
             </label>
         </div>
         <div class="pair">
             <label>
-                From page
+                @T("From page")
                 <InputNumber @bind-Value="sessionDraft.FromPage" />
             </label>
             <label>
-                To page
+                @T("To page")
                 <InputNumber @bind-Value="sessionDraft.ToPage" />
             </label>
         </div>
-        <button type="submit">Add session</button>
+        <button type="submit">@T("Add session")</button>
     </EditForm>
     </section>
 
     <section class="panel" id="lending">
-        <h2>Lending</h2>
+        <h2>@T("Lending")</h2>
         @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
         {
             <p>
-                Loaned to <a href="@($"/?loanedTo={Uri.EscapeDataString(book.LoanedTo)}")">@book.LoanedTo</a>@(book.BorrowerId is null ? "" : ", a reader here")
+                @T("Loaned to") <a href="@($"/?loanedTo={Uri.EscapeDataString(book.LoanedTo)}")">@book.LoanedTo</a>@(book.BorrowerId is null ? "" : T(", a reader here"))
                 @if (book.LoanedOn is DateOnly loanedOn)
                 {
-                    <span> since @loanedOn.Medium()</span>
+                    <span> @T("since {0}", loanedOn.Medium())</span>
                 }
                 @if (book.DueOn is DateOnly due)
                 {
-                    <span class="@(due < Today ? "late" : null)"> · due @due.Medium()@(due < Today ? ", overdue" : "")</span>
+                    <span class="@(due < Today ? "late" : null)"> · @T("due {0}", due.Medium())@(due < Today ? T(", overdue") : "")</span>
                 }
             </p>
-            <button type="button" @onclick="ReturnLoan">Mark returned</button>
+            <button type="button" @onclick="ReturnLoan">@T("Mark returned")</button>
         }
         else if (readers.Count == 0)
         {
-            <p class="hint">Not on loan. To lend it to someone, fill in Loaned to under Details.</p>
+            <p class="hint">@T("Not on loan. To lend it to someone, fill in Loaned to under Details.")</p>
         }
     else
     {
-        <p class="hint">Lend this book to another reader here. It shows on their loans until it comes back.</p>
+        <p class="hint">@T("Lend this book to another reader here. It shows on their loans until it comes back.")</p>
         <div class="pair">
             <label>
-                Reader
+                @T("Reader")
                 <select @bind="lendTo">
-                    <option value="0">Choose a reader</option>
+                    <option value="0">@T("Choose a reader")</option>
                     @foreach (var reader in readers)
                     {
                         <option value="@reader.Id">@reader.Name</option>
@@ -319,11 +319,11 @@ else if (book is not null)
                 </select>
             </label>
             <label>
-                Due back
+                @T("Due back")
                 <input type="date" @bind="lendDue" />
             </label>
         </div>
-        <button type="button" @onclick="LendBook" disabled="@(lendTo == 0)">Lend</button>
+        <button type="button" @onclick="LendBook" disabled="@(lendTo == 0)">@T("Lend")</button>
         @if (lendProblem is not null)
         {
             <p class="validation-message" role="alert">@lendProblem</p>
@@ -331,11 +331,11 @@ else if (book is not null)
     }
         @if (!string.IsNullOrWhiteSpace(book.Location) || book.AcquiredOn is not null || book.Acquisition is not null || book.Condition is not null || !string.IsNullOrWhiteSpace(book.RecommendedBy))
         {
-            <h3>This copy</h3>
+            <h3>@T("This copy")</h3>
             <p class="hint">
                 @if (book.Acquisition is Acquisition arrived)
                 {
-                    <span>@(arrived == Acquisition.Gift ? "A gift" : arrived.ToString())</span>
+                    <span>@BookRules.AcquisitionLabel(arrived)</span>
                 }
                 @if (!string.IsNullOrWhiteSpace(book.Location))
                 {
@@ -344,7 +344,7 @@ else if (book is not null)
                 }
                 @if (book.AcquiredOn is DateOnly acquired)
                 {
-                    <span>@(book.Acquisition is null && string.IsNullOrWhiteSpace(book.Location) ? "" : " · ")Acquired @acquired.Medium()</span>
+                    <span>@(book.Acquisition is null && string.IsNullOrWhiteSpace(book.Location) ? "" : " · ")@T("Acquired {0}", acquired.Medium())</span>
                 }
                 @if (book.Condition is CopyCondition condition)
                 {
@@ -353,16 +353,16 @@ else if (book is not null)
             </p>
             @if (!string.IsNullOrWhiteSpace(book.RecommendedBy))
             {
-                <p class="hint"><a href="@($"/?recommendedBy={Uri.EscapeDataString(book.RecommendedBy)}")">Recommended by @book.RecommendedBy</a></p>
+                <p class="hint"><a href="@($"/?recommendedBy={Uri.EscapeDataString(book.RecommendedBy)}")">@T("Recommended by {0}", book.RecommendedBy)</a></p>
             }
         }
     </section>
 
     <section class="panel" id="quotes">
-    <h2>Quotes</h2>
+    <h2>@T("Quotes")</h2>
     @if (book.Quotes.Count == 0)
     {
-        <p class="hint">No quotes yet.</p>
+        <p class="hint">@T("No quotes yet.")</p>
     }
     else
     {
@@ -377,7 +377,7 @@ else if (book is not null)
                             <span class="hint">p. @(page)</span>
                         }
                     </blockquote>
-                    <button type="button" @onclick="() => RemoveQuote(quote.Id)">Remove</button>
+                    <button type="button" @onclick="() => RemoveQuote(quote.Id)">@T("Remove")</button>
                 </li>
             }
         </ul>
@@ -395,24 +395,24 @@ else if (book is not null)
             </ul>
         }
         <label>
-            Quote
+            @T("Quote")
             <InputTextArea @bind-Value="quoteDraft.Text" maxlength="1000" rows="3" />
             <ValidationMessage For="() => quoteDraft.Text" />
         </label>
         <label>
-            Page
+            @T("Page")
             <InputNumber @bind-Value="quoteDraft.Page" />
             <ValidationMessage For="() => quoteDraft.Page" />
         </label>
-        <button type="submit">Add quote</button>
+        <button type="submit">@T("Add quote")</button>
     </EditForm>
     </section>
 
     <section class="panel" id="highlights">
-    <h2>Highlights</h2>
+    <h2>@T("Highlights")</h2>
     @if (book.Highlights.Count == 0)
     {
-        <p class="hint">No highlights yet.</p>
+        <p class="hint">@T("No highlights yet.")</p>
     }
     else
     {
@@ -422,52 +422,52 @@ else if (book is not null)
                 <li>
                     <blockquote>
                         <p>@mark.Text</p>
-                        <span class="hint">@(EbookStore.IsPdf(book.EbookStoredName) ? "Page" : "Chapter") @(mark.ChapterIndex + 1)</span>
+                        <span class="hint">@(EbookStore.IsPdf(book.EbookStoredName) ? T("Page {0}", mark.ChapterIndex + 1) : T("Chapter {0}", mark.ChapterIndex + 1))</span>
                     </blockquote>
                     @if (!string.IsNullOrWhiteSpace(mark.Note))
                     {
                         <p>@mark.Note</p>
                     }
-                    <a href="@($"/library/{book.Id}/read?chapter={mark.ChapterIndex}")">Open</a>
-                    <button type="button" @onclick="() => RemoveHighlight(mark.Id)">Remove</button>
+                    <a href="@($"/library/{book.Id}/read?chapter={mark.ChapterIndex}")">@T("Open")</a>
+                    <button type="button" @onclick="() => RemoveHighlight(mark.Id)">@T("Remove")</button>
                 </li>
             }
         </ul>
     }
     @if (book.Highlights.Count > 0 || book.Quotes.Count > 0 || !string.IsNullOrWhiteSpace(book.Review) || !string.IsNullOrWhiteSpace(book.Notes))
     {
-        <p class="hint"><a href="/books/@book.Id/notes.md" download>Download this book's quotes, highlights, and notes as Markdown</a></p>
+        <p class="hint"><a href="/books/@book.Id/notes.md" download>@T("Download this book's quotes, highlights, and notes as Markdown")</a></p>
     }
     </section>
 
     <section class="panel" id="files">
-        <h2>Files</h2>
-    <h3>Cover</h3>
+        <h2>@T("Files")</h2>
+    <h3>@T("Cover")</h3>
     <div class="cover-choice">
         <BookCover Title="@book.Title" Url="@book.CoverShown" Width="5rem" />
         <div>
             <p class="hint">@CoverSource</p>
             <form action="/books/@book.Id/cover" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
                 <label>
-                    @(book.CoverImage is null ? "Use a picture of your own" : "Use a different picture"), JPEG, PNG, GIF, or WebP, up to 10 MB
+                    @(book.CoverImage is null ? T("Use a picture of your own: JPEG, PNG, GIF, or WebP, up to 10 MB") : T("Use a different picture: JPEG, PNG, GIF, or WebP, up to 10 MB"))
                     <input type="file" name="file" accept="image/jpeg,image/png,image/gif,image/webp" required />
                 </label>
                 <progress data-upload-progress max="100" hidden></progress>
                 <p class="hint" data-upload-status role="status" hidden></p>
-                <button type="submit">Upload the picture</button>
+                <button type="submit">@T("Upload the picture")</button>
                 @if (book.CoverImage is not null)
                 {
-                    <button type="button" class="quiet" @onclick="RemoveCover">Remove the picture</button>
+                    <button type="button" class="quiet" @onclick="RemoveCover">@T("Remove the picture")</button>
                 }
             </form>
         </div>
     </div>
     @if (borrowable.Count > 0)
     {
-        <p class="hint">Before uploading: another reader has this book with a file you could borrow.</p>
+        <p class="hint">@T("Before uploading: another reader has this book with a file you could borrow.")</p>
         <OpenCopies Copies="borrowable" />
     }
-    <h3>E-book</h3>
+    <h3>@T("E-book")</h3>
     @if (offlineNote is not null)
     {
         <p class="hint" role="status">@offlineNote</p>
@@ -475,39 +475,39 @@ else if (book is not null)
     @if (!string.IsNullOrWhiteSpace(book.EbookFileName))
     {
         <p>@book.EbookFileName</p>
-        <button type="button" @onclick="RemoveEbook">Remove the file</button>
+        <button type="button" @onclick="RemoveEbook">@T("Remove the file")</button>
     }
     <form action="/books/@book.Id/ebook" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
         <label>
-            EPUB, PDF, comic (CBZ), or Kindle file, up to 80 MB
+            @T("EPUB, PDF, comic (CBZ), or Kindle file, up to 80 MB")
             <input type="file" name="file" accept=".epub,.pdf,.cbz,.mobi,.azw3,.azw,application/epub+zip,application/pdf" required />
         </label>
         <progress data-upload-progress max="100" hidden></progress>
         <p class="hint" data-upload-status role="status" hidden></p>
-        <button type="submit">Upload</button>
+        <button type="submit">@T("Upload")</button>
     </form>
 
-    <h3>Audiobook</h3>
+    <h3>@T("Audiobook")</h3>
     @if (!string.IsNullOrWhiteSpace(book.AudioFileName))
     {
         <p>@book.AudioFileName</p>
-        <button type="button" @onclick="RemoveAudio">Remove the recording</button>
+        <button type="button" @onclick="RemoveAudio">@T("Remove the recording")</button>
     }
     <form action="/books/@book.Id/audio" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
         <label>
-            Audio or a zip of tracks, up to 1 GB
+            @T("Audio or a zip of tracks, up to 1 GB")
             <input type="file" name="file" accept=".mp3,.m4a,.m4b,.aac,.ogg,.opus,.wav,.flac,.zip,audio/*" multiple required />
         </label>
         <progress data-upload-progress max="100" hidden></progress>
         <p class="hint" data-upload-status role="status" hidden></p>
-        <button type="submit">Upload</button>
+        <button type="submit">@T("Upload")</button>
     </form>
     </section>
 
     <section class="panel" id="details">
-        <h2>Details</h2>
+        <h2>@T("Details")</h2>
         <details class="edit" open="@(formErrors is { Count: > 0 } || saved)">
-            <summary>Edit the catalog, notes, and loan</summary>
+            <summary>@T("Edit the catalog, notes, and loan")</summary>
     <EditForm Model="draft" OnValidSubmit="Save">
         <DataAnnotationsValidator />
         <ValidationSummary />
@@ -521,16 +521,16 @@ else if (book is not null)
             </ul>
         }
         <BookFields Model="draft" Detailed="true" />
-        <button type="submit">Save changes</button>
+        <button type="submit">@T("Save changes")</button>
         @if (saved)
         {
-            <span class="saved" role="status">Saved.</span>
+            <span class="saved" role="status">@T("Saved.")</span>
         }
     </EditForm>
         </details>
     @if (others.Count > 0)
     {
-        <h3>Also by @book.Author</h3>
+        <h3>@T("Also by {0}", book.Author)</h3>
         <ul class="tag-counts">
             @foreach (var other in others)
             {
@@ -541,16 +541,16 @@ else if (book is not null)
     </section>
 
     <section class="panel" id="remove">
-        <h2>Remove</h2>
+        <h2>@T("Remove")</h2>
     @if (!confirmingDelete)
     {
-        <button type="button" class="danger" @onclick="() => confirmingDelete = true">Delete this book</button>
+        <button type="button" class="danger" @onclick="() => confirmingDelete = true">@T("Delete this book")</button>
     }
     else
     {
-        <p>This deletes the book, its quotes, its highlights, its reading log, its e-book, and its audiobook.</p>
-        <button type="button" class="danger" @onclick="Delete">Yes, delete it</button>
-        <button type="button" @onclick="() => confirmingDelete = false">Cancel</button>
+        <p>@T("This deletes the book, its quotes, its highlights, its reading log, its e-book, and its audiobook.")</p>
+        <button type="button" class="danger" @onclick="Delete">@T("Yes, delete it")</button>
+        <button type="button" @onclick="() => confirmingDelete = false">@T("Cancel")</button>
     }
     </section>
 }
@@ -596,12 +596,12 @@ else if (book is not null)
             var type = EbookStore.IsPdf(book.EbookStoredName) ? "pdf" : "epub";
             keptOffline = await keepModule.InvokeAsync<bool>("keep", book.Id, book.Title, book.Author, type);
             offlineNote = keptOffline
-                ? "Kept on this device. When the shelf cannot be reached, it opens in the offline reader, and your place comes back when you are online."
-                : "This e-book could not be kept on this device.";
+                ? T("Kept on this device. When the shelf cannot be reached, it opens in the offline reader, and your place comes back when you are online.")
+                : T("This e-book could not be kept on this device.");
         }
         catch (JSException)
         {
-            offlineNote = "This browser would not keep the e-book. It may be out of space, or in a private window.";
+            offlineNote = T("This browser would not keep the e-book. It may be out of space, or in a private window.");
         }
         finally
         {
@@ -618,7 +618,7 @@ else if (book is not null)
 
         await keepModule.InvokeVoidAsync("forget", book.Id);
         keptOffline = false;
-        offlineNote = "No longer kept on this device.";
+        offlineNote = T("No longer kept on this device.");
     }
 
     public async ValueTask DisposeAsync()
@@ -670,10 +670,10 @@ else if (book is not null)
     // Where the cover showing comes from, in a few words.
     private string CoverSource => book switch
     {
-        { CoverImage: not null } => "A picture kept on the shelf: one you uploaded, or one that came with the book's files.",
-        { CoverUrl: { Length: > 0 } } => "From the cover address in the details below.",
-        { FileCover: true } => "From inside the e-book.",
-        _ => "No cover yet: upload a picture, fill the details from Open Library, or add an e-book with a cover inside.",
+        { CoverImage: not null } => T("A picture kept on the shelf: one you uploaded, or one that came with the book's files."),
+        { CoverUrl: { Length: > 0 } } => T("From the cover address in the details below."),
+        { FileCover: true } => T("From inside the e-book."),
+        _ => T("No cover yet: upload a picture, fill the details from Open Library, or add an e-book with a cover inside."),
     };
 
     private async Task RemoveCover()
@@ -985,7 +985,7 @@ else if (book is not null)
     {
         var seconds = Math.Max(0, book.AudioSeconds ?? 0);
         var clock = $"{seconds / 60}:{seconds % 60:00}";
-        return (book.AudioTrack ?? 0) > 0 ? $"track {book.AudioTrack + 1}, {clock}" : clock;
+        return (book.AudioTrack ?? 0) > 0 ? T("track {0}, {1}", book.AudioTrack!.Value + 1, clock) : clock;
     }
 
     private async Task RemoveHighlight(int highlightId)

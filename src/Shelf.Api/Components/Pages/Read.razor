@@ -10,15 +10,15 @@
 
 @if (missing)
 {
-    <h1>Not on the shelf</h1>
-    <p>That book is not here. <a href="/">Back to the library</a></p>
+    <h1>@T("Not on the shelf")</h1>
+    <p>@T("That book is not here.") <a href="/">@T("Back to the library")</a></p>
 }
 else if (book is not null)
 {
     <div class="reader">
         @if (borrowed)
         {
-            <p class="hint"><a href="/loans">Loans</a> · lent to you</p>
+            <p class="hint"><a href="/loans">@T("Loans")</a> · @T("lent to you")</p>
         }
         else
         {
@@ -27,22 +27,22 @@ else if (book is not null)
         <h1>@book.Title</h1>
         @if (string.IsNullOrWhiteSpace(book.EbookStoredName))
         {
-            <p>This book has no e-book file.@if (!borrowed) { <text> <a href="/library/@book.Id">Add one</a></text> }</p>
+            <p>@T("This book has no e-book file.")@if (!borrowed) { <text> <a href="/library/@book.Id">@T("Add one")</a></text> }</p>
         }
         else if (EbookStore.IsPdf(book.EbookStoredName))
         {
             <div class="reader-nav">
-                <button type="button" @onclick="() => ShowPdfPage(pdfIndex - 1)" disabled="@(pdfIndex <= 0)">Previous</button>
-                <span class="hint" aria-live="polite">@(pdfPages == 0 ? "Opening…" : $"Page {pdfIndex + 1} of {pdfPages}")</span>
-                <button type="button" @onclick="() => ShowPdfPage(pdfIndex + 1)" disabled="@(pdfPages == 0 || pdfIndex >= pdfPages - 1)">Next</button>
+                <button type="button" @onclick="() => ShowPdfPage(pdfIndex - 1)" disabled="@(pdfIndex <= 0)">@T("Previous")</button>
+                <span class="hint" aria-live="polite">@(pdfPages == 0 ? T("Opening…") : T("Page {0} of {1}", pdfIndex + 1, pdfPages))</span>
+                <button type="button" @onclick="() => ShowPdfPage(pdfIndex + 1)" disabled="@(pdfPages == 0 || pdfIndex >= pdfPages - 1)">@T("Next")</button>
                 <label>
-                    Text size
+                    @T("Text size")
                     <select @bind="type.Size" @bind:after="SaveType">
-                        <option value="85">Smaller</option>
-                        <option value="100">Fit the width</option>
-                        <option value="115">Larger</option>
-                        <option value="130">Large</option>
-                        <option value="150">Largest</option>
+                        <option value="85">@T("Smaller")</option>
+                        <option value="100">@T("Fit the width")</option>
+                        <option value="115">@T("Larger")</option>
+                        <option value="130">@T("Large")</option>
+                        <option value="150">@T("Largest")</option>
                     </select>
                 </label>
             </div>
@@ -52,52 +52,52 @@ else if (book is not null)
             {
                 <p class="hint" role="status">@scanNote</p>
             }
-            <div class="pdf-viewer" @ref="pdfHost" tabindex="0" role="region" aria-label="@($"{book.Title}, page {pdfIndex + 1}. Use the arrow keys to turn pages.")"></div>
+            <div class="pdf-viewer" @ref="pdfHost" tabindex="0" role="region" aria-label="@T("{0}, page {1}. Use the arrow keys to turn pages.", book.Title, pdfIndex + 1)"></div>
             @if (pdfFailed)
             {
-                <p class="validation-message" role="alert">This PDF could not be drawn here. <a href="/books/@book.Id/ebook/file">Open the file itself</a></p>
+                <p class="validation-message" role="alert">@T("This PDF could not be drawn here.") <a href="/books/@book.Id/ebook/file">@T("Open the file itself")</a></p>
             }
-            <p class="hint">A PDF keeps its own layout, so only its size changes. <a href="/books/@book.Id/ebook/file">Open the file itself</a></p>
-            @MarkList("On this page")
+            <p class="hint">@T("A PDF keeps its own layout, so only its size changes.") <a href="/books/@book.Id/ebook/file">@T("Open the file itself")</a></p>
+            @MarkList(T("On this page"))
         }
         else if (EbookStore.IsComic(book.EbookStoredName))
         {
             @if (comicPages == 0)
             {
-                <p>This comic could not be opened. <a href="/books/@book.Id/ebook/file">Download the file</a></p>
+                <p>@T("This comic could not be opened.") <a href="/books/@book.Id/ebook/file">@T("Download the file")</a></p>
             }
             else
             {
                 <div class="reader-nav">
-                    <button type="button" @onclick="PreviousPage" disabled="@(chapter == 0)">Previous</button>
-                    <span class="hint" aria-live="polite">Page @(chapter + 1) of @comicPages</span>
-                    <button type="button" @onclick="NextPage" disabled="@(chapter >= comicPages - 1)">Next</button>
+                    <button type="button" @onclick="PreviousPage" disabled="@(chapter == 0)">@T("Previous")</button>
+                    <span class="hint" aria-live="polite">@T("Page {0} of {1}", chapter + 1, comicPages)</span>
+                    <button type="button" @onclick="NextPage" disabled="@(chapter >= comicPages - 1)">@T("Next")</button>
                 </div>
                 <div class="comic-viewer" tabindex="0" role="region" @onkeydown="ComicKey"
-                     aria-label="@($"{book.Title}, page {chapter + 1} of {comicPages}. Use the arrow keys to turn pages.")">
-                    <img src="/books/@book.Id/ebook/pages/@chapter" alt="@($"Page {chapter + 1}")" />
+                     aria-label="@T("{0}, page {1} of {2}. Use the arrow keys to turn pages.", book.Title, chapter + 1, comicPages)">
+                    <img src="/books/@book.Id/ebook/pages/@chapter" alt="@T("Page {0}", chapter + 1)" />
                     @if (chapter < comicPages - 1)
                     {
                         <img src="/books/@book.Id/ebook/pages/@(chapter + 1)" alt="" hidden />
                     }
                 </div>
-                <p class="hint"><a href="/books/@book.Id/ebook/file">Download the comic</a></p>
+                <p class="hint"><a href="/books/@book.Id/ebook/file">@T("Download the comic")</a></p>
             }
         }
         else if (chapters is null)
         {
-            <p>This EPUB could not be opened.</p>
+            <p>@T("This EPUB could not be opened.")</p>
         }
         else if (chapters.Count == 0)
         {
-            <p>This EPUB has no chapters.</p>
+            <p>@T("This EPUB has no chapters.")</p>
         }
         else
         {
             <div class="reader-nav">
-                <button type="button" @onclick="Previous" disabled="@(chapter == 0)">Previous</button>
+                <button type="button" @onclick="Previous" disabled="@(chapter == 0)">@T("Previous")</button>
                 <label>
-                    Chapter
+                    @T("Chapter")
                     <select @bind="chapter" @bind:after="RememberChapter">
                         @foreach (var item in chapters)
                         {
@@ -105,35 +105,35 @@ else if (book is not null)
                         }
                     </select>
                 </label>
-                <button type="button" @onclick="Next" disabled="@(chapter >= chapters.Count - 1)">Next</button>
+                <button type="button" @onclick="Next" disabled="@(chapter >= chapters.Count - 1)">@T("Next")</button>
             </div>
             <details>
-                <summary>Text settings</summary>
+                <summary>@T("Text settings")</summary>
                 <div class="reader-settings">
                     <label>
-                        Text size
+                        @T("Text size")
                         <select @bind="type.Size" @bind:after="SaveType">
-                            <option value="85">Smaller</option>
-                            <option value="100">Default</option>
-                            <option value="115">Larger</option>
-                            <option value="130">Large</option>
-                            <option value="150">Largest</option>
+                            <option value="85">@T("Smaller")</option>
+                            <option value="100">@T("Default")</option>
+                            <option value="115">@T("Larger")</option>
+                            <option value="130">@T("Large")</option>
+                            <option value="150">@T("Largest")</option>
                         </select>
                     </label>
                     <label>
-                        Line spacing
+                        @T("Line spacing")
                         <select @bind="type.Leading" @bind:after="SaveType">
-                            <option value="140">Snug</option>
-                            <option value="160">Comfortable</option>
-                            <option value="190">Airy</option>
+                            <option value="140">@T("Snug")</option>
+                            <option value="160">@T("Comfortable")</option>
+                            <option value="190">@T("Airy")</option>
                         </select>
                     </label>
                     <label>
-                        Reading width
+                        @T("Reading width")
                         <select @bind="type.Width" @bind:after="SaveType">
-                            <option value="30">Narrow</option>
-                            <option value="38">Medium</option>
-                            <option value="50">Wide</option>
+                            <option value="30">@T("Narrow")</option>
+                            <option value="38">@T("Medium")</option>
+                            <option value="50">@T("Wide")</option>
                         </select>
                     </label>
                 </div>
@@ -141,7 +141,7 @@ else if (book is not null)
             @ReadAloud
             @Passage
             <iframe @key="@($"{chapter}:{markRevision}:{typeRevision}")" class="reader-frame" title="@chapters[chapter].Title" src="/books/@book.Id/ebook/chapters/@chapter?t=@typeRevision"></iframe>
-            @MarkList("In this chapter")
+            @MarkList(T("In this chapter"))
         }
     </div>
 }
@@ -161,10 +161,10 @@ else if (book is not null)
 
     private string? ScanNote => pdfKind switch
     {
-        "read" => "This page is a scan. Shelf read its words, so you can select and highlight them.",
-        "reading" => "This page is a scan. Shelf is reading its words, and they appear here when they are ready.",
-        "unavailable" => "This page is a scan. To select its words, install Tesseract and Poppler on the server.",
-        "scan" => "This page is a picture with no words Shelf could read.",
+        "read" => T("This page is a scan. Shelf read its words, so you can select and highlight them."),
+        "reading" => T("This page is a scan. Shelf is reading its words, and they appear here when they are ready."),
+        "unavailable" => T("This page is a scan. To select its words, install Tesseract and Poppler on the server."),
+        "scan" => T("This page is a picture with no words Shelf could read."),
         _ => null,
     };
     private int typeRevision;
@@ -192,12 +192,12 @@ else if (book is not null)
         {
             <blockquote class="passage"><p>@selectedText</p></blockquote>
             <label>
-                Note
+                @T("Note")
                 <textarea @bind="selectedNote" @bind:event="oninput" maxlength="2000" rows="3"></textarea>
             </label>
             <p>
-                <button type="button" class="primary" @onclick="SaveHighlight">@(editingId is null ? "Highlight" : "Save the note")</button>
-                <button type="button" @onclick="ClearSelection">Cancel</button>
+                <button type="button" class="primary" @onclick="SaveHighlight">@(editingId is null ? T("Highlight") : T("Save the note"))</button>
+                <button type="button" @onclick="ClearSelection">@T("Cancel")</button>
             </p>
             @if (markError is not null)
             {
@@ -206,7 +206,7 @@ else if (book is not null)
         }
         else
         {
-            <p class="hint">Select a passage to highlight it and keep a note with it.</p>
+            <p class="hint">@T("Select a passage to highlight it and keep a note with it.")</p>
         }
     </text>;
 
@@ -223,8 +223,8 @@ else if (book is not null)
                         {
                             <p>@mark.Note</p>
                         }
-                        <button type="button" @onclick="() => Edit(mark)">Note</button>
-                        <button type="button" @onclick="() => RemoveMark(mark.Id)">Remove</button>
+                        <button type="button" @onclick="() => Edit(mark)">@T("Note")</button>
+                        <button type="button" @onclick="() => RemoveMark(mark.Id)">@T("Remove")</button>
                     </li>
                 }
             </ul>
@@ -397,33 +397,33 @@ else if (book is not null)
             <div class="read-aloud">
                 @if (speechState == "idle")
                 {
-                    <button type="button" @onclick="StartReading">Read aloud</button>
+                    <button type="button" @onclick="StartReading">@T("Read aloud")</button>
                 }
                 else if (speechState == "speaking")
                 {
-                    <button type="button" @onclick="PauseReading">Pause</button>
-                    <button type="button" class="quiet" @onclick="StopReading">Stop</button>
+                    <button type="button" @onclick="PauseReading">@T("Pause")</button>
+                    <button type="button" class="quiet" @onclick="StopReading">@T("Stop")</button>
                 }
                 else
                 {
-                    <button type="button" @onclick="ResumeReading">Resume</button>
-                    <button type="button" class="quiet" @onclick="StopReading">Stop</button>
+                    <button type="button" @onclick="ResumeReading">@T("Resume")</button>
+                    <button type="button" class="quiet" @onclick="StopReading">@T("Stop")</button>
                 }
                 <label>
-                    Speed
+                    @T("Speed")
                     <select @bind="speechRate" @bind:after="SpeechChanged">
-                        <option value="0.8">Slower</option>
-                        <option value="1">Normal</option>
-                        <option value="1.2">Faster</option>
-                        <option value="1.5">Fastest</option>
+                        <option value="0.8">@T("Slower")</option>
+                        <option value="1">@T("Normal")</option>
+                        <option value="1.2">@T("Faster")</option>
+                        <option value="1.5">@T("Fastest")</option>
                     </select>
                 </label>
                 @if (speechVoices.Count > 0)
                 {
                     <label>
-                        Voice
+                        @T("Voice")
                         <select @bind="speechVoice" @bind:after="SpeechChanged">
-                            <option value="">The browser's choice</option>
+                            <option value="">@T("The browser's choice")</option>
                             @foreach (var voice in speechVoices)
                             {
                                 <option value="@voice.Name">@voice.Name (@voice.Lang)</option>
@@ -618,7 +618,7 @@ else if (book is not null)
 
             if (selectedNote.Trim().Length > 2000)
             {
-                markError = "Keep the note to 2000 characters.";
+                markError = T("Keep the note to 2000 characters.");
                 return;
             }
 
