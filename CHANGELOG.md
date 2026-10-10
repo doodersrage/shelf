@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-10
+
 ### Added
 
 - API tokens, for scripts and home dashboards such as Home Assistant: make one on Account and send it as `Authorization: Bearer shelf_…`. A token opens the books API, never the account or the admin pages, and can be read-only. The API docs have a Home Assistant sensor to start from.
@@ -183,7 +185,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/doodersrage/shelf/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/doodersrage/shelf/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/doodersrage/shelf/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/doodersrage/shelf/compare/v1.3.0...v1.3.1
