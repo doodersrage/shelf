@@ -100,3 +100,19 @@ jobs:
       - name: The image's log
         if: failure()
         run: cat smoke.log || true
+      # Releases are published for arm64 as well; this one runs emulated, so it is slower but real.
+      - uses: docker/setup-qemu-action@v3
+      - name: Build the arm64 image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: false
+          load: true
+          tags: shelf:ci-arm64
+          cache-from: type=gha
+      - name: Start the arm64 image and load a page's scripts
+        run: .github/scripts/smoke-image.sh shelf:ci-arm64 linux/arm64
+      - name: The arm64 image's log
+        if: failure()
+        run: cat smoke.log || true

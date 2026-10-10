@@ -1,7 +1,9 @@
 # Shelf in one container: the app, plus Tesseract and Poppler for reading scanned PDFs.
 # Everything it keeps (the database, e-books, audiobooks, and sign-in keys) lives under /data.
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# The app is built once, on the builder's own processor: a framework-dependent publish runs on any, and carries
+# SQLite's native library for each. Only the final stage is made per platform (amd64 and arm64).
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY Directory.Build.props ./
 COPY src/Shelf.Api/Shelf.Api.csproj src/Shelf.Api/
