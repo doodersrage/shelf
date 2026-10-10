@@ -35,7 +35,13 @@ When you upload a file that is byte for byte the same as one on another of your 
 
 ## Free public-domain books
 
-**Free books** searches [Project Gutenberg](https://www.gutenberg.org) for e-books and [LibriVox](https://librivox.org) for audiobooks read by volunteers. **Add to shelf** brings one in with its file, tagged `public domain`, with a note of where it came from. Downloads run in the background with their progress on the page, since a long recording can be several hundred megabytes.
+**Free books** finds public-domain books on [Project Gutenberg](https://www.gutenberg.org), for e-books, and [LibriVox](https://librivox.org), for audiobooks read by volunteers.
+
+- **Browse** without searching: it opens on Gutenberg's most read books, or LibriVox's newest recordings, and **Browse** picks one of Gutenberg's categories (classics, mystery, science fiction, history, and sixty more) or a LibriVox genre. **Show more** brings the next page.
+- **Search** by title or author.
+- **About this book** opens the details under a book: Gutenberg's summary, subjects, reading level, download count, and when it went online; or LibriVox's description, genres, length, chapters, and translators, with a link to the book's own page.
+
+**Add to shelf** brings one in with its file, tagged `public domain`, with a note of where it came from. Downloads run in the background with their progress on the page, since a long recording can be several hundred megabytes.
 
 > [!NOTE]
 > Public domain differs by country. Project Gutenberg follows United States law; check what applies where you live. The shelf has to reach gutenberg.org, librivox.org, and archive.org, and `FreeBooks:Enabled` turns the page off.

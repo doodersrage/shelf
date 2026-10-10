@@ -156,7 +156,7 @@ Backup & restore links to an import from an [Audiobookshelf](https://www.audiobo
 
 ## Free books
 
-Free books searches Project Gutenberg for public-domain e-books and LibriVox for public-domain audiobooks read by volunteers, and adds one to your shelf with its file, tagged `public domain`. A download runs in the background, so a long recording (they can be several hundred megabytes) does not hold the page open; its progress shows on the page. The shelf has to reach gutenberg.org, librivox.org, and archive.org; set `FreeBooks:Enabled` to `false` to turn it off. Public domain differs by country, and Project Gutenberg follows United States law.
+Free books browses and searches Project Gutenberg for public-domain e-books and LibriVox for public-domain audiobooks read by volunteers: the most read and newest, Gutenberg's categories and LibriVox's genres, and each book's summary or description under About this book. It adds one to your shelf with its file, tagged `public domain`. A download runs in the background, so a long recording (they can be several hundred megabytes) does not hold the page open; its progress shows on the page. The shelf has to reach gutenberg.org, librivox.org, and archive.org; set `FreeBooks:Enabled` to `false` to turn it off. Public domain differs by country, and Project Gutenberg follows United States law.
 
 ## Reading offline
 

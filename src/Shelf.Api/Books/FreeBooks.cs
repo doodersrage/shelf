@@ -42,28 +42,7 @@ public static partial class FreeCatalog
     public static async Task<List<FreeBook>> SearchGutenbergAsync(HttpClient http, string query, CancellationToken cancellationToken)
     {
         var url = $"{Gutenberg}/ebooks/search.opds/?query={Uri.EscapeDataString(query)}";
-        using var response = await http.GetAsync(url, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var reader = XmlReader.Create(stream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, Async = true });
-        var feed = await XDocument.LoadAsync(reader, LoadOptions.None, cancellationToken);
-        var books = new List<FreeBook>();
-        foreach (var entry in feed.Root?.Elements(Atom + "entry") ?? [])
-        {
-            var number = GutenbergNumber().Match(entry.Element(Atom + "id")?.Value ?? "");
-            var title = entry.Element(Atom + "title")?.Value.Trim();
-            if (!number.Success || string.IsNullOrEmpty(title))
-            {
-                continue;
-            }
-
-            var id = number.Groups[1].Value;
-            var author = entry.Element(Atom + "content")?.Value.Trim();
-            books.Add(new FreeBook(FreeSource.Gutenberg, id, title, string.IsNullOrEmpty(author) ? "Unknown author" : author,
-                CoverUrl: $"{Gutenberg}/cache/epub/{id}/pg{id}.cover.small.jpg"));
-        }
-
-        return books;
+        return (await ReadGutenbergFeedAsync(http, url, cancellationToken)).Books;
     }
 
     // LibriVox's catalog, by title and by author's last name, merged.

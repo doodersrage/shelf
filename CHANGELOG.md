@@ -6,6 +6,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Added
 
+- Free books can be browsed: Gutenberg's most read books and its categories, LibriVox's newest recordings and its genres, a page at a time. About this book shows a book's summary or description, subjects, and more.
 - Bring books from Audiobookshelf: audio tracks in order, e-books, covers, series, narrators, genres, and where you stopped, from an API key or a user name and password.
 - Cover art: upload a picture of your own for any book, and an audiobook's embedded art becomes its cover when it has none. Kept covers travel in backups.
 - Highlights while offline: a kept book brings its highlights, and passages highlighted or removed offline are sent to the shelf when it answers again. Offline PDF pages gain a text layer for selecting words.

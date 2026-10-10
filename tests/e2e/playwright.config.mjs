@@ -37,6 +37,8 @@ export default defineConfig({
       CoverStore__Root: join(data, "covers"),
       DataProtection__KeysPath: join(data, "keys"),
       Backup__Enabled: "false",
+      // Free books reaches gutenberg.org and librivox.org; the server tests cover it with stand-ins instead.
+      FreeBooks__Enabled: "false",
       Accounts__SignInsPerMinute: "1000",
     },
   },

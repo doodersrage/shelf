@@ -61,21 +61,44 @@ else
         </section>
     }
 
+    <form class="filters" action="/free" method="get">
+        <input type="hidden" name="kind" value="@(Audio ? "audio" : "ebooks")" />
+        <label>
+            @T("Browse")
+            <select name="shelf">
+                <option value="">@(Audio ? T("Newest recordings") : T("Most popular"))</option>
+                @foreach (var shelf in Shelves)
+                {
+                    <option value="@shelf.Key" selected="@(Shelf == shelf.Key)">@T(shelf.Name)</option>
+                }
+            </select>
+        </label>
+        <div><button type="submit" class="quiet">@T("Show")</button></div>
+    </form>
+
     @if (problem is not null)
     {
         <p class="validation-message" role="alert">@problem</p>
     }
     else if (results is { Count: 0 })
     {
-        <EmptyState Title="@T("Nothing found")" Text="@(Kind == "audio" ? T("LibriVox has no recording by that title or author. Try fewer words, or an author's last name.") : T("Project Gutenberg has nothing by that title or author. Try fewer words."))" />
+        <EmptyState Title="@T("Nothing found")" Text="@(Searching
+            ? (Audio ? T("LibriVox has no recording by that title or author. Try fewer words, or an author's last name.") : T("Project Gutenberg has nothing by that title or author. Try fewer words."))
+            : T("Nothing here just now. Try another part of the catalog."))" />
     }
     else if (results is not null)
     {
-        <p class="count">@Localization.Counts.Books(results.Count)</p>
+        <h2 class="free-heading">@Heading</h2>
+        @if (Searching)
+        {
+            <p class="count">@Localization.Counts.Books(results.Count)</p>
+        }
         <ul class="free-results">
             @foreach (var book in results)
             {
                 var added = downloads.Any(download => download.Book.Source == book.Source && download.Book.Id == book.Id && download.State != DownloadState.Failed);
+                var key = $"{book.Source}-{book.Id}";
+                var open = about.TryGetValue(key, out var shown);
                 <li>
                     <BookCover Title="@book.Title" Url="@book.CoverUrl" Width="3.5rem" />
                     <div>
@@ -85,11 +108,89 @@ else
                         {
                             <span class="hint">@string.Join(" · ", new[] { book.Language, book.Length is null ? null : T("{0} long", book.Length) }.Where(part => part is not null))</span>
                         }
+                        <button type="button" class="link about-toggle" @onclick="() => ToggleAbout(book)" aria-expanded="@(open ? "true" : "false")" aria-controls="@($"about-{key}")">
+                            @(open ? T("Hide the details") : T("About this book"))
+                        </button>
                     </div>
                     <button type="button" @onclick="() => Add(book)" disabled="@added" aria-label="@T("Add {0} to your shelf", book.Title)">@(added ? T("Added") : T("Add to shelf"))</button>
+                    @if (open)
+                    {
+                        <div class="free-about" id="@($"about-{key}")" role="region" aria-label="@T("About {0}", book.Title)">
+                            @if (shown is null)
+                            {
+                                <p class="hint" role="status">@T("Looking it up…")</p>
+                            }
+                            else if (shown.Details is not { } details)
+                            {
+                                <p class="hint">@T("The catalog has nothing more on this book just now.")</p>
+                            }
+                            else
+                            {
+                                @if (details.CoverUrl is not null)
+                                {
+                                    <img class="free-about-cover" src="@details.CoverUrl" alt="" loading="lazy" />
+                                }
+                                @if (details.About is not null)
+                                {
+                                    @foreach (var paragraph in details.About.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                                    {
+                                        <p>@paragraph</p>
+                                    }
+                                }
+                                else
+                                {
+                                    <p class="hint">@T("No summary or description is given for this book.")</p>
+                                }
+                                @if (details.Subjects.Count > 0)
+                                {
+                                    <ul class="free-subjects" aria-label="@(book.Source == FreeSource.LibriVox ? T("Genres") : T("Subjects"))">
+                                        @foreach (var subject in details.Subjects)
+                                        {
+                                            <li>@subject</li>
+                                        }
+                                    </ul>
+                                }
+                                <dl class="facts">
+                                    @if (details.Language is not null)
+                                    {
+                                        <dt>@T("Language")</dt><dd>@details.Language</dd>
+                                    }
+                                    @if (details.Length is not null)
+                                    {
+                                        <dt>@T("Length")</dt><dd>@details.Length</dd>
+                                    }
+                                    @if (details.Chapters is int chapters)
+                                    {
+                                        <dt>@T("Chapters")</dt><dd>@chapters</dd>
+                                    }
+                                    @if (details.Translators is not null)
+                                    {
+                                        <dt>@T("Translated by")</dt><dd>@details.Translators</dd>
+                                    }
+                                    @if (details.Published is not null)
+                                    {
+                                        <dt>@(book.Source == FreeSource.LibriVox ? T("First published") : T("Online since"))</dt><dd>@details.Published</dd>
+                                    }
+                                    @if (details.Downloads is int count)
+                                    {
+                                        <dt>@T("Downloads")</dt><dd>@count.ToString("N0")</dd>
+                                    }
+                                    @if (details.ReadingLevel is not null)
+                                    {
+                                        <dt>@T("Reading level")</dt><dd>@details.ReadingLevel</dd>
+                                    }
+                                </dl>
+                                <p class="hint"><a href="@details.Link" rel="noopener">@(book.Source == FreeSource.LibriVox ? T("See it on LibriVox") : T("See it on Project Gutenberg"))</a></p>
+                            }
+                        </div>
+                    }
                 </li>
             }
         </ul>
+        @if (more)
+        {
+            <button type="button" class="quiet" @onclick="ShowMore" disabled="@loadingMore">@(loadingMore ? T("Loading…") : T("Show more"))</button>
+        }
     }
 }
 
@@ -99,6 +200,14 @@ else
 
     [SupplyParameterFromQuery(Name = "kind")]
     public string? Kind { get; set; }
+
+    [SupplyParameterFromQuery(Name = "shelf")]
+    public string? Shelf { get; set; }
+
+    private readonly Dictionary<string, Shown?> about = [];
+    private bool more;
+    private bool loadingMore;
+    private int position;
 
     private List<FreeBook>? results;
     private string? problem;
@@ -116,27 +225,109 @@ else
         downloads = Downloads.For(readerId);
         results = null;
         problem = null;
-        var query = Q?.Trim();
-        if (!Downloads.Enabled || string.IsNullOrEmpty(query) || query.Length < 2)
+        more = false;
+        position = 0;
+        about.Clear();
+        if (!Downloads.Enabled)
         {
             return;
         }
 
+        var query = Q?.Trim();
         using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(20));
         var http = Http.CreateClient(FreeCatalog.ClientName);
         try
         {
-            results = Kind == "audio"
-                ? await FreeCatalog.SearchLibriVoxAsync(http, query[..Math.Min(query.Length, 200)], limit.Token)
-                : await FreeCatalog.SearchGutenbergAsync(http, query[..Math.Min(query.Length, 200)], limit.Token);
+            if (!string.IsNullOrEmpty(query) && query.Length >= 2)
+            {
+                results = Audio
+                    ? await FreeCatalog.SearchLibriVoxAsync(http, query[..Math.Min(query.Length, 200)], limit.Token)
+                    : await FreeCatalog.SearchGutenbergAsync(http, query[..Math.Min(query.Length, 200)], limit.Token);
+                return;
+            }
+
+            // With nothing searched for, the catalog is browsed: the most read, the newest, or one part of it.
+            var page = await BrowseAsync(http, 0, limit.Token);
+            results = page.Books;
+            more = page.More;
+            position = page.Books.Count;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Xml.XmlException or System.Text.Json.JsonException)
         {
-            problem = Kind == "audio"
-                ? T("LibriVox could not be reached just now. Try again in a moment.")
-                : T("Project Gutenberg could not be reached just now. Try again in a moment.");
+            problem = Unreachable;
         }
     }
+
+    private Task<FreePage> BrowseAsync(HttpClient http, int from, CancellationToken cancellationToken) => Audio
+        ? FreeCatalog.BrowseLibriVoxAsync(http, Shelf, from, cancellationToken)
+        // Gutenberg counts its pages from 1.
+        : FreeCatalog.BrowseGutenbergAsync(http, Shelf, from + 1, cancellationToken);
+
+    private async Task ShowMore()
+    {
+        loadingMore = true;
+        try
+        {
+            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            var page = await BrowseAsync(Http.CreateClient(FreeCatalog.ClientName), position, limit.Token);
+            results ??= [];
+            var known = results.Select(book => book.Id).ToHashSet();
+            results.AddRange(page.Books.Where(book => known.Add(book.Id)));
+            position += page.Books.Count;
+            more = page.More && page.Books.Count > 0;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Xml.XmlException or System.Text.Json.JsonException)
+        {
+            problem = Unreachable;
+        }
+        finally
+        {
+            loadingMore = false;
+        }
+    }
+
+    // The details are fetched the first time a book is opened, and kept while the page is.
+    private async Task ToggleAbout(FreeBook book)
+    {
+        var key = $"{book.Source}-{book.Id}";
+        if (about.Remove(key))
+        {
+            return;
+        }
+
+        about[key] = null;
+        FreeDetails? details = null;
+        try
+        {
+            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            details = await FreeCatalog.DetailsAsync(Http.CreateClient(FreeCatalog.ClientName), book.Source, book.Id, limit.Token);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Xml.XmlException or System.Text.Json.JsonException)
+        {
+        }
+
+        if (about.ContainsKey(key))
+        {
+            about[key] = new Shown(details);
+        }
+    }
+
+    private bool Audio => Kind == "audio";
+
+    private bool Searching => !string.IsNullOrWhiteSpace(Q) && Q.Trim().Length >= 2;
+
+    private IReadOnlyList<FreeShelf> Shelves => Audio ? FreeCatalog.LibriVoxGenres : FreeCatalog.GutenbergShelves;
+
+    private string Heading => Searching
+        ? T("Found for “{0}”", Q!.Trim())
+        : Shelves.FirstOrDefault(item => item.Key == Shelf) is { } shelf ? T(shelf.Name)
+        : Audio ? T("Newest recordings") : T("Most popular");
+
+    private string Unreachable => Audio
+        ? T("LibriVox could not be reached just now. Try again in a moment.")
+        : T("Project Gutenberg could not be reached just now. Try again in a moment.");
+
+    private sealed record Shown(FreeDetails? Details);
 
     protected override void OnAfterRender(bool firstRender)
     {
