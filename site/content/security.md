@@ -23,6 +23,23 @@ Each passkey is listed with when it was added and last used, and **Remove** take
 > [!NOTE]
 > Browsers make passkeys only for an `https://` address, or `localhost`. Behind a reverse proxy that hides the address readers use, set `Passkeys:Origin` to it, such as `https://shelf.example.org`.
 
+## Single sign-on
+
+If you already sign in to your self-hosted apps through an OpenID Connect provider, such as Authentik, Authelia, Keycloak, Pocket ID, or Zitadel, Shelf can use it too. The sign-in page then has a **Sign in with…** button.
+
+1. At the provider, make an application (an OAuth2/OpenID client) for Shelf. Its redirect address is your Shelf's address followed by `/signin-oidc`, such as `https://shelf.example.org/signin-oidc`, and it needs the `openid`, `profile`, and `email` scopes.
+2. Give Shelf its details: `Oidc:Authority` (the provider's issuer address, the part before `/.well-known/openid-configuration`), `Oidc:ClientId`, and `Oidc:ClientSecret`, and `Oidc:Name` for the button, such as `Authentik`. See [Configuration](configuration.md#single-sign-on).
+
+How readers are matched:
+
+- **A reader already here** signs in with their password once, then chooses **Connect** under **Single sign-on** on **Account**. From then on, either way works.
+- **Someone new** gets an account of their own the first time they sign in through the provider, as long as the shelf is taking new accounts (`Accounts:AllowSignUp`, or `Oidc:CreateAccounts` to allow it through the provider only). They are named as the provider calls them, and their email address comes along when the provider says it is verified. Such an account has no password; **Set a password** on **Account** adds one.
+- Readers are matched by the provider's own unchanging id for each person, never by email address, so nobody can take over an account by claiming someone else's address at the provider.
+- Signing in through the provider skips Shelf's own two-step sign-in: the provider's own second step, if you turn it on there, takes its place.
+- **Disconnect** on **Account** removes the connection, once the account has a password to fall back on.
+
+The provider sends readers back with an ordinary link rather than a posted form, so this works over plain `http://` on a home network as well as over `https://`.
+
 ## Two-step sign-in
 
 Two-step sign-in asks for a code from an authenticator app after your password.

@@ -12,6 +12,7 @@
 @inject Microsoft.AspNetCore.DataProtection.IDataProtectionProvider Protection
 @inject AuthenticationStateProvider Authentication
 @inject Microsoft.JSInterop.IJSRuntime Js
+@inject IConfiguration Configuration
 
 <PageTitle>@T("Account") · Shelf</PageTitle>
 
@@ -84,12 +85,19 @@ else if (emailNote is not null)
 </section>
 
 <section class="panel">
-<h2>@T("Change the password")</h2>
+<h2>@(passwordUnknown ? T("Set a password") : T("Change the password"))</h2>
 <EditForm Model="form" OnValidSubmit="ChangePassword">
-    <label>
-        @T("Current password")
-        <InputText type="password" @bind-Value="form.Current" autocomplete="current-password" />
-    </label>
+    @if (passwordUnknown)
+    {
+        <p class="hint">@T("This account was made by single sign-on, so it has no password yet. Set one to sign in without it as well.")</p>
+    }
+    else
+    {
+        <label>
+            @T("Current password")
+            <InputText type="password" @bind-Value="form.Current" autocomplete="current-password" />
+        </label>
+    }
     <label>
         @T("New password, at least {0} characters", ReaderRules.MinPasswordLength)
         <InputText type="password" @bind-Value="form.Password" autocomplete="new-password" />
@@ -99,7 +107,7 @@ else if (emailNote is not null)
         <InputText type="password" @bind-Value="form.Confirm" autocomplete="new-password" />
     </label>
     <p class="hint">@T("Changing it signs you out everywhere, here included.")</p>
-    <button type="submit">@T("Change it")</button>
+    <button type="submit">@(passwordUnknown ? T("Set it") : T("Change it"))</button>
     @if (problem is AccountProblem shown)
     {
         <p class="validation-message" role="alert">@ReaderRules.Describe(shown)</p>
@@ -151,6 +159,33 @@ else
     <p class="validation-message" role="alert">@ReaderRules.Describe(shownTwoFactor)</p>
 }
 </section>
+
+@if (SingleSignOn.Enabled(Configuration))
+{
+    <section class="panel" id="sso">
+    <h2>@T("Single sign-on")</h2>
+    @if (ssoConnected)
+    {
+        <p class="hint">@T("Connected. You can sign in with {0} as well as here.", SingleSignOn.Name(Configuration))</p>
+        <form method="post" action="/account/sso/unlink">
+            <AntiforgeryToken />
+            <button type="submit" class="quiet">@T("Disconnect")</button>
+        </form>
+    }
+    else
+    {
+        <p class="hint">@T("Connect your {0} account, and sign in with it instead of a password.", SingleSignOn.Name(Configuration))</p>
+        <form method="post" action="/account/sso/link">
+            <AntiforgeryToken />
+            <button type="submit">@T("Connect {0}", SingleSignOn.Name(Configuration))</button>
+        </form>
+    }
+    @if (ProblemCode is { } code && Enum.TryParse<AccountProblem>(code, out var ssoProblem) && ssoProblem is AccountProblem.SsoTaken or AccountProblem.SsoLastWay)
+    {
+        <p class="validation-message" role="alert">@ReaderRules.Describe(ssoProblem)</p>
+    }
+    </section>
+}
 
 <section class="panel">
 <h2>@T("Passkeys")</h2>
@@ -314,6 +349,12 @@ else
         activity = await Audit.RecentAsync(db, db.ReaderId, take: 20);
     }
 
+    [SupplyParameterFromQuery(Name = "problem")]
+    public string? ProblemCode { get; set; }
+
+    private bool passwordUnknown;
+    private bool ssoConnected;
+
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
@@ -327,6 +368,8 @@ else
         twoFactorOn = me.TwoFactorEnabled;
         culture = me.Culture ?? "";
         language = me.Language ?? "";
+        passwordUnknown = me.PasswordUnknown;
+        ssoConnected = me.OidcSubject is not null;
         currentSession = (await Authentication.GetAuthenticationStateAsync()).User.FindFirst(TwoFactor.SessionClaim)?.Value;
         sessions = await TwoFactor.SessionsAsync(db, db.ReaderId, currentSession);
     }

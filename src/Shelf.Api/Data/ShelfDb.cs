@@ -120,6 +120,8 @@ public sealed class ShelfDb : DbContext
             reader.Property(r => r.TwoFactorSecret).HasMaxLength(500);
             reader.Property(r => r.Culture).HasMaxLength(16);
             reader.HasIndex(r => r.KeyHash).IsUnique();
+            reader.Property(r => r.OidcSubject).HasMaxLength(600);
+            reader.HasIndex(r => r.OidcSubject).IsUnique();
         });
 
         // Words read from scanned PDF pages. They go with the book, and a new file gets a new reading.

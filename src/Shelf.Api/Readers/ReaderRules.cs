@@ -77,6 +77,10 @@ public static class ReaderRules
         AccountProblem.ResetExpired => T("That reset link has expired or was used already. Ask for a new one."),
         AccountProblem.EmailInvalid => T("That does not look like an email address."),
         AccountProblem.CodeWrong => T("That code does not match. Try the newest code from your authenticator, or a recovery code."),
+        AccountProblem.SsoFailed => T("Single sign-on did not finish. Try again, or sign in with your password."),
+        AccountProblem.SsoUnknown => T("This shelf has no account for that sign-on, and it is not taking new accounts. Sign in with your password, then connect single sign-on on Account."),
+        AccountProblem.SsoTaken => T("That sign-on account is already connected to another reader here."),
+        AccountProblem.SsoLastWay => T("Set a password first, so you can still sign in without single sign-on."),
         _ => T("Something went wrong."),
     };
 
@@ -168,8 +172,9 @@ public static class ReaderRules
         CancellationToken cancellationToken = default)
     {
         var reader = await db.Readers.FirstOrDefaultAsync(item => item.Id == readerId, cancellationToken);
-        if (reader is null || string.IsNullOrEmpty(current)
-            || Hasher.VerifyHashedPassword(reader, reader.PasswordHash, current) == PasswordVerificationResult.Failed)
+        // A reader made by single sign-on has no password to give; anyone else proves the one they have.
+        if (reader is null || (!reader.PasswordUnknown && (string.IsNullOrEmpty(current)
+            || Hasher.VerifyHashedPassword(reader, reader.PasswordHash, current) == PasswordVerificationResult.Failed)))
         {
             return AccountProblem.CurrentPasswordWrong;
         }
@@ -180,6 +185,7 @@ public static class ReaderRules
         }
 
         reader.PasswordHash = Hasher.HashPassword(reader, password!);
+        reader.PasswordUnknown = false;
         reader.Stamp = NewStamp();
         await db.SaveChangesAsync(cancellationToken);
         await db.ReaderSessions.Where(session => session.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
@@ -477,4 +483,8 @@ public enum AccountProblem
     ResetExpired,
     EmailInvalid,
     CodeWrong,
+    SsoFailed,
+    SsoUnknown,
+    SsoTaken,
+    SsoLastWay,
 }

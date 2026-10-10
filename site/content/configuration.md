@@ -23,6 +23,20 @@ Settings can come from environment variables, from `appsettings.json` beside the
 | `Accounts:AllowSignUp` | `true` | Whether new accounts can be made. Set it to `false` once your readers have signed up. The first account can always be made. |
 | `Accounts:SignInsPerMinute` | `10` | Sign-in and sign-up attempts allowed a minute from one address. |
 
+## Single sign-on
+
+Off unless `Oidc:Authority` and `Oidc:ClientId` are set. See [Single sign-on](security.md#single-sign-on).
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `Oidc:Authority` | none | The provider's issuer address, such as `https://auth.example.org/application/o/shelf/` for Authentik. |
+| `Oidc:ClientId` | none | The client id the provider gave Shelf. |
+| `Oidc:ClientSecret` | none | Its secret. Leave it out for a public client; PKCE is always used. |
+| `Oidc:Name` | `SSO` | What the button says: **Sign in with** this. |
+| `Oidc:CreateAccounts` | `false` | Make accounts for new people who sign in through the provider even when `Accounts:AllowSignUp` is `false`. |
+| `Oidc:Scopes` | `openid profile email` | The scopes asked for. |
+| `Oidc:RequireHttpsMetadata` | `true` | Set to `false` only for a provider on plain `http://` inside your own network. |
+
 ## Where things are kept
 
 | Setting | Default | What it does |

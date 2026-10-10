@@ -1,6 +1,7 @@
 @page "/signin"
 @attribute [AllowAnonymous]
 @inject IEmailSender Email
+@inject IConfiguration Configuration
 
 <PageTitle>@T("Sign in") · Shelf</PageTitle>
 
@@ -37,6 +38,13 @@ else if (Notice == "reset")
     </label>
     <button type="submit">@T("Sign in")</button>
 </form>
+
+@if (SingleSignOn.Enabled(Configuration))
+{
+    <div class="account">
+        <a class="button" href="@($"/account/sso?returnUrl={Uri.EscapeDataString(SafeReturnUrl ?? "/")}")">@T("Sign in with {0}", SingleSignOn.Name(Configuration))</a>
+    </div>
+}
 
 @* Shown by passkey.js when the browser can use passkeys. *@
 <div class="account passkey-signin" data-passkey-panel hidden>

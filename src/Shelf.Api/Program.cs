@@ -110,7 +110,7 @@ builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(optio
 });
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = uploadLimit);
 
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+var authentication = builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
         options.LoginPath = "/signin";
@@ -126,6 +126,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Events.OnRedirectToAccessDenied = context => Refuse(context, StatusCodes.Status403Forbidden);
     })
     .AddScheme<AuthenticationSchemeOptions, ShelfKeyHandler>(ShelfKeyHandler.SchemeName, null);
+// Single sign-on through an OpenID Connect provider, when Oidc:Authority and Oidc:ClientId are set.
+SingleSignOn.Add(authentication, builder.Configuration);
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(SyncEndpoints.Policy, policy => policy
         .AddAuthenticationSchemes(CookieAuthenticationDefaults.AuthenticationScheme, ShelfKeyHandler.SchemeName)

@@ -11,6 +11,13 @@ public sealed class Reader
     // A hash of the MD5 KOReader sends for its own sync password.
     public string? KosyncHash { get; set; }
 
+    // The account at the single sign-on provider this reader signs in with, as issuer|subject; never an email,
+    // which a provider may let someone else claim.
+    public string? OidcSubject { get; set; }
+
+    // Made by single sign-on with a random password nobody knows: setting one then needs no current password.
+    public bool PasswordUnknown { get; set; }
+
     // The random id a passkey carries for this reader, made with the first one.
     public byte[]? PasskeyHandle { get; set; }
 
