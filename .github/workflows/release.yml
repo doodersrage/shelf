@@ -49,7 +49,7 @@ jobs:
 
       # Built and checked here first, so an image that cannot run its pages is never published.
       - name: Build the image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           load: true
@@ -60,7 +60,7 @@ jobs:
         run: .github/scripts/smoke-image.sh shelf:release
 
       - name: Publish the image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
