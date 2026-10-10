@@ -5,6 +5,7 @@
 @inject AudioStore Audio
 @inject CoverStore Covers
 @inject BackupSchedule Schedule
+@inject FolderImport ImportFolder
 
 <PageTitle>@T("Readers") · Shelf</PageTitle>
 
@@ -98,6 +99,23 @@ else
     </section>
 
     <section class="panel">
+    <h2>@T("Import folder")</h2>
+    @if (ImportFolder.Folder is not { } watched)
+    {
+        <p class="hint">@((MarkupString)T("Off. Set <code>Import:Folder</code> to a folder, and books dropped into it are added on their own."))</p>
+    }
+    else
+    {
+        <p class="hint">@T("Shelf looks in {0} every minute. Each reader has a folder there named after them; a file in it becomes a book on their shelf, and a folder of tracks one audiobook. Files at the top go to the first admin. Once added, a file moves into .imported, and one Shelf cannot take into .not-added.", watched)</p>
+        <button type="button" @onclick="MakeReaderFolders">@T("Make a folder for each reader")</button>
+        @if (madeFolders is not null)
+        {
+            <p class="saved" role="status">@T("Ready: {0}", string.Join(", ", madeFolders.Select(Path.GetFileName)))</p>
+        }
+    }
+    </section>
+
+    <section class="panel">
     <h2>@T("Activity")</h2>
     <p class="hint">@T("Sign-ups, failed sign-ins, passwords, admin rights, two-step sign-in, passkeys, devices signed out, keys, restores, and backups, newest first. The last {0} are kept.", Audit.Keep) <a href="/admin/audit">@T("The newest 500 as JSON")</a></p>
     <AuditList Lines="activity" />
@@ -147,6 +165,16 @@ else
     }
 
     private IReadOnlyList<AuditLine> activity = [];
+    private IReadOnlyList<string>? madeFolders;
+
+    private async Task MakeReaderFolders()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await StillAdminAsync(db))
+        {
+            madeFolders = ImportFolder.PrepareReaderFolders(readers.Select(reader => reader.Name));
+        }
+    }
 
     private async Task<bool> StillAdminAsync(ShelfDb db) => allowed = await ReaderRules.IsAdminAsync(db, db.ReaderId);
 

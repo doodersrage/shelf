@@ -98,6 +98,9 @@ builder.Services.AddHostedService(static services => services.GetRequiredService
 builder.Services.AddSingleton<OcrTools>();
 builder.Services.AddHostedService<FileSweep>();
 builder.Services.AddSingleton<BookImport>();
+// A folder to drop books into (Import:Folder); off unless it is set.
+builder.Services.AddSingleton<FolderImport>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<FolderImport>());
 builder.Services.AddSingleton<OcrService>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<OcrService>());
 var uploadLimit = Math.Max(EbookStore.MaxBytes, AudioStore.MaxBytes);

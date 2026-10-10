@@ -58,6 +58,33 @@ public sealed class BookImport(EbookStore ebooks, AudioStore audio, CoverStore c
         return results;
     }
 
+    // A folder of files, from the import folder: its audio is one audiobook, in the order of the file names and named
+    // after the folder when its tracks do not say; each e-book and zip in it is a book of its own.
+    public async Task<List<ImportedFile>> FolderAsync(ShelfDb db, IReadOnlyList<ImportFile> files, string label, bool keepBoth, CancellationToken cancellationToken)
+    {
+        var results = new List<ImportedFile>();
+        foreach (var file in files.Where(file => IsEbook(file.Name)))
+        {
+            results.Add(await EbookAsync(db, file, keepBoth, null, cancellationToken));
+        }
+
+        foreach (var file in files.Where(file => IsZip(file.Name)))
+        {
+            results.Add(await AudioAsync(db, [file], Path.GetFileName(file.Name), null, keepBoth, cancellationToken));
+        }
+
+        var tracks = files.Where(file => IsAudio(file.Name)).OrderBy(file => file.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        if (tracks.Count > 0)
+        {
+            results.Add(await AudioAsync(db, tracks, label, null, keepBoth, cancellationToken, keepOrder: true));
+        }
+
+        results.AddRange(files
+            .Where(file => !IsEbook(file.Name) && !IsZip(file.Name) && !IsAudio(file.Name))
+            .Select(file => new ImportedFile(Path.GetFileName(file.Name), ImportOutcome.Unsupported)));
+        return results;
+    }
+
     // One e-book file. Details already known (from a catalog, say) take the place of what the file says.
     public async Task<ImportedFile> EbookAsync(ShelfDb db, ImportFile file, bool keepBoth, FileDetails? known, CancellationToken cancellationToken)
     {

@@ -35,6 +35,16 @@ You can also add a file to one book from its page, under **Files**: an e-book up
 
 When you upload a file that is byte for byte the same as one on another of your books, Shelf asks first: **Keep both**, or **Don't add it**. The question is only about your own shelf, never other readers'. Before you upload, a book's **Files** panel also mentions when another reader has the file on an open shelf, so you can borrow it instead.
 
+## From a folder
+
+Shelf can watch a folder and add whatever lands in it: books saved by a downloader, or copied over a network share from another computer. Set `Import:Folder` (in Docker, mount a folder at `/import` and set `Import__Folder=/import`; Shelf runs as user 1654 there, so give it write access, for instance with `chown 1654 /srv/books-inbox`), then:
+
+- Each reader has a folder inside it named after them. **Make a folder for each reader** on **Readers** creates them. Files at the top of the import folder go to the first admin.
+- Each e-book, PDF, comic, Kindle file, or zip of tracks there becomes a book, named from what the file says. A folder of audio files becomes one audiobook, its tracks in the order of their names.
+- Shelf looks every minute, and takes something only once it has stopped changing, so a file still being copied is left until it is whole. Hidden files and `.part` downloads are left alone.
+- Once added, a file moves into `.imported` in the same folder; one Shelf cannot take moves into `.not-added`. Nothing is deleted unless `Import:AfterImport` is `delete`. A file already on another of your books is not added twice.
+- Each addition appears in the reader's activity on **Account**.
+
 ## Free public-domain books
 
 **Free books** finds public-domain books on [Project Gutenberg](https://www.gutenberg.org), for e-books, and [LibriVox](https://librivox.org), for audiobooks read by volunteers.

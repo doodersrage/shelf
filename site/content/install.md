@@ -37,6 +37,8 @@ services:
       - "8080:8080"
     volumes:
       - shelf-data:/data
+      # A folder to drop books into; each reader gets a folder inside it (see Import:Folder):
+      # - /srv/books-inbox:/import
     environment:
       # Behind a proxy that ends HTTPS (Caddy, nginx, Traefik):
       # Hosting__BehindProxy: "true"
@@ -46,6 +48,8 @@ services:
       # Email__PublicAddress: https://shelf.example.org
       # Stop new accounts once yours exists:
       # Accounts__AllowSignUp: "false"
+      # Add books dropped into the folder mounted at /import:
+      # Import__Folder: /import
       Ocr__Languages: eng
     restart: unless-stopped
 

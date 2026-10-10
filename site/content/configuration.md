@@ -64,6 +64,15 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 | `Backup:Folder` | `backups` beside the database | Where they go. |
 | `Backup:IncludeFiles` | `false` | Put every e-book and audiobook in each copy too. They never change once saved, so most people back up their folders separately instead. |
 
+## Import folder
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `Import:Folder` | none (off) | A folder to watch. Each reader's books go in a folder inside it named after them; see [From a folder](adding.md#from-a-folder). In Docker, mount one at `/import` and set this to `/import`. |
+| `Import:AfterImport` | `move` | `move` puts added files into `.imported`; `delete` removes them, since Shelf keeps its own copy. Files it could not add are always moved to `.not-added`. |
+| `Import:EverySeconds` | `60` | How often it looks. |
+| `Import:SettleSeconds` | `30` | How long a file must have stayed unchanged before it is taken. |
+
 ## Scanned PDFs (OCR)
 
 | Setting | Default | What it does |
