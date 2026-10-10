@@ -28,7 +28,8 @@ while read -r asset; do
   echo "$status $asset"
   [ "$status" = 200 ] || failed=1
 done <<< "$assets"
-owner="$(stat -c '%u' "$data/shelf.db" 2>/dev/null || echo none)"
+# The folder is now the container user's alone, so the runner looks in as root.
+owner="$(sudo stat -c '%u' "$data/shelf.db" 2>/dev/null || echo none)"
 echo "shelf.db in the host folder, owned by $owner"
 [ "$owner" = 1654 ] || failed=1
 exit "$failed"
