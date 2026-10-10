@@ -38,6 +38,7 @@ public sealed class ShelfDb : DbContext
     public DbSet<ReaderPasskey> ReaderPasskeys => Set<ReaderPasskey>();
     public DbSet<ShelfSetting> Settings => Set<ShelfSetting>();
     public DbSet<SavedSearch> SavedSearches => Set<SavedSearch>();
+    public DbSet<ApiToken> ApiTokens => Set<ApiToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -169,6 +170,15 @@ public sealed class ShelfDb : DbContext
             key.Property(item => item.CredentialId).HasMaxLength(1024);
             key.Property(item => item.Name).HasMaxLength(80);
             key.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ApiToken>(token =>
+        {
+            token.Property(item => item.Name).HasMaxLength(ApiToken.MaxNameLength).IsRequired();
+            token.Property(item => item.Hash).HasMaxLength(64).IsRequired();
+            token.HasIndex(item => item.Hash).IsUnique();
+            token.HasIndex(item => item.ReaderId);
+            token.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<AuditEntry>(entry =>

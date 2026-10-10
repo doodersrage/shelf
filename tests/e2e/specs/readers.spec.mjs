@@ -77,3 +77,24 @@ test("adding a book another reader has on an open shelf offers to borrow it", as
   await expect(lender.locator("main")).toContainText(title);
   noProblems(reader);
 });
+
+test("an API token made on the account page opens the books API", async ({ browser, playwright, baseURL }) => {
+  const page = await signUp(browser, unique("Scripted"));
+  const book = await createBook(page, { title: unique("The Lathe of Heaven"), author: "Ursula K. Le Guin" });
+  await page.goto("/account");
+  await ready(page);
+  const tokens = page.locator("#tokens");
+  await tokens.getByLabel("What will use it").fill("Home Assistant");
+  await tokens.locator('button:text-is("Make a token")').click();
+  const token = (await tokens.locator("code.key").innerText()).trim();
+  expect(token).toMatch(/^shelf_/);
+  await expect(tokens.locator("li")).toContainText("reads only");
+
+  const script = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { Authorization: `Bearer ${token}` } });
+  const answer = await script.get(`/books/${book.id}`);
+  expect(answer.ok()).toBe(true);
+  expect((await answer.json()).title).toBe(book.title);
+  expect((await script.post("/books", { data: { title: "Refused", author: "Nobody" } })).status()).toBe(403);
+  await script.dispose();
+  noProblems(page);
+});

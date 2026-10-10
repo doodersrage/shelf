@@ -122,7 +122,13 @@ builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(optio
 });
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = uploadLimit);
 
-var authentication = builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+// Requests carrying an API token are signed in by it; everything else by the sign-in cookie.
+var authentication = builder.Services.AddAuthentication("Shelf")
+    .AddPolicyScheme("Shelf", null, options => options.ForwardDefaultSelector = context =>
+        context.Request.Headers.Authorization.ToString() is var header
+        && header.StartsWith("Bearer " + ApiTokens.Prefix, StringComparison.OrdinalIgnoreCase)
+            ? ApiTokens.SchemeName
+            : CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
         options.LoginPath = "/signin";
@@ -137,7 +143,8 @@ var authentication = builder.Services.AddAuthentication(CookieAuthenticationDefa
         options.Events.OnRedirectToLogin = context => Refuse(context, StatusCodes.Status401Unauthorized);
         options.Events.OnRedirectToAccessDenied = context => Refuse(context, StatusCodes.Status403Forbidden);
     })
-    .AddScheme<AuthenticationSchemeOptions, ShelfKeyHandler>(ShelfKeyHandler.SchemeName, null);
+    .AddScheme<AuthenticationSchemeOptions, ShelfKeyHandler>(ShelfKeyHandler.SchemeName, null)
+    .AddScheme<AuthenticationSchemeOptions, ApiTokenHandler>(ApiTokens.SchemeName, null);
 // Single sign-on through an OpenID Connect provider, when Oidc:Authority and Oidc:ClientId are set.
 SingleSignOn.Add(authentication, builder.Configuration);
 builder.Services.AddAuthorizationBuilder()
@@ -226,6 +233,7 @@ app.UseRequestLocalization(Regions.Configure);
 app.UseRateLimiter();
 app.UseAuthorization();
 app.UseAntiforgery();
+app.Use(ApiTokens.Guard);
 app.MapDefaultEndpoints();
 
 if (app.Environment.IsDevelopment())

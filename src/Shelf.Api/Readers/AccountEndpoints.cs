@@ -27,6 +27,7 @@ public static class AccountEndpoints
         account.MapPost("/two-factor/confirm", ConfirmTwoFactor).RequireAuthorization();
         account.MapPost("/two-factor/disable", DisableTwoFactor).RequireAuthorization();
         Passkeys.Map(account, SignInLimit);
+        ApiTokens.Map(account);
         SingleSignOn.Map(account, SignInLimit);
         account.MapPost("/signup", SignUp).AllowAnonymous().RequireRateLimiting(SignInLimit);
         account.MapPost("/signout", SignOut).AllowAnonymous();

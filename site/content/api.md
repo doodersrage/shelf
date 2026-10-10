@@ -5,11 +5,41 @@ description: Shelf's HTTP API: signing in from a script, and every endpoint for 
 
 # API
 
-Everything Shelf's pages do goes through the same HTTP API, which answers in JSON. Every call works on the signed-in reader's own shelf. In Development, the OpenAPI document is at `/openapi/v1.json`.
+Everything Shelf's pages do goes through the same HTTP API, which answers in JSON. Every call works on the signed-in reader's own shelf, signed in by an [API token](#api-tokens) or the browser's cookie. In Development, the OpenAPI document is at `/openapi/v1.json`.
 
-## Signing in from a script
+## API tokens
 
-The API uses the same sign-in cookie as the browser. A script signs in the way the sign-in page does, with the anti-forgery token the page carries:
+A script or a home dashboard signs in with an API token. Make one on **Account**, under **API tokens**: name it after what will use it, and tick **Let it change things** if it needs more than reading. The token is shown once. Send it with every request:
+
+```bash
+curl -s -H "Authorization: Bearer $SHELF_TOKEN" https://shelf.example.org/books?status=Reading
+```
+
+A token opens the calls on this page under `/books`, `/settings`, and `/readers`. It never opens the account (passwords, keys, other tokens) or the admin pages, so a token that leaks cannot take the account over; remove it on **Account** and it stops working at once. A read-only token is refused anything but `GET`, with 403. Account shows when each token was last used.
+
+### Home Assistant
+
+A [REST sensor](https://www.home-assistant.io/integrations/sensor.rest/) shows what you are reading and how the year's goal is going. Keep the token in `secrets.yaml` as `shelf_token: "Bearer shelf_…"`, then:
+
+```yaml
+rest:
+  - resource: https://shelf.example.org/books/stats
+    headers:
+      Authorization: !secret shelf_token
+    scan_interval: 3600
+    sensor:
+      - name: Books reading
+        value_template: "{{ value_json.reading }}"
+      - name: Books finished this year
+        value_template: "{{ value_json.finishedThisYear }}"
+        json_attributes:
+          - yearlyGoal
+          - pagesRead
+```
+
+## Signing in from a script without a token
+
+A script can also sign in with the cookie the browser uses, posting the sign-in form with the anti-forgery token the page carries:
 
 ```bash
 site=https://shelf.example.org
@@ -103,6 +133,7 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | --- | --- |
 | `GET /account/sessions` | Your signed-in devices. `DELETE /account/sessions/{id}` signs one out. |
 | `GET /account/passkeys` | Your passkeys. `DELETE /account/passkeys/{id}` removes one. |
+| `GET /account/tokens` | Your API tokens. `POST {"name": "…", "canChange": false}` makes one and answers with it, once; `DELETE /account/tokens/{id}` removes one. Only with the browser's sign-in, not a token. |
 | `PUT /account/email` | `{"email": "you@example.org", "reminders": true}`. `POST /account/email/test` sends a test. |
 | `POST /account/signout` | Sign out of this browser. |
 

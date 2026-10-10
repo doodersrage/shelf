@@ -271,6 +271,42 @@ else if (passkeyChecked)
 
 </section>
 
+<section class="panel" id="tokens">
+<h2>@T("API tokens")</h2>
+<p class="hint">@T("A token lets a script or a home dashboard such as Home Assistant use your library through the API, without your password. It opens your books, never this account page.") <a href="https://doodersrage.github.io/shelf/api.html#api-tokens">@T("How to use one")</a></p>
+@if (tokens.Count > 0)
+{
+    <ul class="tag-counts">
+        @foreach (var token in tokens)
+        {
+            <li>
+                <span>@token.Name</span>
+                <span class="hint">@(token.CanChange ? T("reads and changes") : T("reads only")) · @(token.LastUsedAt is { } used ? T("made {0}, last used {1}", token.CreatedAt.Medium(), used.Medium()) : T("made {0}, not used yet", token.CreatedAt.Medium()))</span>
+                <button type="button" class="quiet" @onclick="() => RemoveToken(token.Id)" aria-label="@T("Remove the token {0}", token.Name)">@T("Remove")</button>
+            </li>
+        }
+    </ul>
+}
+@if (newToken is not null)
+{
+    <p><code class="key">@newToken.Token</code></p>
+    <p class="hint">@T("Copy the token now. It is not shown again.")</p>
+}
+<label class="inline-date">
+    @T("What will use it")
+    <input @bind="tokenName" maxlength="@ApiToken.MaxNameLength" placeholder="Home Assistant" />
+</label>
+<label class="check">
+    <input type="checkbox" @bind="tokenCanChange" />
+    @T("Let it change things, not only read them")
+</label>
+<button type="button" @onclick="MakeToken">@T("Make a token")</button>
+@if (tokenProblem is not null)
+{
+    <p class="validation-message" role="alert">@tokenProblem</p>
+}
+</section>
+
 <section class="panel">
 <h2>@T("Recent activity")</h2>
 <p class="hint">@T("Changes to this account, and sign-ins that failed. If something here was not you, change the password.")</p>
@@ -330,6 +366,11 @@ else
     private bool addingPasskey;
     private string passkeyName = "";
     private string? passkeyProblem;
+    private IReadOnlyList<ApiTokenSummary> tokens = [];
+    private NewApiToken? newToken;
+    private string tokenName = "";
+    private bool tokenCanChange;
+    private string? tokenProblem;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -393,6 +434,7 @@ else
         var me = await db.Readers.AsNoTracking().FirstAsync(item => item.Id == db.ReaderId);
         activity = await Audit.RecentAsync(db, me.Id, take: 20);
         passkeys = await Passkeys.ListAsync(db, me.Id);
+        tokens = await ApiTokens.ListAsync(db, me.Id);
         savedEmail = me.Email;
         emailAddress = me.Email ?? "";
         emailReminders = me.EmailReminders;
@@ -404,6 +446,29 @@ else
         ssoConnected = me.OidcSubject is not null;
         currentSession = (await Authentication.GetAuthenticationStateAsync()).User.FindFirst(TwoFactor.SessionClaim)?.Value;
         sessions = await TwoFactor.SessionsAsync(db, db.ReaderId, currentSession);
+    }
+
+    private async Task MakeToken()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        (newToken, tokenProblem) = await ApiTokens.CreateAsync(db, db.ReaderId, tokenName, tokenCanChange);
+        if (newToken is not null)
+        {
+            tokenName = "";
+            tokenCanChange = false;
+        }
+
+        tokens = await ApiTokens.ListAsync(db, db.ReaderId);
+        activity = await Audit.RecentAsync(db, db.ReaderId, take: 20);
+    }
+
+    private async Task RemoveToken(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await ApiTokens.RemoveAsync(db, db.ReaderId, id);
+        newToken = newToken?.Id == id ? null : newToken;
+        tokens = await ApiTokens.ListAsync(db, db.ReaderId);
+        activity = await Audit.RecentAsync(db, db.ReaderId, take: 20);
     }
 
     private async Task ChangeShelfOpen(ChangeEventArgs change)
