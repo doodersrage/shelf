@@ -6,6 +6,7 @@
 @inject CoverStore Covers
 @inject BackupSchedule Schedule
 @inject FolderImport ImportFolder
+@inject OffsiteBackup Offsite
 
 <PageTitle>@T("Readers") · Shelf</PageTitle>
 
@@ -94,6 +95,18 @@ else
                 </li>
             }
         </ul>
+    }
+    @if (Offsite.CopyFolder is null && Offsite.S3Description is null)
+    {
+        <p class="hint">@((MarkupString)T("Kept on this server's disk only. <code>Backup:CopyTo</code> or <code>Backup:S3</code> settings send a copy of each somewhere else as well."))</p>
+    }
+    else
+    {
+        <p class="hint">@T("Each is copied to: {0}.", string.Join(", ", new[] { Offsite.CopyFolder, Offsite.S3Description }.OfType<string>()))</p>
+        @foreach (var result in Offsite.Last)
+        {
+            <p class="@(result.Sent ? "hint" : "validation-message")">@(result.Sent ? T("Copied to {0} at {1} UTC.", result.Where, result.At.Stamp()) : T("Could not copy to {0}: {1}", result.Where, result.Problem ?? ""))</p>
+        }
     }
     <button type="button" @onclick="BackUpNow" disabled="@backingUp">@(backingUp ? T("Backing up…") : T("Back up now"))</button>
     </section>

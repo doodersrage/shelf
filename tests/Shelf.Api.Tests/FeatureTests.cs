@@ -434,6 +434,7 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
                 factory.Services.GetRequiredService<EbookStore>(),
                 factory.Services.GetRequiredService<AudioStore>(),
                 factory.Services.GetRequiredService<CoverStore>(),
+                new OffsiteBackup(configuration, Microsoft.Extensions.Logging.Abstractions.NullLogger<OffsiteBackup>.Instance),
                 Microsoft.Extensions.Logging.Abstractions.NullLogger<BackupSchedule>.Instance);
             for (var round = 0; round < 3; round++)
             {

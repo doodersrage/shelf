@@ -13,6 +13,10 @@ Each night after 03:00 UTC, Shelf saves a copy of its database in a `backups` fo
 
 E-books and audiobooks never change once saved, so they are left out of the nightly copy by default; back up their folders alongside, or set `Backup:IncludeFiles` to `true`. Cover pictures are small and always included. [Configuration](configuration.md#nightly-backups) has the settings.
 
+### Off the server
+
+A backup on the same disk as the shelf does not help if that disk fails. Set `Backup:CopyTo` to a folder on another disk or a mounted network share, or the `Backup:S3` settings to a bucket in S3-compatible storage (Amazon S3, Backblaze B2, Wasabi, Cloudflare R2, MinIO), and each night's backup is copied there too, keeping as many as the backups folder. **Readers** shows where copies go and whether the last one arrived; a copy that fails never stops the backup itself. See [Configuration](configuration.md#nightly-backups).
+
 ## A reader's full backup
 
 On **Backup & restore**, **Download everything** gives a zip of your shelf: the catalog, notes, reviews, quotes, reading log, highlights, e-books, audiobooks, and cover pictures. **download JSON** gives just the catalog, without files.

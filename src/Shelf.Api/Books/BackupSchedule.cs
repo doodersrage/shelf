@@ -15,6 +15,7 @@ public sealed class BackupSchedule(
     EbookStore ebooks,
     AudioStore audio,
     CoverStore covers,
+    OffsiteBackup offsite,
     ILogger<BackupSchedule> logger) : BackgroundService
 {
     public const string Prefix = "shelf-backup-";
@@ -75,6 +76,7 @@ public sealed class BackupSchedule(
         }
 
         logger.LogInformation("Took the nightly backup {Name}.", name);
+        await offsite.SendAsync(path, Keep, cancellationToken);
         return List().First(backup => backup.Name == name);
     }
 

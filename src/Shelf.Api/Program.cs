@@ -93,6 +93,8 @@ builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddSingleton<ReminderMailer>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<ReminderMailer>());
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
+// Copies of each backup off the servers disk: Backup:CopyTo and Backup:S3:*.
+builder.Services.AddSingleton<OffsiteBackup>();
 builder.Services.AddSingleton<BackupSchedule>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<BackupSchedule>());
 builder.Services.AddSingleton<OcrTools>();

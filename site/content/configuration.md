@@ -77,6 +77,14 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 | `Backup:Keep` | `7` | How many to keep. |
 | `Backup:Folder` | `backups` beside the database | Where they go. |
 | `Backup:IncludeFiles` | `false` | Put every e-book and audiobook in each copy too. They never change once saved, so most people back up their folders separately instead. |
+| `Backup:CopyTo` | none | A second folder to copy each backup to, such as another disk or a mounted network share. It keeps as many as `Backup:Keep`. |
+| `Backup:S3:Bucket` | none | A bucket in S3-compatible storage to copy each backup to. Needs the two keys below. |
+| `Backup:S3:AccessKey`, `Backup:S3:SecretKey` | none | The keys for it. Give them only the rights to list, put, and delete in that bucket. |
+| `Backup:S3:Endpoint` | Amazon S3 | The service's address for anything but Amazon, such as `https://s3.us-west-004.backblazeb2.com`, `https://<account>.r2.cloudflarestorage.com`, or your MinIO. |
+| `Backup:S3:Region` | `us-east-1` | The region. |
+| `Backup:S3:Prefix` | `shelf/` | Where in the bucket the copies go. The newest `Backup:Keep` are kept there. |
+| `Backup:S3:PathStyle` | `true` with an endpoint | Address the bucket as part of the path, as most S3-compatible services want. |
+| `Backup:S3:PartSizeMegabytes` | `64` | Larger backups go up in parts of this size, at least 5. |
 
 ## Calibre
 
