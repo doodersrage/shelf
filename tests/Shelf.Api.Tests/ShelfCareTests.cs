@@ -355,7 +355,7 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
         var book = await CreateAsync(_admin, new CreateBookRequest("A Plain Pdf", "Someone", BookStatus.Reading, null));
         using (var content = new MultipartFormDataContent())
         {
-            content.Add(new ByteArrayContent("%PDF-1.4 sample"u8.ToArray()), "file", "plain.pdf");
+            content.Add(new ByteArrayContent("%PDF-1.4 a plain one"u8.ToArray()), "file", "plain.pdf");
             await _admin.PostAsync($"/books/{book.Id}/ebook", content);
         }
 

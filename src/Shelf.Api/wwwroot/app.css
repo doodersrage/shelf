@@ -764,6 +764,16 @@ code.key {
     font-weight: 500;
 }
 
+/* A notice that asks something: the question, then its answers beside it or below. */
+.notice.ask {
+    flex-wrap: wrap;
+}
+
+.notice.ask p {
+    flex: 1 1 20rem;
+    margin: 0;
+}
+
 .empty {
     text-align: left;
     padding: var(--space-6);

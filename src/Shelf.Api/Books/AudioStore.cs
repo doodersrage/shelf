@@ -109,6 +109,45 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
         return index >= 0 && index < files.Count ? files[index] : null;
     }
 
+    // The recording's size in bytes, all tracks together; 0 when there is none.
+    public long Size(string? storedName) => TrackFiles(storedName).Sum(path => new FileInfo(path).Length);
+
+    // Where an upload waits while the reader decides whether to keep a second copy of a recording.
+    public string HeldRoot => Path.Combine(Root, "held");
+
+    public bool Hold(string storedName) => Move(OpenDirectory(storedName), HeldPath(storedName));
+
+    public bool Release(string storedName) => Move(HeldPath(storedName), Path.Combine(Root, storedName));
+
+    public void Forget(string storedName)
+    {
+        if (HeldPath(storedName) is { } path && Directory.Exists(path))
+        {
+            Directory.Delete(path, recursive: true);
+            File.Delete(path + Fingerprint.Extension);
+        }
+    }
+
+    private string? HeldPath(string storedName) =>
+        storedName.Length == 32 && storedName.All(Uri.IsHexDigit) ? Path.Combine(HeldRoot, storedName) : null;
+
+    private static bool Move(string? from, string? to)
+    {
+        if (from is null || to is null || !Directory.Exists(from))
+        {
+            return false;
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+        Directory.Move(from, to);
+        if (File.Exists(from + Fingerprint.Extension))
+        {
+            File.Move(from + Fingerprint.Extension, to + Fingerprint.Extension, overwrite: true);
+        }
+
+        return true;
+    }
+
     public async Task<string?> HashAsync(string? storedName, CancellationToken cancellationToken)
     {
         var files = TrackFiles(storedName);

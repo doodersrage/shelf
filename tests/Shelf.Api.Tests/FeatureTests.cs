@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Shelf.Api.Books;
@@ -618,6 +619,97 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         // The reader's own choice wins over the browser's.
         Assert.Contains("Finished 14 Mar 2024", await ListAsync("de-DE"));
         Assert.Contains("Dates and numbers", await reader.GetStringAsync("/account"));
+    }
+
+    [Fact]
+    public async Task The_same_file_on_a_second_book_waits_until_the_reader_keeps_both()
+    {
+        var first = await CreateAsync(new CreateBookRequest("Twice Bought", "Someone", BookStatus.Reading, null));
+        var second = await CreateAsync(new CreateBookRequest("Twice Bought (Again)", "Someone", BookStatus.Reading, null));
+        var epub = BooksEndpointTests.SampleEpub("A sentence found in exactly one file.");
+        Assert.Equal("?ebook=saved", (await UploadEbookAsync(_client, first.Id, epub)).RequestMessage!.RequestUri!.Query);
+
+        // The same bytes under another name: held, and the book page asks.
+        var held = await UploadEbookAsync(_client, second.Id, epub, "renamed.epub");
+        var query = System.Web.HttpUtility.ParseQueryString(held.RequestMessage!.RequestUri!.Query);
+        Assert.Equal("duplicate", query["ebook"]);
+        var page = WebUtility.HtmlDecode(await held.Content.ReadAsStringAsync());
+        Assert.Contains("is already on", page);
+        Assert.Contains($"href=\"/library/{first.Id}\"", page);
+        Assert.Contains("Keep both", page);
+        Assert.Null((await GetBookAsync(second.Id)).EbookFileName);
+
+        var protection = factory.Services.GetRequiredService<Microsoft.AspNetCore.DataProtection.IDataProtectionProvider>();
+        var store = factory.Services.GetRequiredService<EbookStore>();
+        var token = query["held"]!;
+        int readerId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            readerId = scope.ServiceProvider.GetRequiredService<ShelfDb>().Books.IgnoreQueryFilters().Single(book => book.Id == first.Id).OwnerId!.Value;
+        }
+
+        var upload = Duplicates.Read(protection, token, readerId, second.Id)!;
+        Assert.Equal(first.Id, upload.SameAsId);
+        Assert.Equal("renamed.epub", upload.FileName);
+        Assert.True(File.Exists(Path.Combine(store.HeldRoot, upload.StoredName)));
+        Assert.Null(store.OpenPath(upload.StoredName));
+        Assert.Null(Duplicates.Read(protection, token, readerId, first.Id));
+        Assert.Null(Duplicates.Read(protection, token, readerId + 1000, second.Id));
+
+        // Releasing it puts it back where books keep their files.
+        Assert.True(store.Release(upload.StoredName));
+        Assert.NotNull(store.OpenPath(upload.StoredName));
+        store.Delete(upload.StoredName);
+
+        // The same book taking its own file again is no question; asked to keep both up front, it goes straight on.
+        Assert.Equal("?ebook=saved", (await UploadEbookAsync(_client, first.Id, epub)).RequestMessage!.RequestUri!.Query);
+        Assert.Equal("?ebook=saved", (await UploadEbookAsync(_client, second.Id, epub, keepBoth: true)).RequestMessage!.RequestUri!.Query);
+
+        // Another reader's shelf is theirs: the same file there is never reported.
+        var stranger = await factory.SignUpAsync("Twice Stranger");
+        var theirs = await (await stranger.PostAsJsonAsync("/books", new CreateBookRequest("Twice Bought", "Someone", BookStatus.Reading, null), JsonOptions))
+            .Content.ReadFromJsonAsync<BookResponse>(JsonOptions);
+        Assert.Equal("?ebook=saved", (await UploadEbookAsync(stranger, theirs!.Id, epub)).RequestMessage!.RequestUri!.Query);
+    }
+
+    [Fact]
+    public async Task The_same_recording_on_a_second_book_is_held_and_an_old_hold_is_swept()
+    {
+        var first = await CreateAsync(new CreateBookRequest("Heard Twice", "Someone", BookStatus.Reading, null));
+        var second = await CreateAsync(new CreateBookRequest("Heard Twice Again", "Someone", BookStatus.Reading, null));
+        async Task<HttpResponseMessage> UploadAsync(int id)
+        {
+            using var content = new MultipartFormDataContent { { new StreamContent(BooksEndpointTests.ZipText("01.mp3", "the very same track")), "file", "heard.zip" } };
+            return await _client.PostAsync($"/books/{id}/audio", content);
+        }
+
+        Assert.Equal("?audio=saved", (await UploadAsync(first.Id)).RequestMessage!.RequestUri!.Query);
+        var held = await UploadAsync(second.Id);
+        Assert.StartsWith("?audio=duplicate&held=", held.RequestMessage!.RequestUri!.Query);
+        Assert.Null((await GetBookAsync(second.Id)).AudioFileName);
+
+        var audio = factory.Services.GetRequiredService<AudioStore>();
+        var ebooks = factory.Services.GetRequiredService<EbookStore>();
+        var waiting = Directory.GetDirectories(audio.HeldRoot);
+        Assert.NotEmpty(waiting);
+        Assert.Equal(0, Duplicates.Sweep(ebooks, audio, DateTimeOffset.UtcNow));
+        Assert.True(Duplicates.Sweep(ebooks, audio, DateTimeOffset.UtcNow.AddDays(2)) >= waiting.Length);
+        Assert.Empty(Directory.GetDirectories(audio.HeldRoot));
+        Assert.Equal("heard.zip", (await GetBookAsync(first.Id)).AudioFileName);
+    }
+
+    private async Task<BookResponse> GetBookAsync(int id) =>
+        (await _client.GetFromJsonAsync<BookResponse>($"/books/{id}", JsonOptions))!;
+
+    private static async Task<HttpResponseMessage> UploadEbookAsync(HttpClient client, int id, byte[] epub, string name = "book.epub", bool keepBoth = false)
+    {
+        using var content = new MultipartFormDataContent { { new ByteArrayContent(epub), "file", name } };
+        if (keepBoth)
+        {
+            content.Add(new StringContent("true"), "keepBoth");
+        }
+
+        return await client.PostAsync($"/books/{id}/ebook", content);
     }
 
     [Fact]

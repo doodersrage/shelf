@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Added
+
+- Uploading an e-book or audiobook that is already on another of your books asks first: keep both, or don't add it. `keepBoth=true` on the upload skips the question.
+
 ## [1.1.0] - 2026-10-10
 
 ### Added

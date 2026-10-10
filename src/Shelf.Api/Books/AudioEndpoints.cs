@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Shelf.Api.Data;
@@ -11,6 +12,7 @@ public static class AudioEndpoints
         HttpContext http,
         ShelfDb db,
         AudioStore store,
+        IDataProtectionProvider protection,
         CancellationToken cancellationToken)
     {
         var book = await db.Books.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
@@ -46,13 +48,17 @@ public static class AudioEndpoints
                 return TypedResults.Redirect($"/library/{id}?audio={reason}");
             }
 
-            store.Delete(book.AudioStoredName);
-            book.AudioStoredName = saved.StoredName;
-            book.AudioFileName = saved.FileName;
-            book.AudioTrack = 0;
-            book.AudioSeconds = 0;
-            book.Format ??= BookFormat.Audiobook;
-            await db.SaveChangesAsync(cancellationToken);
+            // The same recording on another of this reader's books: hold it and ask before keeping a second copy.
+            var keepBoth = bool.TryParse(form["keepBoth"], out var keep) && keep;
+            if (!keepBoth
+                && await Duplicates.FindAudioAsync(db, store, id, saved.StoredName, cancellationToken) is { } same
+                && store.Hold(saved.StoredName))
+            {
+                var token = Duplicates.Hold(protection, new HeldUpload(db.ReaderId, id, UploadKind.Audio, saved.StoredName, saved.FileName, same.Id));
+                return TypedResults.Redirect($"/library/{id}?audio=duplicate&held={Uri.EscapeDataString(token)}");
+            }
+
+            await AttachAsync(db, store, book, saved.StoredName, saved.FileName, cancellationToken);
             return TypedResults.Redirect($"/library/{id}?audio=saved");
         }
         finally
@@ -62,6 +68,17 @@ public static class AudioEndpoints
                 await upload.Content.DisposeAsync();
             }
         }
+    }
+
+    public static async Task AttachAsync(ShelfDb db, AudioStore store, Book book, string storedName, string fileName, CancellationToken cancellationToken)
+    {
+        store.Delete(book.AudioStoredName);
+        book.AudioStoredName = storedName;
+        book.AudioFileName = fileName;
+        book.AudioTrack = 0;
+        book.AudioSeconds = 0;
+        book.Format ??= BookFormat.Audiobook;
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     public static async Task<Results<NoContent, NotFound>> Remove(

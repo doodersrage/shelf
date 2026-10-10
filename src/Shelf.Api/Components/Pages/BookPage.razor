@@ -4,6 +4,8 @@
 @inject NavigationManager Navigation
 @inject EbookStore Ebooks
 @inject AudioStore Audio
+@inject OcrService Ocr
+@inject Microsoft.AspNetCore.DataProtection.IDataProtectionProvider Protection
 @using Microsoft.JSInterop
 @inject IJSRuntime Js
 @implements IAsyncDisposable
@@ -157,6 +159,25 @@ else if (book is not null)
     else if (AudioMessage == "large")
     {
         <p class="validation-message" role="alert">That audiobook is larger than 1 GB.</p>
+    }
+
+    @if (held is not null)
+    {
+        <div class="notice ask" role="alert">
+            <p>
+                That @(held.Kind == UploadKind.Ebook ? "e-book" : "audiobook") is already on
+                <a href="/library/@held.SameAsId">@heldSameTitle</a>, byte for byte.
+                Keep a second copy here as well?
+            </p>
+            <div class="status-actions">
+                <button type="button" @onclick="KeepHeld" disabled="@deciding">Keep both</button>
+                <button type="button" class="quiet" @onclick="LetHeldGo" disabled="@deciding">Don't add it</button>
+            </div>
+        </div>
+    }
+    else if (heldExpired)
+    {
+        <p class="validation-message" role="alert">That upload was not kept. Choose the file again to add it.</p>
     }
 
     @if (!string.IsNullOrWhiteSpace(book.Inscription))
@@ -596,11 +617,95 @@ else if (book is not null)
     [SupplyParameterFromQuery(Name = "audio")]
     public string? AudioMessage { get; set; }
 
+    [SupplyParameterFromQuery(Name = "held")]
+    public string? HeldToken { get; set; }
+
+    private HeldUpload? held;
+    private string? heldSameTitle;
+    private bool heldExpired;
+    private bool deciding;
+
+    private async Task ReadHeldAsync()
+    {
+        held = null;
+        heldExpired = false;
+        if (string.IsNullOrEmpty(HeldToken) || book is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        held = Duplicates.Read(Protection, HeldToken, db.ReaderId, book.Id);
+        heldSameTitle = held is null ? null : await db.Books.AsNoTracking()
+            .Where(item => item.Id == held.SameAsId)
+            .Select(item => item.Title)
+            .FirstOrDefaultAsync();
+        if (held is null || heldSameTitle is null || !IsStillHeld(held))
+        {
+            held = null;
+            heldExpired = true;
+        }
+    }
+
+    private bool IsStillHeld(HeldUpload upload) => upload.Kind == UploadKind.Ebook
+        ? File.Exists(Path.Combine(Ebooks.HeldRoot, upload.StoredName))
+        : Directory.Exists(Path.Combine(Audio.HeldRoot, upload.StoredName));
+
+    private async Task KeepHeld()
+    {
+        if (held is not { } upload || deciding)
+        {
+            return;
+        }
+
+        deciding = true;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var existing = await db.Books.FirstOrDefaultAsync(item => item.Id == upload.BookId);
+        var kept = existing is not null && (upload.Kind == UploadKind.Ebook ? Ebooks.Release(upload.StoredName) : Audio.Release(upload.StoredName));
+        if (existing is not null && kept)
+        {
+            if (upload.Kind == UploadKind.Ebook)
+            {
+                await EbookEndpoints.AttachAsync(db, Ebooks, existing, upload.StoredName, upload.FileName, default);
+                Ocr.Nudge();
+            }
+            else
+            {
+                await AudioEndpoints.AttachAsync(db, Audio, existing, upload.StoredName, upload.FileName, default);
+            }
+        }
+
+        deciding = false;
+        var kind = upload.Kind == UploadKind.Ebook ? "ebook" : "audio";
+        Navigation.NavigateTo(kept ? $"/library/{upload.BookId}?{kind}=saved" : $"/library/{upload.BookId}", forceLoad: kept);
+    }
+
+    private void LetHeldGo()
+    {
+        if (held is not { } upload)
+        {
+            return;
+        }
+
+        if (upload.Kind == UploadKind.Ebook)
+        {
+            Ebooks.Forget(upload.StoredName);
+        }
+        else
+        {
+            Audio.Forget(upload.StoredName);
+        }
+
+        held = null;
+        Navigation.NavigateTo($"/library/{upload.BookId}");
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         saved = false;
         confirmingDelete = false;
         await LoadAsync();
+        await ReadHeldAsync();
     }
 
     private async Task LoadAsync(bool replaceDraft = true)

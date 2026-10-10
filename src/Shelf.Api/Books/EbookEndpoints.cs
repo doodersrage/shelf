@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Shelf.Api.Data;
 
@@ -11,9 +13,11 @@ public static class EbookEndpoints
     public static async Task<IResult> Upload(
         int id,
         IFormFile? file,
+        [FromForm] bool? keepBoth,
         ShelfDb db,
         EbookStore store,
         OcrService ocr,
+        IDataProtectionProvider protection,
         CancellationToken cancellationToken)
     {
         var book = await db.Books.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
@@ -35,15 +39,29 @@ public static class EbookEndpoints
             return TypedResults.Redirect($"/library/{id}?ebook={reason}");
         }
 
-        store.Delete(book.EbookStoredName);
-        book.EbookStoredName = saved.StoredName;
-        book.EbookFileName = saved.FileName;
-        book.EbookChapter = 0;
-        book.Format ??= BookFormat.Ebook;
-        await db.SaveChangesAsync(cancellationToken);
+        // The same bytes on another of this reader's books: hold the upload and ask before keeping a second copy.
+        if (keepBoth != true
+            && await Duplicates.FindEbookAsync(db, store, id, saved.StoredName, cancellationToken) is { } same
+            && store.Hold(saved.StoredName))
+        {
+            var token = Duplicates.Hold(protection, new HeldUpload(db.ReaderId, id, UploadKind.Ebook, saved.StoredName, saved.FileName, same.Id));
+            return TypedResults.Redirect($"/library/{id}?ebook=duplicate&held={Uri.EscapeDataString(token)}");
+        }
+
+        await AttachAsync(db, store, book, saved.StoredName, saved.FileName, cancellationToken);
         ocr.Nudge();
 
         return TypedResults.Redirect($"/library/{id}?ebook=saved");
+    }
+
+    public static async Task AttachAsync(ShelfDb db, EbookStore store, Book book, string storedName, string fileName, CancellationToken cancellationToken)
+    {
+        store.Delete(book.EbookStoredName);
+        book.EbookStoredName = storedName;
+        book.EbookFileName = fileName;
+        book.EbookChapter = 0;
+        book.Format ??= BookFormat.Ebook;
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     public static async Task<Results<NoContent, NotFound>> Remove(

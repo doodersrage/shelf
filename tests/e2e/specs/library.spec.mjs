@@ -44,3 +44,31 @@ test("many books change at once, the list view is remembered, and search finds w
   await expect(page).toHaveURL(new RegExp(`/library/${first.id}/read\\?chapter=0`));
   noProblems(page);
 });
+
+test("the same file on a second book asks first, then keeps both or lets it go", async ({ browser }) => {
+  const page = await signUp(browser, unique("Collector"));
+  const first = await createBook(page, { title: unique("Moby-Dick"), author: "Herman Melville" });
+  const second = await createBook(page, { title: unique("Moby-Dick, another edition"), author: "Herman Melville" });
+  const third = await createBook(page, { title: unique("Moby-Dick, a third"), author: "Herman Melville" });
+  await upload(page, first.id, "ebook", "moby.epub", "application/epub+zip");
+
+  const send = async (id) => {
+    await page.goto(`/library/${id}`);
+    await ready(page);
+    await page.locator('form[action$="/ebook"] input[name=file]').setInputFiles(fixture("moby.epub"));
+    await Promise.all([page.waitForURL(/ebook=duplicate/), page.locator('form[action$="/ebook"] button[type=submit]').click()]);
+    await ready(page);
+    await expect(page.locator(".notice.ask")).toContainText(`is already on ${first.title}`);
+  };
+
+  await send(second.id);
+  await page.click('button:text-is("Keep both")');
+  await expect(page.getByText("The e-book is on the shelf.")).toBeVisible();
+  expect((await (await page.request.get(`/books/${second.id}`)).json()).ebookFileName).toBe("moby.epub");
+
+  await send(third.id);
+  await page.click(`button:text-is("Don't add it")`);
+  await expect(page.locator(".notice.ask")).toHaveCount(0);
+  expect((await (await page.request.get(`/books/${third.id}`)).json()).ebookFileName).toBeNull();
+  noProblems(page);
+});

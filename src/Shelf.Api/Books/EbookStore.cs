@@ -123,6 +123,47 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
         }, cancellationToken);
     }
 
+    // Where an upload waits while the reader decides whether to keep a second copy of a file.
+    public string HeldRoot => Path.Combine(Root, "held");
+
+    public bool Hold(string storedName) => Move(OpenPath(storedName), HeldPath(storedName));
+
+    public bool Release(string storedName) => Move(HeldPath(storedName), Path.Combine(Root, Path.GetFileName(storedName)));
+
+    public void Forget(string storedName)
+    {
+        if (HeldPath(storedName) is { } path)
+        {
+            File.Delete(path);
+            File.Delete(path + Fingerprint.Extension);
+        }
+    }
+
+    private string? HeldPath(string storedName)
+    {
+        var name = Path.GetFileName(storedName);
+        return name == storedName && name.Length > 0 && !name.Contains("..", StringComparison.Ordinal)
+            ? Path.Combine(HeldRoot, name)
+            : null;
+    }
+
+    private static bool Move(string? from, string? to)
+    {
+        if (from is null || to is null || !File.Exists(from))
+        {
+            return false;
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+        File.Move(from, to);
+        if (File.Exists(from + Fingerprint.Extension))
+        {
+            File.Move(from + Fingerprint.Extension, to + Fingerprint.Extension, overwrite: true);
+        }
+
+        return true;
+    }
+
     public static bool IsPdf(string? storedName) =>
         storedName?.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) == true;
 
