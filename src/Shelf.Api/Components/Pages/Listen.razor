@@ -205,6 +205,49 @@ else if (book is not null)
         {
             await module.InvokeVoidAsync("seek", player, resumeSeconds);
         }
+
+        await Describe();
+    }
+
+    // What the phone's lock screen and the headphones show: the chapter or track, the book, its author, and cover.
+    private async Task Describe()
+    {
+        if (module is null || book is null)
+        {
+            return;
+        }
+
+        var now = chapters.Count > 1 && chapterIndex < chapters.Count ? chapters[chapterIndex].Title
+            : tracks.Count > 1 && track < tracks.Count ? tracks[track].Title
+            : book.Title;
+        try
+        {
+            await module.InvokeVoidAsync("describe", now, book.Author, book.Title, book.CoverShown);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    // Previous or next from the lock screen or headphones: by chapter where the recording has them, else by track.
+    [JSInvokable]
+    public async Task Skip(int direction)
+    {
+        direction = Math.Sign(direction);
+        if (chapters.Count > 1 && chapterIndex + direction >= 0 && chapterIndex + direction < chapters.Count)
+        {
+            await GoToChapter(chapterIndex + direction);
+        }
+        else if (direction > 0)
+        {
+            await Next();
+        }
+        else if (direction < 0)
+        {
+            await Previous();
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     [JSInvokable]
@@ -217,6 +260,7 @@ else if (book is not null)
             if (now != chapterIndex)
             {
                 chapterIndex = now;
+                await Describe();
                 await InvokeAsync(StateHasChanged);
             }
         }
@@ -235,6 +279,7 @@ else if (book is not null)
         var start = (int)Math.Floor(chapters[index].Start);
         await module.InvokeVoidAsync("seek", player, start);
         await Remember(track, start);
+        await Describe();
     }
 
     private async Task AddBookmark()

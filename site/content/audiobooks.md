@@ -21,6 +21,7 @@ If the files carry cover art (an `.m4b`'s cover, or an MP3's front-cover picture
 - **Speed.** From 0.8× to 2×, kept for you.
 - **Sleep timer.** Pause in 15, 30, or 45 minutes, in an hour, or at the end of the track.
 - **Bookmarks.** **Bookmark this moment** keeps where you are, with a note if you like. Each bookmark shows its chapter or track and time, and **Go there** goes back to it.
+- **Lock screen and headphones.** While a book plays, a phone's lock screen and notifications, headphones, a car, or a smartwatch show the chapter, the book, its author, and cover. Their buttons play and pause, skip back 15 or ahead 30 seconds, scrub, and go to the previous or next chapter (or track, for a recording without chapters).
 
 A borrower listening to a book lent to them has their own place and bookmarks.
 

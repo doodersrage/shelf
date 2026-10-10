@@ -7,6 +7,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 ### Added
 
 - Scan the barcode: on the book form, a phone's camera reads the ISBN from the back of a book and looks it up; over plain http it takes a photo instead. The barcode is read in the browser, by its own reader or by ZXing served from the shelf.
+- Lock-screen controls for audiobooks: a phone's lock screen, notifications, headphones, and car show the chapter, the book, its author, and cover, with play and pause, skips of 15 and 30 seconds, scrubbing, and previous and next chapter.
 - Docker images for arm64 as well as amd64: a Raspberry Pi 4 or 5, most NAS boxes, and Apple silicon. CI starts the arm64 image too.
 
 ## [1.3.1] - 2026-10-10
