@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-10
+
 ### Added
 
 - Scan the barcode: on the book form, a phone's camera reads the ISBN from the back of a book and looks it up; over plain http it takes a photo instead. The barcode is read in the browser, by its own reader or by ZXing served from the shelf.
@@ -17,6 +19,14 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - Saved searches: a filtered and sorted library view can be saved under a name, and opens again from the sidebar. Sort and the More filters checkboxes are now part of the library's address, so any view can be bookmarked too.
 - Google Books as a second source for Look up and Fill empty details: asked when Open Library has no match or leaves the pages, publisher, year, or cover blank (`Lookup:GoogleBooks`, with an optional `Lookup:GoogleBooksKey`).
 - Docker images for arm64 as well as amd64: a Raspberry Pi 4 or 5, most NAS boxes, and Apple silicon. CI starts the arm64 image too.
+
+### Changed
+
+- PDF.js 6, JSZip 3.10.2, and the Inter and Lora fonts 5.3.0 are served from the shelf; Fido2, MailKit, QRCoder, and OpenTelemetry are updated.
+
+### Fixed
+
+- Each search area on a page (the sidebar's, the library filters', Free books', and Search inside books') has a name of its own for screen readers.
 
 ## [1.3.1] - 2026-10-10
 
@@ -140,7 +150,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/doodersrage/shelf/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/doodersrage/shelf/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/doodersrage/shelf/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/doodersrage/shelf/compare/v1.1.0...v1.2.0
