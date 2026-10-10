@@ -9,7 +9,7 @@
     "@fontsource-variable/inter": "5.1.1",
     "@fontsource-variable/lora": "5.1.1",
     "barcode-detector": "3.2.2",
-    "jszip": "3.10.1",
+    "jszip": "3.10.2",
     "pdfjs-dist": "4.8.69"
   }
 }
