@@ -83,3 +83,9 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 ## Logging
 
 Shelf logs with ASP.NET Core's usual settings, such as `Logging:LogLevel:Default`. In Docker, `docker logs shelf` shows them.
+
+## Source code link
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `SourceUrl` | this project on GitHub | Where the **Source code** link at the foot of each page goes. Shelf is under the AGPL: if you run a changed copy for other people, point this at your changed source. |

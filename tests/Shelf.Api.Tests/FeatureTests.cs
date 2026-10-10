@@ -399,7 +399,14 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         var version = await anonymous.GetFromJsonAsync<VersionResponse>("/version", JsonOptions);
         Assert.Matches(@"^\d+\.\d+\.\d+", version!.Version);
         Assert.Equal(typeof(Program).Assembly.GetName().Version!.ToString(3), version.Version.Split('-')[0]);
-        Assert.Contains($"Shelf {version.Version}", await _client.GetStringAsync("/"));
+        var page = await _client.GetStringAsync("/");
+        Assert.Contains($"Shelf {version.Version}", page);
+        // Under the AGPL every page offers the source; a changed copy points the link at its own.
+        Assert.Contains($"<a href=\"{ShelfVersion.Source}\">Source code</a>", page);
+        static IConfiguration With(string? url) => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["SourceUrl"] = url }).Build();
+        Assert.Equal("https://git.example.org/me/shelf", ShelfVersion.SourceUrl(With("https://git.example.org/me/shelf")));
+        Assert.Equal(ShelfVersion.Source, ShelfVersion.SourceUrl(With("javascript:alert(1)")));
+        Assert.Equal(ShelfVersion.Source, ShelfVersion.SourceUrl(With(null)));
     }
 
     [Fact]

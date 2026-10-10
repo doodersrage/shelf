@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Added
+
+- Shelf is free software under the GNU AGPL-3.0. A Source code link sits beside the version at the foot of every page; `SourceUrl` points it at a changed copy's own source.
+
 ## [1.3.0] - 2026-10-10
 
 ### Added

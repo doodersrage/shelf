@@ -12,6 +12,14 @@ public static class ShelfVersion
 
     public static string? Commit => Informational.Split('+') is [_, var commit, ..] ? commit[..Math.Min(12, commit.Length)] : null;
 
+    // Shelf is under the AGPL, so everyone who uses a shelf can get its source. A changed copy sets SourceUrl to its own.
+    public const string Source = "https://github.com/doodersrage/shelf";
+
+    public static string SourceUrl(IConfiguration configuration) =>
+        configuration["SourceUrl"] is { Length: > 0 } url && Uri.TryCreate(url, UriKind.Absolute, out var parsed) && parsed.Scheme is "https" or "http"
+            ? url
+            : Source;
+
     public static VersionResponse Response => new(Number, Commit);
 }
 

@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @inject IHostEnvironment Environment
+@inject IConfiguration Configuration
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject NavigationManager Navigation
 
@@ -159,7 +160,7 @@ else
                     <button type="submit" class="link">@T("Sign out")</button>
                 </form>
             </p>
-            <p title="@(ShelfVersion.Commit is null ? null : T("Built from {0}", ShelfVersion.Commit))">Shelf @ShelfVersion.Number</p>
+            <p><span title="@(ShelfVersion.Commit is null ? null : T("Built from {0}", ShelfVersion.Commit))">Shelf @ShelfVersion.Number</span> · <a href="@ShelfVersion.SourceUrl(Configuration)">@T("Source code")</a></p>
             <p>
                 <a href="/books">JSON</a>
                 @if (Environment.IsDevelopment())

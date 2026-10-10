@@ -248,3 +248,9 @@ The `dotnet-sdk` package does not include ASP.NET Core. Install it before buildi
 ```bash
 sudo pacman -S aspnet-runtime aspnet-targeting-pack
 ```
+
+## Licence
+
+Shelf is free software under the [GNU Affero General Public License, version 3](LICENSE). You may use, study, share, and change it. If you change it and let other people use your changed copy, over a network as well as by handing it to them, you must offer them its source under the same licence. The **Source code** link at the foot of every page points at this repository; a changed copy sets `SourceUrl` to the address of its own source.
+
+Shelf serves some files written by others, under their own licences: [PDF.js](https://github.com/mozilla/pdf.js) (Apache-2.0), [JSZip](https://github.com/Stuk/jszip) (MIT, chosen from MIT or GPL-3.0), and the [Inter](https://github.com/rsms/inter) and [Lora](https://github.com/cyrealtype/Lora-Cyrillic) fonts (SIL Open Font License 1.1, whose texts are in `wwwroot/fonts`). The .NET packages it uses are under MIT or Apache-2.0 licences.
