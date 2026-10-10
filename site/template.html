@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {{base}}
+    <title>{{title}}</title>
+    <meta name="description" content="{{description}}" />
+    <meta property="og:title" content="{{title}}" />
+    <meta property="og:description" content="{{description}}" />
+    <meta property="og:image" content="assets/images/library.png" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="assets/docs.css" />
+    <link rel="stylesheet" href="assets/highlight.css" />
+    <script>
+        // The theme chosen here before, if any, before the page paints.
+        try {
+            const theme = localStorage.getItem("shelf-docs-theme");
+            if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+        } catch { }
+    </script>
+</head>
+<body class="layout-{{layout}}">
+    <a class="skip" href="#content">Skip to the content</a>
+    <header class="top">
+        <button class="menu" type="button" aria-expanded="false" aria-controls="sidebar" aria-label="Menu">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+        </button>
+        <a class="wordmark" href="./">
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><rect x="3" y="4" width="4" height="16" rx="1" /><rect x="9" y="6" width="4" height="14" rx="1" /><rect x="15.2" y="5.2" width="4" height="15" rx="1" transform="rotate(-12 17.2 12.7)" /></svg>
+            shelf <span>docs</span>
+        </a>
+        <div class="search" role="search">
+            <label class="visually-hidden" for="search">Search the docs</label>
+            <input id="search" type="search" role="combobox" aria-autocomplete="list" placeholder="Search the docs" autocomplete="off" aria-controls="results" aria-expanded="false" />
+            <kbd aria-hidden="true">/</kbd>
+            <div class="results" id="results" role="listbox" hidden></div>
+        </div>
+        <div class="tools">
+            <button class="theme" type="button" aria-label="Switch between light and dark">
+                <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+                <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>
+            </button>
+            <a class="github" href="{{repository}}" aria-label="Shelf on GitHub">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.4 1.1 2.9.8.1-.6.4-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2z" /></svg>
+                <span>GitHub</span>
+            </a>
+        </div>
+    </header>
+    <div class="frame">
+        <nav class="sidebar" id="sidebar" aria-label="Documentation">
+            {{nav}}
+        </nav>
+        <main id="content" tabindex="-1">
+            <article class="prose">
+                {{content}}
+            </article>
+            {{pager}}
+            <footer class="foot">
+                <p><a href="{{source}}">Edit this page on GitHub</a> · <a href="{{repository}}">Shelf on GitHub</a></p>
+            </footer>
+        </main>
+        {{toc}}
+    </div>
+    <script src="assets/docs.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+---
+title: Your library
+nav: Your library
+description: The catalog, statuses, the library's views and filters, changing many books at once, covers, and the reading log.
+---
+
+# Your library
+
+The library is the front page: what you are reading leads, then the book to read next and what you finished lately, then every book on your shelf as covers or a compact list.
+
+## Statuses
+
+Every book is one of four, each shown with a different small shape as well as its word, so status never depends on color:
+
+| Status | Means |
+| --- | --- |
+| **Want to read** | On the list. Mark one **Read next** to bring it to the front. |
+| **Reading** | Underway. Moving a book here fills in a blank start date. |
+| **Finished** | Done. Fills in a blank finish date too, and counts toward the year's goal. |
+| **Abandoned** | Put down. **Pick it up again** moves it back to Reading. |
+
+Can't choose what to read next? `/books/pick` picks one book from the want list.
+
+## The catalog
+
+A book's details hold as much or as little as you like:
+
+- **Title, subtitle, author, and year**, with the original title of a translation and its translator.
+- **Series and number**, so the next volume is offered from the book's page.
+- **ISBN, publisher, language, page count, and format** (hardcover, paperback, e-book, or audiobook).
+- **About your copy:** where it sits, its condition from fine to poor, how it arrived (bought, a gift, or found), the date, any inscription written in the front, and who recommended it.
+- **Your own words:** a rating, a review, notes, and tags.
+
+Give an ISBN, or a title and author, and **Look up** fills the empty fields from [Open Library](https://openlibrary.org), cover included, whether you are adding a book or editing one. In the library, **Fill empty details** looks up every book with gaps at once. Neither touches anything you wrote.
+
+Tags are kept in lowercase, and an ISBN can be typed with or without hyphens.
+
+## Views and filters
+
+The library shows covers or a list, and remembers your choice. Search, status, and sort are always in view; more filters (author, series, tag, place, format, loved, on loan, recommended by) sit under **More filters**, and **Clear filters** appears whenever something narrows the list.
+
+Pages gathered from the catalog give other ways in: **Authors**, **Series** in reading order, **Places** where books sit, **Condition**, **Recommenders**, and **Years** of finished books.
+
+## Changing many books at once
+
+In the list view, tick books to change their status, add or remove a tag, mark them loved, or delete them, up to a thousand at a time.
+
+## Covers
+
+A book's cover is, in order of preference:
+
+1. **A picture kept on the shelf.** Upload one under **Files** on the book's page (JPEG, PNG, GIF, or WebP, up to 10 MB). Art embedded in an audiobook, or a cover from an import, is kept this way when the book has no cover yet.
+2. **A cover address** in the details, which Open Library fills in.
+3. **The cover inside the e-book**, or a comic's first page.
+
+With none of these, the book shows a plain green spine with its title.
+
+## The reading log
+
+Log a session from a book's page: the date, the pages you read from and to, and a note. Sessions feed **Stats**: the year's goal and how you are doing, books finished each month, counts, a reading streak, a calendar of reading days, and recent sessions.
+
+## Quotes
+
+Keep a quote on a book's page, with the page it is on. **Quotes & highlights** gathers every quote and every passage highlighted in the reader, with the books they came from, and searches their words, your notes, the titles, and the authors. Download them all [as Markdown](reading.md#exporting-highlights-and-notes).

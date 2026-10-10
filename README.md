@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/doodersrage/shelf/actions/workflows/ci.yml/badge.svg)](https://github.com/doodersrage/shelf/actions/workflows/ci.yml)
 
+**[Read the documentation](https://doodersrage.github.io/shelf/)**: installing, every feature, configuration, and the API.
+
 A personal library on .NET 10. It keeps the catalog, the reading log, the quotes, loans, and a yearly goal, looks up an ISBN, suggests one book from the want list, and can back the whole shelf up as JSON. Each reader signs in to a shelf of their own and can lend books to the other readers.
 
 ![The library: the books being read, the one to read next, and the ones just finished](docs/images/library.png)
@@ -106,7 +108,7 @@ Set `Accounts:AllowSignUp` to `false` to stop new accounts once the first one ex
 | `/books/{id}/return` | Clears a loan. |
 | `/books/{id}/lend` | `POST {"readerId": 2, "dueOn": "2026-11-01"}` lends the book to another reader. `/readers` lists the other readers. |
 | `/books/borrowed` | The books other readers have lent you. `POST /books/borrowed/{id}/return` gives one back. |
-| `/books/import` | `POST` any number of EPUBs, PDFs, audio files, and zips of tracks as `file` fields; each becomes a book named from what the file says (an EPUB's title, author, ISBN, publisher, language, and cover; a PDF's title and author through Poppler's `pdfinfo`; an audiobook's album and artist tags). Tracks that share an album make one audiobook. A file already on another book is skipped unless `keepBoth=true`, and a book already on the shelf without that kind of file takes it. Ask for `application/json` to get what happened to each file. |
+| `/books/import/files` | `POST` any number of EPUBs, PDFs, audio files, and zips of tracks as `file` fields; each becomes a book named from what the file says (an EPUB's title, author, ISBN, publisher, language, and cover; a PDF's title and author through Poppler's `pdfinfo`; an audiobook's album and artist tags). Tracks that share an album make one audiobook. A file already on another book is skipped unless `keepBoth=true`, and a book already on the shelf without that kind of file takes it. Ask for `application/json` to get what happened to each file. |
 | `/books/{id}/notes.md` | A book's quotes, highlights (by chapter or page), notes, and review as Markdown with YAML front matter. A borrower gets only their own highlights. `/books/notes.zip` has one file for every book with something written about it. |
 | `/books/{id}/cover` | The book's cover picture: one kept on the shelf, else the one inside its EPUB or a comic's first page. `POST` a JPEG, PNG, GIF, or WebP (up to 10 MB) as `file` to keep a picture of your own; `DELETE` removes it. |
 | `/books/{id}/ebook` | `POST` an EPUB or PDF (up to 80 MB). `DELETE` removes it. `/books/{id}/ebook/file` returns the file, and an EPUB's chapters are at `/books/{id}/ebook/chapters/{index}`. `/books/{id}/ebook/ocr/{page}` returns the words read from a scanned PDF page, with where each sits on the page. |
@@ -192,7 +194,7 @@ Sign-in cookies are sealed with keys kept in a `keys` folder beside `shelf.db`, 
 
 Outside Development the shelf sends HSTS and redirects HTTP to HTTPS whenever it has an HTTPS port, because passwords and device keys travel with every request. Behind a reverse proxy that ends TLS, such as Caddy or nginx, set `Hosting:BehindProxy` to `true` so the shelf trusts the proxy's `X-Forwarded-Proto`, `X-Forwarded-Host`, and `X-Forwarded-For`. Only set it when the shelf cannot be reached except through that proxy.
 
-An admin's snapshot from `/admin` holds `shelf.db` and the `ebooks` and `audio` folders. To restore one, stop the shelf, unpack the zip where those live, and start it again. Readers sign in again unless the old `keys` folder is put back too.
+An admin's snapshot from `/admin` holds `shelf.db` and the `ebooks`, `audio`, and `covers` folders. To restore one, stop the shelf, unpack the zip where those live, and start it again. Readers sign in again unless the old `keys` folder is put back too.
 
 ## Design
 

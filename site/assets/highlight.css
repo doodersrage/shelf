@@ -1,0 +1,100 @@
+/* Code colors in Shelf's palette, readable on the code background in both themes. */
+.hljs-comment,
+.hljs-quote {
+    color: #545c57;
+    font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in,
+.hljs-literal {
+    color: #2a5a49;
+    font-weight: 600;
+}
+
+.hljs-string,
+.hljs-attr,
+.hljs-symbol,
+.hljs-template-variable {
+    color: #8a4b12;
+}
+
+.hljs-number,
+.hljs-variable,
+.hljs-meta {
+    color: #6b3f8f;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-name,
+.hljs-type {
+    color: #1f4f7a;
+}
+
+:root[data-theme="dark"] .hljs-comment,
+:root[data-theme="dark"] .hljs-quote {
+    color: #9aa59d;
+}
+
+:root[data-theme="dark"] .hljs-keyword,
+:root[data-theme="dark"] .hljs-selector-tag,
+:root[data-theme="dark"] .hljs-built_in,
+:root[data-theme="dark"] .hljs-literal {
+    color: #9fd0b6;
+}
+
+:root[data-theme="dark"] .hljs-string,
+:root[data-theme="dark"] .hljs-attr,
+:root[data-theme="dark"] .hljs-symbol,
+:root[data-theme="dark"] .hljs-template-variable {
+    color: #e8b984;
+}
+
+:root[data-theme="dark"] .hljs-number,
+:root[data-theme="dark"] .hljs-variable,
+:root[data-theme="dark"] .hljs-meta {
+    color: #d1b3ec;
+}
+
+:root[data-theme="dark"] .hljs-title,
+:root[data-theme="dark"] .hljs-section,
+:root[data-theme="dark"] .hljs-name,
+:root[data-theme="dark"] .hljs-type {
+    color: #a9cdf0;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .hljs-comment,
+    :root:not([data-theme="light"]) .hljs-quote {
+        color: #9aa59d;
+    }
+
+    :root:not([data-theme="light"]) .hljs-keyword,
+    :root:not([data-theme="light"]) .hljs-selector-tag,
+    :root:not([data-theme="light"]) .hljs-built_in,
+    :root:not([data-theme="light"]) .hljs-literal {
+        color: #9fd0b6;
+    }
+
+    :root:not([data-theme="light"]) .hljs-string,
+    :root:not([data-theme="light"]) .hljs-attr,
+    :root:not([data-theme="light"]) .hljs-symbol,
+    :root:not([data-theme="light"]) .hljs-template-variable {
+        color: #e8b984;
+    }
+
+    :root:not([data-theme="light"]) .hljs-number,
+    :root:not([data-theme="light"]) .hljs-variable,
+    :root:not([data-theme="light"]) .hljs-meta {
+        color: #d1b3ec;
+    }
+
+    :root:not([data-theme="light"]) .hljs-title,
+    :root:not([data-theme="light"]) .hljs-section,
+    :root:not([data-theme="light"]) .hljs-name,
+    :root:not([data-theme="light"]) .hljs-type {
+        color: #a9cdf0;
+    }
+}

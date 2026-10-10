@@ -492,3 +492,5 @@ src/Shelf.Api/vendor/node_modules/
 tests/e2e/node_modules/
 tests/e2e/test-results/
 tests/e2e/playwright-report/
+site/node_modules/
+site/_site/
