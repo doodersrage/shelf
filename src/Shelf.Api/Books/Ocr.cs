@@ -216,7 +216,8 @@ public static class OcrRules
     }
 }
 
-// Reads scanned PDFs in the background, one book at a time, so every page is ready before anyone asks.
+// Reads every e-book in the background, one at a time, so its words are ready before anyone asks:
+// each EPUB chapter and PDF page is kept for searching, and scanned PDF pages are read with OCR.
 public sealed class OcrService(
     IServiceScopeFactory scopes,
     OcrTools tools,
@@ -236,11 +237,6 @@ public sealed class OcrService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!tools.Available)
-        {
-            return;
-        }
-
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -279,16 +275,19 @@ public sealed class OcrService(
         {
             var ids = stale.Select(scan => scan.Id).ToList();
             await db.OcrPages.Where(page => ids.Contains(page.ScanId)).ExecuteDeleteAsync(cancellationToken);
+            await db.BookTexts.Where(text => ids.Contains(text.ScanId)).ExecuteDeleteAsync(cancellationToken);
             db.OcrScans.RemoveRange(stale);
             await db.SaveChangesAsync(cancellationToken);
         }
 
         var pdfs = await db.Books.IgnoreQueryFilters()
             .AsNoTracking()
-            .Where(book => book.EbookStoredName != null && book.EbookStoredName.EndsWith(".pdf"))
+            .Where(book => book.EbookStoredName != null && (book.EbookStoredName.EndsWith(".pdf") || book.EbookStoredName.EndsWith(".epub")))
             .Select(book => new { book.Id, StoredName = book.EbookStoredName! })
             .ToListAsync(cancellationToken);
-        foreach (var pdf in pdfs)
+
+        // An EPUB needs nothing installed; a PDF needs Poppler, and Tesseract for its scanned pages.
+        foreach (var pdf in pdfs.Where(item => tools.Available || EbookStore.IsEpub(item.StoredName)))
         {
             var scan = await db.OcrScans.AsNoTracking()
                 .FirstOrDefaultAsync(item => item.BookId == pdf.Id && item.StoredName == pdf.StoredName, cancellationToken);
@@ -311,6 +310,12 @@ public sealed class OcrService(
         {
             scan = new OcrScan { BookId = bookId, StoredName = storedName, UpdatedAt = DateTimeOffset.UtcNow };
             db.OcrScans.Add(scan);
+        }
+
+        if (EbookStore.IsEpub(storedName))
+        {
+            await ReadEpubAsync(db, scan, path, cancellationToken);
+            return;
         }
 
         var info = path is null ? null : await RunAsync(tools.PdfInfo, [path], cancellationToken);
@@ -339,7 +344,12 @@ public sealed class OcrService(
                     if (words.Length > 0)
                     {
                         db.OcrPages.Add(new OcrPage { ScanId = scan.Id, Page = page, Words = OcrRules.Serialize(words) });
+                        Keep(db, scan, page, string.Join(' ', words.Select(word => word.T)));
                     }
+                }
+                else
+                {
+                    Keep(db, scan, page, own);
                 }
 
                 // Saved a page at a time, so a restart picks up where it stopped and readers see pages as they come.
@@ -351,6 +361,42 @@ public sealed class OcrService(
         finally
         {
             Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    private static void Keep(ShelfDb db, OcrScan scan, int part, string text)
+    {
+        var plain = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+        if (plain.Length > 0)
+        {
+            db.BookTexts.Add(new BookText { ScanId = scan.Id, BookId = scan.BookId, Part = part, Text = plain });
+        }
+    }
+
+    // An EPUB's chapters, kept as plain text for searching.
+    private async Task ReadEpubAsync(ShelfDb db, OcrScan scan, string? path, CancellationToken cancellationToken)
+    {
+        var chapters = path is null ? null : EpubFile.Chapters(path);
+        if (chapters is null)
+        {
+            scan.Failed = true;
+            scan.UpdatedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        scan.Pages = chapters.Count;
+        await db.SaveChangesAsync(cancellationToken);
+        for (var index = scan.Done; index < chapters.Count; index++)
+        {
+            if (EpubFile.ChapterHtml(path!, index, "") is { } html)
+            {
+                Keep(db, scan, index, Search.PlainText(html));
+            }
+
+            scan.Done = index + 1;
+            scan.UpdatedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(cancellationToken);
         }
     }
 

@@ -28,6 +28,7 @@ public sealed class ShelfDb : DbContext
     public DbSet<LoanAskRow> LoanAsks => Set<LoanAskRow>();
     public DbSet<OcrScan> OcrScans => Set<OcrScan>();
     public DbSet<OcrPage> OcrPages => Set<OcrPage>();
+    public DbSet<BookText> BookTexts => Set<BookText>();
     public DbSet<ShelfSetting> Settings => Set<ShelfSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -129,6 +130,15 @@ public sealed class ShelfDb : DbContext
                 .HasForeignKey(item => item.ScanId)
                 .OnDelete(DeleteBehavior.Cascade);
             page.HasIndex(item => new { item.ScanId, item.Page }).IsUnique();
+        });
+
+        modelBuilder.Entity<BookText>(text =>
+        {
+            text.HasOne<OcrScan>()
+                .WithMany()
+                .HasForeignKey(item => item.ScanId)
+                .OnDelete(DeleteBehavior.Cascade);
+            text.HasIndex(item => new { item.BookId, item.Part });
         });
 
         modelBuilder.Entity<LoanAskRow>(ask =>

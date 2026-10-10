@@ -41,10 +41,7 @@ public static class EbookEndpoints
         book.EbookChapter = 0;
         book.Format ??= BookFormat.Ebook;
         await db.SaveChangesAsync(cancellationToken);
-        if (EbookStore.IsPdf(saved.StoredName))
-        {
-            ocr.Nudge();
-        }
+        ocr.Nudge();
 
         return TypedResults.Redirect($"/library/{id}?ebook=saved");
     }

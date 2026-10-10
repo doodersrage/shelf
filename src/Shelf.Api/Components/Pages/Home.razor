@@ -228,11 +228,21 @@
 {
     <EmptyState Title="Nothing matches" Text="No book on your shelf fits these filters and this search.">
         <button type="button" class="primary" @onclick="ClearFilters">Clear filters</button>
+        @if (query.Trim().Length >= Search.MinLength)
+        {
+            <a class="button" href="@($"/search?q={Uri.EscapeDataString(query.Trim())}")">Search inside your e-books</a>
+        }
     </EmptyState>
 }
 else if (visible.Count > 0)
 {
-    <p class="count">@visible.Count @(visible.Count == 1 ? "book" : "books")</p>
+    <p class="count">
+        @visible.Count @(visible.Count == 1 ? "book" : "books")
+        @if (query.Trim().Length >= Search.MinLength)
+        {
+            <span> · <a href="@($"/search?q={Uri.EscapeDataString(query.Trim())}")">Search inside your e-books for “@query.Trim()”</a></span>
+        }
+    </p>
     @if (!listView)
     {
         <ul class="book-grid">

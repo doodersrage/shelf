@@ -1,0 +1,57 @@
+@page "/search"
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>Search inside books · Shelf</PageTitle>
+
+<h1>Search inside books</h1>
+<p class="hint">Searches the words of your e-books, and of books lent to you. Each book is read for searching in the background after it is uploaded, scanned PDFs included when OCR is installed.</p>
+
+<form class="filters" action="/search" method="get" role="search">
+    <label>
+        Words to find
+        <input type="search" name="q" value="@Q" minlength="@Search.MinLength" autofocus />
+    </label>
+    <div><button type="submit">Search</button></div>
+</form>
+
+@if (string.IsNullOrWhiteSpace(Q))
+{
+}
+else if (hits.Length == 0)
+{
+    <EmptyState Title="No book says that" Text="Nothing in your e-books matches those words. A book uploaded a moment ago may still be being read." ActionHref="@($"/?q={Uri.EscapeDataString(Q)}")" ActionLabel="Search the catalog instead" />
+}
+else
+{
+    <p class="count">@hits.Select(hit => hit.BookId).Distinct().Count() @(hits.Select(hit => hit.BookId).Distinct().Count() == 1 ? "book" : "books")</p>
+    @foreach (var book in hits.GroupBy(hit => hit.BookId))
+    {
+        var first = book.First();
+        <section class="panel search-book">
+            <h2><a href="/library/@first.BookId">@first.Title</a></h2>
+            <p class="by">@first.Author</p>
+            <ul class="quotes">
+                @foreach (var hit in book)
+                {
+                    <li>
+                        <blockquote><p>@hit.Before<mark>@hit.Match</mark>@hit.After</p></blockquote>
+                        <p class="hint">@hit.Where · <a href="@hit.Open">Open here</a></p>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+}
+
+@code {
+    private SearchHit[] hits = [];
+
+    [SupplyParameterFromQuery]
+    public string? Q { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        hits = await Search.FindAsync(db, Q);
+    }
+}

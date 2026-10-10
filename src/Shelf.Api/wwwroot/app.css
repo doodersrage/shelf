@@ -1683,3 +1683,14 @@ label > textarea {
 .book-list .book {
     grid-template-columns: 5.25rem minmax(0, 1fr);
 }
+
+.search-book h2 {
+    margin: 0;
+    font-size: var(--text-lg);
+}
+
+blockquote mark {
+    background: var(--color-mark);
+    color: inherit;
+    border-radius: 2px;
+}

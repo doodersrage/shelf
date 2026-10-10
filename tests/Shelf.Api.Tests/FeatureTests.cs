@@ -28,11 +28,16 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         }
 
         var store = factory.Services.GetRequiredService<EbookStore>();
-        var sidecar = Directory.GetFiles(store.Root, "*" + Fingerprint.Extension)
-            .Single(path => File.GetLastWriteTimeUtc(path) > DateTime.UtcNow.AddMinutes(-1) && File.ReadAllText(path).Length == 64
-                && Path.GetFileName(path).StartsWith(Path.GetFileName(path).Split('.')[0], StringComparison.Ordinal)
-                && File.Exists(path[..^Fingerprint.Extension.Length]));
-        var stored = Path.GetFileName(sidecar[..^Fingerprint.Extension.Length]);
+        string stored;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            stored = Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.IgnoreQueryFilters(db.Books)
+                .Single(item => item.Id == book.Id).EbookStoredName!;
+        }
+
+        var sidecar = Path.Combine(store.Root, stored + Fingerprint.Extension);
+        Assert.True(File.Exists(sidecar));
         var hash = File.ReadAllText(sidecar);
         Assert.Equal(hash, await store.HashAsync(stored, CancellationToken.None));
 
@@ -199,6 +204,44 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/books/{first.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await other.GetAsync($"/books/{theirs.Id}")).StatusCode);
         Assert.Contains("Choose all shown", await _client.GetStringAsync("/?view=list"));
+    }
+
+    [Fact]
+    public async Task Words_inside_a_book_can_be_found_by_who_may_open_it()
+    {
+        var book = await CreateAsync(new CreateBookRequest("Searchable Waters", "Someone", BookStatus.Reading, null));
+        using (var content = new MultipartFormDataContent { { new ByteArrayContent(BooksEndpointTests.SampleEpub("The grey heron waits by the cold river.")), "file", "waters.epub" } })
+        {
+            await _client.PostAsync($"/books/{book.Id}/ebook", content);
+        }
+
+        SearchHit[]? hits = null;
+        for (var attempt = 0; attempt < 60 && (hits is null || hits.Length == 0); attempt++)
+        {
+            hits = await _client.GetFromJsonAsync<SearchHit[]>("/books/search?q=HERON%20waits", JsonOptions);
+            if (hits!.Length == 0)
+            {
+                await Task.Delay(250);
+            }
+        }
+
+        var hit = Assert.Single(hits!);
+        Assert.Equal(book.Id, hit.BookId);
+        Assert.Equal("heron waits", hit.Match);
+        Assert.Equal("Chapter 1", hit.Where);
+        Assert.EndsWith("by the cold river.", hit.After);
+        Assert.Equal($"/library/{book.Id}/read?chapter=0", hit.Open);
+        Assert.Empty(await _client.GetFromJsonAsync<SearchHit[]>("/books/search?q=%25", JsonOptions) ?? []);
+
+        var page = await _client.GetStringAsync("/search?q=cold%20river");
+        Assert.Contains("<mark>cold river</mark>", page);
+        Assert.Contains("Searchable Waters", page);
+
+        var stranger = await factory.SignUpAsync("Search Stranger");
+        Assert.Empty(await stranger.GetFromJsonAsync<SearchHit[]>("/books/search?q=heron", JsonOptions) ?? []);
+        var strangerId = await factory.ReaderIdAsync("Search Stranger");
+        await _client.PostAsJsonAsync($"/books/{book.Id}/lend", new LendRequest(strangerId), JsonOptions);
+        Assert.Single(await stranger.GetFromJsonAsync<SearchHit[]>("/books/search?q=heron", JsonOptions) ?? []);
     }
 
     private async Task<HttpResponseMessage> PostCsvAsync(string csv, string name)

@@ -18,6 +18,7 @@ public static class BookEndpoints
         books.MapPost("/import/full", ImportEverything).DisableAntiforgery().WithTags("Shelf");
         books.MapPost("/import/csv", ImportCsv).DisableAntiforgery().WithTags("Shelf");
         books.MapGet("/reminders", Asking.Remind).WithTags("Lending");
+        books.MapGet("/search", Search.Find);
         books.MapGet("/shelves", Asking.Shelves).WithTags("Lending");
         books.MapGet("/shelves/{id:int}", Asking.Shelf).WithTags("Lending");
         books.MapPut("/shelves/open", Asking.OpenShelf).WithTags("Lending");
