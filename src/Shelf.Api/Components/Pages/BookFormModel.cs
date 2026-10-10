@@ -1,75 +1,76 @@
 using System.ComponentModel.DataAnnotations;
 using Shelf.Api.Books;
+using Shelf.Api.Localization;
 
 namespace Shelf.Api.Components.Pages;
 
 public sealed class BookFormModel
 {
-    [Required, MaxLength(200)]
+    [Required(ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.Required)), MaxLength(200, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.Title), ResourceType = typeof(FormWords))]
     public string Title { get; set; } = "";
 
-    [MaxLength(200)]
+    [MaxLength(200, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.Subtitle), ResourceType = typeof(FormWords))]
     public string Subtitle { get; set; } = "";
 
-    [Required, MaxLength(200)]
+    [Required(ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.Required)), MaxLength(200, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.Author), ResourceType = typeof(FormWords))]
     public string Author { get; set; } = "";
 
     public BookStatus Status { get; set; } = BookStatus.Want;
 
-    [Range(1, 5)]
+    [Range(1, 5, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.OutOfRange)), Display(Name = nameof(FormWords.Rating), ResourceType = typeof(FormWords))]
     public int? Rating { get; set; }
 
-    [Range(1000, 2100)]
+    [Range(1000, 2100, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.OutOfRange)), Display(Name = nameof(FormWords.Year), ResourceType = typeof(FormWords))]
     public int? Year { get; set; }
 
-    [MaxLength(32)]
+    [MaxLength(32, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.Isbn), ResourceType = typeof(FormWords))]
     public string Isbn { get; set; } = "";
 
-    [Range(1, 20000)]
+    [Range(1, 20000, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.OutOfRange)), Display(Name = nameof(FormWords.Pages), ResourceType = typeof(FormWords))]
     public int? Pages { get; set; }
 
-    [Range(0, 20000)]
+    [Range(0, 20000, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.OutOfRange)), Display(Name = nameof(FormWords.CurrentPage), ResourceType = typeof(FormWords))]
     public int? CurrentPage { get; set; }
 
-    [MaxLength(4000)]
+    [MaxLength(4000, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.Notes), ResourceType = typeof(FormWords))]
     public string Notes { get; set; } = "";
 
     public DateOnly? StartedOn { get; set; }
 
     public DateOnly? FinishedOn { get; set; }
 
-    [MaxLength(120)]
+    [MaxLength(120, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.LoanedTo), ResourceType = typeof(FormWords))]
     public string LoanedTo { get; set; } = "";
 
     public DateOnly? LoanedOn { get; set; }
 
     public DateOnly? DueOn { get; set; }
 
-    [MaxLength(200)]
+    [MaxLength(200, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.Publisher), ResourceType = typeof(FormWords))]
     public string Publisher { get; set; } = "";
 
-    [MaxLength(40)]
+    [MaxLength(40, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.Language), ResourceType = typeof(FormWords))]
     public string Language { get; set; } = "";
 
     public string Format { get; set; } = "";
 
-    [MaxLength(200)]
+    [MaxLength(200, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.Series), ResourceType = typeof(FormWords))]
     public string Series { get; set; } = "";
 
-    [Range(1, 999)]
+    [Range(1, 999, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.OutOfRange)), Display(Name = nameof(FormWords.SeriesNumber), ResourceType = typeof(FormWords))]
     public int? SeriesNumber { get; set; }
 
-    [MaxLength(500)]
+    [MaxLength(500, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.CoverUrl), ResourceType = typeof(FormWords))]
     public string CoverUrl { get; set; } = "";
 
-    [MaxLength(4000)]
+    [MaxLength(4000, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.Review), ResourceType = typeof(FormWords))]
     public string Review { get; set; } = "";
 
     public bool Loved { get; set; }
 
     public bool Queued { get; set; }
 
-    [MaxLength(80)]
+    [MaxLength(80, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.Location), ResourceType = typeof(FormWords))]
     public string Location { get; set; } = "";
 
     public DateOnly? AcquiredOn { get; set; }
@@ -78,16 +79,16 @@ public sealed class BookFormModel
 
     public string Condition { get; set; } = "";
 
-    [MaxLength(200)]
+    [MaxLength(200, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.OriginalTitle), ResourceType = typeof(FormWords))]
     public string OriginalTitle { get; set; } = "";
 
-    [MaxLength(500)]
+    [MaxLength(500, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.Inscription), ResourceType = typeof(FormWords))]
     public string Inscription { get; set; } = "";
 
-    [MaxLength(200)]
+    [MaxLength(200, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.Translator), ResourceType = typeof(FormWords))]
     public string Translator { get; set; } = "";
 
-    [MaxLength(120)]
+    [MaxLength(120, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.RecommendedBy), ResourceType = typeof(FormWords))]
     public string RecommendedBy { get; set; } = "";
 
     public string Tags { get; set; } = "";
@@ -276,13 +277,13 @@ public sealed class SessionFormModel
 {
     public DateOnly? Date { get; set; }
 
-    [Range(0, 20000)]
+    [Range(0, 20000, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.OutOfRange)), Display(Name = nameof(FormWords.FromPage), ResourceType = typeof(FormWords))]
     public int? FromPage { get; set; }
 
-    [Range(0, 20000)]
+    [Range(0, 20000, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.OutOfRange)), Display(Name = nameof(FormWords.ToPage), ResourceType = typeof(FormWords))]
     public int? ToPage { get; set; }
 
-    [MaxLength(500)]
+    [MaxLength(500, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.Note), ResourceType = typeof(FormWords))]
     public string Note { get; set; } = "";
 
     public void Clear()
@@ -296,16 +297,16 @@ public sealed class SessionFormModel
 
 public sealed class GoalFormModel
 {
-    [Range(0, 1000)]
+    [Range(0, 1000, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.OutOfRange)), Display(Name = nameof(FormWords.YearlyGoal), ResourceType = typeof(FormWords))]
     public int YearlyGoal { get; set; }
 }
 
 public sealed class QuoteFormModel
 {
-    [Required, MaxLength(1000)]
+    [Required(ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.Required)), MaxLength(1000, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.Text), ResourceType = typeof(FormWords))]
     public string Text { get; set; } = "";
 
-    [Range(1, 20000)]
+    [Range(1, 20000, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.OutOfRange)), Display(Name = nameof(FormWords.Page), ResourceType = typeof(FormWords))]
     public int? Page { get; set; }
 
     public void Clear()
