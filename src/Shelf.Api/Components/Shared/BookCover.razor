@@ -2,11 +2,11 @@
 <span class="cover-frame" style="@(Width is null ? null : $"width:{Width}")">
     @if (!string.IsNullOrWhiteSpace(Url))
     {
-        <img src="@Url" alt="@(Decorative ? "" : $"Cover of {Title}")" loading="lazy" />
+        <img src="@Url" alt="@(Decorative ? "" : T("Cover of {0}", Title))" loading="lazy" />
     }
     else
     {
-        <span class="spine" aria-hidden="true">@Title</span>
+        <span class="spine" aria-hidden="true"><span>@Title</span></span>
     }
 </span>
 

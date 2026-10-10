@@ -1109,6 +1109,8 @@ code.key {
     border-radius: 4px;
     background: var(--color-sunken);
     box-shadow: var(--shadow-cover);
+    /* The spine's title is sized from the cover's own width, so a thumbnail keeps whole words. */
+    container-type: inline-size;
 }
 
 .cover-frame img {
@@ -1123,16 +1125,24 @@ code.key {
     align-items: flex-end;
     width: 100%;
     height: 100%;
-    padding: var(--space-3);
+    padding: clamp(4px, 9cqi, var(--space-3)) clamp(2px, 5cqi, var(--space-3));
+    padding-left: calc(6px + clamp(3px, 6cqi, var(--space-3)));
     background:
         linear-gradient(90deg, rgb(0 0 0 / 0.14) 0 6px, transparent 6px),
         color-mix(in srgb, var(--color-brand) 85%, var(--color-canvas));
     color: var(--color-on-brand);
     font-family: var(--font-serif);
-    font-size: var(--text-sm);
+    font-size: clamp(0.375rem, 10.5cqi, var(--text-sm));
     font-weight: 600;
-    line-height: 1.25;
-    overflow-wrap: anywhere;
+    line-height: 1.2;
+    /* Break between syllables in the page's language; only a word too long even then breaks anywhere. */
+    hyphens: auto;
+    overflow-wrap: break-word;
+}
+
+/* Its own box, so a word wider than the cover can still break. */
+.spine > span {
+    min-width: 0;
 }
 
 .book-grid {
@@ -1157,6 +1167,8 @@ code.key {
     font-weight: 600;
     line-height: 1.25;
     margin: var(--space-1) 0 0;
+    hyphens: auto;
+    overflow-wrap: break-word;
 }
 
 .book-card .title a {
@@ -1216,6 +1228,8 @@ code.key {
     font-weight: 600;
     line-height: 1.25;
     margin: 0;
+    hyphens: auto;
+    overflow-wrap: break-word;
 }
 
 .strip-card .title a {
