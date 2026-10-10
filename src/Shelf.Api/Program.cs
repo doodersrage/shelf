@@ -98,6 +98,9 @@ builder.Services.AddHostedService(static services => services.GetRequiredService
 builder.Services.AddSingleton<OcrTools>();
 builder.Services.AddHostedService<FileSweep>();
 builder.Services.AddSingleton<BookImport>();
+// Calibre libraries, read from the server's disk by an admin.
+builder.Services.AddSingleton<CalibreImporter>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<CalibreImporter>());
 // A folder to drop books into (Import:Folder); off unless it is set.
 builder.Services.AddSingleton<FolderImport>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<FolderImport>());

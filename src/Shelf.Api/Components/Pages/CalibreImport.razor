@@ -1,0 +1,198 @@
+@page "/import/calibre"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject CalibreImporter Importer
+@inject IConfiguration Configuration
+@implements IDisposable
+
+<PageTitle>Calibre · Shelf</PageTitle>
+
+<p class="hint"><a href="/backup">@T("Backup & restore")</a></p>
+<h1>@T("Bring books from Calibre")</h1>
+<p class="hint">@T("Copies the books of a Calibre library on this server to your shelf: each book's file (an EPUB first, then a PDF, a comic, or a Kindle file), cover, series, tags, rating, and description. The library is only read; nothing in it changes. Books already on your shelf are left alone.")</p>
+
+@if (!allowed)
+{
+    <p>@T("Only an admin of this shelf can bring in a Calibre library, since it is read from the server's own disk.")</p>
+}
+else if (job is not null)
+{
+    <section class="panel" aria-labelledby="calibre-progress">
+        <h2 id="calibre-progress">@(job.Finished ? T("Brought across") : T("Bringing books across"))</h2>
+        <p class="hint" role="status">@T("Done: {0}. Already here: {1}. Not brought: {2}.", job.Lines.Values.Count(line => line.State == CalibreState.Done), job.Lines.Values.Count(line => line.State == CalibreState.Skipped), job.Lines.Values.Count(line => line.State == CalibreState.Failed))</p>
+        <ul class="free-downloads">
+            @foreach (var line in job.Books.Select(book => job.Lines[book.Id]))
+            {
+                <li>
+                    <span>@line.Title</span>
+                    @switch (line.State)
+                    {
+                        case CalibreState.Waiting:
+                            <span class="hint">@T("Waiting")</span>
+                            break;
+                        case CalibreState.Done:
+                            <a href="/library/@line.BookId">@T("On your shelf")</a>
+                            break;
+                        case CalibreState.Skipped:
+                            <span class="hint">@line.Note</span>
+                            break;
+                        default:
+                            <span class="validation-message">@line.Note</span>
+                            break;
+                    }
+                    @if (line.State == CalibreState.Done && line.Note is not null)
+                    {
+                        <span class="hint">@line.Note</span>
+                    }
+                </li>
+            }
+        </ul>
+        @if (job.Finished)
+        {
+            <button type="button" class="quiet" @onclick="StartOver">@T("Bring another library")</button>
+        }
+    </section>
+}
+else if (books is null)
+{
+    <section class="panel">
+        <form @onsubmit="Look" @onsubmit:preventDefault>
+            <label>
+                @T("The library's folder on this server")
+                <input @bind="folder" placeholder="/books/Calibre Library" spellcheck="false" required />
+            </label>
+            <p class="hint">@T("The folder that holds metadata.db. In Docker, mount the library into the container first and give the path inside it.")</p>
+            <button type="submit" class="primary" disabled="@busy">@(busy ? T("Reading…") : T("Read the library"))</button>
+        </form>
+    </section>
+}
+else
+{
+    <section class="panel" aria-labelledby="calibre-choose">
+        <h2 id="calibre-choose">@T("Choose books")</h2>
+        <p class="hint">@T("{0} in {1}.", Localization.Counts.Books(books.Count), folder) <button type="button" class="link" @onclick="StartOver">@T("Use another library")</button></p>
+        @if (books.Count == 0)
+        {
+            <p>@T("This library has no books.")</p>
+        }
+        else
+        {
+            <div class="bulk-bar">
+                <button type="button" class="quiet" @onclick="() => { chosen = books.Select(book => book.Id).ToHashSet(); }">@T("Choose all")</button>
+                <button type="button" class="quiet" @onclick="() => chosen.Clear()">@T("Choose none")</button>
+                <span class="hint">@T("{0} of {1} chosen", chosen.Count, books.Count)</span>
+            </div>
+            <ul class="abs-items">
+                @foreach (var book in books)
+                {
+                    <li>
+                        <label class="check">
+                            <input type="checkbox" checked="@chosen.Contains(book.Id)" @onchange="() => Toggle(book.Id)" aria-label="@T("Choose {0}", book.Title)" />
+                            <span>
+                                <strong>@book.Title</strong> <span class="by">@book.Author</span>
+                                <span class="hint">@(book.Files.Count == 0 ? T("no file") : string.Join(", ", book.Files.Select(file => file.Format)))@(book.Series is null ? "" : $" · {book.Series}")</span>
+                            </span>
+                        </label>
+                    </li>
+                }
+            </ul>
+            <button type="button" class="primary" @onclick="Import" disabled="@(chosen.Count == 0)">@T("Bring {0}", Localization.Counts.Books(chosen.Count))</button>
+        }
+    </section>
+}
+
+@if (problem is not null)
+{
+    <p class="validation-message" role="alert">@problem</p>
+}
+
+@code {
+    private bool allowed;
+    private int readerId;
+    private string folder = "";
+    private bool busy;
+    private string? problem;
+    private List<CalibreBook>? books;
+    private HashSet<int> chosen = [];
+    private CalibreJob? job;
+    private Timer? timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        readerId = db.ReaderId;
+        allowed = await ReaderRules.IsAdminAsync(db, readerId);
+        folder = Configuration["Calibre:Library"] ?? "";
+        job = Importer.Latest(readerId) is { Finished: false } running ? running : null;
+        Watch();
+    }
+
+    private async Task Look()
+    {
+        problem = null;
+        busy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            if (!await ReaderRules.IsAdminAsync(db, readerId))
+            {
+                allowed = false;
+                return;
+            }
+
+            var path = folder.Trim();
+            books = await Task.Run(() => CalibreLibrary.Read(path));
+            folder = path;
+            chosen = books.Select(book => book.Id).ToHashSet();
+        }
+        catch (CalibreProblem ex)
+        {
+            problem = ex.Message;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            problem = T("That folder could not be read: {0}", ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private void Toggle(int id)
+    {
+        if (!chosen.Remove(id))
+        {
+            chosen.Add(id);
+        }
+    }
+
+    private async Task Import()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (books is null || !await ReaderRules.IsAdminAsync(db, readerId))
+        {
+            return;
+        }
+
+        job = Importer.Start(readerId, folder, books.Where(book => chosen.Contains(book.Id)).ToList());
+        Watch();
+    }
+
+    private void StartOver()
+    {
+        job = null;
+        books = null;
+        problem = null;
+    }
+
+    private void Watch()
+    {
+        if (job is not null && timer is null)
+        {
+            timer = new Timer(_ => InvokeAsync(StateHasChanged), null, TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(1.5));
+        }
+    }
+
+    public void Dispose() => timer?.Dispose();
+}

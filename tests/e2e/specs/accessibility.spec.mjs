@@ -12,7 +12,7 @@ test("every page passes an accessibility audit in both themes", async ({ browser
   await page.request.post(`/books/${book.id}/quotes`, { data: { text: "Call me Ishmael.", page: 1 } });
 
   const pages = ["/", "/?view=list", "/?add=1", `/library/${book.id}`, `/library/${book.id}/read`, "/quotes", "/search?q=ishmael",
-    "/free", "/import/audiobookshelf", "/authors", "/series", "/places", "/copies", "/recommenders", "/years", "/loans", "/shelves", "/stats", "/backup", "/sync", "/account", "/admin"];
+    "/free", "/import/audiobookshelf", "/import/calibre", "/authors", "/series", "/places", "/copies", "/recommenders", "/years", "/loans", "/shelves", "/stats", "/backup", "/sync", "/account", "/admin"];
   const failures = [];
   for (const scheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: scheme });

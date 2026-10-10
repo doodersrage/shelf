@@ -184,6 +184,33 @@ public sealed class BookImport(EbookStore ebooks, AudioStore audio, CoverStore c
         return new ImportedFile(label, existing ? ImportOutcome.AddedToExisting : ImportOutcome.Added, book.Id, book.Title);
     }
 
+    // A book known only from a catalog, with no file: added unless the same book is on the shelf already.
+    public async Task<int?> CatalogAsync(ShelfDb db, FileDetails details, CancellationToken cancellationToken)
+    {
+        var title = Fit(details.Title, 200) ?? TitleFromName("");
+        var author = Fit(details.Author, 200) ?? UnknownAuthor;
+        var isbn = BookRules.NormalizeIsbn(details.Isbn);
+        var lowered = title.ToLower(CultureInfo.InvariantCulture);
+        var candidates = await db.Books.Where(book => book.Title.ToLower() == lowered || (isbn != null && book.Isbn == isbn)).ToListAsync(cancellationToken);
+        if (candidates.Any(book => BookRules.IsSameCopy(isbn, title, author, book.Isbn, book.Title, book.Author)))
+        {
+            return null;
+        }
+
+        var created = new Book
+        {
+            Title = title,
+            Author = author,
+            Isbn = isbn,
+            Publisher = Fit(details.Publisher, 200),
+            Year = details.Year is >= 1000 and <= 2100 ? details.Year : null,
+            Language = LanguageName(details.Language),
+        };
+        db.Books.Add(created);
+        await db.SaveChangesAsync(cancellationToken);
+        return created.Id;
+    }
+
     // The book a file belongs on: one already on the shelf that matches and lacks that kind of file, or a new one.
     private static async Task<(Book Book, bool Existing)> PlaceAsync(
         ShelfDb db, FileDetails? details, string fileName, Func<Book, bool> lacksFile, BookFormat format, CancellationToken cancellationToken)

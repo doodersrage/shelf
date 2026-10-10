@@ -71,6 +71,17 @@ Each book comes across with its audio tracks in Audiobookshelf's order, its e-bo
 > [!TIP]
 > The Audiobookshelf user needs permission to download (**Can Download** in its Users settings). Nothing on the Audiobookshelf server changes. If it is served under a path, include it in the address, such as `https://example.org/audiobookshelf`.
 
+## From Calibre
+
+An admin can bring in a [Calibre](https://calibre-ebook.com) library from the server's own disk: **Backup & restore**, then **Open a Calibre library**. Give the folder that holds `metadata.db` (in Docker, mount the library into the container first, read-only is fine, and give the path inside it), choose the books, and **Bring** them to your shelf.
+
+- Each book brings one file: an EPUB if it has one, otherwise a PDF, a comic, or a Kindle file (converted when Calibre's converter is on the server), or an audiobook.
+- Its cover, series and number, tags, publisher, rating, ISBN, language, year, and Calibre's description (as notes) come with it. Several authors are joined as Calibre shows them, with `&`.
+- A book with no file Shelf takes still comes in as a catalog entry.
+- The library is only read; nothing in it changes. A book already on your shelf is left alone, so bringing the same library again adds only what is new.
+
+`Calibre:Library` fills in the folder ahead of time.
+
 ## From Goodreads or StoryGraph
 
 Export your library as CSV from either service, then upload it on **Backup & restore**. Shelves become statuses and tags, ratings, reviews, and dates come along, and books already on your shelf are skipped.

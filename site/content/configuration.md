@@ -78,6 +78,12 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 | `Backup:Folder` | `backups` beside the database | Where they go. |
 | `Backup:IncludeFiles` | `false` | Put every e-book and audiobook in each copy too. They never change once saved, so most people back up their folders separately instead. |
 
+## Calibre
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `Calibre:Library` | none | The Calibre library's folder, filled in on **Open a Calibre library**. See [From Calibre](adding.md#from-calibre). |
+
 ## Import folder
 
 | Setting | Default | What it does |
