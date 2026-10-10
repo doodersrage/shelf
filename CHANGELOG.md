@@ -4,6 +4,14 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Added
+
+- Templates for Unraid, TrueNAS SCALE, and CasaOS in `deploy/`, and a section in the install guide for each.
+
+### Changed
+
+- The Docker image starts as root just long enough to make `/data` belong to the user Shelf runs as, then switches to it: `PUID` and `PGID`, 1654 unless set. A folder from the host now works as `/data` without a `chown`. Starting with `--user` works as before.
+
 ### Fixed
 
 - The library's Reading now and Read next show at most eight books, the latest started first, with a link to the rest. With hundreds marked as reading (after a Goodreads import, say), the page had grown to many times its size.

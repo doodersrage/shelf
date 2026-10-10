@@ -1,0 +1,41 @@
+# CasaOS: App Store, Custom Install, the import button, and paste this.
+name: shelf
+services:
+  shelf:
+    image: ghcr.io/doodersrage/shelf:latest
+    ports:
+      - target: 8080
+        published: "8095"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: /DATA/AppData/shelf
+        target: /data
+    environment:
+      PUID: $PUID
+      PGID: $PGID
+    restart: unless-stopped
+    x-casaos:
+      ports:
+        - container: "8080"
+          description:
+            en_us: Shelf's pages
+      volumes:
+        - container: /data
+          description:
+            en_us: The database, e-books, audiobooks, covers, and sign-in keys.
+x-casaos:
+  architectures: [amd64, arm64]
+  main: shelf
+  author: doodersrage
+  developer: doodersrage
+  category: Media
+  title:
+    en_us: Shelf
+  tagline:
+    en_us: Your books, read, heard, and lent
+  description:
+    en_us: Catalog your books, read EPUBs, PDFs, and comics in the browser, listen to audiobooks, and lend to the people you share it with. Make the first account; it becomes the admin.
+  icon: https://raw.githubusercontent.com/doodersrage/shelf/main/src/Shelf.Api/wwwroot/icon-512.png
+  index: /
+  port_map: "8095"

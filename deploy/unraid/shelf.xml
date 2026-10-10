@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!-- An Unraid template. In Unraid: Docker, Add Container, then paste this file's raw address into Template, or add
+     https://github.com/doodersrage/shelf to Community Applications' template repositories. -->
+<Container version="2">
+  <Name>Shelf</Name>
+  <Repository>ghcr.io/doodersrage/shelf:latest</Repository>
+  <Registry>https://github.com/doodersrage/shelf/pkgs/container/shelf</Registry>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/doodersrage/shelf/issues</Support>
+  <Project>https://doodersrage.github.io/shelf/</Project>
+  <Overview>A home for your books: catalog them, read EPUBs, PDFs, and comics in the browser, listen to audiobooks, and lend to the people you share it with. Syncs with KOReader, imports from Calibre, Audiobookshelf, and Goodreads, and finds free public-domain books. Open the web page and make the first account; it becomes the admin.</Overview>
+  <Category>MediaApp:Books MediaServer:Books</Category>
+  <WebUI>http://[IP]:[PORT:8080]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/doodersrage/shelf/main/deploy/unraid/shelf.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/doodersrage/shelf/main/src/Shelf.Api/wwwroot/icon-512.png</Icon>
+  <Config Name="Web port" Target="8080" Default="8080" Mode="tcp" Description="The port Shelf's pages are on." Type="Port" Display="always" Required="true">8080</Config>
+  <Config Name="Data" Target="/data" Default="/mnt/user/appdata/shelf" Mode="rw" Description="The database, e-books, audiobooks, covers, and sign-in keys. Back this up." Type="Path" Display="always" Required="true">/mnt/user/appdata/shelf</Config>
+  <Config Name="Import folder" Target="/import" Default="" Mode="rw" Description="Optional: a folder whose books are added on their own, with a folder inside for each reader. Set Import:Folder below to /import as well." Type="Path" Display="always" Required="false"/>
+  <Config Name="Import:Folder" Target="Import__Folder" Default="" Description="Set to /import to watch the import folder above." Type="Variable" Display="always" Required="false"/>
+  <Config Name="PUID" Target="PUID" Default="99" Description="The user Shelf runs as: 99 is Unraid's nobody." Type="Variable" Display="advanced" Required="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Description="The group Shelf runs as: 100 is Unraid's users." Type="Variable" Display="advanced" Required="false">100</Config>
+  <Config Name="Allow new accounts" Target="Accounts__AllowSignUp" Default="true" Description="Set to false once everyone has an account." Type="Variable" Display="advanced" Required="false">true</Config>
+  <Config Name="Behind a reverse proxy" Target="Hosting__BehindProxy" Default="false" Description="Set to true when Shelf is reached only through a proxy such as Nginx Proxy Manager or SWAG." Type="Variable" Display="advanced" Required="false">false</Config>
+  <Config Name="Email server" Target="Email__Host" Default="" Description="An SMTP server, for password resets, loan reminders, and Send to Kindle. See the configuration docs for the rest." Type="Variable" Display="advanced" Required="false"/>
+  <Config Name="Email from" Target="Email__From" Default="" Description="The address Shelf sends from." Type="Variable" Display="advanced" Required="false"/>
+</Container>

@@ -1,0 +1,18 @@
+# TrueNAS SCALE (24.10 or later): Apps, Discover Apps, the menu by Custom App, Install via YAML, and paste this.
+# Make a dataset for Shelf first, such as tank/apps/shelf, and change the paths below to it.
+services:
+  shelf:
+    image: ghcr.io/doodersrage/shelf:latest
+    ports:
+      - "30080:8080"
+    volumes:
+      - /mnt/tank/apps/shelf:/data
+      # A folder to drop books into, with a folder inside for each reader:
+      # - /mnt/tank/media/books-inbox:/import
+    environment:
+      # TrueNAS's own apps user and group.
+      PUID: "568"
+      PGID: "568"
+      # Import__Folder: /import
+      # Accounts__AllowSignUp: "false"
+    restart: unless-stopped

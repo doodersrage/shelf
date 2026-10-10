@@ -66,6 +66,18 @@ Settings are environment variables, with `__` where the documentation writes `:`
 > [!TIP]
 > Kindle files need Calibre to be turned into EPUBs, which adds several hundred megabytes, so the published image leaves it out. Build your own with it: `docker build --build-arg CALIBRE=true -t shelf .`
 
+## On Unraid, TrueNAS, or CasaOS
+
+Ready-made templates are in the [`deploy`](https://github.com/doodersrage/shelf/tree/main/deploy) folder:
+
+- **Unraid**: in **Docker**, choose **Add Container**, and paste `https://raw.githubusercontent.com/doodersrage/shelf/main/deploy/unraid/shelf.xml` into **Template**. Data goes to `/mnt/user/appdata/shelf`, and Shelf runs as Unraid's `nobody:users` (99:100).
+- **TrueNAS SCALE** 24.10 or later: make a dataset for Shelf, then **Apps**, **Discover Apps**, **Custom App**, **Install via YAML**, and paste [`deploy/truenas/docker-compose.yml`](https://github.com/doodersrage/shelf/blob/main/deploy/truenas/docker-compose.yml) with your dataset's path. It runs as TrueNAS's `apps` user (568).
+- **CasaOS**: **App Store**, **Custom Install**, import, and paste [`deploy/casaos/docker-compose.yml`](https://github.com/doodersrage/shelf/blob/main/deploy/casaos/docker-compose.yml).
+
+### Which user Shelf runs as
+
+The image starts as root only long enough to make `/data` belong to the user Shelf runs as, then switches to that user: `PUID` and `PGID`, 1654 (the image's own `app` user) unless you set them. So a folder from the host, which is often owned by someone else, works as `/data` without any `chown`. Give an import folder's owner as `PUID` and `PGID`, since Shelf never changes who owns your own files there. Started with `--user`, the image runs as that user and changes nothing.
+
 ## The first account
 
 The first visit goes to the sign-in page; choose **Make an account**. The first account:

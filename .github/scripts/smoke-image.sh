@@ -5,8 +5,11 @@
 set -euo pipefail
 image="$1"
 name="shelf-smoke-$$"
-docker run -d --name "$name" ${2:+--platform "$2"} -p 18080:8080 "$image" > /dev/null
-trap 'docker logs "$name" > smoke.log 2>&1 || true; docker rm -f "$name" > /dev/null 2>&1 || true' EXIT
+# /data is a folder from the host, as Unraid, TrueNAS, and most NAS setups give it, owned by someone else: the image
+# has to make it its own before Shelf can write there.
+data="$(mktemp -d)"
+docker run -d --name "$name" ${2:+--platform "$2"} -p 18080:8080 -v "$data:/data" "$image" > /dev/null
+trap 'docker logs "$name" > smoke.log 2>&1 || true; docker rm -f "$name" > /dev/null 2>&1 || true; sudo rm -rf "$data" 2>/dev/null || rm -rf "$data"' EXIT
 
 # Under emulation, an arm64 image takes a while to start.
 for _ in $(seq 1 150); do
@@ -25,4 +28,7 @@ while read -r asset; do
   echo "$status $asset"
   [ "$status" = 200 ] || failed=1
 done <<< "$assets"
+owner="$(stat -c '%u' "$data/shelf.db" 2>/dev/null || echo none)"
+echo "shelf.db in the host folder, owned by $owner"
+[ "$owner" = 1654 ] || failed=1
 exit "$failed"

@@ -27,14 +27,16 @@ RUN apt-get update \
 WORKDIR /app
 COPY --from=build /app .
 RUN mkdir -p /data && chown app:app /data
+COPY docker-entrypoint.sh /usr/local/bin/shelf-entrypoint
+RUN chmod 755 /usr/local/bin/shelf-entrypoint
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     ConnectionStrings__Shelf="Data Source=/data/shelf.db" \
     EbookStore__Root=/data/ebooks \
     AudioStore__Root=/data/audio \
     CoverStore__Root=/data/covers
-USER app
+# The entry point runs Shelf as PUID:PGID (the app user, 1654, by default) once /data is theirs; see docker-entrypoint.sh.
 VOLUME /data
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD curl -fsS http://localhost:8080/alive || exit 1
-ENTRYPOINT ["dotnet", "Shelf.Api.dll"]
+ENTRYPOINT ["shelf-entrypoint", "dotnet", "Shelf.Api.dll"]

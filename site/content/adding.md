@@ -37,7 +37,7 @@ When you upload a file that is byte for byte the same as one on another of your 
 
 ## From a folder
 
-Shelf can watch a folder and add whatever lands in it: books saved by a downloader, or copied over a network share from another computer. Set `Import:Folder` (in Docker, mount a folder at `/import` and set `Import__Folder=/import`; Shelf runs as user 1654 there, so give it write access, for instance with `chown 1654 /srv/books-inbox`), then:
+Shelf can watch a folder and add whatever lands in it: books saved by a downloader, or copied over a network share from another computer. Set `Import:Folder` (in Docker, mount a folder at `/import` and set `Import__Folder=/import`; set `PUID` and `PGID` to the folder's owner, or give user 1654 write access, since Shelf moves files out of it once they are added), then:
 
 - Each reader has a folder inside it named after them. **Make a folder for each reader** on **Readers** creates them. Files at the top of the import folder go to the first admin.
 - Each e-book, PDF, comic, Kindle file, or zip of tracks there becomes a book, named from what the file says. A folder of audio files becomes one audiobook, its tracks in the order of their names.
