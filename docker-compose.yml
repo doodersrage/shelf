@@ -1,0 +1,26 @@
+# docker compose up -d, then open http://localhost:8080 and make the first account.
+services:
+  shelf:
+    image: shelf
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - shelf-data:/data
+    environment:
+      # Behind a proxy that ends HTTPS (Caddy, nginx, Traefik), trust its forwarded headers:
+      # Hosting__BehindProxy: "true"
+      # Email for password resets and reminders:
+      # Email__Host: smtp.example.org
+      # Email__Port: "587"
+      # Email__User: shelf@example.org
+      # Email__Password: change-me
+      # Email__From: shelf@example.org
+      # Email__PublicAddress: https://shelf.example.org
+      # Stop new accounts once yours exists:
+      # Accounts__AllowSignUp: "false"
+      Ocr__Languages: eng
+    restart: unless-stopped
+
+volumes:
+  shelf-data:

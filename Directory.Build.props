@@ -1,0 +1,7 @@
+<Project>
+  <!-- The one place Shelf's version is set. Bump it with each release, add the change to CHANGELOG.md,
+       and tag the commit vX.Y.Z; the release workflow checks the tag against this number. -->
+  <PropertyGroup>
+    <VersionPrefix>1.0.0</VersionPrefix>
+  </PropertyGroup>
+</Project>

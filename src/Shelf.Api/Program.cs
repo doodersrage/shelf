@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Shelf.Api;
 using Shelf.Api.Books;
 using Shelf.Api.Components;
 using Shelf.Api.Data;
@@ -195,6 +196,7 @@ app.MapRazorComponents<App>()
 app.MapAccounts();
 app.MapAdmin();
 app.MapOpds();
+app.MapGet("/version", () => TypedResults.Ok(ShelfVersion.Response)).WithTags("Shelf").AllowAnonymous();
 app.MapBooks();
 await app.RunAsync();
 return 0;

@@ -1,5 +1,7 @@
 # Shelf
 
+[![CI](https://github.com/doodersrage/shelf/actions/workflows/ci.yml/badge.svg)](https://github.com/doodersrage/shelf/actions/workflows/ci.yml)
+
 A personal library on .NET 10. It keeps the catalog, the reading log, the quotes, loans, and a yearly goal, looks up an ISBN, suggests one book from the want list, and can back the whole shelf up as JSON. Each reader signs in to a shelf of their own and can lend books to the other readers.
 
 ![The library: the books being read, the one to read next, and the ones just finished](docs/images/library.png)
@@ -18,6 +20,16 @@ A personal library on .NET 10. It keeps the catalog, the reading log, the quotes
 The screenshots show public-domain books, with covers drawn for the demo.
 
 ## Run
+
+With Docker, the image has everything, OCR included, and keeps all its data in one volume:
+
+```bash
+docker compose up -d
+```
+
+Then open [http://localhost:8080](http://localhost:8080) and make the first account. `docker-compose.yml` lists the settings worth knowing (a proxy, email, and closing sign-up), commented out. A released version is also published as `ghcr.io/doodersrage/shelf:<version>`.
+
+To run from source:
 
 ```bash
 dotnet run --project Shelf.AppHost --launch-profile http
@@ -53,9 +65,10 @@ Set `Accounts:AllowSignUp` to `false` to stop new accounts once the first one ex
 | `/` | The library. `?status=Reading`, `?q=`, `?view=list`, and `?add=1` open it on one status, a search, the list view, or the add form. Search, filter, sort, add a book, or change its status. Covers line the top, anything being read is listed first, and want-list books can be marked to read next. An uploaded EPUB, PDF, or audiobook can be opened from its card. |
 | `/library/{id}` | One book. Edit the catalog, log a reading session, keep quotes, note how the copy arrived and what condition it is in, upload an EPUB, PDF, or audiobook, open the next volume, or delete it. |
 | `/library/{id}/read` | Read that book's EPUB or PDF, at your own text size, and back where you stopped. Select a passage in either to highlight it and leave a note. In an EPUB, set line spacing and width too. |
-| `/library/{id}/listen` | Play that book's audiobook. A zip of tracks becomes the track list, and playback resumes where it stopped. |
-| `/sync` | Trade e-books and audiobooks with another shelf. The furthest stopping place, and notes on a passage, come along. Make a key here for the other shelf, and enter the key it made for you. |
-| `/quotes` | Every quote, with the book it came from. Search the words, the title, or the author. |
+| `/library/{id}/listen` | Play that book's audiobook. A zip of tracks becomes the track list, playback resumes where it stopped, and the speed is kept for you. A sleep timer pauses after a while or at the end of a track. |
+| `/sync` | Trade e-books and audiobooks with another shelf. The furthest stopping place, and notes on a passage, come along. Make a key here for the other shelf, and enter the key it made for you. The same key signs e-reader apps in to the OPDS catalog. |
+| `/quotes` | Every quote and highlight, with the book it came from. Search the words, your notes, the title, or the author. |
+| `/search` | Search inside books: a phrase in the text of your e-books, and of books lent to you, shown in context and opened in the reader. |
 | `/authors` | Every author, with how many of their books are on the shelf. |
 | `/series` | Each series, in reading order. |
 | `/places` | Where the books sit. |
@@ -64,10 +77,14 @@ Set `Accounts:AllowSignUp` to `false` to stop new accounts once the first one ex
 | `/years` | Finished books, grouped by the year they were finished. |
 | `/loans` | Who currently has a book, which loans are overdue, and the books other readers have lent you. |
 | `/stats` | The yearly goal, books finished each month, counts, a reading streak, a month of reading, recent sessions, and tags. |
-| `/backup` | Download a full or JSON backup, or restore one. |
+| `/backup` | Download a full or JSON backup, restore one, or bring a library in from a Goodreads or StoryGraph CSV export. |
+| `/forgot`, `/reset` | Ask for a password reset link by email, and choose a new password from it. |
 | `/books` | The library as JSON. Filter with `q`, `status`, `tag`, `author`, `series`, `place`, `recommendedBy`, `loanedTo`, `loved`, `loaned`, `format`, and `sort` (`title`, `author`, `series`, `year`, `rating`, `added`). |
 | `/books/{id}` | One book as JSON, including tags, quotes, and sessions. |
 | `/books/export` | The shelf as a JSON backup, with quotes, sessions, and highlights. `POST /books/import` restores one, skipping books already on the shelf. |
+| `/books/import/csv` | `POST` a Goodreads or StoryGraph export as `file`. Shelves become status and tags, and books already on the shelf are skipped. |
+| `/books/bulk` | `POST {"ids": [1, 2], "status": "Finished"}` changes many books at once. Also `addTag`, `removeTag`, `loved`, and `delete`. |
+| `/books/search?q=` | Places inside your e-books where a phrase appears. |
 | `/books/export/full` | A zip of the JSON backup with every e-book and audiobook. `POST /books/import/full` with a `file` restores one and returns to `/backup`. |
 | `/books/shelves` | Open shelves. `/books/shelves/{id}` lists one, `PUT /books/shelves/open {"open": true}` opens yours, and `POST /books/{id}/ask` asks to borrow. |
 | `/books/asks` | Asks you made and asks waiting on you. `POST /books/asks/{id}/lend {"dueOn": null}` lends the book, and `DELETE /books/asks/{id}` declines or takes the ask back. |
@@ -91,6 +108,9 @@ Set `Accounts:AllowSignUp` to `false` to stop new accounts once the first one ex
 | `/books/sync` | The e-books and audiobooks another shelf can take, with the place each one stopped. `GET /books/sync/{key}/ebook` and `GET /books/sync/{key}/audio` return a file. `PUT /books/sync/{key}/progress` keeps the furthest place. Another shelf calls these with `Authorization: Bearer <key>`, using a key made on `/sync`. A key reaches only these sync calls, and only its own reader's books. |
 | `/books/stats` | The same summary as JSON. |
 | `/settings` | The yearly goal, as JSON. |
+| `/account/email` | `PUT {"email": "you@example.org", "reminders": true}` sets your address and daily reminders. |
+| `/opds` | An OPDS catalog for e-reader apps such as KOReader: your e-books by status and those lent to you, with downloads. Sign in with any user name and your device key as the password. |
+| `/version` | The running version and the commit it was built from. |
 | `/openapi/v1.json` | The OpenAPI document, in Development. |
 
 Putting a book into Reading or Finished fills a blank start date, and Finished also fills a blank finish date. A translation can keep its original title. An inscription is the note written in the front of a copy. A copy can be fine, good, fair, or poor. An EPUB or PDF uploaded for a book stays with that copy and opens in the reader. In an EPUB or a PDF, a selected passage can be highlighted and kept with a note; a PDF's highlights are kept by page. A scanned PDF, whose pages are pictures, is read with OCR in the background once it is uploaded, so its words can be selected and highlighted too. An audiobook can be one recording or a zip of tracks, and the player remembers the place it stopped. The files themselves are not part of the JSON backup; the zip backup on Backup & restore carries them. Two shelves can trade those files from Devices: the furthest place is kept, and a passage note comes with the e-book. Each side needs the key the other one made, and the key goes over the wire with every request, so use an `https://` address for a shelf outside your own network. Tags are stored in lowercase, and an ISBN can be typed with or without hyphens. Deleting the last book that uses a tag removes that tag.
@@ -106,6 +126,18 @@ dotnet ef migrations add ExpandLibrary --project src/Shelf.Api
 
 The next run applies the new migration. `dotnet ef database update --project src/Shelf.Api` applies it without starting the site.
 
+## Email
+
+With a mail server set, readers can add an email address on their account to reset a forgotten password from the sign-in page, and to get one email a day when a loan is overdue, a borrowed book is due within three days, or someone has asked to borrow. Without one, an admin resets passwords and reminders stay in the app.
+
+| Setting | What it is |
+| --- | --- |
+| `Email:Host`, `Email:Port` | The SMTP server, port 587 by default. |
+| `Email:User`, `Email:Password` | The account to send with, if the server wants one. |
+| `Email:From` | The address the emails come from. |
+| `Email:Ssl` | `true` by default, for STARTTLS. |
+| `Email:PublicAddress` | The shelf's own address, such as `https://shelf.example.org`, for links in reminders. |
+
 ## Running on a server
 
 Sign-in cookies are sealed with keys kept in a `keys` folder beside `shelf.db`, so restarting or redeploying does not sign anyone out. `DataProtection:KeysPath` moves the folder. Keep it private, since anyone with the keys can forge a sign-in.
@@ -117,6 +149,18 @@ An admin's snapshot from `/admin` holds `shelf.db` and the `ebooks` and `audio` 
 ## Design
 
 [`docs/design-system.md`](docs/design-system.md) describes the look: the color, type, and spacing tokens in `wwwroot/app.css`, the self-hosted Inter and Lora fonts, the navigation, and the rules for covers, buttons, status labels, empty states, and dark mode.
+
+## Versions and releases
+
+Shelf follows [semantic versioning](https://semver.org). The version is set once, in `Directory.Build.props`, and the build stamps the commit beside it; the sidebar shows it, and `GET /version` returns both. [CHANGELOG.md](CHANGELOG.md) records what changed in each release.
+
+To release, bump `VersionPrefix`, add a section for that version to the changelog, commit, and push a tag:
+
+```bash
+git tag v1.1.0 && git push origin v1.1.0
+```
+
+The release workflow checks the tag against `Directory.Build.props`, runs the tests, publishes `ghcr.io/doodersrage/shelf:1.1.0` and `:latest`, and creates a GitHub release from the changelog entry. CI runs the tests and builds the image on every push to `main` and every pull request.
 
 ## Tests
 

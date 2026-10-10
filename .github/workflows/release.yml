@@ -1,0 +1,70 @@
+name: Release
+
+# Push a tag such as v1.2.0 to publish that version: the tests run, the image goes to the
+# GitHub container registry, and a GitHub release carries that version's CHANGELOG entry.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches the version
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          prefix="$(sed -n 's:.*<VersionPrefix>\(.*\)</VersionPrefix>.*:\1:p' Directory.Build.props)"
+          if [ "$tag" != "$prefix" ]; then
+            echo "The tag says $tag but Directory.Build.props says $prefix." >&2
+            exit 1
+          fi
+          echo "number=$tag" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Tesseract and Poppler
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng poppler-utils
+
+      - run: dotnet test --configuration Release
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: VERSION=${{ steps.version.outputs.number }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/shelf:${{ steps.version.outputs.number }}
+            ghcr.io/${{ github.repository_owner }}/shelf:latest
+
+      - name: Write the release notes from CHANGELOG.md
+        run: |
+          awk -v version="${{ steps.version.outputs.number }}" '
+            $0 ~ "^## \\[" version "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found && /^\[[^]]+\]: / { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md || echo "Shelf ${{ steps.version.outputs.number }}." > notes.md
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --title "Shelf ${{ steps.version.outputs.number }}" --notes-file notes.md

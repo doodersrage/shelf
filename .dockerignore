@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/ebooks/
+**/audio/
+**/keys/
+.git/
+.github/
+docs/
+tests/
+Shelf.AppHost/

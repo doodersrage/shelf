@@ -359,6 +359,16 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal(count, factory.Mail.Sent.Count(item => item.To == "reminded@example.org"));
     }
 
+    [Fact]
+    public async Task The_running_version_is_shown_and_served()
+    {
+        var anonymous = factory.CreateClient();
+        var version = await anonymous.GetFromJsonAsync<VersionResponse>("/version", JsonOptions);
+        Assert.Matches(@"^\d+\.\d+\.\d+", version!.Version);
+        Assert.Equal(typeof(Program).Assembly.GetName().Version!.ToString(3), version.Version.Split('-')[0]);
+        Assert.Contains($"Shelf {version.Version}", await _client.GetStringAsync("/"));
+    }
+
     private async Task<HttpResponseMessage> PostCsvAsync(string csv, string name)
     {
         using var content = new MultipartFormDataContent { { new StringContent(csv), "file", name } };
