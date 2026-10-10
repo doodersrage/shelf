@@ -421,6 +421,10 @@ else if (book is not null)
             }
         </ul>
     }
+    @if (book.Highlights.Count > 0 || book.Quotes.Count > 0 || !string.IsNullOrWhiteSpace(book.Review) || !string.IsNullOrWhiteSpace(book.Notes))
+    {
+        <p class="hint"><a href="/books/@book.Id/notes.md" download>Download this book's quotes, highlights, and notes as Markdown</a></p>
+    }
     </section>
 
     <section class="panel" id="files">

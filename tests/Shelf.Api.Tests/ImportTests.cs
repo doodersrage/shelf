@@ -125,6 +125,43 @@ public sealed class ImportTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
         }
     }
 
+    [Fact]
+    public async Task Notes_come_out_as_markdown_and_a_borrower_gets_only_their_own()
+    {
+        var client = factory.Client;
+        var book = await (await client.PostAsJsonAsync("/books", new CreateBookRequest("A \"Quoted\" Title", "Someone", BookStatus.Finished, 4,
+                Notes: "Read on the ferry.", Review: "Better the second time."), JsonOptions))
+            .Content.ReadFromJsonAsync<BookResponse>(JsonOptions);
+        await client.PostAsJsonAsync($"/books/{book!.Id}/quotes", new CreateQuoteRequest("Two lines,\nkept together.", 12), JsonOptions);
+        await client.PostAsJsonAsync($"/books/{book.Id}/highlights", new CreateHighlightRequest("A marked passage", 2, "Why it matters."), JsonOptions);
+
+        var response = await client.GetAsync($"/books/{book.Id}/notes.md");
+        Assert.Equal("text/markdown", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("Someone - A Quoted Title.md", response.Content.Headers.ContentDisposition?.FileNameStar ?? response.Content.Headers.ContentDisposition?.FileName?.Trim('"'));
+        var markdown = await response.Content.ReadAsStringAsync();
+        Assert.Contains("title: \"A \\\"Quoted\\\" Title\"", markdown);
+        Assert.Contains("rating: 4", markdown);
+        Assert.Contains("## Review\n\nBetter the second time.", markdown);
+        Assert.Contains("## Notes\n\nRead on the ferry.", markdown);
+        Assert.Contains("> Two lines,\n> kept together.\n>\n> — page 12", markdown);
+        Assert.Contains("### Chapter 3\n\n> A marked passage\n\nWhy it matters.", markdown);
+
+        var borrower = await factory.SignUpAsync("Notes Borrower");
+        await client.PostAsJsonAsync($"/books/{book.Id}/lend", new LendRequest(await factory.ReaderIdAsync("Notes Borrower")), JsonOptions);
+        await borrower.PostAsJsonAsync($"/books/{book.Id}/highlights", new CreateHighlightRequest("The borrower's passage", 0, "Mine."), JsonOptions);
+        var theirs = await borrower.GetStringAsync($"/books/{book.Id}/notes.md");
+        Assert.Contains("The borrower's passage", theirs);
+        Assert.DoesNotContain("A marked passage", theirs);
+        Assert.DoesNotContain("ferry", theirs);
+        Assert.DoesNotContain("rating", theirs);
+
+        using var zip = new ZipArchive(await client.GetStreamAsync("/books/notes.zip"));
+        Assert.Contains(zip.Entries, entry => entry.Name == "Someone - A Quoted Title.md");
+        using var borrowed = new ZipArchive(await borrower.GetStreamAsync("/books/notes.zip"));
+        Assert.Equal(["Someone - A Quoted Title.md"], borrowed.Entries.Select(entry => entry.Name));
+        await client.PostAsync($"/books/{book.Id}/return", null);
+    }
+
     private static async Task<List<ImportedFile>> ImportAsync(HttpClient client, bool keepBoth, params (string Name, byte[] Bytes)[] files)
     {
         using var content = new MultipartFormDataContent();

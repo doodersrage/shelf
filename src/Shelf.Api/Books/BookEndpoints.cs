@@ -51,6 +51,8 @@ public static class BookEndpoints
         books.MapPost("/{id:int}/lend", Lending.Lend).WithTags("Lending");
         books.MapGet("/{id:int}/place", Lending.Place);
         books.MapGet("/{id:int}/cover", Covers.File);
+        books.MapGet("/{id:int}/notes.md", NotesExport.Book);
+        books.MapGet("/notes.zip", NotesExport.All);
         books.MapPut("/{id:int}/place", Lending.KeepPlace);
         books.MapPost("/{id:int}/ask", Asking.Ask).WithTags("Lending");
         books.MapGet("/borrowed", Lending.Borrowed).WithTags("Lending");
