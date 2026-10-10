@@ -85,3 +85,55 @@ test("a scanned PDF is read with OCR, so its words can be highlighted", async ({
   await expect(page.getByText("Shelf read its words")).toBeVisible();
   noProblems(page);
 });
+
+test("an EPUB is read aloud, going on into the next chapter", async ({ browser }) => {
+  const page = await signUp(browser, unique("Listener"));
+  // A stand-in for the browser's speech: it keeps what it was asked to say and finishes each piece at once.
+  await page.addInitScript(() => {
+    window.__spoken = [];
+    class Utterance {
+      constructor(text) { this.text = text; }
+    }
+    const synth = {
+      speak(utterance) {
+        window.__spoken.push(utterance.text);
+        setTimeout(() => utterance.onend?.(), 5);
+      },
+      cancel() {},
+      getVoices: () => [{ name: "Test Voice", lang: "en-US" }],
+      addEventListener() {},
+    };
+    Object.defineProperty(window, "speechSynthesis", { value: synth });
+    window.SpeechSynthesisUtterance = Utterance;
+  });
+  const book = await createBook(page, { title: unique("Moby-Dick"), author: "Herman Melville", status: "Reading" });
+  await upload(page, book.id, "ebook", "moby.epub", "application/epub+zip");
+
+  await page.goto(`/library/${book.id}/read`);
+  await ready(page);
+  await page.selectOption('.read-aloud select:has(option:text("Faster"))', "1.2");
+  await page.click('.read-aloud button:text-is("Read aloud")');
+  await expect.poll(() => page.evaluate(() => window.__spoken.some((text) => text.includes("Call me Ishmael")))).toBe(true);
+
+  // At the end of the book it stops by itself, having turned to the second chapter on the way.
+  await expect(page.locator('.read-aloud button:text-is("Read aloud")')).toBeVisible({ timeout: 30_000 });
+  expect(await page.evaluate(() => window.__spoken.some((text) => text.toLowerCase().includes("carpet-bag")))).toBe(true);
+  await expect.poll(async () => (await (await page.request.get(`/books/${book.id}/place`)).json()).ebookChapter).toBe(1);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("shelf-read-aloud")).rate)).toBe(1.2);
+  noProblems(page);
+});
+
+test("a comic turns its pages with the arrow keys", async ({ browser }) => {
+  const page = await signUp(browser, unique("Comics"));
+  const book = await createBook(page, { title: unique("A Comic"), author: "Someone", status: "Reading" });
+  await upload(page, book.id, "ebook", "comic.cbz", "application/vnd.comicbook+zip");
+  await page.goto(`/library/${book.id}/read`);
+  await ready(page);
+  await expect(page.locator(".reader-nav .hint")).toHaveText("Page 1 of 3");
+  await expect.poll(() => page.locator(".comic-viewer img:not([hidden])").evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true);
+  await page.locator(".comic-viewer").focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator(".reader-nav .hint")).toHaveText("Page 2 of 3");
+  await expect.poll(async () => (await (await page.request.get(`/books/${book.id}/place`)).json()).ebookChapter).toBe(1);
+  noProblems(page);
+});

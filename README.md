@@ -132,6 +132,10 @@ dotnet ef migrations add ExpandLibrary --project src/Shelf.Api
 
 The next run applies the new migration. `dotnet ef database update --project src/Shelf.Api` applies it without starting the site.
 
+## Read aloud
+
+The reader can read an EPUB or a PDF aloud with the browser's own voices, sentence by sentence, going on into the next chapter or page. The speed and voice are kept in that browser. Nothing is sent to the server or anywhere else; how it sounds depends on the voices the device has.
+
 ## Comics and Kindle files
 
 A comic book archive (`.cbz`) reads page by page, in name order, with its first page as the cover and its `ComicInfo.xml` naming it. A Kindle file (`.mobi`, `.azw3`, `.azw`) is turned into an EPUB as it comes in, when Calibre's `ebook-convert` is installed on the server (`Ebooks:Convert` points elsewhere). The Docker image leaves Calibre out to stay small; build it in with `docker build --build-arg CALIBRE=true .`. A file locked with DRM cannot be converted.

@@ -10,6 +10,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - KOReader progress sync: Shelf answers KOReader's sync plugin at `/kosync`, so a place reached on an e-reader comes back, and the other way round. Devices makes the KOReader password.
 - Add books from files, as many at once as you like: each EPUB, PDF, zip of tracks, or album of audio files becomes a book named from what the file says, and a matching book already on the shelf takes the file instead.
 - Quotes, highlights, notes, and reviews download as Markdown, a book at a time or all together, for Obsidian or any notes app.
+- Read aloud: the reader speaks an EPUB or PDF with the browser's voices, going on into the next chapter or page.
 - Comics (CBZ) read page by page, and Kindle files (MOBI, AZW3) are turned into EPUBs when Calibre is installed; `--build-arg CALIBRE=true` builds it into the Docker image.
 - An EPUB's own cover is shown for a book with no cover address.
 - Adding a book that another reader has on an open shelf offers to ask to borrow it instead, and a book's Files panel does the same when an open copy has a file yours lacks.
