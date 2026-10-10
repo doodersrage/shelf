@@ -156,7 +156,7 @@ else
             await Email.SendAsync(new EmailMessage(savedEmail!, "Shelf can reach you", $"Hello {Reader.Name},\n\nThis is a test from your shelf. Email works."), CancellationToken.None);
             emailNote = $"Sent to {savedEmail}.";
         }
-        catch (Exception ex) when (ex is System.Net.Mail.SmtpException or InvalidOperationException or IOException)
+        catch (Exception ex) when (ex is MailKit.ProtocolException or MailKit.CommandException or System.Net.Sockets.SocketException or MailKit.Security.AuthenticationException or InvalidOperationException or IOException)
         {
             emailNote = $"The mail server did not take it: {ex.Message}";
         }

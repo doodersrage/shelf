@@ -1,4 +1,3 @@
-using System.Net;
 using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text;
@@ -25,32 +24,39 @@ public sealed class NoEmailSender : IEmailSender
     public Task SendAsync(EmailMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
 }
 
-// Sends through the SMTP server in Email:Host, as Email:From, signing in with Email:User and Email:Password.
+// Sends with MailKit through the SMTP server in Email:Host, as Email:From, signing in with Email:User and
+// Email:Password. Email:Security picks the connection: auto (the default), starttls, ssl, or none.
 public sealed class SmtpEmailSender(IConfiguration configuration) : IEmailSender
 {
     public bool Enabled => !string.IsNullOrWhiteSpace(configuration["Email:Host"]) && !string.IsNullOrWhiteSpace(configuration["Email:From"]);
 
     public async Task SendAsync(EmailMessage message, CancellationToken cancellationToken)
     {
-        using var client = new SmtpClient(configuration["Email:Host"], configuration.GetValue("Email:Port", 587))
+        var mail = new MimeKit.MimeMessage();
+        mail.From.Add(new MimeKit.MailboxAddress("Shelf", configuration["Email:From"]!));
+        mail.To.Add(MimeKit.MailboxAddress.Parse(message.To));
+        mail.Subject = message.Subject;
+        mail.Body = new MimeKit.TextPart("plain") { Text = message.Body };
+
+        using var client = new MailKit.Net.Smtp.SmtpClient();
+        await client.ConnectAsync(configuration["Email:Host"]!, configuration.GetValue("Email:Port", 587), Security(), cancellationToken);
+        if (configuration["Email:User"] is { Length: > 0 } user)
         {
-            EnableSsl = configuration.GetValue("Email:Ssl", true),
-            DeliveryMethod = SmtpDeliveryMethod.Network,
-        };
-        if (!string.IsNullOrWhiteSpace(configuration["Email:User"]))
-        {
-            client.Credentials = new NetworkCredential(configuration["Email:User"], configuration["Email:Password"]);
+            await client.AuthenticateAsync(user, configuration["Email:Password"] ?? "", cancellationToken);
         }
 
-        using var mail = new MailMessage(new MailAddress(configuration["Email:From"]!, "Shelf"), new MailAddress(message.To))
-        {
-            Subject = message.Subject,
-            Body = message.Body,
-            BodyEncoding = Encoding.UTF8,
-            SubjectEncoding = Encoding.UTF8,
-        };
-        await client.SendMailAsync(mail, cancellationToken);
+        await client.SendAsync(mail, cancellationToken);
+        await client.DisconnectAsync(quit: true, cancellationToken);
     }
+
+    private MailKit.Security.SecureSocketOptions Security() =>
+        (configuration["Email:Security"] ?? (configuration.GetValue("Email:Ssl", true) ? "auto" : "none")).ToLowerInvariant() switch
+        {
+            "starttls" => MailKit.Security.SecureSocketOptions.StartTls,
+            "ssl" => MailKit.Security.SecureSocketOptions.SslOnConnect,
+            "none" => MailKit.Security.SecureSocketOptions.None,
+            _ => MailKit.Security.SecureSocketOptions.Auto,
+        };
 }
 
 // A link to reset a forgotten password: only its hash is kept, it works once, and it lasts an hour.

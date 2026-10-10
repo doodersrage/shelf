@@ -141,7 +141,7 @@ With a mail server set, readers can add an email address on their account to res
 | `Email:Host`, `Email:Port` | The SMTP server, port 587 by default. |
 | `Email:User`, `Email:Password` | The account to send with, if the server wants one. |
 | `Email:From` | The address the emails come from. |
-| `Email:Ssl` | `true` by default, for STARTTLS. |
+| `Email:Security` | How to connect: `auto` (the default), `starttls`, `ssl` for port 465, or `none` for a server on the same machine. |
 | `Email:PublicAddress` | The shelf's own address, such as `https://shelf.example.org`, for links in reminders. |
 
 ## Running on a server
