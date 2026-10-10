@@ -221,10 +221,11 @@
 }
 
 @{
-    var visible = Visible.ToList();
+    var matching = Visible.ToList();
+    var visible = matching.Take(shown).ToList();
 }
 
-@if (books.Count > 0 && visible.Count == 0)
+@if (books.Count > 0 && matching.Count == 0)
 {
     <EmptyState Title="Nothing matches" Text="No book on your shelf fits these filters and this search.">
         <button type="button" class="primary" @onclick="ClearFilters">Clear filters</button>
@@ -237,7 +238,7 @@
 else if (visible.Count > 0)
 {
     <p class="count">
-        @visible.Count @(visible.Count == 1 ? "book" : "books")
+        @matching.Count @(matching.Count == 1 ? "book" : "books")@(matching.Count > visible.Count ? $", showing {visible.Count}" : "")
         @if (query.Trim().Length >= Search.MinLength)
         {
             <span> · <a href="@($"/search?q={Uri.EscapeDataString(query.Trim())}")">Search inside your e-books for “@query.Trim()”</a></span>
@@ -463,6 +464,13 @@ else if (visible.Count > 0)
         }
         </ul>
     }
+    @if (matching.Count > visible.Count)
+    {
+        <p>
+            <button type="button" @onclick="() => shown += PageSize">Show @Math.Min(PageSize, matching.Count - visible.Count) more</button>
+            <span class="hint">@(matching.Count - visible.Count) not shown yet</span>
+        </p>
+    }
 }
 
 @code {
@@ -485,6 +493,9 @@ else if (visible.Count > 0)
     private Dictionary<string, string[]>? formErrors;
     private bool filling;
     private string? fillNote;
+    // A large shelf draws a page of books at a time, so the library stays quick with thousands.
+    private const int PageSize = 60;
+    private int shown = PageSize;
     private bool adding;
     private readonly HashSet<int> chosen = [];
     private string bulkStatus = "";
@@ -630,6 +641,7 @@ else if (visible.Count > 0)
 
     private void ClearFilters()
     {
+        shown = PageSize;
         query = "";
         statusFilter = "";
         lovedOnly = loanedOnly = queuedOnly = fileOnly = audioOnly = false;
@@ -744,7 +756,8 @@ else if (visible.Count > 0)
     private async Task LoadAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        books = await db.Books.AsNoTracking().WithDetails().ToListAsync();
+        // Only what the library shows: tags, and quotes for their count and for search.
+        books = await db.Books.AsNoTracking().Include(book => book.Tags).Include(book => book.Quotes).AsSplitQuery().ToListAsync();
     }
 
     private async Task AddBook()

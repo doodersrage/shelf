@@ -79,7 +79,7 @@ Set `Accounts:AllowSignUp` to `false` to stop new accounts once the first one ex
 | `/stats` | The yearly goal, books finished each month, counts, a reading streak, a month of reading, recent sessions, and tags. |
 | `/backup` | Download a full or JSON backup, restore one, or bring a library in from a Goodreads or StoryGraph CSV export. |
 | `/forgot`, `/reset` | Ask for a password reset link by email, and choose a new password from it. |
-| `/books` | The library as JSON. Filter with `q`, `status`, `tag`, `author`, `series`, `place`, `recommendedBy`, `loanedTo`, `loved`, `loaned`, `format`, and `sort` (`title`, `author`, `series`, `year`, `rating`, `added`). |
+| `/books` | The library as JSON. Filter with `q`, `status`, `tag`, `author`, `series`, `place`, `recommendedBy`, `loanedTo`, `loved`, `loaned`, `format`, and `sort` (`title`, `author`, `series`, `year`, `rating`, `added`). `skip` and `take` (up to 500) page through it, with the total in `X-Total-Count`. |
 | `/books/{id}` | One book as JSON, including tags, quotes, and sessions. |
 | `/books/export` | The shelf as a JSON backup, with quotes, sessions, and highlights. `POST /books/import` restores one, skipping books already on the shelf. |
 | `/books/import/csv` | `POST` a Goodreads or StoryGraph export as `file`. Shelves become status and tags, and books already on the shelf are skipped. |

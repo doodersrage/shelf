@@ -472,6 +472,31 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Empty(await _client.GetFromJsonAsync<SearchHit[]>("/books/search?q=%22%22%22", JsonOptions) ?? []);
     }
 
+    [Fact]
+    public async Task A_large_shelf_comes_a_page_at_a_time()
+    {
+        var reader = await factory.SignUpAsync("Prolific Reader");
+        for (var number = 1; number <= 65; number++)
+        {
+            await reader.PostAsJsonAsync("/books", new CreateBookRequest($"Volume {number:000}", "Someone", BookStatus.Want, null), JsonOptions);
+        }
+
+        var page = await reader.GetStringAsync("/");
+        Assert.Contains("65 books, showing 60", page);
+        Assert.Contains("Show 5 more", page);
+        Assert.Contains("Volume 060", page);
+        Assert.DoesNotContain("Volume 061", page);
+
+        var first = await reader.GetAsync("/books?sort=title&skip=0&take=20");
+        Assert.Equal("65", first.Headers.GetValues("X-Total-Count").Single());
+        var titles = (await first.Content.ReadFromJsonAsync<BookResponse[]>(JsonOptions))!.Select(book => book.Title).ToList();
+        Assert.Equal(20, titles.Count);
+        Assert.Equal("Volume 001", titles[0]);
+        var last = await reader.GetFromJsonAsync<BookResponse[]>("/books?sort=title&skip=60&take=20", JsonOptions);
+        Assert.Equal(5, last!.Length);
+        Assert.Equal(65, (await reader.GetFromJsonAsync<BookResponse[]>("/books", JsonOptions))!.Length);
+    }
+
     private async Task<HttpResponseMessage> PostCsvAsync(string csv, string name)
     {
         using var content = new MultipartFormDataContent { { new StringContent(csv), "file", name } };

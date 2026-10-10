@@ -84,6 +84,7 @@ public static class BookEndpoints
 
     private static async Task<Ok<BookResponse[]>> ListBooks(
         ShelfDb db,
+        HttpContext http,
         CancellationToken cancellationToken,
         string? q = null,
         BookStatus? status = null,
@@ -96,14 +97,24 @@ public static class BookEndpoints
         string? place = null,
         string? recommendedBy = null,
         string? loanedTo = null,
-        string? sort = null)
+        string? sort = null,
+        int? skip = null,
+        int? take = null)
     {
         var books = await BookRules.Filtered(db.Books, q, status, tag, author, loved, loaned, format, series, place, recommendedBy, loanedTo)
             .AsNoTracking()
             .WithDetails()
             .ToListAsync(cancellationToken);
 
-        return TypedResults.Ok(BookRules.Sort(books, sort).Select(BookResponse.From).ToArray());
+        // skip and take page through a large shelf; the total comes back in X-Total-Count.
+        IEnumerable<Book> page = BookRules.Sort(books, sort);
+        if (skip is not null || take is not null)
+        {
+            http.Response.Headers["X-Total-Count"] = books.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            page = page.Skip(Math.Max(0, skip ?? 0)).Take(Math.Clamp(take ?? 100, 1, 500));
+        }
+
+        return TypedResults.Ok(page.Select(BookResponse.From).ToArray());
     }
 
     private static async Task<Ok<ShelfStatsResponse>> GetStats(ShelfDb db, CancellationToken cancellationToken) =>
