@@ -39,6 +39,7 @@ public sealed class ShelfDb : DbContext
     public DbSet<ShelfSetting> Settings => Set<ShelfSetting>();
     public DbSet<SavedSearch> SavedSearches => Set<SavedSearch>();
     public DbSet<ApiToken> ApiTokens => Set<ApiToken>();
+    public DbSet<SeriesAlert> SeriesAlerts => Set<SeriesAlert>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -110,6 +111,17 @@ public sealed class ShelfDb : DbContext
             saved.HasIndex(s => s.OwnerId);
             saved.HasOne<Reader>().WithMany().HasForeignKey(s => s.OwnerId).OnDelete(DeleteBehavior.Cascade);
             saved.HasQueryFilter(s => s.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<SeriesAlert>(alert =>
+        {
+            alert.Property(a => a.Series).HasMaxLength(200).IsRequired();
+            alert.Property(a => a.Author).HasMaxLength(200).IsRequired();
+            alert.Property(a => a.Title).HasMaxLength(200).IsRequired();
+            alert.Property(a => a.WorkKey).HasMaxLength(60).IsRequired();
+            alert.HasIndex(a => new { a.OwnerId, a.WorkKey }).IsUnique();
+            alert.HasOne<Reader>().WithMany().HasForeignKey(a => a.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            alert.HasQueryFilter(a => a.OwnerId == ReaderId);
         });
 
         modelBuilder.Entity<ShelfSetting>(setting =>

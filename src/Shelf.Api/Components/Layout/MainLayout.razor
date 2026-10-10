@@ -89,6 +89,7 @@ else
     private string? readerName;
     private Reminders? reminders;
     private List<SavedSearch> savedSearches = [];
+    private int seriesAlerts;
 
     private string? SavedCurrent(int id) =>
         new Uri(Navigation.Uri) is { AbsolutePath: "/" } here
@@ -140,7 +141,15 @@ else
             <h2>@T("Discover & reflect")</h2>
             <ul>
                 <li><a href="/authors" aria-current="@Current("/authors")">@T("Authors")</a></li>
-                <li><a href="/series" aria-current="@Current("/series")">@T("Series")</a></li>
+                <li>
+                    <a href="/series" aria-current="@Current("/series")">
+                        @T("Series")
+                        @if (seriesAlerts > 0)
+                        {
+                            <span class="badge plain" aria-label="@T("{0} new", seriesAlerts)">@seriesAlerts</span>
+                        }
+                    </a>
+                </li>
                 <li><a href="/quotes" aria-current="@Current("/quotes")">@T("Quotes & highlights")</a></li>
                 <li><a href="/search" aria-current="@Current("/search")">@T("Search inside books")</a></li>
                 <li><a href="/free" aria-current="@Current("/free")">@T("Free books")</a></li>
@@ -203,6 +212,7 @@ else
             reminders = await Asking.RemindersAsync(db);
             isAdmin = await ReaderRules.IsAdminAsync(db, db.ReaderId);
             savedSearches = await db.SavedSearches.AsNoTracking().OrderBy(search => search.Name).ToListAsync();
+            seriesAlerts = await SeriesWatch.CountAsync(db);
         }
     }
 

@@ -29,6 +29,13 @@ public static class BookEndpoints
         books.MapGet("/pick", PickBook);
         books.MapGet("/authors", ListAuthors);
         books.MapGet("/series", ListSeries);
+        books.MapGet("/series/alerts", async (ShelfDb db, CancellationToken cancellationToken) => TypedResults.Ok(await SeriesWatch.ListAsync(db, cancellationToken)));
+        books.MapPost("/series/alerts/{id:int}/want", async Task<IResult> (int id, ShelfDb db, CancellationToken cancellationToken) =>
+            await SeriesWatch.WantAsync(db, id, cancellationToken) is int bookId ? TypedResults.Created($"/books/{bookId}", new { id = bookId }) : TypedResults.NotFound());
+        books.MapDelete("/series/alerts/{id:int}", async Task<IResult> (int id, ShelfDb db, CancellationToken cancellationToken) =>
+            await SeriesWatch.DismissAsync(db, id, cancellationToken) ? TypedResults.NoContent() : TypedResults.NotFound());
+        books.MapPost("/series/alerts/check", async Task<IResult> (ShelfDb db, SeriesWatch watch, CancellationToken cancellationToken) =>
+            await watch.CheckAsync(db.ReaderId, cancellationToken) is int found ? TypedResults.Ok(new { found }) : TypedResults.Conflict());
         books.MapGet("/places", ListPlaces);
         books.MapGet("/recommenders", ListRecommenders);
         books.MapGet("/quotes", ListAllQuotes);

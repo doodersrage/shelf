@@ -72,6 +72,15 @@ builder.Services.AddHttpClient<GoogleBooksLookup>(client =>
     client.Timeout = TimeSpan.FromSeconds(15);
 });
 builder.Services.AddTransient<IBookLookup, CatalogLookup>();
+// Series alerts: once a day, for readers who ask, new books in their series (SeriesAlerts:Enabled).
+builder.Services.AddHttpClient<ISeriesCatalog, OpenLibrarySeries>(client =>
+{
+    client.BaseAddress = new Uri("https://openlibrary.org/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Shelf/1.0 (personal library; +https://github.com/doodersrage/shelf)");
+});
+builder.Services.AddSingleton<SeriesWatch>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<SeriesWatch>());
 
 builder.Services.AddHttpClient("shelf-sync", client => client.Timeout = TimeSpan.FromMinutes(10));
 

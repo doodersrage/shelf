@@ -1574,6 +1574,8 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
     // Every email the shelf sends in these tests, instead of a mail server.
     public CapturedMail Mail { get; } = new();
 
+    public StubSeriesCatalog SeriesCatalog { get; } = new();
+
     public async Task InitializeAsync()
     {
         _client = await SignUpAsync("Tenar");
@@ -1629,11 +1631,13 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
         builder.UseSetting("Accounts:SignInsPerMinute", "1000");
         builder.UseSetting("DataProtection:KeysPath", _keysRoot);
         builder.UseSetting("Backup:Enabled", "false");
+        builder.UseSetting("SeriesAlerts:PauseMilliseconds", "0");
         builder.UseSetting("Backup:Folder", Path.Combine(_keysRoot, "backups"));
         builder.UseEnvironment("Testing");
         builder.ConfigureTestServices(services =>
         {
             services.AddSingleton<IBookLookup, StubBookLookup>();
+            services.AddSingleton<ISeriesCatalog>(SeriesCatalog);
             services.AddSingleton<Shelf.Api.Readers.IEmailSender>(Mail);
         });
     }

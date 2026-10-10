@@ -136,6 +136,10 @@ public sealed class ShelfSetting
     public int? ReaderWidth { get; set; }
     public bool LibraryAsList { get; set; }
     public int? AudioSpeed { get; set; }
+
+    // Series alerts: asked for, and when Open Library was last asked.
+    public bool WatchSeries { get; set; }
+    public DateTimeOffset? SeriesCheckedAt { get; set; }
 }
 
 // How a reader likes an e-book set: text size in percent, line height in hundredths, and line length in ems.

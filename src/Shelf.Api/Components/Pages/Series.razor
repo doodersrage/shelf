@@ -1,10 +1,50 @@
 @page "/series"
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
+@inject SeriesWatch Watch
+@inject NavigationManager Navigation
 
 <PageTitle>@T("Series") · Shelf</PageTitle>
 
 <h1>@T("Series")</h1>
+
+@if (alerts.Length > 0)
+{
+    <section class="panel" id="new-in-series">
+        <h2>@T("New in your series")</h2>
+        <ul class="tag-counts">
+            @foreach (var alert in alerts)
+            {
+                <li>
+                    <span><strong>@alert.Title</strong> <span class="hint">@(alert.Year is int year ? T("{0} by {1}, {2}", alert.Series, alert.Author, year) : T("{0} by {1}", alert.Series, alert.Author))</span></span>
+                    <span>
+                        <button type="button" @onclick="() => Want(alert.Id)" aria-label="@T("Add {0} to want to read", alert.Title)">@T("Want to read")</button>
+                        <button type="button" class="quiet" @onclick="() => Dismiss(alert.Id)" aria-label="@T("Dismiss {0}", alert.Title)">@T("Dismiss")</button>
+                    </span>
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+<section class="panel" id="series-alerts">
+    <label class="check">
+        <input type="checkbox" checked="@watching" @onchange="ChangeWatching" />
+        @T("Tell me when a new book comes out in a series I am reading")
+    </label>
+    <p class="hint">@T("Once a day, Shelf asks Open Library about each series you are reading or have finished a book of. Only the series and author names are sent.")</p>
+    @if (watching)
+    {
+        <p class="hint">
+            @(checkedAt is { } at ? T("Last looked {0}.", at.Medium()) : T("Not looked yet."))
+            <button type="button" class="link" @onclick="CheckNow" disabled="@looking">@(looking ? T("Looking…") : T("Look now"))</button>
+        </p>
+    }
+    @if (lookNote is not null)
+    {
+        <p class="hint" role="status">@lookNote</p>
+    }
+</section>
 
 @if (shelves.Count == 0)
 {
@@ -29,10 +69,17 @@ else
 
 @code {
     private List<SeriesShelf> shelves = [];
+    private SeriesAlertResponse[] alerts = [];
+    private bool watching;
+    private DateTimeOffset? checkedAt;
+    private bool looking;
+    private string? lookNote;
 
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
+        alerts = await SeriesWatch.ListAsync(db);
+        (watching, checkedAt) = await SeriesWatch.GetAsync(db);
         var books = await db.Books.AsNoTracking()
             .Where(book => book.Series != null)
             .Select(book => new Book
@@ -46,5 +93,63 @@ else
             })
             .ToListAsync();
         shelves = BookRules.SeriesShelves(books).ToList();
+    }
+
+    private async Task ChangeWatching(ChangeEventArgs change)
+    {
+        watching = change.Value is true;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await SeriesWatch.SetAsync(db, watching);
+        if (watching && checkedAt is null)
+        {
+            await CheckNow();
+        }
+    }
+
+    private async Task CheckNow()
+    {
+        looking = true;
+        lookNote = null;
+        StateHasChanged();
+        try
+        {
+            int readerId;
+            await using (var db = await DbFactory.CreateDbContextAsync())
+            {
+                readerId = db.ReaderId;
+            }
+
+            var found = await Watch.CheckAsync(readerId, CancellationToken.None);
+            lookNote = found switch
+            {
+                null => T("Shelf is already looking. Try again in a minute."),
+                0 => T("Nothing new in your series."),
+                1 => T("Found 1 new book."),
+                _ => T("Found {0} new books.", found),
+            };
+            await using var after = await DbFactory.CreateDbContextAsync();
+            alerts = await SeriesWatch.ListAsync(after);
+            (watching, checkedAt) = await SeriesWatch.GetAsync(after);
+        }
+        finally
+        {
+            looking = false;
+        }
+    }
+
+    private async Task Want(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await SeriesWatch.WantAsync(db, id) is int bookId)
+        {
+            Navigation.NavigateTo($"/library/{bookId}");
+        }
+    }
+
+    private async Task Dismiss(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await SeriesWatch.DismissAsync(db, id);
+        alerts = await SeriesWatch.ListAsync(db);
     }
 }
