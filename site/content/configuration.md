@@ -116,6 +116,8 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 | --- | --- | --- |
 | `Ebooks:Convert` | `ebook-convert` | Calibre's converter, which turns Kindle files into EPUBs. Without it, Kindle files are refused with a note saying why. |
 | `FreeBooks:Enabled` | `true` | The Free books page, which reaches gutenberg.org, librivox.org, and archive.org. Turn it off for a shelf with no internet. |
+| `Lookup:GoogleBooks` | `true` | Ask Google Books when Open Library has no match or leaves fields blank. It sends the ISBN, or the title and author, to Google; set `false` to keep look-ups to Open Library alone. |
+| `Lookup:GoogleBooksKey` | none | A Google Books API key (free, from the Google Cloud console). Without one, look-ups share Google's allowance for anonymous callers everywhere, which often runs out for the day; Shelf then carries on with Open Library alone. |
 
 ## Logging
 

@@ -59,12 +59,19 @@ builder.Services.AddDbContextFactory<ShelfDb>(options => options.UseSqlite(sqlit
 builder.Services.AddScoped(static services =>
     services.GetRequiredService<IDbContextFactory<ShelfDb>>().CreateDbContext());
 
-builder.Services.AddHttpClient<IBookLookup, OpenLibraryLookup>(client =>
+// Book details: Open Library first, then Google Books for what it does not know (Lookup:GoogleBooks).
+builder.Services.AddHttpClient<OpenLibraryLookup>(client =>
 {
     client.BaseAddress = new Uri("https://openlibrary.org/");
     client.Timeout = TimeSpan.FromSeconds(15);
     client.DefaultRequestHeaders.UserAgent.ParseAdd("Shelf/1.0 (personal library; +https://github.com/doodersrage/shelf)");
 });
+builder.Services.AddHttpClient<GoogleBooksLookup>(client =>
+{
+    client.BaseAddress = new Uri("https://www.googleapis.com/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
+builder.Services.AddTransient<IBookLookup, CatalogLookup>();
 
 builder.Services.AddHttpClient("shelf-sync", client => client.Timeout = TimeSpan.FromMinutes(10));
 

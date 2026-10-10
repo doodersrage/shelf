@@ -31,7 +31,7 @@ A book's details hold as much or as little as you like:
 - **About your copy:** where it sits, its condition from fine to poor, how it arrived (bought, a gift, or found), the date, any inscription written in the front, and who recommended it.
 - **Your own words:** a rating, a review, notes, and tags.
 
-Give an ISBN, or a title and author, and **Look up** fills the empty fields from [Open Library](https://openlibrary.org), cover included, whether you are adding a book or editing one. In the library, **Fill empty details** looks up every book with gaps at once. Neither touches anything you wrote.
+Give an ISBN, or a title and author, and **Look up** fills the empty fields from [Open Library](https://openlibrary.org), cover included, whether you are adding a book or editing one. When Open Library has no match, or leaves the pages, publisher, year, or cover blank, [Google Books](https://books.google.com) fills those in; it knows many newer and non-English books Open Library does not. Open Library's answer always comes first. In the library, **Fill empty details** looks up every book with gaps at once. Neither touches anything you wrote.
 
 Tags are kept in lowercase, and an ISBN can be typed with or without hyphens.
 

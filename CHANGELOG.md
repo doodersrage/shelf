@@ -15,6 +15,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - Off-site backups: each night's backup can be copied to a second folder (`Backup:CopyTo`) and to S3-compatible storage such as Amazon S3, Backblaze B2, Wasabi, Cloudflare R2, or MinIO (`Backup:S3:*`), keeping as many as the backups folder. Readers shows how the last copy went.
 - Highlights from KOReader: upload the JSON file from KOReader's Export highlights on Devices, and each highlight lands in its chapter (or page) with its note. Books are matched by title or file name, and highlights already here are skipped.
 - Saved searches: a filtered and sorted library view can be saved under a name, and opens again from the sidebar. Sort and the More filters checkboxes are now part of the library's address, so any view can be bookmarked too.
+- Google Books as a second source for Look up and Fill empty details: asked when Open Library has no match or leaves the pages, publisher, year, or cover blank (`Lookup:GoogleBooks`, with an optional `Lookup:GoogleBooksKey`).
 - Docker images for arm64 as well as amd64: a Raspberry Pi 4 or 5, most NAS boxes, and Apple silicon. CI starts the arm64 image too.
 
 ## [1.3.1] - 2026-10-10
