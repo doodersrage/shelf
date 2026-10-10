@@ -126,6 +126,20 @@ test("a filtered library is saved as a search, listed in the sidebar, and forgot
   await expect(page.getByRole("link", { name: "Loved and waiting" }).first()).toHaveAttribute("aria-current", "page");
   await expect(page.getByLabel("Loved", { exact: true })).toBeChecked();
 
+  // Shared by link, it opens for someone signed out, with the books and nothing else of the shelf.
+  await page.getByRole("button", { name: "Share by link" }).click();
+  const link = await page.locator("#share-link input").inputValue();
+  expect(link).toMatch(/\/shared\/[A-Za-z0-9_-]+$/);
+  const stranger = await (await browser.newContext()).newPage();
+  await stranger.goto(link);
+  await expect(stranger.locator("h1")).toHaveText("Loved and waiting");
+  await expect(stranger.locator(".shared-list li")).toHaveCount(1);
+  await expect(stranger.locator(".sidebar")).toHaveCount(0);
+  await page.getByRole("button", { name: "Stop sharing" }).click();
+  await expect(page.locator("#share-link")).toHaveCount(0);
+  await stranger.reload();
+  await expect(stranger.locator("h1")).toHaveText("This list is not shared");
+
   await Promise.all([page.waitForURL((url) => !url.search.includes("saved=")), page.getByRole("button", { name: "Forget this search" }).click()]);
   await ready(page);
   await expect(page.getByRole("link", { name: "Loved and waiting" })).toHaveCount(0);

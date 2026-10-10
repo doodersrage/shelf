@@ -35,15 +35,21 @@ public static class Covers
                 && (book.OwnerId == me || book.BorrowerId == me || (book.Owner != null && book.Owner.ShelfOpen)))
             .Select(book => new { book.EbookStoredName, book.CoverImage })
             .FirstOrDefaultAsync(cancellationToken);
+        return Serve(files?.EbookStoredName, files?.CoverImage, store, covers, http);
+    }
+
+    // A book's kept picture, or else its e-book's own cover.
+    public static IResult Serve(string? ebookStoredName, string? coverImage, EbookStore store, CoverStore covers, HttpContext http)
+    {
         http.Response.Headers.CacheControl = "private, max-age=86400";
         http.Response.Headers.ContentSecurityPolicy = "default-src 'none'";
-        if (covers.OpenPath(files?.CoverImage) is { } kept)
+        if (covers.OpenPath(coverImage) is { } kept)
         {
-            return Results.File(kept, CoverStore.ContentType(files!.CoverImage!));
+            return Results.File(kept, CoverStore.ContentType(coverImage!));
         }
 
-        var path = store.OpenPath(files?.EbookStoredName);
-        if (path is null || Picture(files!.EbookStoredName, path) is not { } cover)
+        var path = store.OpenPath(ebookStoredName);
+        if (path is null || Picture(ebookStoredName, path) is not { } cover)
         {
             return TypedResults.NotFound();
         }

@@ -109,6 +109,8 @@ public sealed class ShelfDb : DbContext
             saved.Property(s => s.Name).HasMaxLength(SavedSearch.MaxNameLength).IsRequired();
             saved.Property(s => s.Query).HasMaxLength(SavedSearch.MaxQueryLength).IsRequired();
             saved.HasIndex(s => s.OwnerId);
+            saved.Property(s => s.ShareToken).HasMaxLength(40);
+            saved.HasIndex(s => s.ShareToken).IsUnique();
             saved.HasOne<Reader>().WithMany().HasForeignKey(s => s.OwnerId).OnDelete(DeleteBehavior.Cascade);
             saved.HasQueryFilter(s => s.OwnerId == ReaderId);
         });

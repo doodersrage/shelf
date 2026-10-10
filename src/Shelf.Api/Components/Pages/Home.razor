@@ -219,6 +219,14 @@
             @if (saved is not null)
             {
                 <button type="button" class="quiet" @onclick="ForgetSearch">@T("Forget this search")</button>
+                @if (saved.ShareToken is null)
+                {
+                    <button type="button" class="quiet" @onclick="ShareSearch">@T("Share by link")</button>
+                }
+                else
+                {
+                    <button type="button" class="quiet" @onclick="StopSharing">@T("Stop sharing")</button>
+                }
             }
             else if (naming)
             {
@@ -237,6 +245,16 @@
             }
         }
     </div>
+
+    @if (saved?.ShareToken is { } shareToken)
+    {
+        <div class="share-link" id="share-link">
+            <label>
+                @T("Anyone with this link sees the list as it stands: titles, authors, covers, and your stars. Never your notes, reviews, or loans.")
+                <input type="url" readonly value="@Navigation.ToAbsoluteUri($"/shared/{shareToken}")" />
+            </label>
+        </div>
+    }
 
     @if (!string.IsNullOrWhiteSpace(tagFilter) || !string.IsNullOrWhiteSpace(authorFilter) || !string.IsNullOrWhiteSpace(seriesFilter) || !string.IsNullOrWhiteSpace(placeFilter) || !string.IsNullOrWhiteSpace(recommendedFilter) || !string.IsNullOrWhiteSpace(loanedFilter))
     {
@@ -717,6 +735,29 @@ else if (visible.Count > 0)
         await using var db = await DbFactory.CreateDbContextAsync();
         await db.SavedSearches.Where(item => item.Id == saved.Id).ExecuteDeleteAsync();
         Navigation.NavigateTo($"/?{saved.Query}", forceLoad: true);
+    }
+
+    private async Task ShareSearch()
+    {
+        if (saved is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        saved.ShareToken = await SharedLists.ShareAsync(db, saved.Id);
+    }
+
+    private async Task StopSharing()
+    {
+        if (saved is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await SharedLists.StopAsync(db, saved.Id);
+        saved.ShareToken = null;
     }
 
     protected override async Task OnParametersSetAsync()

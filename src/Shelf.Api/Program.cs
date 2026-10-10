@@ -259,6 +259,7 @@ app.MapOpds();
 Kosync.Map(app);
 app.MapGet("/version", () => TypedResults.Ok(ShelfVersion.Response)).WithTags("Shelf").AllowAnonymous();
 app.MapBooks();
+SharedLists.Map(app);
 await app.RunAsync();
 return 0;
 

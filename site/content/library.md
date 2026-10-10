@@ -45,6 +45,10 @@ Pages gathered from the catalog give other ways in: **Authors**, **Series** in r
 
 A view you come back to, such as *loved, want to read, newest first*, can be kept: set the filters and order, choose **Save this search**, and give it a name. It joins **Your library** in the sidebar, and opens with the same filters and order every time. **Forget this search**, on the open search, removes it. Saved searches are yours alone; every filtered view is also a plain address you can bookmark.
 
+### Sharing a reading list
+
+A saved search can be shared with anyone, signed in or not: open it and choose **Share by link**, then copy the address shown. The page behind it lists the books as the search finds them at that moment, with their covers, authors, years, series, and your stars; never your notes, reviews, quotes, loans, places, or files. Search engines are asked not to index it. **Stop sharing** ends the link at once, as does forgetting the search; sharing again makes a new link.
+
 ### New books in your series
 
 On **Series**, tick **Tell me when a new book comes out in a series I am reading**. Once a day Shelf asks Open Library about each series you are reading or have finished a book of, sending only the series and author names. A book in the series that is newer than yours and not on your shelf appears under **New in your series**, and the sidebar's **Series** shows how many are waiting. **Want to read** adds it to the want list, numbered after the last one you have; **Dismiss** lets it go. Either way, the same book is never offered twice. **Look now** asks straight away.

@@ -7,7 +7,7 @@ description: Passwords, passkeys, two-step sign-in, signed-in devices, the activ
 
 ## Signing in
 
-Every page and every API call needs a signed-in reader. A sign-in lasts thirty days on that browser, and each one is listed on **Account** under **Signed-in devices**, with its browser and when it was last used. Sign out any of them from there, or **Sign out everywhere else**.
+Every page and every API call needs a signed-in reader, apart from a [reading list you share by link](library.md#sharing-a-reading-list). Scripts sign in with an [API token](api.md#api-tokens), which opens the books API but never the account. A sign-in lasts thirty days on that browser, and each one is listed on **Account** under **Signed-in devices**, with its browser and when it was last used. Sign out any of them from there, or **Sign out everywhere else**.
 
 Changing your password signs you out everywhere. Sign-in and sign-up allow ten attempts a minute from one address (`Accounts:SignInsPerMinute`).
 

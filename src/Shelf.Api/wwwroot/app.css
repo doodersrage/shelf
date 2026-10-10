@@ -809,6 +809,30 @@ code.key {
     margin: 0;
 }
 
+/* The link to a shared saved search, under the library's filters. */
+.share-link {
+    margin-block: var(--space-2);
+}
+
+.share-link input {
+    width: 100%;
+    max-width: 40rem;
+}
+
+/* A reading list shared by link: covers beside their details. */
+.shared-list {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: var(--space-3);
+}
+
+.shared-list li {
+    display: flex;
+    gap: var(--space-3);
+    align-items: start;
+}
+
 /* Look up and Scan the barcode, side by side under the ISBN. */
 .scan {
     display: flex;

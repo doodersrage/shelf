@@ -123,6 +123,9 @@ public sealed class SavedSearch
     public required string Name { get; set; }
     public required string Query { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+
+    // Set while the search is shared by link: the link's random part.
+    public string? ShareToken { get; set; }
 }
 
 public sealed class ShelfSetting

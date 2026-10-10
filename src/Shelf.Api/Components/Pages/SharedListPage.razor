@@ -1,0 +1,65 @@
+@page "/shared/{Token}"
+@attribute [AllowAnonymous]
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+@* A reading list shared by link: plain HTML for anyone, with nothing of the reader's but the list itself. *@
+@if (list is null)
+{
+    <PageTitle>@T("Not shared") · Shelf</PageTitle>
+    <h1>@T("This list is not shared")</h1>
+    <p>@T("The link may be mistyped, or its reader has stopped sharing the list.")</p>
+}
+else
+{
+    <PageTitle>@list.Name · Shelf</PageTitle>
+    <HeadContent>
+        <meta name="robots" content="noindex" />
+        <meta name="referrer" content="no-referrer" />
+    </HeadContent>
+    <h1>@list.Name</h1>
+    <p class="hint">@T("A reading list from {0}'s shelf.", list.Reader) @Localization.Counts.Books(list.Books.Length)</p>
+    @if (list.Books.Length == 0)
+    {
+        <p>@T("Nothing on this list just now.")</p>
+    }
+    else
+    {
+        <ul class="shared-list">
+            @foreach (var book in list.Books)
+            {
+                <li>
+                    <BookCover Title="@book.Title" Url="@book.CoverUrl" Width="4rem" />
+                    <div>
+                        <strong>@book.Title</strong>
+                        @if (book.Subtitle is not null)
+                        {
+                            <span class="hint">@book.Subtitle</span>
+                        }
+                        <div>@book.Author@(book.Year is int year ? $" · {year}" : "")</div>
+                        @if (book.Series is not null)
+                        {
+                            <div class="hint">@book.Series@(book.SeriesNumber is int number ? $" {number}" : "")</div>
+                        }
+                        @if (book.Rating is int stars)
+                        {
+                            <div class="hint">@stars/5</div>
+                        }
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+}
+
+@code {
+    private SharedList? list;
+
+    [Parameter]
+    public string Token { get; set; } = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        list = await SharedLists.FindAsync(db, Token);
+    }
+}

@@ -164,3 +164,4 @@ These sign in differently, as their apps expect.
 | `GET /health` | `Healthy` when the app and database are up. |
 | `GET /alive` | `Healthy` when the app is up. |
 | `GET /version` | The running version and the commit it was built from. |
+| `GET /shared/{link}/list.json` | A reading list shared by link: its name, its reader, and each book's title, author, subtitle, year, series, stars, and cover. |
