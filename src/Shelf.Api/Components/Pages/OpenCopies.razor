@@ -1,0 +1,60 @@
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+@* Copies of this book on other readers' open shelves, each with a way to ask to borrow it. *@
+@if (Copies.Count > 0)
+{
+    <ul class="open-copies">
+        @foreach (var copy in Copies)
+        {
+            <li>
+                <span>
+                    On <a href="/shelves/@copy.OwnerId">@copy.Owner's open shelf</a>@Has(copy)@(copy.OnLoan ? ", on loan just now" : "").
+                </span>
+                @if (copy.Asked || asked.Contains(copy.Id))
+                {
+                    <span class="saved">Asked</span>
+                }
+                else
+                {
+                    <button type="button" class="quiet" @onclick="() => Ask(copy)" aria-label="@($"Ask {copy.Owner} to borrow {copy.Title}")">Ask to borrow</button>
+                }
+            </li>
+        }
+    </ul>
+    @if (message is not null)
+    {
+        <p class="validation-message" role="alert">@message</p>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<OpenCopy> Copies { get; set; } = [];
+
+    private readonly HashSet<int> asked = [];
+    private string? message;
+
+    private static string Has(OpenCopy copy) => (copy.HasEbook, copy.HasAudio) switch
+    {
+        (true, true) => ", with an e-book and an audiobook",
+        (true, false) => ", with an e-book",
+        (false, true) => ", with an audiobook",
+        _ => "",
+    };
+
+    private async Task Ask(OpenCopy copy)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var result = await Asking.AskAsync(db, copy.Id);
+        message = result switch
+        {
+            AskResult.Asked => null,
+            AskResult.AlreadyYours => "That book is already lent to you.",
+            _ => "That book is no longer on an open shelf.",
+        };
+        if (result == AskResult.Asked)
+        {
+            asked.Add(copy.Id);
+        }
+    }
+}

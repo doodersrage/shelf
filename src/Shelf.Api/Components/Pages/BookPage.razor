@@ -421,6 +421,11 @@ else if (book is not null)
 
     <section class="panel" id="files">
         <h2>Files</h2>
+    @if (borrowable.Count > 0)
+    {
+        <p class="hint">Before uploading: another reader has this book with a file you could borrow.</p>
+        <OpenCopies Copies="borrowable" />
+    }
     <h3>E-book</h3>
     @if (offlineNote is not null)
     {
@@ -599,6 +604,7 @@ else if (book is not null)
     private readonly QuoteFormModel quoteDraft = new();
     private readonly SessionFormModel sessionDraft = new();
     private List<OtherBook> others = [];
+    private List<OpenCopy> borrowable = [];
     private NextVolume? nextVolume;
     private List<ReaderResponse> readers = [];
     private int lendTo;
@@ -740,6 +746,9 @@ else if (book is not null)
             }
         }
         readers = book is null ? [] : (await ReaderRules.OthersAsync(db, db.ReaderId)).ToList();
+        borrowable = book is null ? [] : Asking.Matching(await Asking.OpenCopiesAsync(db, book.Title, book.Isbn), book.Isbn, book.Title, book.Author)
+            .Where(copy => (copy.HasEbook && book.EbookStoredName is null) || (copy.HasAudio && book.AudioStoredName is null))
+            .ToList();
         if (book is not null && replaceDraft)
         {
             draft = BookFormModel.From(book);

@@ -764,6 +764,22 @@ code.key {
     font-weight: 500;
 }
 
+/* Copies on other readers' open shelves, each with its own ask. */
+.open-copies {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--space-4);
+    font-size: var(--text-sm);
+}
+
+.open-copies li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) 0;
+}
+
 /* A notice that asks something: the question, then its answers beside it or below. */
 .notice.ask {
     flex-wrap: wrap;

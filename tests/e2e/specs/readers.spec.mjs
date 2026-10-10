@@ -54,3 +54,26 @@ test("two-step sign-in is set up from the account page and asked for at the next
   await expect(page.locator("section:has(h2:text('Signed-in devices')) li")).toHaveCount(2);
   noProblems(page);
 });
+
+test("adding a book another reader has on an open shelf offers to borrow it", async ({ browser }) => {
+  const lenderName = unique("Arha");
+  const lender = await signUp(browser, lenderName);
+  const title = unique("The Tombs of Atuan");
+  await createBook(lender, { title, author: "Ursula K. Le Guin" });
+  await lender.request.put("/books/shelves/open", { data: { open: true } });
+
+  const reader = await signUp(browser, unique("Tenar"));
+  await reader.goto("/?add=1");
+  await ready(reader);
+  await reader.getByLabel("Title", { exact: true }).fill(title);
+  await reader.getByLabel("Author", { exact: true }).fill("Ursula K. Le Guin");
+  await reader.keyboard.press("Tab");
+  await expect(reader.locator(".open-copies")).toContainText(`On ${lenderName}'s open shelf`);
+  await reader.click(`button[aria-label="Ask ${lenderName} to borrow ${title}"]`);
+  await expect(reader.locator(".open-copies .saved")).toHaveText("Asked");
+
+  await lender.goto("/loans");
+  await ready(lender);
+  await expect(lender.locator("main")).toContainText(title);
+  noProblems(reader);
+});

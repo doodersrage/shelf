@@ -64,6 +64,19 @@ public sealed record ShelfBook(
     bool HasAudio,
     bool Asked);
 
+// A book on another reader's open shelf: what the borrowing hints need to match it and offer to ask.
+public sealed record OpenCopy(
+    int Id,
+    int OwnerId,
+    string Owner,
+    string Title,
+    string Author,
+    string? Isbn,
+    bool OnLoan,
+    bool HasEbook,
+    bool HasAudio,
+    bool Asked);
+
 public sealed record AskRequest(int BookId);
 
 public sealed record LoanAsk(

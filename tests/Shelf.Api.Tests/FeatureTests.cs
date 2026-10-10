@@ -713,6 +713,41 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
     }
 
     [Fact]
+    public async Task A_book_on_an_open_shelf_is_offered_to_borrow_before_uploading_your_own()
+    {
+        var lender = await factory.SignUpAsync("Open Lender");
+        var theirs = await (await lender.PostAsJsonAsync("/books", new CreateBookRequest("The Tombs of Atuan", "Ursula K. Le Guin", BookStatus.Finished, null), JsonOptions))
+            .Content.ReadFromJsonAsync<BookResponse>(JsonOptions);
+        await UploadEbookAsync(lender, theirs!.Id, BooksEndpointTests.SampleEpub("Arha walks the labyrinth."));
+        var mine = await CreateAsync(new CreateBookRequest("the tombs of atuan", "Ursula K. Le Guin", BookStatus.Want, null));
+
+        // A closed shelf is never mentioned.
+        Assert.DoesNotContain("Before uploading", await _client.GetStringAsync($"/library/{mine.Id}"));
+
+        await lender.PutAsJsonAsync("/books/shelves/open", new ShelfOpenChange(true), JsonOptions);
+        var page = WebUtility.HtmlDecode(await _client.GetStringAsync($"/library/{mine.Id}"));
+        Assert.Contains("Before uploading", page);
+        Assert.Contains("Open Lender's open shelf", page);
+        Assert.Contains("with an e-book", page);
+        Assert.Contains("Ask Open Lender to borrow", page);
+
+        // Once this copy has its own e-book, there is nothing to offer.
+        await UploadEbookAsync(_client, mine.Id, BooksEndpointTests.SampleEpub("My own copy of the labyrinth."));
+        Assert.DoesNotContain("Before uploading", await _client.GetStringAsync($"/library/{mine.Id}"));
+
+        // Matching is by title and author, or ISBN; the lender never sees their own book offered back.
+        using var scope = factory.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(factory.ReaderId);
+        var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+        var all = await Asking.OpenCopiesAsync(db);
+        Assert.Single(Asking.Matching(all, null, "The Tombs Of Atuan", "ursula k. le guin"));
+        Assert.Empty(Asking.Matching(all, null, "The Tombs of Atuan", "Someone Else"));
+
+        await lender.PutAsJsonAsync("/books/shelves/open", new ShelfOpenChange(false), JsonOptions);
+        Assert.Empty(Asking.Matching(await Asking.OpenCopiesAsync(db), null, "The Tombs of Atuan", "Ursula K. Le Guin"));
+    }
+
+    [Fact]
     public async Task A_place_read_elsewhere_only_moves_forward()
     {
         var book = await CreateAsync(new CreateBookRequest("Read On A Train", "Someone", BookStatus.Reading, null));

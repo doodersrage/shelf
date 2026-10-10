@@ -81,6 +81,37 @@ public static class Asking
         return (owner.Name, shown);
     }
 
+    // Books on other readers' open shelves, for "you could borrow this" hints. Given a title or ISBN, only the
+    // likely matches are read; BookRules.IsSameCopy makes the final call. Books already lent to this reader are left out.
+    public static async Task<OpenCopy[]> OpenCopiesAsync(ShelfDb db, string? title = null, string? isbn = null, CancellationToken cancellationToken = default)
+    {
+        var me = db.ReaderId;
+        if (me == 0)
+        {
+            return [];
+        }
+
+        var books = db.Books.IgnoreQueryFilters().AsNoTracking()
+            .Where(book => book.OwnerId != me && book.Owner != null && book.Owner.ShelfOpen && book.BorrowerId != me);
+        if (title is not null || isbn is not null)
+        {
+            var lowered = title?.Trim().ToLower();
+            var normalized = BookRules.NormalizeIsbn(isbn);
+            books = books.Where(book => (lowered != null && book.Title.ToLower() == lowered) || (normalized != null && book.Isbn == normalized));
+        }
+
+        var asked = await db.LoanAsks.AsNoTracking().Where(ask => ask.ReaderId == me).Select(ask => ask.BookId).ToListAsync(cancellationToken);
+        var copies = await books
+            .OrderBy(book => book.Owner!.Name)
+            .Select(book => new OpenCopy(book.Id, book.OwnerId!.Value, book.Owner!.Name, book.Title, book.Author, book.Isbn,
+                book.LoanedTo != null, book.EbookStoredName != null, book.AudioStoredName != null, false))
+            .ToListAsync(cancellationToken);
+        return copies.Select(copy => copy with { Asked = asked.Contains(copy.Id) }).ToArray();
+    }
+
+    public static OpenCopy[] Matching(IEnumerable<OpenCopy> copies, string? isbn, string title, string author) =>
+        copies.Where(copy => BookRules.IsSameCopy(isbn, title, author, copy.Isbn, copy.Title, copy.Author)).ToArray();
+
     public static async Task<AskResult> AskAsync(ShelfDb db, int bookId, CancellationToken cancellationToken = default)
     {
         var me = db.ReaderId;

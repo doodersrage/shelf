@@ -69,6 +69,11 @@
 {
     <p class="hint">Already on the shelf: <a href="/library/@existing.Id">@existing.Title</a>.</p>
 }
+else if (Borrowable.Length > 0)
+{
+    <p class="hint">Another reader has this. You could borrow it instead of adding your own.</p>
+    <OpenCopies Copies="Borrowable" />
+}
 <div class="pair">
     <label>
         Series
@@ -210,6 +215,23 @@
 
     private Book? Duplicate => Shelf?.FirstOrDefault(book =>
         BookRules.IsSameCopy(Model.Isbn, Model.Title, Model.Author, book.Isbn, book.Title, book.Author));
+
+    [Inject]
+    public IDbContextFactory<ShelfDb> DbFactory { get; set; } = default!;
+
+    // Adding a book (a Shelf is given only then): what other readers' open shelves hold, read once.
+    private OpenCopy[] openCopies = [];
+
+    private OpenCopy[] Borrowable => openCopies.Length == 0 ? [] : Asking.Matching(openCopies, Model.Isbn, Model.Title, Model.Author);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Shelf is not null)
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            openCopies = await Asking.OpenCopiesAsync(db);
+        }
+    }
 
     [Inject]
     public IBookLookup Lookup { get; set; } = default!;
