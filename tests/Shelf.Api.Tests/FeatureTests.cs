@@ -429,6 +429,49 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal(HttpStatusCode.Forbidden, (await reader.GetAsync($"/admin/backups/{backup.Name}")).StatusCode);
     }
 
+    [Fact]
+    public async Task Search_ranks_places_and_overlooks_accents_and_partial_words()
+    {
+        async Task<BookResponse> WithTextAsync(string title, string sentence)
+        {
+            var book = await CreateAsync(new CreateBookRequest(title, "Someone", BookStatus.Reading, null));
+            using var content = new MultipartFormDataContent { { new ByteArrayContent(BooksEndpointTests.SampleEpub(sentence)), "file", "text.epub" } };
+            await _client.PostAsync($"/books/{book.Id}/ebook", content);
+            return book;
+        }
+
+        var once = await WithTextAsync("Mentions Marmalade Once", "There was marmalade on the table, and tea.");
+        var often = await WithTextAsync("Marmalade Everywhere", "Marmalade for breakfast. Marmalade for lunch. Marmalade, marmalade, marmalade.");
+        var accented = await WithTextAsync("The Corner Café", "They met at the little café by the harbour.");
+
+        async Task<SearchHit[]> FindAsync(string query)
+        {
+            SearchHit[] hits = [];
+            for (var attempt = 0; attempt < 60; attempt++)
+            {
+                hits = await _client.GetFromJsonAsync<SearchHit[]>($"/books/search?q={Uri.EscapeDataString(query)}", JsonOptions) ?? [];
+                if (hits.Length > 0)
+                {
+                    break;
+                }
+
+                await Task.Delay(250);
+            }
+
+            return hits;
+        }
+
+        var marmalade = await FindAsync("marmalade");
+        Assert.Equal([often.Id, once.Id], marmalade.Select(hit => hit.BookId).Distinct());
+
+        var cafe = Assert.Single(await FindAsync("cafe by the"));
+        Assert.Equal(accented.Id, cafe.BookId);
+        Assert.Equal("café by the", cafe.Match);
+
+        Assert.Contains(await FindAsync("harbo"), hit => hit.BookId == accented.Id);
+        Assert.Empty(await _client.GetFromJsonAsync<SearchHit[]>("/books/search?q=%22%22%22", JsonOptions) ?? []);
+    }
+
     private async Task<HttpResponseMessage> PostCsvAsync(string csv, string name)
     {
         using var content = new MultipartFormDataContent { { new StringContent(csv), "file", name } };

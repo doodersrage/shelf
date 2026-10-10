@@ -68,7 +68,7 @@ Set `Accounts:AllowSignUp` to `false` to stop new accounts once the first one ex
 | `/library/{id}/listen` | Play that book's audiobook. A zip of tracks becomes the track list, playback resumes where it stopped, and the speed is kept for you. A sleep timer pauses after a while or at the end of a track. |
 | `/sync` | Trade e-books and audiobooks with another shelf. The furthest stopping place, and notes on a passage, come along. Make a key here for the other shelf, and enter the key it made for you. The same key signs e-reader apps in to the OPDS catalog. |
 | `/quotes` | Every quote and highlight, with the book it came from. Search the words, your notes, the title, or the author. |
-| `/search` | Search inside books: a phrase in the text of your e-books, and of books lent to you, shown in context and opened in the reader. |
+| `/search` | Search inside books: a phrase in the text of your e-books, and of books lent to you, ranked by how well each place matches, shown in context, and opened in the reader. Case and accents do not matter, and the last word can be partial. |
 | `/authors` | Every author, with how many of their books are on the shelf. |
 | `/series` | Each series, in reading order. |
 | `/places` | Where the books sit. |
