@@ -1,4 +1,4 @@
-# Weekly pull requests for out-of-date dependencies. CI runs on each one.
+# Weekly pull requests for out-of-date dependencies, one per area rather than one per package. CI runs on each one.
 version: 2
 updates:
   - package-ecosystem: nuget
@@ -13,24 +13,40 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
 
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
+    groups:
+      docker:
+        patterns: ["*"]
 
-  # PDF.js and the fonts are copied into wwwroot; a bump here needs `npm run vendor` (CI says so if it is missing).
+  # PDF.js, JSZip, the barcode reader, and the fonts are copied into wwwroot, so this pull request fails CI until
+  # someone runs `npm ci && npm run vendor` in src/Shelf.Api/vendor and commits the copied files.
   - package-ecosystem: npm
     directory: /src/Shelf.Api/vendor
     schedule:
       interval: weekly
+    groups:
+      vendored:
+        patterns: ["*"]
 
   - package-ecosystem: npm
     directory: /tests/e2e
     schedule:
       interval: weekly
+    groups:
+      browser-tests:
+        patterns: ["*"]
 
   - package-ecosystem: npm
     directory: /site
     schedule:
       interval: weekly
+    groups:
+      docs-site:
+        patterns: ["*"]

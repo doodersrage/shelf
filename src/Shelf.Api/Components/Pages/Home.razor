@@ -140,7 +140,7 @@
 
 @if (books.Count > 0)
 {
-    <div class="filters" role="search">
+    <div class="filters" role="search" aria-label="@T("Filter the library")">
         <label>
             @T("Search")
             <input type="search" @bind="query" @bind:event="oninput" placeholder="@T("Title, author, ISBN, notes, quotes")" />

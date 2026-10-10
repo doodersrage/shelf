@@ -55,8 +55,8 @@ public sealed class KoreaderHighlightsTests(ShelfApiFactory factory) : IClassFix
         Assert.Equal((3, 0, 1), (result.Added, result.AlreadyHere, result.Books));
         Assert.Equal(["Not On This Shelf"], result.NotFound);
 
-        var marks = await client.GetFromJsonAsync<List<HighlightResponse>>($"/books/{book.Id}/highlights", JsonOptions);
-        var whale = marks!.Single(mark => mark.Text == "A white whale rose");
+        var marks = (await client.GetFromJsonAsync<List<HighlightResponse>>($"/books/{book.Id}/highlights", JsonOptions))!;
+        var whale = marks.Single(mark => mark.Text == "A white whale rose");
         Assert.Equal(2, whale.ChapterIndex);
         // KOReader's position said the first chapter; the words are in the second, so that is where it goes.
         var ship = marks.Single(mark => mark.Text == "the ship was slow");

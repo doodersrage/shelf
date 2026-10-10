@@ -6,7 +6,7 @@
 <h1>@T("Search inside books")</h1>
 <p class="hint">@T("Searches the words of your e-books, and of books lent to you. Each book is read for searching in the background after it is uploaded, scanned PDFs included when OCR is installed.")</p>
 
-<form class="filters" action="/search" method="get" role="search">
+<form class="filters" action="/search" method="get" role="search" aria-label="@T("Search inside your e-books")">
     <label>
         @T("Words to find")
         <input type="search" name="q" value="@Q" minlength="@Search.MinLength" autofocus />

@@ -102,7 +102,7 @@ else
 
     private RenderFragment Sidebar => @<text>
         <a class="wordmark" href="/">@Mark shelf</a>
-        <form class="search" action="/" method="get" role="search" data-enhance>
+        <form class="search" action="/" method="get" role="search" aria-label="@T("Search the library")" data-enhance>
             <label class="visually-hidden" for="@SearchId">@T("Search the library")</label>
             <input id="@SearchId" name="q" type="search" placeholder="@T("Search the library")" autocomplete="off" />
         </form>

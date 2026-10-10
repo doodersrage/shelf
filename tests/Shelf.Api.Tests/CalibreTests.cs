@@ -43,10 +43,10 @@ public sealed class CalibreTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         await importer.RunAsync(job, CancellationToken.None);
 
         Assert.All(job.Lines.Values, line => Assert.Equal(CalibreState.Done, line.State));
-        var shelf = await client.GetFromJsonAsync<List<BookResponse>>("/books", JsonOptions);
-        var imported = shelf!.Single(book => book.Title == "The Left Hand of Darkness");
+        var shelf = (await client.GetFromJsonAsync<List<BookResponse>>("/books", JsonOptions))!;
+        var imported = shelf.Single(book => book.Title == "The Left Hand of Darkness");
         Assert.Equal(("Ursula K. Le Guin & Anonymous Editor", "Hainish Cycle", 4, 5, "9780441478125", 1969), (imported.Author, imported.Series, imported.SeriesNumber, imported.Rating, imported.Isbn, imported.Year));
-        Assert.Equal("left-hand.epub", imported.EbookFileName.Replace("The Left Hand of Darkness - Ursula K. Le Guin.epub", "left-hand.epub"));
+        Assert.Equal("The Left Hand of Darkness - Ursula K. Le Guin.epub", imported.EbookFileName);
         Assert.Equal(["classics", "science fiction"], imported.Tags.Order());
         var cover = await client.GetAsync($"/books/{imported.Id}/cover");
         Assert.Equal(System.Net.HttpStatusCode.OK, cover.StatusCode);
