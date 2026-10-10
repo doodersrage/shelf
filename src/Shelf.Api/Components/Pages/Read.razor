@@ -59,6 +59,30 @@ else if (book is not null)
             <p class="hint">A PDF keeps its own layout, so only its size changes. <a href="/books/@book.Id/ebook/file">Open the file itself</a></p>
             @MarkList("On this page")
         }
+        else if (EbookStore.IsComic(book.EbookStoredName))
+        {
+            @if (comicPages == 0)
+            {
+                <p>This comic could not be opened. <a href="/books/@book.Id/ebook/file">Download the file</a></p>
+            }
+            else
+            {
+                <div class="reader-nav">
+                    <button type="button" @onclick="PreviousPage" disabled="@(chapter == 0)">Previous</button>
+                    <span class="hint" aria-live="polite">Page @(chapter + 1) of @comicPages</span>
+                    <button type="button" @onclick="NextPage" disabled="@(chapter >= comicPages - 1)">Next</button>
+                </div>
+                <div class="comic-viewer" tabindex="0" role="region" @onkeydown="ComicKey"
+                     aria-label="@($"{book.Title}, page {chapter + 1} of {comicPages}. Use the arrow keys to turn pages.")">
+                    <img src="/books/@book.Id/ebook/pages/@chapter" alt="@($"Page {chapter + 1}")" />
+                    @if (chapter < comicPages - 1)
+                    {
+                        <img src="/books/@book.Id/ebook/pages/@(chapter + 1)" alt="" hidden />
+                    }
+                </div>
+                <p class="hint"><a href="/books/@book.Id/ebook/file">Download the comic</a></p>
+            }
+        }
         else if (chapters is null)
         {
             <p>This EPUB could not be opened.</p>
@@ -230,6 +254,13 @@ else if (book is not null)
                 .ToListAsync();
         }
 
+        if (book is not null && EbookStore.IsComic(book.EbookStoredName))
+        {
+            comicPages = ComicFile.Pages(Ebooks.OpenPath(book.EbookStoredName)).Count;
+            chapter = Math.Clamp(ChapterQuery ?? (await Lending.PlaceAsync(db, open!)).EbookChapter ?? 0, 0, Math.Max(0, comicPages - 1));
+            return;
+        }
+
         if (book is null || !EbookStore.IsEpub(book.EbookStoredName))
         {
             return;
@@ -317,6 +348,39 @@ else if (book is not null)
 
         chapter++;
         await RememberChapter();
+    }
+
+    private int comicPages;
+
+    private async Task PreviousPage()
+    {
+        if (chapter > 0)
+        {
+            chapter--;
+            await RememberChapter();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (chapter < comicPages - 1)
+        {
+            chapter++;
+            await RememberChapter();
+        }
+    }
+
+    private async Task ComicKey(KeyboardEventArgs key)
+    {
+        switch (key.Key)
+        {
+            case "ArrowRight" or "PageDown" or " ":
+                await NextPage();
+                break;
+            case "ArrowLeft" or "PageUp":
+                await PreviousPage();
+                break;
+        }
     }
 
     private async Task RememberChapter()

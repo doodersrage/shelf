@@ -48,9 +48,9 @@
         <p class="hint">Choose e-books, audiobooks, or zips of tracks, as many as you like. Each becomes a book, named from what the file says; tracks that share an album become one audiobook. <a href="/free">Find free public-domain books</a></p>
         <form action="/books/import" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
             <label>
-                EPUB, PDF, audio, or zip, up to 1 GB at a time
+                EPUB, PDF, comic, Kindle, audio, or zip, up to 1 GB at a time
                 <input type="file" name="file" multiple required
-                       accept=".epub,.pdf,.mp3,.m4a,.m4b,.aac,.ogg,.opus,.wav,.flac,.zip,application/epub+zip,application/pdf,audio/*" />
+                       accept=".epub,.pdf,.cbz,.mobi,.azw3,.azw,.mp3,.m4a,.m4b,.aac,.ogg,.opus,.wav,.flac,.zip,application/epub+zip,application/pdf,audio/*" />
             </label>
             <label class="check">
                 <input type="checkbox" name="keepBoth" value="true" />
@@ -550,6 +550,9 @@ else if (visible.Count > 0)
     [SupplyParameterFromQuery(Name = "failed")]
     public int? Failed { get; set; }
 
+    [SupplyParameterFromQuery(Name = "kindle")]
+    public int? Kindle { get; set; }
+
     // "Added 3 books. 1 file went on a book you had. 2 were already on the shelf."
     private string? ImportSummary
     {
@@ -575,7 +578,12 @@ else if (visible.Count > 0)
 
             if (Failed is > 0)
             {
-                parts.Add($"{Files(Failed.Value)} could not be added: Shelf takes EPUB, PDF, audio, and zips, up to 1 GB.");
+                parts.Add($"{Files(Failed.Value)} could not be added: Shelf takes EPUB, PDF, comics, audio, and zips, up to 1 GB.");
+            }
+
+            if (Kindle is > 0)
+            {
+                parts.Add($"{Files(Kindle.Value)} from a Kindle could not be turned into EPUB: that needs Calibre on the server, and a file locked with DRM cannot be converted.");
             }
 
             return string.Join(" ", parts);

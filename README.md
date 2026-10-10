@@ -132,6 +132,10 @@ dotnet ef migrations add ExpandLibrary --project src/Shelf.Api
 
 The next run applies the new migration. `dotnet ef database update --project src/Shelf.Api` applies it without starting the site.
 
+## Comics and Kindle files
+
+A comic book archive (`.cbz`) reads page by page, in name order, with its first page as the cover and its `ComicInfo.xml` naming it. A Kindle file (`.mobi`, `.azw3`, `.azw`) is turned into an EPUB as it comes in, when Calibre's `ebook-convert` is installed on the server (`Ebooks:Convert` points elsewhere). The Docker image leaves Calibre out to stay small; build it in with `docker build --build-arg CALIBRE=true .`. A file locked with DRM cannot be converted.
+
 ## KOReader
 
 KOReader can download e-books from the OPDS catalog at `/opds` (any user name, the shelf's key from Devices as the password), and keep your place in step through its progress sync. On Devices, make a KOReader password; then in KOReader choose Tools, Progress sync, Custom sync server, and enter `https://<your shelf>/kosync`, your reader name, and that password. A book matches when KOReader has the same file Shelf has, which it does when it came from the catalog. A place read on the device moves Shelf's place forward, and a place read further in Shelf sends the device to the start of that chapter, or that page of a PDF.

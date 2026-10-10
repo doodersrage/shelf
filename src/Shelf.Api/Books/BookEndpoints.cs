@@ -67,6 +67,7 @@ public static class BookEndpoints
         books.MapGet("/{id:int}/ebook/file", EbookEndpoints.File);
         books.MapGet("/{id:int}/ebook/chapters/{index:int}", EbookEndpoints.Chapter);
         books.MapGet("/{id:int}/ebook/assets/{*path}", EbookEndpoints.Asset);
+        books.MapGet("/{id:int}/ebook/pages/{index:int}", EbookEndpoints.ComicPage);
         books.MapGet("/{id:int}/ebook/ocr/{page:int}", OcrRules.Page);
         books.MapPost("/{id:int}/audio", AudioEndpoints.Upload).DisableAntiforgery();
         books.MapDelete("/{id:int}/audio", AudioEndpoints.Remove);

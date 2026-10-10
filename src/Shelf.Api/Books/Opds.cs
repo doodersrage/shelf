@@ -128,7 +128,7 @@ public static class Opds
         new(Atom + "link", new XAttribute("rel", rel), new XAttribute("href", href), new XAttribute("type", type));
 
     private static string MediaType(string? storedName) =>
-        EbookStore.IsPdf(storedName) ? "application/pdf" : "application/epub+zip";
+        EbookStore.ContentType(storedName);
 
     private static IResult Xml(XElement feed, string type) =>
         Results.Text(new XDocument(new XDeclaration("1.0", "utf-8", null), feed).Declaration + "\n" + feed, type + ";charset=utf-8");

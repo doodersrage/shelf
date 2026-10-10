@@ -13,7 +13,7 @@ public static class Covers
     public static void Note(Book book, EbookStore store)
     {
         var path = store.OpenPath(book.EbookStoredName);
-        book.FileCover = path is not null && EbookStore.IsEpub(book.EbookStoredName) && EpubFile.Cover(path) is not null;
+        book.FileCover = path is not null && Picture(book.EbookStoredName, path) is not null;
         book.KoreaderDigest = Kosync.Digest(path);
     }
 
@@ -27,7 +27,7 @@ public static class Covers
             .Select(book => book.EbookStoredName)
             .FirstOrDefaultAsync(cancellationToken);
         var path = store.OpenPath(storedName);
-        if (path is null || EpubFile.Cover(path) is not { } cover)
+        if (path is null || Picture(storedName, path) is not { } cover)
         {
             return TypedResults.NotFound();
         }
@@ -36,6 +36,12 @@ public static class Covers
         http.Response.Headers.ContentSecurityPolicy = "default-src 'none'";
         return Results.File(cover.Bytes, cover.ContentType);
     }
+
+    // An EPUB's cover picture, or a comic's first page.
+    private static (byte[] Bytes, string ContentType)? Picture(string? storedName, string path) =>
+        EbookStore.IsEpub(storedName) ? EpubFile.Cover(path)
+        : EbookStore.IsComic(storedName) ? ComicFile.Page(path, 0)
+        : null;
 
     // Books from before covers and KOReader names were read from files: checked once, in the background.
     public static async Task<int> BackfillAsync(ShelfDb db, EbookStore store, CancellationToken cancellationToken)

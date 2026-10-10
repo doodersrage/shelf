@@ -12,8 +12,12 @@ ARG VERSION=
 RUN dotnet publish src/Shelf.Api/Shelf.Api.csproj -c Release -o /app --no-restore ${VERSION:+-p:Version=$VERSION}
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
+# Calibre turns Kindle files into EPUBs. It adds several hundred megabytes, so it is left out unless asked for:
+#   docker build --build-arg CALIBRE=true .
+ARG CALIBRE=false
 RUN apt-get update \
     && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng poppler-utils curl \
+        $(if [ "$CALIBRE" = "true" ]; then echo calibre; fi) \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app .

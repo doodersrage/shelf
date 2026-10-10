@@ -764,6 +764,21 @@ code.key {
     font-weight: 500;
 }
 
+/* A comic page, as large as the window allows. */
+.comic-viewer {
+    display: flex;
+    justify-content: center;
+    margin: 0 0 var(--space-4);
+    border-radius: var(--radius-control);
+}
+
+.comic-viewer img {
+    max-width: 100%;
+    max-height: calc(100dvh - 10rem);
+    object-fit: contain;
+    background: var(--color-surface);
+}
+
 /* Short labelled facts, such as the settings to type into another app. */
 .facts {
     display: grid;

@@ -9,10 +9,20 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
     public string Root { get; } = configuration["EbookStore:Root"]
         ?? Path.Combine(environment.ContentRootPath, "ebooks");
 
+    // Kindle files are turned into EPUBs on the way in, by Calibre's ebook-convert when it is installed.
+    public string Converter => configuration["Ebooks:Convert"] ?? "ebook-convert";
+
+    public static bool IsKindle(string name) => Path.GetExtension(name).ToLowerInvariant() is ".mobi" or ".azw3" or ".azw" or ".kfx";
+
     public async Task<EbookSave> SaveAsync(Stream source, string originalName, CancellationToken cancellationToken)
     {
         var extension = Path.GetExtension(originalName).ToLowerInvariant();
-        if (extension is not ".epub" and not ".pdf")
+        if (IsKindle(originalName))
+        {
+            return await ConvertAsync(source, originalName, cancellationToken);
+        }
+
+        if (extension is not ".epub" and not ".pdf" and not ".cbz")
         {
             return new EbookSave(EbookSaveStatus.Unsupported, null, null);
         }
@@ -63,6 +73,53 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
 
         return new EbookSave(EbookSaveStatus.Saved, storedName, displayName);
     }
+
+    private async Task<EbookSave> ConvertAsync(Stream source, string originalName, CancellationToken cancellationToken)
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"shelf-convert-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var input = Path.Combine(folder, "book" + Path.GetExtension(originalName).ToLowerInvariant());
+            await using (var output = File.Create(input))
+            {
+                var buffer = new byte[81920];
+                long total = 0;
+                int read;
+                while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0)
+                {
+                    total += read;
+                    if (total > MaxBytes)
+                    {
+                        return new EbookSave(EbookSaveStatus.TooLarge, null, null);
+                    }
+
+                    await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                }
+            }
+
+            var epub = Path.Combine(folder, "book.epub");
+            if (await Tools.RunAsync(Converter, [input, epub], TimeSpan.FromMinutes(3), cancellationToken) is null || !File.Exists(epub))
+            {
+                // Missing Calibre, a file it could not read, or one locked with DRM.
+                return new EbookSave(EbookSaveStatus.NeedsConverter, null, null);
+            }
+
+            await using var converted = File.OpenRead(epub);
+            return await SaveAsync(converted, Path.ChangeExtension(originalName, ".epub"), cancellationToken);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    public static string ContentType(string? storedName) => Path.GetExtension(storedName ?? "").ToLowerInvariant() switch
+    {
+        ".pdf" => "application/pdf",
+        ".cbz" => "application/vnd.comicbook+zip",
+        _ => "application/epub+zip",
+    };
 
     public string? OpenPath(string? storedName)
     {
@@ -167,6 +224,9 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
     public static bool IsPdf(string? storedName) =>
         storedName?.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) == true;
 
+    public static bool IsComic(string? storedName) =>
+        storedName?.EndsWith(".cbz", StringComparison.OrdinalIgnoreCase) == true;
+
     public static bool IsEpub(string? storedName) =>
         storedName?.EndsWith(".epub", StringComparison.OrdinalIgnoreCase) == true;
 }
@@ -176,6 +236,7 @@ public enum EbookSaveStatus
     Saved,
     Unsupported,
     TooLarge,
+    NeedsConverter,
 }
 
 public sealed record EbookSave(EbookSaveStatus Status, string? StoredName, string? FileName);

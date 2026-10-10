@@ -112,7 +112,7 @@ else if (book is not null)
                 @if (!string.IsNullOrWhiteSpace(book.EbookStoredName))
                 {
                     <a class="button" href="/library/@book.Id/read">Read this e-book</a>
-                    @if (offlineSupported)
+                    @if (offlineSupported && !EbookStore.IsComic(book.EbookStoredName))
                     {
                         @if (keptOffline)
                         {
@@ -146,11 +146,15 @@ else if (book is not null)
     }
     else if (EbookMessage == "unsupported")
     {
-        <p class="validation-message" role="alert">Choose an EPUB or a PDF.</p>
+        <p class="validation-message" role="alert">Choose an EPUB, a PDF, a comic (CBZ), or a Kindle file.</p>
     }
     else if (EbookMessage == "large")
     {
         <p class="validation-message" role="alert">That file is larger than 80 MB.</p>
+    }
+    else if (EbookMessage == "convert")
+    {
+        <p class="validation-message" role="alert">That Kindle file could not be turned into an EPUB. Shelf needs Calibre installed on the server for that, and a file locked with DRM cannot be converted at all.</p>
     }
     @if (AudioMessage == "saved")
     {
@@ -446,8 +450,8 @@ else if (book is not null)
     }
     <form action="/books/@book.Id/ebook" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
         <label>
-            EPUB or PDF, up to 80 MB
-            <input type="file" name="file" accept=".epub,.pdf,application/epub+zip,application/pdf" required />
+            EPUB, PDF, comic (CBZ), or Kindle file, up to 80 MB
+            <input type="file" name="file" accept=".epub,.pdf,.cbz,.mobi,.azw3,.azw,application/epub+zip,application/pdf" required />
         </label>
         <progress data-upload-progress max="100" hidden></progress>
         <p class="hint" data-upload-status role="status" hidden></p>

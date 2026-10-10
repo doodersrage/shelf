@@ -5,6 +5,8 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Shelf.Api.Books;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Shelf.Api.Readers;
 
 namespace Shelf.Api.Tests;
@@ -160,6 +162,95 @@ public sealed class ImportTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
         using var borrowed = new ZipArchive(await borrower.GetStreamAsync("/books/notes.zip"));
         Assert.Equal(["Someone - A Quoted Title.md"], borrowed.Entries.Select(entry => entry.Name));
         await client.PostAsync($"/books/{book.Id}/return", null);
+    }
+
+    [Fact]
+    public async Task A_comic_reads_page_by_page_in_name_order_with_its_first_page_as_cover()
+    {
+        var client = factory.Client;
+        var result = Assert.Single(await ImportAsync(client, false, ("issue.cbz", Comic())));
+        Assert.Equal(ImportOutcome.Added, result.Outcome);
+        var book = await client.GetFromJsonAsync<BookResponse>($"/books/{result.BookId}", JsonOptions);
+        Assert.Equal("Saga of the Shelf #3", book!.Title);
+        Assert.Equal("A. Writer", book.Author);
+
+        // page1, page2, page10: digits count as numbers.
+        for (var index = 0; index < 3; index++)
+        {
+            var page = await client.GetAsync($"/books/{book.Id}/ebook/pages/{index}");
+            Assert.Equal("image/png", page.Content.Headers.ContentType?.MediaType);
+            Assert.Equal(PngNamed(new[] { "page1", "page2", "page10" }[index]), await page.Content.ReadAsByteArrayAsync());
+        }
+
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/books/{book.Id}/ebook/pages/3")).StatusCode);
+        Assert.Equal(PngNamed("page1"), await client.GetByteArrayAsync($"/books/{book.Id}/cover"));
+        await client.PutAsJsonAsync($"/books/{book.Id}/place", new PlaceRequest(1), JsonOptions);
+        var reader = WebUtility.HtmlDecode(await client.GetStringAsync($"/library/{book.Id}/read"));
+        Assert.Contains("Page 2 of 3", reader);
+        Assert.Contains($"/books/{book.Id}/ebook/pages/1", reader);
+        Assert.Equal("application/vnd.comicbook+zip", (await client.GetAsync($"/books/{book.Id}/ebook/file")).Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task A_kindle_file_is_turned_into_an_epub_when_calibre_is_there()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"shelf-kindle-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        try
+        {
+            // A stand-in for Calibre's ebook-convert: it writes a known EPUB wherever it is asked to.
+            var epub = Path.Combine(folder, "made.epub");
+            await File.WriteAllBytesAsync(epub, Epub("Converted Title", "Converted Author", null, "en", cover: false));
+            var converter = Path.Combine(folder, "ebook-convert");
+            await File.WriteAllTextAsync(converter, $"#!/bin/sh\ncp '{epub}' \"$2\"\n");
+            File.SetUnixFileMode(converter, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+
+            EbookStore Store(string tool) => new(
+                factory.Services.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>(),
+                new Microsoft.Extensions.Configuration.ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["EbookStore:Root"] = Path.Combine(folder, "store"),
+                    ["Ebooks:Convert"] = tool,
+                }).Build());
+
+            using (var kindle = new MemoryStream("not really a mobi"u8.ToArray()))
+            {
+                var saved = await Store(converter).SaveAsync(kindle, "earthsea.azw3", CancellationToken.None);
+                Assert.Equal(EbookSaveStatus.Saved, saved.Status);
+                Assert.Equal("earthsea.epub", saved.FileName);
+                Assert.EndsWith(".epub", saved.StoredName);
+            }
+
+            using (var kindle = new MemoryStream("not really a mobi"u8.ToArray()))
+            {
+                Assert.Equal(EbookSaveStatus.NeedsConverter, (await Store(Path.Combine(folder, "missing")).SaveAsync(kindle, "earthsea.mobi", CancellationToken.None)).Status);
+            }
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    // A PNG with its name after the end, which viewers ignore, so pages can be told apart.
+    private static byte[] PngNamed(string name) => Png.Concat(Encoding.ASCII.GetBytes(name)).ToArray();
+
+    private static byte[] Comic()
+    {
+        using var memory = new MemoryStream();
+        using (var zip = new ZipArchive(memory, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var name in new[] { "page10", "page2", "page1" })
+            {
+                using var stream = zip.CreateEntry($"pages/{name}.png").Open();
+                stream.Write(PngNamed(name));
+            }
+
+            using var writer = new StreamWriter(zip.CreateEntry("ComicInfo.xml").Open());
+            writer.Write("<?xml version=\"1.0\"?><ComicInfo><Series>Saga of the Shelf</Series><Number>3</Number><Writer>A. Writer</Writer></ComicInfo>");
+        }
+
+        return memory.ToArray();
     }
 
     private static async Task<List<ImportedFile>> ImportAsync(HttpClient client, bool keepBoth, params (string Name, byte[] Bytes)[] files)

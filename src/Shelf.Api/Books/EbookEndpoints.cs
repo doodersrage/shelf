@@ -35,7 +35,12 @@ public static class EbookEndpoints
         var saved = await store.SaveAsync(stream, file.FileName, cancellationToken);
         if (saved.Status != EbookSaveStatus.Saved || saved.StoredName is null || saved.FileName is null)
         {
-            var reason = saved.Status == EbookSaveStatus.TooLarge ? "large" : "unsupported";
+            var reason = saved.Status switch
+            {
+                EbookSaveStatus.TooLarge => "large",
+                EbookSaveStatus.NeedsConverter => "convert",
+                _ => "unsupported",
+            };
             return TypedResults.Redirect($"/library/{id}?ebook={reason}");
         }
 
@@ -100,7 +105,7 @@ public static class EbookEndpoints
             return TypedResults.NotFound();
         }
 
-        var type = EbookStore.IsPdf(book.EbookStoredName) ? "application/pdf" : "application/epub+zip";
+        var type = EbookStore.ContentType(book.EbookStoredName);
         return Results.File(path, type, enableRangeProcessing: true);
     }
 
@@ -133,6 +138,21 @@ public static class EbookEndpoints
         html = ReaderMarks.Typeset(html, await BookRules.GetReaderTypeAsync(db, cancellationToken));
         http.Response.Headers.ContentSecurityPolicy = ChapterPolicy;
         return Results.Content(html, "text/html; charset=utf-8");
+    }
+
+    // One page of a comic, as the image it is.
+    public static async Task<IResult> ComicPage(int id, int index, HttpContext http, ShelfDb db, EbookStore store, CancellationToken cancellationToken)
+    {
+        var book = (await Lending.OpenAsync(db, id, cancellationToken))?.Book;
+        var path = book is null || !EbookStore.IsComic(book.EbookStoredName) ? null : store.OpenPath(book.EbookStoredName);
+        if (path is null || ComicFile.Page(path, index) is not { } page)
+        {
+            return TypedResults.NotFound();
+        }
+
+        http.Response.Headers.CacheControl = "private, max-age=86400";
+        http.Response.Headers.ContentSecurityPolicy = "default-src 'none'";
+        return Results.File(page.Bytes, page.ContentType);
     }
 
     public static async Task<IResult> Asset(

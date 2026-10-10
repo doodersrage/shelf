@@ -65,7 +65,7 @@ public static class SyncEndpoints
             return TypedResults.NotFound();
         }
 
-        var type = EbookStore.IsPdf(book!.EbookStoredName) ? "application/pdf" : "application/epub+zip";
+        var type = EbookStore.ContentType(book!.EbookStoredName);
         return Results.File(path, type, enableRangeProcessing: true);
     }
 

@@ -203,7 +203,7 @@ public static partial class Kosync
 
         // Read further in Shelf than on the device: the start of that chapter, or that page of a PDF.
         var count = Count(store, book);
-        var pdf = EbookStore.IsPdf(book.EbookStoredName);
+        var pdf = EbookStore.IsPdf(book.EbookStoredName) || EbookStore.IsComic(book.EbookStoredName);
         return Results.Json(new
         {
             document,
@@ -237,6 +237,11 @@ public static partial class Kosync
         if (EbookStore.IsEpub(book.EbookStoredName))
         {
             return EpubFile.Chapters(store.OpenPath(book.EbookStoredName) ?? "")?.Count ?? 0;
+        }
+
+        if (EbookStore.IsComic(book.EbookStoredName))
+        {
+            return ComicFile.Pages(store.OpenPath(book.EbookStoredName)).Count;
         }
 
         return book.Pages ?? 0;

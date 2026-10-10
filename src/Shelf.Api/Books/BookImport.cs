@@ -11,6 +11,7 @@ public enum ImportOutcome
     AlreadyOnShelf,
     Unsupported,
     TooLarge,
+    NeedsConverter,
 }
 
 public sealed record ImportedFile(string FileName, ImportOutcome Outcome, int? BookId = null, string? Title = null, int? SameAsId = null);
@@ -24,9 +25,9 @@ public sealed class BookImport(EbookStore ebooks, AudioStore audio, IConfigurati
 {
     public const string UnknownAuthor = "Unknown author";
 
-    private static readonly HashSet<string> EbookExtensions = new(StringComparer.OrdinalIgnoreCase) { ".epub", ".pdf" };
+    private static readonly HashSet<string> EbookExtensions = new(StringComparer.OrdinalIgnoreCase) { ".epub", ".pdf", ".cbz" };
 
-    public static bool IsEbook(string name) => EbookExtensions.Contains(Path.GetExtension(name));
+    public static bool IsEbook(string name) => EbookExtensions.Contains(Path.GetExtension(name)) || EbookStore.IsKindle(name);
 
     public static bool IsAudio(string name) => Path.GetExtension(name).ToLowerInvariant() is ".mp3" or ".m4a" or ".m4b" or ".aac" or ".ogg" or ".opus" or ".wav" or ".flac";
 
@@ -64,7 +65,12 @@ public sealed class BookImport(EbookStore ebooks, AudioStore audio, IConfigurati
         var saved = await ebooks.SaveAsync(file.Content, file.Name, cancellationToken);
         if (saved.Status != EbookSaveStatus.Saved || saved.StoredName is null || saved.FileName is null)
         {
-            return new ImportedFile(name, saved.Status == EbookSaveStatus.TooLarge ? ImportOutcome.TooLarge : ImportOutcome.Unsupported);
+            return new ImportedFile(name, saved.Status switch
+            {
+                EbookSaveStatus.TooLarge => ImportOutcome.TooLarge,
+                EbookSaveStatus.NeedsConverter => ImportOutcome.NeedsConverter,
+                _ => ImportOutcome.Unsupported,
+            });
         }
 
         if (!keepBoth && await Duplicates.FindEbookAsync(db, ebooks, 0, saved.StoredName, cancellationToken) is { } same)
@@ -74,9 +80,10 @@ public sealed class BookImport(EbookStore ebooks, AudioStore audio, IConfigurati
         }
 
         var path = ebooks.OpenPath(saved.StoredName)!;
-        var details = known ?? (EbookStore.IsEpub(saved.StoredName)
-            ? EpubFile.Details(path)
-            : await PdfDetails.ReadAsync(path, configuration["Ocr:PdfInfo"] ?? "pdfinfo", cancellationToken));
+        var details = known
+            ?? (EbookStore.IsEpub(saved.StoredName) ? EpubFile.Details(path)
+                : EbookStore.IsComic(saved.StoredName) ? ComicFile.Details(path)
+                : await PdfDetails.ReadAsync(path, configuration["Ocr:PdfInfo"] ?? "pdfinfo", cancellationToken));
         var (book, existing) = await PlaceAsync(db, details, name, book => book.EbookStoredName is null, BookFormat.Ebook, cancellationToken);
         await EbookEndpoints.AttachAsync(db, ebooks, book, saved.StoredName, saved.FileName, cancellationToken);
         return new ImportedFile(name, existing ? ImportOutcome.AddedToExisting : ImportOutcome.Added, book.Id, book.Title);
