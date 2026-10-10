@@ -230,7 +230,7 @@ public static class TwoFactor
             _ when agent.Contains("Chrome/", StringComparison.Ordinal) => "Chrome",
             _ when agent.Contains("Safari/", StringComparison.Ordinal) => "Safari",
             _ when agent.Contains("KOReader", StringComparison.OrdinalIgnoreCase) => "KOReader",
-            _ => "A browser",
+            _ => Localization.Words.T("A browser"),
         };
         var system = agent switch
         {
@@ -241,7 +241,7 @@ public static class TwoFactor
             _ when agent.Contains("Linux", StringComparison.Ordinal) => "Linux",
             _ => null,
         };
-        return system is null ? browser : $"{browser} on {system}";
+        return system is null ? browser : Localization.Words.T("{0} on {1}", browser, system);
     }
 
     private static string Hash(string code) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(code))).ToLowerInvariant();

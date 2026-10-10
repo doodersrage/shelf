@@ -280,7 +280,7 @@ public static class AccountEndpoints
             return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Email"] = [Localization.Words.T("Add an address, and an admin has to set up a mail server, first.")] });
         }
 
-        await email.SendAsync(new EmailMessage(reader.Email, "Shelf can reach you", $"Hello {reader.Name},\n\nThis is a test from your shelf. Email works."), cancellationToken);
+        await email.SendAsync(new EmailMessage(reader.Email, Localization.Words.T("Shelf can reach you"), Localization.Words.T("Hello {0},\n\nThis is a test from your shelf. Email works.", reader.Name)), cancellationToken);
         return TypedResults.NoContent();
     }
 

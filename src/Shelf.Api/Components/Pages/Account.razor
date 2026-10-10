@@ -13,40 +13,40 @@
 @inject AuthenticationStateProvider Authentication
 @inject Microsoft.JSInterop.IJSRuntime Js
 
-<PageTitle>Account · Shelf</PageTitle>
+<PageTitle>@T("Account") · Shelf</PageTitle>
 
 <h1>@Reader.Name</h1>
-<p class="hint">Your notes, reviews, quotes, and highlights are yours alone. Other readers see a book of yours only when it is lent to them, or by its title on an open shelf.</p>
+<p class="hint">@T("Your notes, reviews, quotes, and highlights are yours alone. Other readers see a book of yours only when it is lent to them, or by its title on an open shelf.")</p>
 
 <section class="panel">
-<h2>Your shelf</h2>
+<h2>@T("Your shelf")</h2>
 <label class="check">
     <input type="checkbox" checked="@shelfOpen" @onchange="ChangeShelfOpen" />
-    Let other readers see the titles on my shelf and ask to borrow one
+    @T("Let other readers see the titles on my shelf and ask to borrow one")
 </label>
-<p class="hint">Asks wait on your <a href="/loans">Loans</a> page until you lend the book or decline.</p>
+<p class="hint">@T("Asks to borrow wait under Loans until you lend the book or decline.") <a href="/loans">@T("Loans")</a></p>
 
 </section>
 
 <section class="panel">
-<h2>Email</h2>
+<h2>@T("Email")</h2>
 @if (!Email.Enabled)
 {
-    <p class="hint">This shelf has no mail server set up, so it cannot send password resets or reminders. An admin can add one in the Email settings.</p>
+    <p class="hint">@T("This shelf has no mail server set up, so it cannot send password resets or reminders. An admin can add one in the Email settings.")</p>
 }
 <label>
-    Email address
+    @T("Email address")
     <input type="email" @bind="emailAddress" @bind:event="oninput" maxlength="@EmailRules.MaxAddressLength" autocomplete="email" />
 </label>
 <label class="check">
     <input type="checkbox" @bind="emailReminders" disabled="@(string.IsNullOrWhiteSpace(emailAddress))" />
-    Email me once a day when a loan is overdue or due soon, or someone asks to borrow
+    @T("Email me once a day when a loan is overdue or due soon, or someone asks to borrow")
 </label>
-<p class="hint">Used only for password resets and the reminders you choose.</p>
-<button type="button" class="primary" @onclick="SaveEmail">Save</button>
+<p class="hint">@T("Used only for password resets and the reminders you choose.")</p>
+<button type="button" class="primary" @onclick="SaveEmail">@T("Save")</button>
 @if (Email.Enabled)
 {
-    <button type="button" @onclick="SendTest" disabled="@string.IsNullOrWhiteSpace(savedEmail)">Send a test email</button>
+    <button type="button" @onclick="SendTest" disabled="@string.IsNullOrWhiteSpace(savedEmail)">@T("Send a test email")</button>
 }
 @if (emailProblem is AccountProblem shownEmail)
 {
@@ -59,11 +59,11 @@ else if (emailNote is not null)
 </section>
 
 <section class="panel">
-<h2>Language and region</h2>
+<h2>@T("Language and region")</h2>
 <label>
-    Language of the pages
+    @T("Language of the pages")
     <select @bind="language" @bind:after="SaveLanguage">
-        <option value="">My browser's language</option>
+        <option value="">@T("My browser's language")</option>
         @foreach (var (languageCode, name) in Languages)
         {
             <option value="@languageCode" lang="@languageCode">@name</option>
@@ -71,35 +71,35 @@ else if (emailNote is not null)
     </select>
 </label>
 <label>
-    Write dates and numbers the way they are written in
+    @T("Write dates and numbers the way they are written in")
     <select @bind="culture" @bind:after="SaveCulture">
-        <option value="">My browser's language</option>
+        <option value="">@T("My browser's language")</option>
         @foreach (var (name, label) in Regions.Choices)
         {
             <option value="@name">@label</option>
         }
     </select>
 </label>
-<p class="hint">Today is @DateOnly.FromDateTime(DateTime.UtcNow).Medium() here.</p>
+<p class="hint">@T("Today is {0} here.", DateOnly.FromDateTime(DateTime.UtcNow).Medium())</p>
 </section>
 
 <section class="panel">
-<h2>Change the password</h2>
+<h2>@T("Change the password")</h2>
 <EditForm Model="form" OnValidSubmit="ChangePassword">
     <label>
-        Current password
+        @T("Current password")
         <InputText type="password" @bind-Value="form.Current" autocomplete="current-password" />
     </label>
     <label>
-        New password, at least @ReaderRules.MinPasswordLength characters
+        @T("New password, at least {0} characters", ReaderRules.MinPasswordLength)
         <InputText type="password" @bind-Value="form.Password" autocomplete="new-password" />
     </label>
     <label>
-        The new password again
+        @T("The new password again")
         <InputText type="password" @bind-Value="form.Confirm" autocomplete="new-password" />
     </label>
-    <p class="hint">Changing it signs you out everywhere, here included.</p>
-    <button type="submit">Change it</button>
+    <p class="hint">@T("Changing it signs you out everywhere, here included.")</p>
+    <button type="submit">@T("Change it")</button>
     @if (problem is AccountProblem shown)
     {
         <p class="validation-message" role="alert">@ReaderRules.Describe(shown)</p>
@@ -109,13 +109,13 @@ else if (emailNote is not null)
 </section>
 
 <section class="panel">
-<h2>Two-step sign-in</h2>
+<h2>@T("Two-step sign-in")</h2>
 @if (twoFactorOn)
 {
-    <p>On. Signing in asks for a code from your authenticator app after the password.</p>
+    <p>@T("On. Signing in asks for a code from your authenticator app after the password.")</p>
     @if (recovery is not null)
     {
-        <p><strong>Your recovery codes.</strong> Each works once, in place of a code, if you lose the authenticator. Keep them somewhere safe; they are not shown again.</p>
+        <p><strong>@T("Your recovery codes.")</strong> @T("Each works once, in place of a code, if you lose the authenticator. Keep them somewhere safe; they are not shown again.")</p>
         <ul class="recovery-codes">
             @foreach (var recoveryCode in recovery)
             {
@@ -124,27 +124,27 @@ else if (emailNote is not null)
         </ul>
     }
     <label class="inline-date">
-        Code, to turn it off
+        @T("Code, to turn it off")
         <input @bind="twoFactorCode" autocomplete="one-time-code" maxlength="12" />
     </label>
-    <button type="button" class="danger" @onclick="TurnOffTwoFactor">Turn off</button>
+    <button type="button" class="danger" @onclick="TurnOffTwoFactor">@T("Turn off")</button>
 }
 else if (setupUri is not null)
 {
-    <p>Scan this with an authenticator app, such as one from your phone's app store, then enter the code it shows.</p>
-    <div class="qr" role="img" aria-label="QR code for your authenticator app">@((MarkupString)setupQr!)</div>
-    <p class="hint">Or type this key into the app: <code class="key">@setupSecret</code></p>
+    <p>@T("Scan this with an authenticator app, such as one from your phone's app store, then enter the code it shows.")</p>
+    <div class="qr" role="img" aria-label="@T("QR code for your authenticator app")">@((MarkupString)setupQr!)</div>
+    <p class="hint">@T("Or type this key into the app:") <code class="key">@setupSecret</code></p>
     <label class="inline-date">
-        Code from the app
+        @T("Code from the app")
         <input @bind="twoFactorCode" autocomplete="one-time-code" maxlength="6" inputmode="numeric" />
     </label>
-    <button type="button" class="primary" @onclick="ConfirmTwoFactor">Turn on</button>
-    <button type="button" @onclick="() => { setupUri = null; twoFactorProblem = null; }">Cancel</button>
+    <button type="button" class="primary" @onclick="ConfirmTwoFactor">@T("Turn on")</button>
+    <button type="button" @onclick="() => { setupUri = null; twoFactorProblem = null; }">@T("Cancel")</button>
 }
 else
 {
-    <p class="hint">Off. Turn it on to ask for a code from an authenticator app as well as the password.</p>
-    <button type="button" @onclick="StartTwoFactor">Set up two-step sign-in</button>
+    <p class="hint">@T("Off. Turn it on to ask for a code from an authenticator app as well as the password.")</p>
+    <button type="button" @onclick="StartTwoFactor">@T("Set up two-step sign-in")</button>
 }
 @if (twoFactorProblem is AccountProblem shownTwoFactor)
 {
@@ -153,8 +153,8 @@ else
 </section>
 
 <section class="panel">
-<h2>Passkeys</h2>
-<p class="hint">A passkey signs you in with this device's fingerprint, face, or PIN, or a password manager, with no password to type and no code to copy. It counts as both steps of two-step sign-in.</p>
+<h2>@T("Passkeys")</h2>
+<p class="hint">@T("A passkey signs you in with this device's fingerprint, face, or PIN, or a password manager, with no password to type and no code to copy. It counts as both steps of two-step sign-in.")</p>
 @if (passkeys.Count > 0)
 {
     <ul class="tag-counts">
@@ -162,8 +162,8 @@ else
         {
             <li>
                 <span>@key.Name</span>
-                <span class="hint">added @key.CreatedAt.Medium()@(key.LastUsedAt is { } used ? $", last used {used.Medium()}" : ", not used yet")</span>
-                <button type="button" class="quiet" @onclick="() => RemovePasskey(key.Id)" aria-label="@($"Remove the passkey {key.Name}")">Remove</button>
+                <span class="hint">@T("added {0}", key.CreatedAt.Medium())@(key.LastUsedAt is { } used ? T(", last used {0}", used.Medium()) : T(", not used yet"))</span>
+                <button type="button" class="quiet" @onclick="() => RemovePasskey(key.Id)" aria-label="@T("Remove the passkey {0}", key.Name)">@T("Remove")</button>
             </li>
         }
     </ul>
@@ -171,14 +171,14 @@ else
 @if (passkeySupported)
 {
     <label class="inline-date">
-        Name it, to tell it apart
-        <input @bind="passkeyName" maxlength="80" placeholder="@($"My {(passkeys.Count == 0 ? "phone" : "laptop")}")" />
+        @T("Name it, to tell it apart")
+        <input @bind="passkeyName" maxlength="80" placeholder="@(passkeys.Count == 0 ? T("My phone") : T("My laptop"))" />
     </label>
     <button type="button" @onclick="AddPasskey" disabled="@addingPasskey">@(addingPasskey ? "Waiting for the device…" : "Add a passkey")</button>
 }
 else if (passkeyChecked)
 {
-    <p class="hint">This browser cannot make passkeys.</p>
+    <p class="hint">@T("This browser cannot make passkeys.")</p>
 }
 @if (passkeyProblem is not null)
 {
@@ -187,55 +187,55 @@ else if (passkeyChecked)
 </section>
 
 <section class="panel">
-<h2>Signed-in devices</h2>
+<h2>@T("Signed-in devices")</h2>
 <ul class="tag-counts">
     @foreach (var session in sessions)
     {
         <li>
             <span>
-                <strong>@(session.Device ?? "A browser")</strong>@(session.Current ? " · this one" : "")
-                <span class="hint"> · signed in @session.CreatedAt.Medium() · last used @session.LastSeenAt.ShortStamp() UTC</span>
+                <strong>@(session.Device ?? T("A browser"))</strong>@(session.Current ? " · " + T("this one") : "")
+                <span class="hint"> · @T("signed in {0}", session.CreatedAt.Medium()) · @T("last used {0} UTC", session.LastSeenAt.ShortStamp())</span>
             </span>
             @if (!session.Current)
             {
-                <button type="button" @onclick="() => EndSession(session.Id)">Sign out</button>
+                <button type="button" @onclick="() => EndSession(session.Id)">@T("Sign out")</button>
             }
         </li>
     }
 </ul>
 @if (sessions.Count(session => !session.Current) > 1)
 {
-    <button type="button" @onclick="EndOtherSessions">Sign out everywhere else</button>
+    <button type="button" @onclick="EndOtherSessions">@T("Sign out everywhere else")</button>
 }
 </section>
 
 <section class="panel">
-<h2>Devices</h2>
-<p class="hint"><a href="/sync">Make a key</a> for another shelf to trade e-books and audiobooks with yours.</p>
+<h2>@T("Devices")</h2>
+<p class="hint">@T("Another shelf trades e-books and audiobooks with yours using a key.") <a href="/sync">@T("Make a key")</a></p>
 
 </section>
 
 <section class="panel">
-<h2>Recent activity</h2>
-<p class="hint">Changes to this account, and sign-ins that failed. If something here was not you, change the password.</p>
+<h2>@T("Recent activity")</h2>
+<p class="hint">@T("Changes to this account, and sign-ins that failed. If something here was not you, change the password.")</p>
 <AuditList Lines="activity" />
 </section>
 
 <section class="panel">
-<h2>Delete the account</h2>
+<h2>@T("Delete the account")</h2>
 @if (!confirmingRemove)
 {
-    <button type="button" class="danger" @onclick="() => confirmingRemove = true">Delete my account</button>
+    <button type="button" class="danger" @onclick="() => confirmingRemove = true">@T("Delete my account")</button>
 }
 else
 {
-    <p>This deletes your account, every book on your shelf, and their e-books and audiobooks. Books other readers have lent you go back to them. Download a <a href="/books/export/full">full backup</a> first if you may want any of it.</p>
+    <p>@T("This deletes your account, every book on your shelf, and their e-books and audiobooks. Books other readers have lent you go back to them. Download a full backup first if you may want any of it.") <a href="/books/export/full">@T("Download everything")</a></p>
     <label>
-        Your password
+        @T("Your password")
         <input type="password" @bind="removePassword" autocomplete="current-password" />
     </label>
-    <button type="button" class="danger" @onclick="RemoveAccount">Yes, delete everything</button>
-    <button type="button" @onclick="() => confirmingRemove = false">Cancel</button>
+    <button type="button" class="danger" @onclick="RemoveAccount">@T("Yes, delete everything")</button>
+    <button type="button" @onclick="() => confirmingRemove = false">@T("Cancel")</button>
     @if (removeProblem is AccountProblem shownRemove)
     {
         <p class="validation-message" role="alert">@ReaderRules.Describe(shownRemove)</p>
@@ -432,7 +432,7 @@ else
         {
             savedEmail = EmailRules.CleanAddress(emailAddress);
             emailReminders = savedEmail is not null && emailReminders;
-            emailNote = "Saved.";
+            emailNote = T("Saved.");
         }
     }
 
@@ -441,12 +441,12 @@ else
         emailProblem = null;
         try
         {
-            await Email.SendAsync(new EmailMessage(savedEmail!, "Shelf can reach you", $"Hello {Reader.Name},\n\nThis is a test from your shelf. Email works."), CancellationToken.None);
-            emailNote = $"Sent to {savedEmail}.";
+            await Email.SendAsync(new EmailMessage(savedEmail!, T("Shelf can reach you"), T("Hello {0},\n\nThis is a test from your shelf. Email works.", Reader.Name ?? "")), CancellationToken.None);
+            emailNote = T("Sent to {0}.", savedEmail!);
         }
         catch (Exception ex) when (ex is MailKit.ProtocolException or MailKit.CommandException or System.Net.Sockets.SocketException or MailKit.Security.AuthenticationException or InvalidOperationException or IOException)
         {
-            emailNote = $"The mail server did not take it: {ex.Message}";
+            emailNote = T("The mail server did not take it: {0}", ex.Message);
         }
     }
 
