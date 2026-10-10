@@ -67,6 +67,15 @@ builder.Services.AddHttpClient<IBookLookup, OpenLibraryLookup>(client =>
 });
 
 builder.Services.AddHttpClient("shelf-sync", client => client.Timeout = TimeSpan.FromMinutes(10));
+
+// Project Gutenberg and LibriVox, for free public-domain books. A long recording can take a while to come down.
+builder.Services.AddHttpClient(FreeCatalog.ClientName, client =>
+{
+    client.Timeout = TimeSpan.FromMinutes(30);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd($"Shelf/{ShelfVersion.Response.Version} (personal library; +https://github.com/doodersrage/shelf)");
+});
+builder.Services.AddSingleton<FreeBooks>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<FreeBooks>());
 builder.Services.AddSingleton<EbookStore>();
 builder.Services.AddSingleton<AudioStore>();
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();

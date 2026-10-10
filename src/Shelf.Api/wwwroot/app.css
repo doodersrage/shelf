@@ -764,6 +764,48 @@ code.key {
     font-weight: 500;
 }
 
+/* Free books: a cover, the book, and its button in a row. */
+.free-results,
+.free-downloads {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--space-6);
+}
+
+.free-results li {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--space-3);
+    align-items: center;
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-rule);
+}
+
+.free-results li > div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.free-downloads li {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-1) 0;
+}
+
+@media (max-width: 30rem) {
+    .free-results li {
+        grid-template-columns: auto 1fr;
+    }
+
+    .free-results li > button {
+        grid-column: 2;
+        justify-self: start;
+    }
+}
+
 /* The activity log: a time, then what happened. */
 .audit {
     list-style: none;

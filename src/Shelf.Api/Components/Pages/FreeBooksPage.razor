@@ -1,0 +1,167 @@
+@page "/free"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject IHttpClientFactory Http
+@inject FreeBooks Downloads
+@implements IDisposable
+
+<PageTitle>Free books · Shelf</PageTitle>
+
+<h1>Free books</h1>
+<p class="hint">Books whose copyright has run out, free for anyone to read. E-books come from <a href="https://www.gutenberg.org" rel="noopener">Project Gutenberg</a>, and audiobooks, read by volunteers, from <a href="https://librivox.org" rel="noopener">LibriVox</a>. Adding one puts it on your shelf with its file, tagged “public domain”. Public domain differs by country; Project Gutenberg follows United States law.</p>
+
+@if (!Downloads.Enabled)
+{
+    <p class="hint">Free books are turned off on this shelf (FreeBooks:Enabled is false).</p>
+}
+else
+{
+    <form class="filters" action="/free" method="get" role="search">
+        <label>
+            Title or author
+            <input type="search" name="q" value="@Q" minlength="2" maxlength="200" autofocus />
+        </label>
+        <label>
+            Look for
+            <select name="kind">
+                <option value="ebooks" selected="@(Kind != "audio")">E-books</option>
+                <option value="audio" selected="@(Kind == "audio")">Audiobooks</option>
+            </select>
+        </label>
+        <div><button type="submit">Search</button></div>
+    </form>
+
+    @if (downloads.Count > 0)
+    {
+        <section class="panel" aria-labelledby="downloads-heading">
+            <h2 id="downloads-heading">Adding</h2>
+            <ul class="free-downloads">
+                @foreach (var download in downloads)
+                {
+                    <li>
+                        <span>@download.Book.Title</span>
+                        @switch (download.State)
+                        {
+                            case DownloadState.Waiting:
+                                <span class="hint">Waiting</span>
+                                break;
+                            case DownloadState.Downloading:
+                                <span class="hint">Downloading@(download.Bytes > 0 ? $", {FreeBooks.Size(download.Bytes)}" : "")…</span>
+                                break;
+                            case DownloadState.Done:
+                                <a href="/library/@download.BookId">On your shelf</a>
+                                break;
+                            default:
+                                <span class="validation-message">@download.Problem</span>
+                                break;
+                        }
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    @if (problem is not null)
+    {
+        <p class="validation-message" role="alert">@problem</p>
+    }
+    else if (results is { Count: 0 })
+    {
+        <EmptyState Title="Nothing found" Text="@(Kind == "audio" ? "LibriVox has no recording by that title or author. Try fewer words, or an author's last name." : "Project Gutenberg has nothing by that title or author. Try fewer words.")" />
+    }
+    else if (results is not null)
+    {
+        <p class="count">@results.Count @(results.Count == 1 ? "book" : "books")</p>
+        <ul class="free-results">
+            @foreach (var book in results)
+            {
+                var added = downloads.Any(download => download.Book.Source == book.Source && download.Book.Id == book.Id && download.State != DownloadState.Failed);
+                <li>
+                    <BookCover Title="@book.Title" Url="@book.CoverUrl" Width="3.5rem" />
+                    <div>
+                        <strong>@book.Title</strong>
+                        <span class="by">@book.Author</span>
+                        @if (book.Language is not null || book.Length is not null)
+                        {
+                            <span class="hint">@string.Join(" · ", new[] { book.Language, book.Length is null ? null : $"{book.Length} long" }.Where(part => part is not null))</span>
+                        }
+                    </div>
+                    <button type="button" @onclick="() => Add(book)" disabled="@added" aria-label="@($"Add {book.Title} to your shelf")">@(added ? "Added" : "Add to shelf")</button>
+                </li>
+            }
+        </ul>
+    }
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "q")]
+    public string? Q { get; set; }
+
+    [SupplyParameterFromQuery(Name = "kind")]
+    public string? Kind { get; set; }
+
+    private List<FreeBook>? results;
+    private string? problem;
+    private IReadOnlyList<FreeDownload> downloads = [];
+    private int readerId;
+    private Timer? timer;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            readerId = db.ReaderId;
+        }
+
+        downloads = Downloads.For(readerId);
+        results = null;
+        problem = null;
+        var query = Q?.Trim();
+        if (!Downloads.Enabled || string.IsNullOrEmpty(query) || query.Length < 2)
+        {
+            return;
+        }
+
+        using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        var http = Http.CreateClient(FreeCatalog.ClientName);
+        try
+        {
+            results = Kind == "audio"
+                ? await FreeCatalog.SearchLibriVoxAsync(http, query[..Math.Min(query.Length, 200)], limit.Token)
+                : await FreeCatalog.SearchGutenbergAsync(http, query[..Math.Min(query.Length, 200)], limit.Token);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Xml.XmlException or System.Text.Json.JsonException)
+        {
+            problem = Kind == "audio"
+                ? "LibriVox could not be reached just now. Try again in a moment."
+                : "Project Gutenberg could not be reached just now. Try again in a moment.";
+        }
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            timer = new Timer(_ => InvokeAsync(Refresh), null, TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(1.5));
+        }
+    }
+
+    // While something is being added, its progress shows.
+    private void Refresh()
+    {
+        var now = Downloads.For(readerId);
+        if (now.Count != downloads.Count || now.Zip(downloads).Any(pair => pair.First != pair.Second))
+        {
+            downloads = now;
+            StateHasChanged();
+        }
+    }
+
+    private void Add(FreeBook book)
+    {
+        Downloads.Enqueue(readerId, book);
+        downloads = Downloads.For(readerId);
+    }
+
+    public void Dispose() => timer?.Dispose();
+}

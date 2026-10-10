@@ -144,6 +144,10 @@ A comic book archive (`.cbz`) reads page by page, in name order, with its first 
 
 KOReader can download e-books from the OPDS catalog at `/opds` (any user name, the shelf's key from Devices as the password), and keep your place in step through its progress sync. On Devices, make a KOReader password; then in KOReader choose Tools, Progress sync, Custom sync server, and enter `https://<your shelf>/kosync`, your reader name, and that password. A book matches when KOReader has the same file Shelf has, which it does when it came from the catalog. A place read on the device moves Shelf's place forward, and a place read further in Shelf sends the device to the start of that chapter, or that page of a PDF.
 
+## Free books
+
+Free books searches Project Gutenberg for public-domain e-books and LibriVox for public-domain audiobooks read by volunteers, and adds one to your shelf with its file, tagged `public domain`. A download runs in the background, so a long recording (they can be several hundred megabytes) does not hold the page open; its progress shows on the page. The shelf has to reach gutenberg.org, librivox.org, and archive.org; set `FreeBooks:Enabled` to `false` to turn it off. Public domain differs by country, and Project Gutenberg follows United States law.
+
 ## Reading offline
 
 On a book with an e-book, Keep for reading offline saves the file in that browser. When the shelf cannot be reached, any page opens the offline reader instead (`/offline.html`), which lists the kept books and reads them: EPUBs chapter by chapter, PDFs page by page, at your text size. The place you stop is kept on the device and sent back the next time the shelf answers, and the shelf keeps whichever place is further. Highlights and notes need the shelf. `GET /books/{id}/place` and `PUT /books/{id}/place {"ebookChapter": 3}` read and move a reader's place.
