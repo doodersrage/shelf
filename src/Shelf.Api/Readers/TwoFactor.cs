@@ -118,17 +118,19 @@ public static class TwoFactor
             return true;
         }
 
-        string secret;
+        // A secret sealed with keys this shelf no longer has (restored without its keys folder) cannot give codes, but
+        // a recovery code still lets the reader in; that is what they are for.
+        string? secret;
         try
         {
             secret = Protector(protection).Unprotect(reader.TwoFactorSecret);
         }
         catch (CryptographicException)
         {
-            return false;
+            secret = null;
         }
 
-        return Verify(secret, code, DateTimeOffset.UtcNow) || await UseRecoveryCodeAsync(db, reader.Id, code, cancellationToken);
+        return (secret is not null && Verify(secret, code, DateTimeOffset.UtcNow)) || await UseRecoveryCodeAsync(db, reader.Id, code, cancellationToken);
     }
 
     public static async Task DisableAsync(ShelfDb db, Reader reader, CancellationToken cancellationToken = default)

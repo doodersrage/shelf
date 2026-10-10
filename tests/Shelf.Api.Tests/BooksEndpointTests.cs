@@ -1568,6 +1568,9 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
 
     public int ReaderId { get; private set; }
 
+    // The folder holding the keys that seal sign-ins, which a restore can bring along or leave behind.
+    public string KeysRoot => _keysRoot;
+
     // Every email the shelf sends in these tests, instead of a mail server.
     public CapturedMail Mail { get; } = new();
 

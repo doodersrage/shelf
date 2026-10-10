@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Fixed
+
+- After a restore without the `keys` folder, a reader with two-step sign-in can get in with a recovery code, and turn two-step off with another, as the docs say. Before, the code was refused whenever the authenticator secret could not be unsealed.
+
 ## [1.4.0] - 2026-10-10
 
 ### Added

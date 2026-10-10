@@ -37,6 +37,8 @@ To restore a snapshot:
 
 Readers sign in again afterwards unless the old `keys` folder is put back too.
 
+Shelf's tests carry out this restore on every change: they fill a shelf, download a snapshot, unpack it into an empty folder, start a second shelf on it, and check that every reader, book, file, cover, highlight, quote, and reading session came back, both with the `keys` folder and without it.
+
 > [!WARNING]
 > The `keys` folder seals sign-ins and two-step secrets. Keep a copy of it somewhere private. Restored without it, everyone signs in again, and a reader with two-step sign-in needs a recovery code, a passkey, or an admin's new password to get in.
 
