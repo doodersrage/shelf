@@ -5,36 +5,36 @@
 @inject FreeBooks Downloads
 @implements IDisposable
 
-<PageTitle>Free books · Shelf</PageTitle>
+<PageTitle>@T("Free books") · Shelf</PageTitle>
 
-<h1>Free books</h1>
-<p class="hint">Books whose copyright has run out, free for anyone to read. E-books come from <a href="https://www.gutenberg.org" rel="noopener">Project Gutenberg</a>, and audiobooks, read by volunteers, from <a href="https://librivox.org" rel="noopener">LibriVox</a>. Adding one puts it on your shelf with its file, tagged “public domain”. Public domain differs by country; Project Gutenberg follows United States law.</p>
+<h1>@T("Free books")</h1>
+<p class="hint">@T("Books whose copyright has run out, free for anyone to read. E-books come from Project Gutenberg, and audiobooks, read by volunteers, from LibriVox. Adding one puts it on your shelf with its file, tagged “{0}”. Public domain differs by country; Project Gutenberg follows United States law.", T("public domain")) <a href="https://www.gutenberg.org" rel="noopener">gutenberg.org</a> · <a href="https://librivox.org" rel="noopener">librivox.org</a></p>
 
 @if (!Downloads.Enabled)
 {
-    <p class="hint">Free books are turned off on this shelf (FreeBooks:Enabled is false).</p>
+    <p class="hint">@T("Free books are turned off on this shelf (FreeBooks:Enabled is false).")</p>
 }
 else
 {
     <form class="filters" action="/free" method="get" role="search">
         <label>
-            Title or author
+            @T("Title or author")
             <input type="search" name="q" value="@Q" minlength="2" maxlength="200" autofocus />
         </label>
         <label>
-            Look for
+            @T("Look for")
             <select name="kind">
-                <option value="ebooks" selected="@(Kind != "audio")">E-books</option>
-                <option value="audio" selected="@(Kind == "audio")">Audiobooks</option>
+                <option value="ebooks" selected="@(Kind != "audio")">@T("E-books")</option>
+                <option value="audio" selected="@(Kind == "audio")">@T("Audiobooks")</option>
             </select>
         </label>
-        <div><button type="submit">Search</button></div>
+        <div><button type="submit">@T("Search")</button></div>
     </form>
 
     @if (downloads.Count > 0)
     {
         <section class="panel" aria-labelledby="downloads-heading">
-            <h2 id="downloads-heading">Adding</h2>
+            <h2 id="downloads-heading">@T("Adding")</h2>
             <ul class="free-downloads">
                 @foreach (var download in downloads)
                 {
@@ -43,13 +43,13 @@ else
                         @switch (download.State)
                         {
                             case DownloadState.Waiting:
-                                <span class="hint">Waiting</span>
+                                <span class="hint">@T("Waiting")</span>
                                 break;
                             case DownloadState.Downloading:
-                                <span class="hint">Downloading@(download.Bytes > 0 ? $", {FreeBooks.Size(download.Bytes)}" : "")…</span>
+                                <span class="hint">@(download.Bytes > 0 ? T("Downloading, {0}…", Localization.Counts.Size(download.Bytes)) : T("Downloading…"))</span>
                                 break;
                             case DownloadState.Done:
-                                <a href="/library/@download.BookId">On your shelf</a>
+                                <a href="/library/@download.BookId">@T("On your shelf")</a>
                                 break;
                             default:
                                 <span class="validation-message">@download.Problem</span>
@@ -67,11 +67,11 @@ else
     }
     else if (results is { Count: 0 })
     {
-        <EmptyState Title="Nothing found" Text="@(Kind == "audio" ? "LibriVox has no recording by that title or author. Try fewer words, or an author's last name." : "Project Gutenberg has nothing by that title or author. Try fewer words.")" />
+        <EmptyState Title="@T("Nothing found")" Text="@(Kind == "audio" ? T("LibriVox has no recording by that title or author. Try fewer words, or an author's last name.") : T("Project Gutenberg has nothing by that title or author. Try fewer words."))" />
     }
     else if (results is not null)
     {
-        <p class="count">@results.Count @(results.Count == 1 ? "book" : "books")</p>
+        <p class="count">@Localization.Counts.Books(results.Count)</p>
         <ul class="free-results">
             @foreach (var book in results)
             {
@@ -83,10 +83,10 @@ else
                         <span class="by">@book.Author</span>
                         @if (book.Language is not null || book.Length is not null)
                         {
-                            <span class="hint">@string.Join(" · ", new[] { book.Language, book.Length is null ? null : $"{book.Length} long" }.Where(part => part is not null))</span>
+                            <span class="hint">@string.Join(" · ", new[] { book.Language, book.Length is null ? null : T("{0} long", book.Length) }.Where(part => part is not null))</span>
                         }
                     </div>
-                    <button type="button" @onclick="() => Add(book)" disabled="@added" aria-label="@($"Add {book.Title} to your shelf")">@(added ? "Added" : "Add to shelf")</button>
+                    <button type="button" @onclick="() => Add(book)" disabled="@added" aria-label="@T("Add {0} to your shelf", book.Title)">@(added ? T("Added") : T("Add to shelf"))</button>
                 </li>
             }
         </ul>
@@ -133,8 +133,8 @@ else
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Xml.XmlException or System.Text.Json.JsonException)
         {
             problem = Kind == "audio"
-                ? "LibriVox could not be reached just now. Try again in a moment."
-                : "Project Gutenberg could not be reached just now. Try again in a moment.";
+                ? T("LibriVox could not be reached just now. Try again in a moment.")
+                : T("Project Gutenberg could not be reached just now. Try again in a moment.");
         }
     }
 

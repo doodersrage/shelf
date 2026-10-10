@@ -2,31 +2,31 @@
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 
-<PageTitle>Quotes &amp; highlights · Shelf</PageTitle>
+<PageTitle>@T("Quotes & highlights") · Shelf</PageTitle>
 
-<h1>Quotes &amp; highlights</h1>
-<p class="hint"><a href="/books/notes.zip" download>Download them all as Markdown</a>, one file a book, for Obsidian or any notes app.</p>
+<h1>@T("Quotes & highlights")</h1>
+<p class="hint"><a href="/books/notes.zip" download>@T("Download them all as Markdown")</a>@T(", one file a book, for Obsidian or any notes app.")</p>
 
 @if (passages.Count == 0)
 {
-    <EmptyState Title="No quotes or highlights yet" Text="Quotes saved on a book's page, and passages highlighted in the reader, gather here, where you can search their words, your notes, the book, or the author." ActionHref="/" ActionLabel="Open the library" />
+    <EmptyState Title="@T("No quotes or highlights yet")" Text="@T("Quotes saved on a book's page, and passages highlighted in the reader, gather here, where you can search their words, your notes, the book, or the author.")" ActionHref="/" ActionLabel="@T("Open the library")" />
 }
 else
 {
     <div class="filters">
         <label>
-            Search
-            <input type="search" @bind="query" @bind:event="oninput" placeholder="Words, notes, titles, authors" />
+            @T("Search")
+            <input type="search" @bind="query" @bind:event="oninput" placeholder="@T("Words, notes, titles, authors")" />
         </label>
     </div>
-    <div class="segmented" role="group" aria-label="Show">
-        <button type="button" aria-pressed="@(kind == "" ? "true" : "false")" @onclick="@(() => kind = "")">Both</button>
-        <button type="button" aria-pressed="@(kind == "quote" ? "true" : "false")" @onclick="@(() => kind = "quote")">Quotes</button>
-        <button type="button" aria-pressed="@(kind == "highlight" ? "true" : "false")" @onclick="@(() => kind = "highlight")">Highlights</button>
+    <div class="segmented" role="group" aria-label="@T("Show")">
+        <button type="button" aria-pressed="@(kind == "" ? "true" : "false")" @onclick="@(() => kind = "")">@T("Both")</button>
+        <button type="button" aria-pressed="@(kind == "quote" ? "true" : "false")" @onclick="@(() => kind = "quote")">@T("Quotes")</button>
+        <button type="button" aria-pressed="@(kind == "highlight" ? "true" : "false")" @onclick="@(() => kind = "highlight")">@T("Highlights")</button>
     </div>
     @if (!Visible.Any())
     {
-        <p class="hint">Nothing matches that search.</p>
+        <p class="hint">@T("Nothing matches that search.")</p>
     }
     else
     {
@@ -43,12 +43,12 @@ else
                     <p>@passage.Note</p>
                 }
                 <p class="hint">
-                    <span class="badge plain">@(passage.Highlight ? "Highlight" : "Quote")</span>
+                    <span class="badge plain">@(passage.Highlight ? T("Highlight") : T("Quote"))</span>
                     <a href="/library/@passage.BookId">@passage.Title</a>
                     · <a href="@($"/?author={Uri.EscapeDataString(passage.Author)}")">@passage.Author</a>
                     @if (passage.Open is string open)
                     {
-                        <span> · <a href="@open">Open in the reader</a></span>
+                        <span> · <a href="@open">@T("Open in the reader")</a></span>
                     }
                 </p>
             </li>
@@ -95,7 +95,7 @@ else
                 (mark, book) => new { mark.BookId, book.Title, book.Author, mark.Text, mark.Note, mark.ChapterIndex, mark.NotedAt, book.EbookStoredName })
             .ToListAsync();
         passages = quotes
-            .Select(quote => new Passage(false, quote.BookId, quote.Title, quote.Author, quote.Text, null, quote.Page is int page ? $"p. {page}" : "", quote.NotedAt, null))
+            .Select(quote => new Passage(false, quote.BookId, quote.Title, quote.Author, quote.Text, null, quote.Page is int page ? T("p. {0}", page) : "", quote.NotedAt, null))
             .Concat(marks.Select(mark => new Passage(
                 true,
                 mark.BookId,
@@ -103,7 +103,7 @@ else
                 mark.Author,
                 mark.Text,
                 mark.Note,
-                $"{(EbookStore.IsPdf(mark.EbookStoredName) ? "Page" : "Chapter")} {mark.ChapterIndex + 1}",
+                EbookStore.IsPdf(mark.EbookStoredName) ? T("Page {0}", mark.ChapterIndex + 1) : T("Chapter {0}", mark.ChapterIndex + 1),
                 mark.NotedAt,
                 $"/library/{mark.BookId}/read?chapter={mark.ChapterIndex}")))
             .OrderByDescending(passage => passage.NotedAt)

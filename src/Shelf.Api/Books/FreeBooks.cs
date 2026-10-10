@@ -7,7 +7,9 @@ using System.Xml;
 using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
 using Shelf.Api.Data;
+using Shelf.Api.Localization;
 using Shelf.Api.Readers;
+using static Shelf.Api.Localization.Words;
 
 namespace Shelf.Api.Books;
 
@@ -28,7 +30,7 @@ public enum DownloadState
     Failed,
 }
 
-public sealed record FreeDownload(Guid Id, int ReaderId, FreeBook Book, DownloadState State, long Bytes, int? BookId, string? Problem, DateTimeOffset Started);
+public sealed record FreeDownload(Guid Id, int ReaderId, FreeBook Book, DownloadState State, long Bytes, int? BookId, string? Problem, DateTimeOffset Started, string Language);
 
 public static partial class FreeCatalog
 {
@@ -153,7 +155,8 @@ public sealed class FreeBooks(IServiceScopeFactory scopes, IHttpClientFactory cl
 
     public FreeDownload Enqueue(int readerId, FreeBook book)
     {
-        var download = new FreeDownload(Guid.NewGuid(), readerId, book, DownloadState.Waiting, 0, null, null, DateTimeOffset.UtcNow);
+        // Kept with the language of the page that asked, so its messages and notes come out in that language.
+        var download = new FreeDownload(Guid.NewGuid(), readerId, book, DownloadState.Waiting, 0, null, null, DateTimeOffset.UtcNow, Words.Current);
         _downloads[download.Id] = download;
         _queue.Writer.TryWrite(download.Id);
         return download;
@@ -182,6 +185,8 @@ public sealed class FreeBooks(IServiceScopeFactory scopes, IHttpClientFactory cl
                 continue;
             }
 
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(download.Language);
+
             try
             {
                 var bookId = await DownloadAsync(download, stoppingToken);
@@ -195,7 +200,7 @@ public sealed class FreeBooks(IServiceScopeFactory scopes, IHttpClientFactory cl
                 }
 
                 logger.LogInformation(ex, "Could not add {Title} from {Source}.", download.Book.Title, download.Book.Source);
-                _downloads[id] = _downloads[id] with { State = DownloadState.Failed, Problem = ex is FreeBookProblem problem ? problem.Message : "The download did not finish. Try again later." };
+                _downloads[id] = _downloads[id] with { State = DownloadState.Failed, Problem = ex is FreeBookProblem problem ? problem.Message : T("The download did not finish. Try again later.") };
             }
         }
     }
@@ -204,7 +209,7 @@ public sealed class FreeBooks(IServiceScopeFactory scopes, IHttpClientFactory cl
     {
         var http = clients.CreateClient(FreeCatalog.ClientName);
         var url = await FreeCatalog.DownloadUrlAsync(http, download.Book, cancellationToken)
-            ?? throw new FreeBookProblem("LibriVox has no download for that recording.");
+            ?? throw new FreeBookProblem(T("LibriVox has no download for that recording."));
         var audio = download.Book.Source == FreeSource.LibriVox;
         var limit = audio ? AudioStore.MaxBytes : EbookStore.MaxBytes;
         var folder = Path.Combine(Path.GetTempPath(), $"shelf-free-{download.Id:N}");
@@ -218,13 +223,13 @@ public sealed class FreeBooks(IServiceScopeFactory scopes, IHttpClientFactory cl
                 if (!response.IsSuccessStatusCode)
                 {
                     throw new FreeBookProblem(response.StatusCode == System.Net.HttpStatusCode.NotFound
-                        ? "That book has no file to download."
-                        : $"The catalog answered {(int)response.StatusCode}. Try again later.");
+                        ? T("That book has no file to download.")
+                        : T("The catalog answered {0}. Try again later.", (int)response.StatusCode));
                 }
 
                 if (response.Content.Headers.ContentLength > limit)
                 {
-                    throw new FreeBookProblem($"It is larger than Shelf takes ({limit / 1024 / 1024} MB).");
+                    throw new FreeBookProblem(T("It is larger than Shelf takes ({0} MB).", limit / 1024 / 1024));
                 }
 
                 await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -237,7 +242,7 @@ public sealed class FreeBooks(IServiceScopeFactory scopes, IHttpClientFactory cl
                     total += read;
                     if (total > limit)
                     {
-                        throw new FreeBookProblem($"It is larger than Shelf takes ({limit / 1024 / 1024} MB).");
+                        throw new FreeBookProblem(T("It is larger than Shelf takes ({0} MB).", limit / 1024 / 1024));
                     }
 
                     await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
@@ -265,23 +270,23 @@ public sealed class FreeBooks(IServiceScopeFactory scopes, IHttpClientFactory cl
 
             if (result.Outcome == ImportOutcome.AlreadyOnShelf)
             {
-                throw new FreeBookProblem($"That file is already on {result.Title}.");
+                throw new FreeBookProblem(T("That file is already on {0}.", result.Title));
             }
 
             if (result.BookId is not { } bookId || result.Outcome is not (ImportOutcome.Added or ImportOutcome.AddedToExisting))
             {
-                throw new FreeBookProblem("Shelf could not read the file it downloaded.");
+                throw new FreeBookProblem(T("Shelf could not read the file it downloaded."));
             }
 
             var book = await db.Books.Include(item => item.Tags).FirstAsync(item => item.Id == bookId, cancellationToken);
             if (result.Outcome == ImportOutcome.Added)
             {
                 book.Notes ??= audio
-                    ? $"A LibriVox recording, read by volunteers (librivox.org, #{download.Book.Id})."
-                    : $"From Project Gutenberg (gutenberg.org, #{download.Book.Id}).";
+                    ? T("A LibriVox recording, read by volunteers (librivox.org, #{0}).", download.Book.Id)
+                    : T("From Project Gutenberg (gutenberg.org, #{0}).", download.Book.Id);
             }
 
-            await BookRules.SyncTagsAsync(db, book, [.. book.Tags.Select(tag => tag.Name), "public domain"], cancellationToken);
+            await BookRules.SyncTagsAsync(db, book, [.. book.Tags.Select(tag => tag.Name), T("public domain")], cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
             return bookId;
         }
@@ -299,11 +304,6 @@ public sealed class FreeBooks(IServiceScopeFactory scopes, IHttpClientFactory cl
         return name.Length == 0 ? "book" : name.Length > 120 ? name[..120].Trim() : name;
     }
 
-    public static string Size(long bytes) => bytes switch
-    {
-        < 1024 * 1024 => $"{Math.Max(1, bytes / 1024)} KB",
-        _ => (bytes / 1024d / 1024d).ToString("0.0", CultureInfo.CurrentCulture) + " MB",
-    };
 }
 
 public sealed class FreeBookProblem(string message) : Exception(message);

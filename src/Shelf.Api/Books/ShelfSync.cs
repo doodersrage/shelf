@@ -80,12 +80,12 @@ public static class ShelfSync
             || !Uri.TryCreate(address.Trim(), UriKind.Absolute, out var uri)
             || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
         {
-            return ["Enter an address that starts with http:// or https://."];
+            return [Localization.Words.T("Enter an address that starts with http:// or https://.")];
         }
 
         if (string.IsNullOrWhiteSpace(key))
         {
-            return ["Enter the key made on the other shelf."];
+            return [Localization.Words.T("Enter the key made on the other shelf.")];
         }
 
         client.BaseAddress = new Uri($"{uri.Scheme}://{uri.Authority}/");
@@ -95,7 +95,7 @@ public static class ShelfSync
             using var answer = await client.GetAsync("books/sync", cancellationToken);
             if (answer.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
             {
-                return ["The other shelf did not accept that key."];
+                return [Localization.Words.T("The other shelf did not accept that key.")];
             }
 
             var catalog = answer.IsSuccessStatusCode
@@ -103,7 +103,7 @@ public static class ShelfSync
                 : null;
             if (catalog?.Books is null)
             {
-                return ["That address is not a shelf."];
+                return [Localization.Words.T("That address is not a shelf.")];
             }
 
             return await ExchangeAsync(
@@ -119,7 +119,7 @@ public static class ShelfSync
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
-            return ["That shelf could not be reached."];
+            return [Localization.Words.T("That shelf could not be reached.")];
         }
     }
 
@@ -170,17 +170,17 @@ public static class ShelfSync
                 {
                     if (incoming.Ebook.Bytes > EbookStore.MaxBytes)
                     {
-                        lines.Add($"The e-book of {incoming.Title} is too large to bring.");
+                        lines.Add(Localization.Words.T("The e-book of {0} is too large to bring.", incoming.Title));
                     }
                     else if (await TakeEbookAsync(ebooks, local, incoming, download, cancellationToken))
                     {
-                        lines.Add($"Brought the e-book of {incoming.Title}.");
+                        lines.Add(Localization.Words.T("Brought the e-book of {0}.", incoming.Title));
                         brought = true;
                         CopyHighlights(local, incoming.Highlights);
                     }
                     else
                     {
-                        lines.Add($"Could not bring the e-book of {incoming.Title}.");
+                        lines.Add(Localization.Words.T("Could not bring the e-book of {0}.", incoming.Title));
                     }
                 }
                 else if (hash == incoming.Ebook.Sha256)
@@ -189,7 +189,7 @@ public static class ShelfSync
                 }
                 else
                 {
-                    lines.Add($"Kept the e-book already on {incoming.Title}.");
+                    lines.Add(Localization.Words.T("Kept the e-book already on {0}.", incoming.Title));
                 }
             }
 
@@ -200,16 +200,16 @@ public static class ShelfSync
                 {
                     if (incoming.Audio.Bytes > AudioStore.MaxBytes)
                     {
-                        lines.Add($"The audiobook of {incoming.Title} is too large to bring.");
+                        lines.Add(Localization.Words.T("The audiobook of {0} is too large to bring.", incoming.Title));
                     }
                     else if (await TakeAudioAsync(audio, local, incoming, download, cancellationToken))
                     {
-                        lines.Add($"Brought the audiobook of {incoming.Title}.");
+                        lines.Add(Localization.Words.T("Brought the audiobook of {0}.", incoming.Title));
                         brought = true;
                     }
                     else
                     {
-                        lines.Add($"Could not bring the audiobook of {incoming.Title}.");
+                        lines.Add(Localization.Words.T("Could not bring the audiobook of {0}.", incoming.Title));
                     }
                 }
                 else if (hash == incoming.Audio.Sha256)
@@ -218,13 +218,13 @@ public static class ShelfSync
                 }
                 else
                 {
-                    lines.Add($"Kept the audiobook already on {incoming.Title}.");
+                    lines.Add(Localization.Words.T("Kept the audiobook already on {0}.", incoming.Title));
                 }
             }
 
             if (moved)
             {
-                lines.Add($"The place in {incoming.Title} moved ahead.");
+                lines.Add(Localization.Words.T("The place in {0} moved ahead.", incoming.Title));
             }
 
             if (created && brought)
@@ -249,12 +249,12 @@ public static class ShelfSync
                 remoteKey ??= await ensureRemote(new SyncOffer(local.Title, local.Author, local.Isbn), cancellationToken);
                 if (remoteKey is not null && await SendEbookAsync(ebooks, local, remoteKey, upload, cancellationToken))
                 {
-                    lines.Add($"Sent the e-book of {local.Title}.");
+                    lines.Add(Localization.Words.T("Sent the e-book of {0}.", local.Title));
                     sentEbook = true;
                 }
                 else
                 {
-                    lines.Add($"Could not send the e-book of {local.Title}.");
+                    lines.Add(Localization.Words.T("Could not send the e-book of {0}.", local.Title));
                 }
             }
 
@@ -263,12 +263,12 @@ public static class ShelfSync
                 remoteKey ??= await ensureRemote(new SyncOffer(local.Title, local.Author, local.Isbn), cancellationToken);
                 if (remoteKey is not null && await SendAudioAsync(audio, local, remoteKey, upload, cancellationToken))
                 {
-                    lines.Add($"Sent the audiobook of {local.Title}.");
+                    lines.Add(Localization.Words.T("Sent the audiobook of {0}.", local.Title));
                     sentAudio = true;
                 }
                 else
                 {
-                    lines.Add($"Could not send the audiobook of {local.Title}.");
+                    lines.Add(Localization.Words.T("Could not send the audiobook of {0}.", local.Title));
                 }
             }
 
@@ -306,7 +306,7 @@ public static class ShelfSync
 
         if (lines.Count == 0)
         {
-            lines.Add("Nothing new to carry across.");
+            lines.Add(Localization.Words.T("Nothing new to carry across."));
         }
 
         return lines;

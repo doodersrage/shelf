@@ -2,44 +2,44 @@
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 
-<PageTitle>Backup &amp; restore · Shelf</PageTitle>
+<PageTitle>@T("Backup & restore") · Shelf</PageTitle>
 
-<h1>Backup &amp; restore</h1>
-<p class="hint">A backup copies your shelf out and changes nothing here. A restore only adds: it never deletes or overwrites a book, and it skips any book already on your shelf.</p>
+<h1>@T("Backup & restore")</h1>
+<p class="hint">@T("A backup copies your shelf out and changes nothing here. A restore only adds: it never deletes or overwrites a book, and it skips any book already on your shelf.")</p>
 
 <section class="panel" aria-labelledby="download-heading">
-    <h2 id="download-heading">Download a backup</h2>
-    <p>Everything on your shelf in one zip: the catalog, notes, reviews, quotes, reading log, highlights, e-books, and audiobooks.</p>
-    <a class="button primary" href="/books/export/full">Download everything</a>
-    <p class="hint">Only the catalog, without files: <a href="/books/export">download JSON</a>.</p>
-    <p class="hint">Your quotes, highlights, notes, and reviews as Markdown, one file a book, for a notes app: <a href="/books/notes.zip" download>download notes</a>.</p>
+    <h2 id="download-heading">@T("Download a backup")</h2>
+    <p>@T("Everything on your shelf in one zip: the catalog, notes, reviews, quotes, reading log, highlights, e-books, audiobooks, and covers.")</p>
+    <a class="button primary" href="/books/export/full">@T("Download everything")</a>
+    <p class="hint">@T("Only the catalog, without files:") <a href="/books/export">@T("download JSON")</a>.</p>
+    <p class="hint">@T("Your quotes, highlights, notes, and reviews as Markdown, one file a book, for a notes app:") <a href="/books/notes.zip" download>@T("download notes")</a>.</p>
 </section>
 
 <section class="panel" aria-labelledby="restore-heading">
-    <h2 id="restore-heading">Restore from a backup</h2>
-    <p>Choose a zip made by Download everything. Its books are added to your shelf with their files.</p>
+    <h2 id="restore-heading">@T("Restore from a backup")</h2>
+    <p>@T("Choose a zip made by Download everything. Its books are added to your shelf with their files.")</p>
     <form action="/books/import/full" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
         <label>
-            Zip backup
+            @T("Zip backup")
             <input type="file" name="file" accept=".zip,application/zip" required />
         </label>
-        <p class="hint">A large backup takes a while to send. Keep this page open until it comes back with the result.</p>
+        <p class="hint">@T("A large backup takes a while to send. Keep this page open until it comes back with the result.")</p>
         <progress data-upload-progress max="100" hidden></progress>
         <p class="hint" data-upload-status role="status" hidden></p>
-        <button type="submit" class="quiet">Restore from this zip</button>
+        <button type="submit" class="quiet">@T("Restore from this zip")</button>
     </form>
     @if (Restore == "done")
     {
-        <p class="saved" role="status">Restored. Added @Added @(Added == 1 ? "book" : "books") with @Files @(Files == 1 ? "file" : "files"), and skipped @Skipped already on your shelf.</p>
+        <p class="saved" role="status">@T("Restored. Added {0} with {1}, and skipped {2} already on your shelf.", Localization.Counts.Books(Added), Localization.Counts.Files(Files), Skipped)</p>
     }
     else if (Restore == "unreadable")
     {
-        <p class="validation-message" role="alert">That file is not a shelf backup zip, so nothing was added.</p>
+        <p class="validation-message" role="alert">@T("That file is not a shelf backup zip, so nothing was added.")</p>
     }
 
-    <h3>From a JSON backup</h3>
+    <h3>@T("From a JSON backup")</h3>
     <label>
-        JSON backup
+        @T("JSON backup")
         <InputFile OnChange="ImportBackup" accept="application/json" />
     </label>
     @if (!string.IsNullOrWhiteSpace(importMessage))
@@ -49,34 +49,34 @@
 </section>
 
 <section class="panel" aria-labelledby="abs-heading">
-    <h2 id="abs-heading">Bring books from Audiobookshelf</h2>
-    <p>Copy audiobooks and e-books from an Audiobookshelf server, with their covers, series, and where you stopped.</p>
-    <a class="button" href="/import/audiobookshelf">Connect to Audiobookshelf</a>
+    <h2 id="abs-heading">@T("Bring books from Audiobookshelf")</h2>
+    <p>@T("Copy audiobooks and e-books from an Audiobookshelf server, with their covers, series, and where you stopped.")</p>
+    <a class="button" href="/import/audiobookshelf">@T("Connect to Audiobookshelf")</a>
 </section>
 
 <section class="panel" aria-labelledby="csv-heading">
-    <h2 id="csv-heading">Bring a library from Goodreads or StoryGraph</h2>
-    <p>Export your library from Goodreads (My Books, then Import and export) or The StoryGraph (Manage account, then Export), and choose the CSV file here. Shelves, reading status, ratings, dates, reviews, and tags come along; books already on your shelf are skipped.</p>
+    <h2 id="csv-heading">@T("Bring a library from Goodreads or StoryGraph")</h2>
+    <p>@T("Export your library from Goodreads (My Books, then Import and export) or The StoryGraph (Manage account, then Export), and choose the CSV file here. Shelves, reading status, ratings, dates, reviews, and tags come along; books already on your shelf are skipped.")</p>
     <form action="/books/import/csv" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
         <label>
-            CSV export
+            @T("CSV export")
             <input type="file" name="file" accept=".csv,text/csv" required />
         </label>
         <progress data-upload-progress max="100" hidden></progress>
         <p class="hint" data-upload-status role="status" hidden></p>
-        <button type="submit" class="quiet">Import this file</button>
+        <button type="submit" class="quiet">@T("Import this file")</button>
     </form>
     @if (Csv == "done")
     {
-        <p class="saved" role="status">Imported from @(Source == "StoryGraph" ? "The StoryGraph" : "Goodreads"). Added @Added @(Added == 1 ? "book" : "books"), and skipped @Skipped already on your shelf or missing a title or author.</p>
+        <p class="saved" role="status">@T("Imported from {0}. Added {1}, and skipped {2} already on your shelf or missing a title or author.", Source == "StoryGraph" ? "The StoryGraph" : "Goodreads", Localization.Counts.Books(Added), Skipped)</p>
     }
     else if (Csv == "unreadable")
     {
-        <p class="validation-message" role="alert">That file is not a Goodreads or StoryGraph export, so nothing was added.</p>
+        <p class="validation-message" role="alert">@T("That file is not a Goodreads or StoryGraph export, so nothing was added.")</p>
     }
 </section>
 
-<p class="hint">An admin can also keep a snapshot of the whole server, every reader included, from <a href="/admin">Readers</a>.</p>
+<p class="hint">@T("An admin can also keep a snapshot of the whole server, every reader included, from") <a href="/admin">@T("Readers")</a>.</p>
 
 @code {
     private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new(System.Text.Json.JsonSerializerDefaults.Web)
@@ -114,7 +114,7 @@
         imported = false;
         if (change.File.Size > MaxBackupBytes)
         {
-            importMessage = "That backup is larger than 50 MB, so nothing was added.";
+            importMessage = T("That backup is larger than 50 MB, so nothing was added.");
             return;
         }
 
@@ -124,18 +124,18 @@
             var export = await System.Text.Json.JsonSerializer.DeserializeAsync<LibraryExport>(stream, JsonOptions);
             if (export?.Books is null)
             {
-                importMessage = "That file is not a shelf backup, so nothing was added.";
+                importMessage = T("That file is not a shelf backup, so nothing was added.");
                 return;
             }
 
             await using var db = await DbFactory.CreateDbContextAsync();
             var result = await BookRules.ImportAsync(db, export);
             imported = true;
-            importMessage = $"Restored. Added {result.Added} {(result.Added == 1 ? "book" : "books")}, and skipped {result.Skipped} already on your shelf.";
+            importMessage = T("Restored. Added {0}, and skipped {1} already on your shelf.", Localization.Counts.Books(result.Added), result.Skipped);
         }
         catch (Exception ex) when (ex is System.Text.Json.JsonException or IOException)
         {
-            importMessage = "That file is not a shelf backup, so nothing was added.";
+            importMessage = T("That file is not a shelf backup, so nothing was added.");
         }
     }
 }

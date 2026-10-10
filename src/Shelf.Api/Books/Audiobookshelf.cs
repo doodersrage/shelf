@@ -8,7 +8,9 @@ using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using Microsoft.EntityFrameworkCore;
 using Shelf.Api.Data;
+using Shelf.Api.Localization;
 using Shelf.Api.Readers;
+using static Shelf.Api.Localization.Words;
 
 namespace Shelf.Api.Books;
 
@@ -55,19 +57,19 @@ public static partial class AbsClient
             using var login = await Send(http, HttpMethod.Post, new Uri(server, "login"), null, JsonContent.Create(new { username = user ?? "", password = password ?? "" }), cancellationToken);
             if (login.StatusCode == HttpStatusCode.Unauthorized)
             {
-                throw new AbsProblem("Audiobookshelf did not accept that user name and password.");
+                throw new AbsProblem(T("Audiobookshelf did not accept that user name and password."));
             }
 
             await Ensure(login);
             using var answer = await JsonDocument.ParseAsync(await login.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
             token = Text(answer.RootElement.GetProperty("user"), "accessToken") ?? Text(answer.RootElement.GetProperty("user"), "token")
-                ?? throw new AbsProblem("Audiobookshelf signed in but sent no token back.");
+                ?? throw new AbsProblem(T("Audiobookshelf signed in but sent no token back."));
         }
 
         using var authorize = await Send(http, HttpMethod.Post, new Uri(server, "api/authorize"), token, null, cancellationToken);
         if (authorize.StatusCode == HttpStatusCode.Unauthorized)
         {
-            throw new AbsProblem("Audiobookshelf did not accept that API key. Check that it is turned on (active) in Settings, API Keys.");
+            throw new AbsProblem(T("Audiobookshelf did not accept that API key. Check that it is turned on (active) in Settings, API Keys."));
         }
 
         await Ensure(authorize);
@@ -135,7 +137,7 @@ public static partial class AbsClient
         }
         catch (HttpRequestException)
         {
-            throw new AbsProblem($"Shelf could not reach {url.GetLeftPart(UriPartial.Authority)}. Check the address, and that this server can reach it.");
+            throw new AbsProblem(T("Shelf could not reach {0}. Check the address, and that this server can reach it.", url.GetLeftPart(UriPartial.Authority)));
         }
     }
 
@@ -143,13 +145,15 @@ public static partial class AbsClient
     {
         if (response.StatusCode == HttpStatusCode.NotFound && response.RequestMessage?.RequestUri?.AbsolutePath.EndsWith("/api/libraries", StringComparison.Ordinal) == true)
         {
-            throw new AbsProblem("That address does not answer as Audiobookshelf. If it is served under a path, include it, such as https://example.org/audiobookshelf.");
+            throw new AbsProblem(T("That address does not answer as Audiobookshelf. If it is served under a path, include it, such as https://example.org/audiobookshelf."));
         }
 
         if (!response.IsSuccessStatusCode)
         {
             var reason = response.Content is null ? "" : (await response.Content.ReadAsStringAsync()).Trim();
-            throw new AbsProblem($"Audiobookshelf answered {(int)response.StatusCode}{(reason.Length is > 0 and < 200 ? $": {reason}" : ".")}");
+            throw new AbsProblem(reason.Length is > 0 and < 200
+                ? T("Audiobookshelf answered {0}: {1}", (int)response.StatusCode, reason)
+                : T("Audiobookshelf answered {0}.", (int)response.StatusCode));
         }
     }
 
@@ -182,6 +186,8 @@ public sealed record AbsImportLine(string ItemId, string Title, AbsState State, 
 
 public sealed class AbsImportJob(Guid id, int readerId, AbsConnection connection, bool progress, IReadOnlyList<AbsItem> items)
 {
+    public string Language { get; } = Words.Current;
+
     public Guid Id { get; } = id;
     public int ReaderId { get; } = readerId;
     public AbsConnection Connection { get; } = connection;
@@ -219,6 +225,8 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
                 continue;
             }
 
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(job.Language);
+
             foreach (var item in job.Items)
             {
                 try
@@ -233,7 +241,7 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
                     }
 
                     logger.LogInformation(ex, "Could not import {Title} from Audiobookshelf.", item.Title);
-                    Set(job, item.Id, line => line with { State = AbsState.Failed, Note = ex is AbsProblem ? ex.Message : "The download did not finish." });
+                    Set(job, item.Id, line => line with { State = AbsState.Failed, Note = ex is AbsProblem ? ex.Message : T("The download did not finish.") });
                 }
             }
 
@@ -255,7 +263,7 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
         using var found = await AbsClient.Send(http, HttpMethod.Get, new Uri(server, $"api/items/{Uri.EscapeDataString(item.Id)}?expanded=1"), token, null, cancellationToken);
         if (!found.IsSuccessStatusCode)
         {
-            throw new AbsProblem($"Audiobookshelf answered {(int)found.StatusCode} for this book.");
+            throw new AbsProblem(T("Audiobookshelf answered {0} for this book.", (int)found.StatusCode));
         }
 
         using var document = await JsonDocument.ParseAsync(await found.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
@@ -330,8 +338,8 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
             {
                 var already = new[] { heard, read }.FirstOrDefault(result => result?.Outcome == ImportOutcome.AlreadyOnShelf);
                 Set(job, item.Id, line => already is not null
-                    ? line with { State = AbsState.Skipped, BookId = already.SameAsId, Note = "Already on your shelf." }
-                    : line with { State = AbsState.Failed, Note = audioFiles.Count == 0 && ebookFile is null ? "It has no audio or e-book to bring." : "Shelf could not read its files." });
+                    ? line with { State = AbsState.Skipped, BookId = already.SameAsId, Note = T("Already on your shelf.") }
+                    : line with { State = AbsState.Failed, Note = audioFiles.Count == 0 && ebookFile is null ? T("It has no audio or e-book to bring.") : T("Shelf could not read its files.") });
                 return;
             }
 
@@ -357,7 +365,7 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
             }
 
             await db.SaveChangesAsync(cancellationToken);
-            Set(job, item.Id, line => line with { State = AbsState.Done, BookId = book.Id, Note = heard?.Outcome == ImportOutcome.AlreadyOnShelf || read?.Outcome == ImportOutcome.AlreadyOnShelf ? "Some of its files were on your shelf already." : null });
+            Set(job, item.Id, line => line with { State = AbsState.Done, BookId = book.Id, Note = heard?.Outcome == ImportOutcome.AlreadyOnShelf || read?.Outcome == ImportOutcome.AlreadyOnShelf ? T("Some of its files were on your shelf already.") : null });
         }
         finally
         {
@@ -380,7 +388,7 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
 
         if (book.Notes is null && AbsClient.Text(metadata, "narratorName") is { } narrator)
         {
-            book.Notes = $"Read by {narrator}.";
+            book.Notes = T("Read by {0}.", narrator);
         }
     }
 
@@ -452,12 +460,12 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
         using var response = await AbsClient.Send(http, HttpMethod.Get, url, token, null, cancellationToken, HttpCompletionOption.ResponseHeadersRead);
         if (response.StatusCode == HttpStatusCode.Forbidden)
         {
-            throw new AbsProblem("This Audiobookshelf user may not download. Turn on Can Download for them in Audiobookshelf's Users settings.");
+            throw new AbsProblem(T("This Audiobookshelf user may not download. Turn on Can Download for them in Audiobookshelf's Users settings."));
         }
 
         if (!response.IsSuccessStatusCode)
         {
-            throw new AbsProblem($"Audiobookshelf answered {(int)response.StatusCode} for one of its files.");
+            throw new AbsProblem(T("Audiobookshelf answered {0} for one of its files.", (int)response.StatusCode));
         }
 
         await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -469,7 +477,7 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
             total += read;
             if (total > limit)
             {
-                throw new AbsProblem($"It is larger than Shelf takes ({limit / 1024 / 1024} MB).");
+                throw new AbsProblem(T("It is larger than Shelf takes ({0} MB).", limit / 1024 / 1024));
             }
 
             await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);

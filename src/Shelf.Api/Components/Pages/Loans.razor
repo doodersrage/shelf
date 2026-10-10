@@ -2,20 +2,20 @@
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 
-<PageTitle>Loans · Shelf</PageTitle>
+<PageTitle>@T("Loans") · Shelf</PageTitle>
 
-<h1>Loans</h1>
+<h1>@T("Loans")</h1>
 
 @if (Quiet)
 {
-    <EmptyState Title="Nothing is on loan" Text="Books you lend, to a reader here or to anyone else, are listed by who has them. Books other readers lend you, and the ones you ask for, show here too." ActionHref="/shelves" ActionLabel="Browse the open shelves" />
+    <EmptyState Title="@T("Nothing is on loan")" Text="@T("Books you lend, to a reader here or to anyone else, are listed by who has them. Books other readers lend you, and the ones you ask for, show here too.")" ActionHref="/shelves" ActionLabel="@T("Browse the open shelves")" />
 }
 else
 {
-<h2>Lent out</h2>
+<h2>@T("Lent out")</h2>
 @if (people.Count == 0)
 {
-    <p class="hint">Nothing of yours is on loan.</p>
+    <p class="hint">@T("Nothing of yours is on loan.")</p>
 }
 else
 {
@@ -24,10 +24,10 @@ else
         {
             <li>
                 <a href="@($"/?loanedTo={Uri.EscapeDataString(person.Name)}")">@person.Name</a>
-                <span class="hint">@person.Count @(person.Count == 1 ? "book" : "books")</span>
+                <span class="hint">@Localization.Counts.Books(person.Count)</span>
                 @if (person.Overdue > 0)
                 {
-                    <span class="late">@person.Overdue overdue</span>
+                    <span class="late">@T("{0} overdue", person.Overdue)</span>
                 }
             </li>
         }
@@ -36,23 +36,23 @@ else
 
 @if (asks.Incoming.Length > 0)
 {
-    <h2>Asked of you</h2>
+    <h2>@T("Asked of you")</h2>
     <ul class="quotes">
         @foreach (var ask in asks.Incoming)
         {
             <li>
                 <strong>@ask.Title</strong>
                 <span class="hint"> · @ask.Author</span>
-                <p class="hint">@ask.Reader asked on @ask.AskedAt.Medium()@(ask.OnLoan ? ". It is on loan now." : "")</p>
+                <p class="hint">@T("{0} asked on {1}", ask.Reader, ask.AskedAt.Medium())@(ask.OnLoan ? T(". It is on loan now.") : "")</p>
                 @if (!ask.OnLoan)
                 {
                     <label class="inline-date">
-                        Due back
+                        @T("Due back")
                         <input type="date" @bind="dueDates[ask.Id]" />
                     </label>
-                    <button type="button" class="primary" @onclick="() => LendAsk(ask.Id)">Lend it</button>
+                    <button type="button" class="primary" @onclick="() => LendAsk(ask.Id)">@T("Lend it")</button>
                 }
-                <button type="button" @onclick="() => DropAsk(ask.Id)">Decline</button>
+                <button type="button" @onclick="() => DropAsk(ask.Id)">@T("Decline")</button>
             </li>
         }
     </ul>
@@ -62,10 +62,10 @@ else
     }
 }
 
-<h2>Borrowed</h2>
+<h2>@T("Borrowed")</h2>
 @if (borrowed.Count == 0)
 {
-    <p class="hint">No other reader has lent you a book. <a href="/shelves">Browse the open shelves</a> to ask for one.</p>
+    <p class="hint">@T("No other reader has lent you a book.") <a href="/shelves">@T("Browse the open shelves to ask for one.")</a></p>
 }
 else
 {
@@ -76,25 +76,25 @@ else
                 <strong>@book.Title</strong>
                 <span class="hint"> · @book.Author</span>
                 <p class="hint">
-                    From @book.Owner
+                    @T("From {0}", book.Owner)
                     @if (book.LoanedOn is DateOnly since)
                     {
-                        <span> since @since.Medium()</span>
+                        <span> @T("since {0}", since.Medium())</span>
                     }
                     @if (book.DueOn is DateOnly due)
                     {
-                        <span class="@(due < Today ? "late" : null)"> · due @due.Medium()@(due < Today ? ", overdue" : "")</span>
+                        <span class="@(due < Today ? "late" : null)"> · @T("due {0}", due.Medium())@(due < Today ? T(", overdue") : "")</span>
                     }
                 </p>
                 @if (book.HasEbook)
                 {
-                    <a href="/library/@book.Id/read">Read</a>
+                    <a href="/library/@book.Id/read">@T("Read")</a>
                 }
                 @if (book.HasAudio)
                 {
-                    <a href="/library/@book.Id/listen">Listen</a>
+                    <a href="/library/@book.Id/listen">@T("Listen")</a>
                 }
-                <button type="button" @onclick="() => GiveBack(book.Id)">Give it back</button>
+                <button type="button" @onclick="() => GiveBack(book.Id)">@T("Give it back")</button>
             </li>
         }
     </ul>
@@ -102,14 +102,14 @@ else
 
 @if (asks.Outgoing.Length > 0)
 {
-    <h2>You asked</h2>
+    <h2>@T("You asked")</h2>
     <ul class="quotes">
         @foreach (var ask in asks.Outgoing)
         {
             <li>
                 <strong>@ask.Title</strong>
-                <span class="hint"> · from @ask.Reader, asked @ask.AskedAt.Medium()</span>
-                <button type="button" @onclick="() => DropAsk(ask.Id)">Take it back</button>
+                <span class="hint"> · @T("from {0}, asked {1}", ask.Reader, ask.AskedAt.Medium())</span>
+                <button type="button" @onclick="() => DropAsk(ask.Id)">@T("Take it back")</button>
             </li>
         }
     </ul>

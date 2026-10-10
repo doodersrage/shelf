@@ -7,14 +7,14 @@
 
 <PageTitle>Audiobookshelf · Shelf</PageTitle>
 
-<p class="hint"><a href="/backup">Backup &amp; restore</a></p>
-<h1>Bring books from Audiobookshelf</h1>
-<p class="hint">Copies audiobooks and e-books from an <a href="https://www.audiobookshelf.org" rel="noopener">Audiobookshelf</a> server to your shelf: their files, covers, series, and genres, and where you stopped, if you like. Nothing on the Audiobookshelf server changes. Books already on your shelf are left alone.</p>
+<p class="hint"><a href="/backup">@T("Backup & restore")</a></p>
+<h1>@T("Bring books from Audiobookshelf")</h1>
+<p class="hint">@T("Copies audiobooks and e-books from an Audiobookshelf server to your shelf: their files, covers, series, and genres, and where you stopped, if you like. Nothing on the Audiobookshelf server changes. Books already on your shelf are left alone.") <a href="https://www.audiobookshelf.org" rel="noopener">audiobookshelf.org</a></p>
 
 @if (job is not null)
 {
     <section class="panel" aria-labelledby="progress-heading">
-        <h2 id="progress-heading">@(job.Finished ? "Brought across" : "Bringing books across")</h2>
+        <h2 id="progress-heading">@(job.Finished ? T("Brought across") : T("Bringing books across"))</h2>
         <p class="hint" role="status">@Summary(job)</p>
         <ul class="free-downloads">
             @foreach (var line in job.Items.Select(item => job.Lines[item.Id]))
@@ -24,16 +24,16 @@
                     @switch (line.State)
                     {
                         case AbsState.Waiting:
-                            <span class="hint">Waiting</span>
+                            <span class="hint">@T("Waiting")</span>
                             break;
                         case AbsState.Downloading:
-                            <span class="hint">Copying@(line.Bytes > 0 ? $", {FreeBooks.Size(line.Bytes)}" : "")…</span>
+                            <span class="hint">@(line.Bytes > 0 ? T("Copying, {0}…", Localization.Counts.Size(line.Bytes)) : T("Copying…"))</span>
                             break;
                         case AbsState.Done:
-                            <a href="/library/@line.BookId">On your shelf</a>
+                            <a href="/library/@line.BookId">@T("On your shelf")</a>
                             break;
                         case AbsState.Skipped:
-                            <span class="hint">@line.Note @if (line.BookId is int same) { <a href="/library/@same">See it</a> }</span>
+                            <span class="hint">@line.Note @if (line.BookId is int same) { <a href="/library/@same">@T("See it")</a> }</span>
                             break;
                         default:
                             <span class="validation-message">@line.Note</span>
@@ -44,65 +44,65 @@
         </ul>
         @if (job.Finished)
         {
-            <button type="button" @onclick="BringMore">Bring more</button>
+            <button type="button" @onclick="BringMore">@T("Bring more")</button>
         }
     </section>
 }
 else if (connection is null)
 {
     <section class="panel" aria-labelledby="connect-heading">
-        <h2 id="connect-heading">Connect</h2>
+        <h2 id="connect-heading">@T("Connect")</h2>
         <div class="account">
             <label>
-                Audiobookshelf address
+                @T("Audiobookshelf address")
                 <input @bind="address" placeholder="https://audiobooks.example.org" inputmode="url" autocomplete="url" maxlength="300" />
             </label>
             <fieldset>
-                <legend>Sign in with</legend>
-                <label class="check"><input type="radio" name="how" checked="@useKey" @onchange="() => useKey = true" /> An API key</label>
-                <label class="check"><input type="radio" name="how" checked="@(!useKey)" @onchange="() => useKey = false" /> A user name and password</label>
+                <legend>@T("Sign in with")</legend>
+                <label class="check"><input type="radio" name="how" checked="@useKey" @onchange="() => useKey = true" /> @T("An API key")</label>
+                <label class="check"><input type="radio" name="how" checked="@(!useKey)" @onchange="() => useKey = false" /> @T("A user name and password")</label>
             </fieldset>
             @if (useKey)
             {
                 <label>
-                    API key
+                    @T("API key")
                     <input type="password" @bind="apiKey" autocomplete="off" maxlength="2000" />
                 </label>
-                <p class="hint">Make one in Audiobookshelf under Settings, API Keys, and turn it on.</p>
+                <p class="hint">@T("Make one in Audiobookshelf under Settings, API Keys, and turn it on.")</p>
             }
             else
             {
                 <label>
-                    User name
+                    @T("User name")
                     <input @bind="user" autocomplete="off" maxlength="200" />
                 </label>
                 <label>
-                    Password
+                    @T("Password")
                     <input type="password" @bind="password" autocomplete="off" maxlength="500" />
                 </label>
             }
-            <button type="button" class="primary" @onclick="Connect" disabled="@busy">@(busy ? "Connecting…" : "Connect")</button>
-            <p class="hint">The key or password is used only for this import and never saved.</p>
+            <button type="button" class="primary" @onclick="Connect" disabled="@busy">@(busy ? T("Connecting…") : T("Connect"))</button>
+            <p class="hint">@T("The key or password is used only for this import and never saved.")</p>
         </div>
     </section>
 }
 else
 {
     <section class="panel" aria-labelledby="choose-heading">
-        <h2 id="choose-heading">Choose books</h2>
-        <p class="hint">Connected to @connection.Server.GetLeftPart(UriPartial.Authority) as @connection.User. <button type="button" class="link" @onclick="StartOver">Use another server</button></p>
+        <h2 id="choose-heading">@T("Choose books")</h2>
+        <p class="hint">@T("Connected to {0} as {1}.", connection.Server.GetLeftPart(UriPartial.Authority), connection.User) <button type="button" class="link" @onclick="StartOver">@T("Use another server")</button></p>
         @if (!connection.CanDownload)
         {
-            <p class="validation-message" role="alert">This Audiobookshelf user may not download, so its files cannot be copied. Turn on Can Download for them in Audiobookshelf's Users settings, then connect again.</p>
+            <p class="validation-message" role="alert">@T("This Audiobookshelf user may not download, so its files cannot be copied. Turn on Can Download for them in Audiobookshelf's Users settings, then connect again.")</p>
         }
         @if (connection.Libraries.Count == 0)
         {
-            <p>This user can see no book libraries. Podcast libraries are not brought across.</p>
+            <p>@T("This user can see no book libraries. Podcast libraries are not brought across.")</p>
         }
         else
         {
             <label>
-                Library
+                @T("Library")
                 <select @bind="libraryId" @bind:after="LoadItems">
                     @foreach (var library in connection.Libraries)
                     {
@@ -114,9 +114,9 @@ else
         @if (items is { Count: > 0 })
         {
             <div class="bulk-bar">
-                <button type="button" class="quiet" @onclick="() => { chosen = items.Where(item => !onShelf.Contains(item.Id)).Select(item => item.Id).ToHashSet(); }">Choose all new</button>
-                <button type="button" class="quiet" @onclick="() => chosen.Clear()">Choose none</button>
-                <span class="hint">@chosen.Count of @items.Count chosen</span>
+                <button type="button" class="quiet" @onclick="() => { chosen = items.Where(item => !onShelf.Contains(item.Id)).Select(item => item.Id).ToHashSet(); }">@T("Choose all new")</button>
+                <button type="button" class="quiet" @onclick="() => chosen.Clear()">@T("Choose none")</button>
+                <span class="hint">@T("{0} of {1} chosen", chosen.Count, items.Count)</span>
             </div>
             <ul class="abs-items">
                 @foreach (var item in items)
@@ -124,10 +124,10 @@ else
                     var here = onShelf.Contains(item.Id);
                     <li>
                         <label class="check">
-                            <input type="checkbox" checked="@chosen.Contains(item.Id)" @onchange="() => Toggle(item.Id)" aria-label="@($"Choose {item.Title}")" />
+                            <input type="checkbox" checked="@chosen.Contains(item.Id)" @onchange="() => Toggle(item.Id)" aria-label="@T("Choose {0}", item.Title)" />
                             <span>
                                 <strong>@item.Title</strong> <span class="by">@item.Author</span>
-                                <span class="hint">@Describe(item)@(here ? " · already on your shelf" : "")</span>
+                                <span class="hint">@Describe(item)@(here ? " · " + T("already on your shelf") : "")</span>
                             </span>
                         </label>
                     </li>
@@ -135,13 +135,13 @@ else
             </ul>
             <label class="check">
                 <input type="checkbox" @bind="bringProgress" />
-                Bring where I stopped listening or reading, and which books I finished
+                @T("Bring where I stopped listening or reading, and which books I finished")
             </label>
-            <button type="button" class="primary" @onclick="Import" disabled="@(chosen.Count == 0 || !connection.CanDownload)">Bring @chosen.Count @(chosen.Count == 1 ? "book" : "books")</button>
+            <button type="button" class="primary" @onclick="Import" disabled="@(chosen.Count == 0 || !connection.CanDownload)">@T("Bring {0}", Localization.Counts.Books(chosen.Count))</button>
         }
         else if (items is not null)
         {
-            <p>This library has no books.</p>
+            <p>@T("This library has no books.")</p>
         }
     </section>
 }
@@ -189,7 +189,7 @@ else
         problem = null;
         if (AbsClient.ServerAddress(address) is not { } server)
         {
-            problem = "Give the address you open Audiobookshelf at, such as https://audiobooks.example.org.";
+            problem = T("Give the address you open Audiobookshelf at, such as https://audiobooks.example.org.");
             return;
         }
 
@@ -208,7 +208,7 @@ else
         }
         catch (Exception ex) when (ex is AbsProblem or TaskCanceledException or System.Text.Json.JsonException or KeyNotFoundException or InvalidOperationException)
         {
-            problem = ex is AbsProblem ? ex.Message : "That address did not answer as Audiobookshelf.";
+            problem = ex is AbsProblem ? ex.Message : T("That address did not answer as Audiobookshelf.");
         }
         finally
         {
@@ -232,7 +232,7 @@ else
         }
         catch (Exception ex) when (ex is AbsProblem or TaskCanceledException or System.Text.Json.JsonException or KeyNotFoundException)
         {
-            problem = ex is AbsProblem ? ex.Message : "Audiobookshelf did not list that library.";
+            problem = ex is AbsProblem ? ex.Message : T("Audiobookshelf did not list that library.");
             return;
         }
 
@@ -294,15 +294,15 @@ else
         if (item.AudioFiles > 0)
         {
             var length = TimeSpan.FromSeconds(item.Duration);
-            parts.Add(length.TotalHours >= 1 ? $"audiobook, {(int)length.TotalHours} h {length.Minutes} min" : $"audiobook, {Math.Max(1, length.Minutes)} min");
+            parts.Add(length.TotalHours >= 1 ? T("audiobook, {0} h {1} min", (int)length.TotalHours, length.Minutes) : T("audiobook, {0} min", Math.Max(1, length.Minutes)));
         }
 
         if (item.EbookFormat is not null)
         {
-            parts.Add($"e-book ({item.EbookFormat.ToUpperInvariant()})");
+            parts.Add(T("e-book ({0})", item.EbookFormat.ToUpperInvariant()));
         }
 
-        return parts.Count == 0 ? "no files" : string.Join(" and ", parts);
+        return parts.Count == 0 ? T("no files") : string.Join(T(" and "), parts);
     }
 
     private static string Summary(AbsImportJob job)
@@ -311,10 +311,10 @@ else
         var done = lines.Count(line => line.State == AbsState.Done);
         var skipped = lines.Count(line => line.State == AbsState.Skipped);
         var failed = lines.Count(line => line.State == AbsState.Failed);
-        var text = $"{done} of {lines.Count} brought across";
-        if (skipped > 0) text += $", {skipped} already here";
-        if (failed > 0) text += $", {failed} could not be";
-        return job.Finished ? text + "." : text + " so far. You can leave this page; it carries on.";
+        var text = T("{0} of {1} brought across", done, lines.Count);
+        if (skipped > 0) text += T(", {0} already here", skipped);
+        if (failed > 0) text += T(", {0} could not be", failed);
+        return job.Finished ? text + "." : text + T(" so far. You can leave this page; it carries on.");
     }
 
     public void Dispose() => timer?.Dispose();

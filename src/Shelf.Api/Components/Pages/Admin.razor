@@ -6,17 +6,17 @@
 @inject CoverStore Covers
 @inject BackupSchedule Schedule
 
-<PageTitle>Readers · Shelf</PageTitle>
+<PageTitle>@T("Readers") · Shelf</PageTitle>
 
-<h1>Readers</h1>
+<h1>@T("Readers")</h1>
 
 @if (!allowed)
 {
-    <p>Only an admin of this shelf can manage readers.</p>
+    <p>@T("Only an admin of this shelf can manage readers.")</p>
 }
 else
 {
-    <p class="hint">A reader who forgets their password gets a new one here. Hand it to them, and they can change it from their account.</p>
+    <p class="hint">@T("A reader who forgets their password gets a new one here. Hand it to them, and they can change it from their account.")</p>
 
     @if (problem is AccountProblem shown)
     {
@@ -29,29 +29,29 @@ else
         {
             <li>
                 <strong>@reader.Name</strong>
-                <span class="hint"> · @reader.Books @(reader.Books == 1 ? "book" : "books") · since @reader.CreatedAt.Medium()@(reader.IsAdmin ? " · admin" : "")@(reader.Id == me ? " · you" : "")</span>
+                <span class="hint"> · @Localization.Counts.Books(reader.Books) · @T("since {0}", reader.CreatedAt.Medium())@(reader.IsAdmin ? " · " + T("admin") : "")@(reader.Id == me ? " · " + T("you") : "")</span>
                 @if (passwords.TryGetValue(reader.Id, out var password))
                 {
-                    <p>New password: <code class="key">@password</code></p>
-                    <p class="hint">It is not shown again. Every session @reader.Name had is signed out.</p>
+                    <p>@T("New password:") <code class="key">@password</code></p>
+                    <p class="hint">@T("It is not shown again. Every session {0} had is signed out.", reader.Name)</p>
                 }
                 <p>
                     @if (reader.Id != me)
                     {
-                        <button type="button" @onclick="() => Reset(reader.Id)">New password</button>
+                        <button type="button" @onclick="() => Reset(reader.Id)">@T("New password")</button>
                     }
-                    <button type="button" @onclick="() => SetAdmin(reader.Id, !reader.IsAdmin)">@(reader.IsAdmin ? "No longer admin" : "Make admin")</button>
+                    <button type="button" @onclick="() => SetAdmin(reader.Id, !reader.IsAdmin)">@(reader.IsAdmin ? T("No longer admin") : T("Make admin"))</button>
                     @if (reader.Id != me)
                     {
                         @if (removing == reader.Id)
                         {
-                            <span class="hint">Delete @reader.Name, their @reader.Books @(reader.Books == 1 ? "book" : "books"), and their files?</span>
-                            <button type="button" class="danger" @onclick="() => Remove(reader.Id)">Yes, delete</button>
-                            <button type="button" @onclick="() => removing = null">Cancel</button>
+                            <span class="hint">@T("Delete {0}, their {1}, and their files?", reader.Name, Localization.Counts.Books(reader.Books))</span>
+                            <button type="button" class="danger" @onclick="() => Remove(reader.Id)">@T("Yes, delete")</button>
+                            <button type="button" @onclick="() => removing = null">@T("Cancel")</button>
                         }
                         else
                         {
-                            <button type="button" class="danger" @onclick="() => removing = reader.Id">Delete</button>
+                            <button type="button" class="danger" @onclick="() => removing = reader.Id">@T("Delete")</button>
                         }
                     }
                 </p>
@@ -61,24 +61,26 @@ else
     </section>
 
     <section class="panel">
-    <h2>Snapshot</h2>
-    <p class="hint">Everything on this server in one zip: the database with every reader, and every e-book, audiobook, and cover picture. To restore it, stop the shelf and unpack it into a new data folder: <code>shelf.db</code> beside the app, and the <code>ebooks</code>, <code>audio</code>, and <code>covers</code> folders where they were.</p>
-    <a class="button primary" href="/admin/snapshot">Download a snapshot</a>
+    <h2>@T("Snapshot")</h2>
+    <p class="hint">@((MarkupString)T("Everything on this server in one zip: the database with every reader, and every e-book, audiobook, and cover picture. To restore it, stop the shelf and unpack it into a new data folder: <code>shelf.db</code> beside the app, and the <code>ebooks</code>, <code>audio</code>, and <code>covers</code> folders where they were."))</p>
+    <a class="button primary" href="/admin/snapshot">@T("Download a snapshot")</a>
     </section>
 
     <section class="panel">
-    <h2>Nightly backups</h2>
+    <h2>@T("Nightly backups")</h2>
     @if (!Schedule.Enabled)
     {
-        <p class="hint">Nightly backups are off (Backup:Enabled is false).</p>
+        <p class="hint">@T("Nightly backups are off (Backup:Enabled is false).")</p>
     }
     else
     {
-        <p class="hint">Each night after @Schedule.Hour.ToString("00"):00 UTC the shelf saves a snapshot of the database@(Schedule.IncludeFiles ? ", with every e-book and audiobook," : "") in <code>@Schedule.Folder</code>, keeping the last @Schedule.Keep. @(Schedule.IncludeFiles ? "" : "E-books and audiobooks never change once saved; copy their folders along with these to keep everything.")</p>
+        <p class="hint">@(Schedule.IncludeFiles
+            ? T("Each night after {0}:00 UTC the shelf saves a snapshot of the database, with every e-book and audiobook, in {1}, keeping the last {2}.", Schedule.Hour.ToString("00"), Schedule.Folder, Schedule.Keep)
+            : T("Each night after {0}:00 UTC the shelf saves a snapshot of the database in {1}, keeping the last {2}. E-books and audiobooks never change once saved; copy their folders along with these to keep everything.", Schedule.Hour.ToString("00"), Schedule.Folder, Schedule.Keep))</p>
     }
     @if (backups.Count == 0)
     {
-        <p class="hint">None yet.</p>
+        <p class="hint">@T("None yet.")</p>
     }
     else
     {
@@ -87,17 +89,17 @@ else
             {
                 <li>
                     <a href="/admin/backups/@backup.Name">@backup.TakenAt.Stamp() UTC</a>
-                    <span class="hint">@Size(backup.Bytes)</span>
+                    <span class="hint">@Localization.Counts.Size(backup.Bytes)</span>
                 </li>
             }
         </ul>
     }
-    <button type="button" @onclick="BackUpNow" disabled="@backingUp">@(backingUp ? "Backing up…" : "Back up now")</button>
+    <button type="button" @onclick="BackUpNow" disabled="@backingUp">@(backingUp ? T("Backing up…") : T("Back up now"))</button>
     </section>
 
     <section class="panel">
-    <h2>Activity</h2>
-    <p class="hint">Sign-ups, failed sign-ins, passwords, admin rights, two-step sign-in, devices signed out, keys, restores, and backups, newest first. The last @Audit.Keep are kept; <a href="/admin/audit">the newest 500 as JSON</a>.</p>
+    <h2>@T("Activity")</h2>
+    <p class="hint">@T("Sign-ups, failed sign-ins, passwords, admin rights, two-step sign-in, passkeys, devices signed out, keys, restores, and backups, newest first. The last {0} are kept.", Audit.Keep) <a href="/admin/audit">@T("The newest 500 as JSON")</a></p>
     <AuditList Lines="activity" />
     </section>
 }
@@ -111,17 +113,6 @@ else
     private int? removing;
     private IReadOnlyList<AutomaticBackup> backups = [];
     private bool backingUp;
-
-    private static string Size(long bytes)
-    {
-        const double megabyte = 1024 * 1024;
-        if (bytes >= megabyte * 1024)
-        {
-            return $"{bytes / (megabyte * 1024):0.##} GB";
-        }
-
-        return bytes >= megabyte ? $"{bytes / megabyte:0.#} MB" : $"{Math.Max(1, bytes / 1024)} KB";
-    }
 
     private async Task BackUpNow()
     {
