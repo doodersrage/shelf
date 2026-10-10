@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Shelf.Api.Data;
 
@@ -10,9 +11,11 @@ using Shelf.Api.Data;
 namespace Shelf.Api.Data.Migrations
 {
     [DbContext(typeof(ShelfDb))]
-    partial class ShelfDbModelSnapshot : ModelSnapshot
+    [Migration("20261010095237_ReaderLanguage")]
+    partial class ReaderLanguage
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");

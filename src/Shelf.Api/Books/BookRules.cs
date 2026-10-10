@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Shelf.Api.Data;
+using static Shelf.Api.Localization.Words;
 
 namespace Shelf.Api.Books;
 
@@ -764,17 +765,28 @@ public static class BookRules
 
     public static string StatusLabel(BookStatus status) => status switch
     {
-        BookStatus.Want => "Want to read",
+        BookStatus.Want => T("Want to read"),
+        BookStatus.Reading => T("Reading"),
+        BookStatus.Finished => T("Finished"),
+        BookStatus.Abandoned => T("Abandoned"),
         _ => status.ToString(),
     };
 
     public static string ConditionLabel(CopyCondition condition) => condition switch
     {
-        CopyCondition.Fine => "Fine copy",
-        CopyCondition.Good => "Good copy",
-        CopyCondition.Fair => "Fair copy",
-        CopyCondition.Poor => "Poor copy",
+        CopyCondition.Fine => T("Fine copy"),
+        CopyCondition.Good => T("Good copy"),
+        CopyCondition.Fair => T("Fair copy"),
+        CopyCondition.Poor => T("Poor copy"),
         _ => condition.ToString(),
+    };
+
+    public static string AcquisitionLabel(Acquisition acquisition) => acquisition switch
+    {
+        Acquisition.Bought => T("Bought"),
+        Acquisition.Gift => T("A gift"),
+        Acquisition.Found => T("Found"),
+        _ => acquisition.ToString(),
     };
 
     public static ConditionGroup[] ByCondition(IEnumerable<Book> books) =>

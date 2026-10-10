@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Shelf.Api.Data;
+using static Shelf.Api.Localization.Words;
 
 namespace Shelf.Api.Books;
 
@@ -85,34 +86,34 @@ public static class NotesExport
         text.AppendLine();
         text.AppendLine($"# {Inline(book.Title)}");
         text.AppendLine();
-        text.AppendLine($"by {Inline(book.Author)}");
+        text.AppendLine(T("by {0}", Inline(book.Author)));
 
         if (!open.Borrowed && !string.IsNullOrWhiteSpace(book.Review))
         {
-            text.AppendLine().AppendLine("## Review").AppendLine().AppendLine(book.Review.Trim());
+            text.AppendLine().AppendLine("## " + T("Review")).AppendLine().AppendLine(book.Review.Trim());
         }
 
         if (!open.Borrowed && !string.IsNullOrWhiteSpace(book.Notes))
         {
-            text.AppendLine().AppendLine("## Notes").AppendLine().AppendLine(book.Notes.Trim());
+            text.AppendLine().AppendLine("## " + T("Notes")).AppendLine().AppendLine(book.Notes.Trim());
         }
 
         if (quotes.Count > 0)
         {
-            text.AppendLine().AppendLine("## Quotes");
+            text.AppendLine().AppendLine("## " + T("Quotes"));
             foreach (var quote in quotes)
             {
                 text.AppendLine().Append(Blockquote(quote.Text));
                 if (quote.Page is { } page)
                 {
-                    text.AppendLine(">").AppendLine($"> — page {page}");
+                    text.AppendLine(">").AppendLine("> — " + T("page {0}", page));
                 }
             }
         }
 
         if (marks.Count > 0)
         {
-            text.AppendLine().AppendLine("## Highlights");
+            text.AppendLine().AppendLine("## " + T("Highlights"));
             int? section = null;
             foreach (var mark in marks)
             {
@@ -120,8 +121,8 @@ public static class NotesExport
                 {
                     section = mark.ChapterIndex;
                     var heading = pdf
-                        ? $"Page {mark.ChapterIndex + 1}"
-                        : chapters is not null && mark.ChapterIndex < chapters.Count ? chapters[mark.ChapterIndex].Title : $"Chapter {mark.ChapterIndex + 1}";
+                        ? T("Page {0}", mark.ChapterIndex + 1)
+                        : chapters is not null && mark.ChapterIndex < chapters.Count ? chapters[mark.ChapterIndex].Title : T("Chapter {0}", mark.ChapterIndex + 1);
                     text.AppendLine().AppendLine($"### {Inline(heading)}");
                 }
 

@@ -130,7 +130,7 @@ else if (hasKey)
         newKosyncPassword = Kosync.NewPassword();
         reader.KosyncHash = Kosync.HashOf(newKosyncPassword);
         await db.SaveChangesAsync();
-        await Audit.NoteAsync(db, "Made a KOReader password", reader);
+        await Audit.NoteAsync(db, Say("Made a KOReader password"), reader);
         hasKosync = true;
     }
 
@@ -140,7 +140,7 @@ else if (hasKey)
         var reader = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
         reader.KosyncHash = null;
         await db.SaveChangesAsync();
-        await Audit.NoteAsync(db, "Stopped syncing with KOReader", reader);
+        await Audit.NoteAsync(db, Say("Stopped syncing with KOReader"), reader);
         hasKosync = false;
         newKosyncPassword = null;
     }

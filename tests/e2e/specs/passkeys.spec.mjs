@@ -33,7 +33,7 @@ test("a passkey signs in without the password or the authenticator code", async 
   await page.fill('input[placeholder="My phone"]', "Test laptop");
   await page.click('button:text-is("Add a passkey")');
   await expect(page.locator("section:has(h2:text('Passkeys')) li")).toContainText("Test laptop");
-  await expect(page.locator("section:has(h2:text('Recent activity'))")).toContainText("added a passkey");
+  await expect(page.locator("section:has(h2:text('Recent activity'))")).toContainText("Added a passkey");
 
   await signOut(page);
   await page.click('button:text-is("Sign in with a passkey")');

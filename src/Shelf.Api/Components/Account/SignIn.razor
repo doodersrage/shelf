@@ -2,21 +2,21 @@
 @attribute [AllowAnonymous]
 @inject IEmailSender Email
 
-<PageTitle>Sign in · Shelf</PageTitle>
+<PageTitle>@T("Sign in") · Shelf</PageTitle>
 
-<h1>Sign in</h1>
+<h1>@T("Sign in")</h1>
 
 @if (Notice == "changed")
 {
-    <p class="hint" role="status">Your password is changed. Sign in with the new one.</p>
+    <p class="hint" role="status">@T("Your password is changed. Sign in with the new one.")</p>
 }
 else if (Notice == "removed")
 {
-    <p class="hint" role="status">Your account is deleted.</p>
+    <p class="hint" role="status">@T("Your account is deleted.")</p>
 }
 else if (Notice == "reset")
 {
-    <p class="hint" role="status">Your new password is saved. Sign in with it.</p>
+    <p class="hint" role="status">@T("Your new password is saved. Sign in with it.")</p>
 }
 
 @if (Problem is AccountProblem problem)
@@ -28,31 +28,31 @@ else if (Notice == "reset")
     <AntiforgeryToken />
     <input type="hidden" name="returnUrl" value="@SafeReturnUrl" />
     <label>
-        Name
+        @T("Name")
         <input name="name" value="@Name" maxlength="@ReaderRules.MaxNameLength" autocomplete="username" required autofocus />
     </label>
     <label>
-        Password
+        @T("Password")
         <input type="password" name="password" maxlength="@ReaderRules.MaxPasswordLength" autocomplete="current-password" required />
     </label>
-    <button type="submit">Sign in</button>
+    <button type="submit">@T("Sign in")</button>
 </form>
 
 @* Shown by passkey.js when the browser can use passkeys. *@
 <div class="account passkey-signin" data-passkey-panel hidden>
-    <p class="hint">Or, with a passkey saved on this device or in a password manager:</p>
-    <button type="button" data-passkey-signin data-return-url="@SafeReturnUrl">Sign in with a passkey</button>
+    <p class="hint">@T("Or, with a passkey saved on this device or in a password manager:")</p>
+    <button type="button" data-passkey-signin data-return-url="@SafeReturnUrl">@T("Sign in with a passkey")</button>
     <p class="validation-message" data-passkey-status role="alert" hidden></p>
 </div>
 
-<p class="hint">New to this shelf? <a href="@SignUpHref">Make an account</a></p>
+<p class="hint">@T("New to this shelf?") <a href="@SignUpHref">@T("Make an account")</a></p>
 @if (Email.Enabled)
 {
-    <p class="hint"><a href="/forgot">Forgot the password?</a></p>
+    <p class="hint"><a href="/forgot">@T("Forgot the password?")</a></p>
 }
 else
 {
-    <p class="hint">Forgot the password? An admin of this shelf can give you a new one.</p>
+    <p class="hint">@T("Forgot the password? An admin of this shelf can give you a new one.")</p>
 }
 
 @code {

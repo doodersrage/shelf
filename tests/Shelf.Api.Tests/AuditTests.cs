@@ -48,9 +48,9 @@ public sealed class AuditTests(ShelfApiFactory factory) : IClassFixture<ShelfApi
         var theirs = WebUtility.HtmlDecode(await stranger.GetStringAsync("/account"));
         Assert.Contains("Recent activity", theirs);
         var section = theirs[theirs.IndexOf("Recent activity", StringComparison.Ordinal)..];
-        Assert.Contains("signed up", section);
+        Assert.Contains("Signed up", section);
         Assert.DoesNotContain("Logged Reader", theirs);
-        Assert.Contains("gave a new password", WebUtility.HtmlDecode(await admin.GetStringAsync("/admin")));
+        Assert.Contains("Gave a new password", WebUtility.HtmlDecode(await admin.GetStringAsync("/admin")));
     }
 
 

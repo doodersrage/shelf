@@ -2,19 +2,19 @@
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 
-<PageTitle>Years · Shelf</PageTitle>
+<PageTitle>@T("Years") · Shelf</PageTitle>
 
-<h1>Years</h1>
+<h1>@T("Years")</h1>
 
 @if (years.Count == 0)
 {
-    <EmptyState Title="No books finished yet" Text="Finished books are grouped here by the year you finished them." ActionHref="/?status=Reading" ActionLabel="See what you are reading" />
+    <EmptyState Title="@T("No books finished yet")" Text="@T("Finished books are grouped here by the year you finished them.")" ActionHref="/?status=Reading" ActionLabel="@T("See what you are reading")" />
 }
 else
 {
     @foreach (var year in years)
     {
-        <h2>@(year.Year?.ToString() ?? "Undated")</h2>
+        <h2>@(year.Year?.ToString() ?? T("Undated"))</h2>
         <ul class="tag-counts">
             @foreach (var book in year.Books)
             {

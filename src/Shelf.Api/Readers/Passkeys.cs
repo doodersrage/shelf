@@ -166,7 +166,7 @@ public static class Passkeys
             CreatedAt = DateTimeOffset.UtcNow,
         });
         await db.SaveChangesAsync(cancellationToken);
-        await Audit.NoteAsync(db, "Added a passkey", reader, name, cancellationToken);
+        await Audit.NoteAsync(db, Localization.Words.Say("Added a passkey"), reader, name, cancellationToken);
         return TypedResults.Ok(await ListAsync(db, reader.Id, cancellationToken));
     }
 
@@ -180,7 +180,7 @@ public static class Passkeys
 
         db.ReaderPasskeys.Remove(key);
         await db.SaveChangesAsync(cancellationToken);
-        await Audit.NoteAsync(db, "Removed a passkey", await db.Readers.FindAsync([readerId], cancellationToken), key.Name, cancellationToken);
+        await Audit.NoteAsync(db, Localization.Words.Say("Removed a passkey"), await db.Readers.FindAsync([readerId], cancellationToken), key.Name, cancellationToken);
         return true;
     }
 
@@ -229,7 +229,7 @@ public static class Passkeys
         }
         catch (Fido2VerificationException)
         {
-            await Audit.NoteAsync(db, "A sign-in failed: the passkey did not check out", reader, key.Name, cancellationToken);
+            await Audit.NoteAsync(db, Localization.Words.Say("A sign-in failed: the passkey did not check out"), reader, key.Name, cancellationToken);
             return Problem("The passkey could not be checked. Try again.");
         }
 

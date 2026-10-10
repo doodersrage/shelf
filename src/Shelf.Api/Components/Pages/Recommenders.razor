@@ -2,13 +2,13 @@
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 
-<PageTitle>Recommenders · Shelf</PageTitle>
+<PageTitle>@T("Recommenders") · Shelf</PageTitle>
 
-<h1>Recommenders</h1>
+<h1>@T("Recommenders")</h1>
 
 @if (people.Count == 0)
 {
-    <EmptyState Title="No recommendations yet" Text="Note who suggested a book in its details, and the people who recommend books gather here." ActionHref="/" ActionLabel="Open the library" />
+    <EmptyState Title="@T("No recommendations yet")" Text="@T("Note who suggested a book in its details, and the people who recommend books gather here.")" ActionHref="/" ActionLabel="@T("Open the library")" />
 }
 else
 {
@@ -17,7 +17,7 @@ else
         {
             <li>
                 <a href="@($"/?recommendedBy={Uri.EscapeDataString(person.Name)}")">@person.Name</a>
-                <span class="hint">@person.Count @(person.Count == 1 ? "book" : "books")</span>
+                <span class="hint">@Localization.Counts.Books(person.Count)</span>
             </li>
         }
     </ul>

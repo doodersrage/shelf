@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Shelf.Api.Books;
 using Shelf.Api.Data;
+using static Shelf.Api.Localization.Words;
 
 namespace Shelf.Api.Readers;
 
@@ -61,22 +62,22 @@ public static class ReaderRules
 
     public static string Describe(AccountProblem problem) => problem switch
     {
-        AccountProblem.NameMissing => "Choose a name.",
-        AccountProblem.NameTooLong => $"Keep the name to {MaxNameLength} characters.",
-        AccountProblem.NameCharacters => "Use letters, numbers, spaces, and . - _ ' in a name.",
-        AccountProblem.NameTaken => "That name is taken.",
-        AccountProblem.PasswordTooShort => $"Use a password of at least {MinPasswordLength} characters.",
-        AccountProblem.PasswordTooLong => $"Keep the password to {MaxPasswordLength} characters.",
-        AccountProblem.PasswordsDiffer => "The two passwords are different.",
-        AccountProblem.WrongPassword => "That name and password do not match.",
-        AccountProblem.CurrentPasswordWrong => "The current password does not match.",
-        AccountProblem.SignUpClosed => "This shelf is not taking new readers.",
-        AccountProblem.LastAdmin => "The shelf needs at least one admin. Make another reader an admin first.",
-        AccountProblem.NoSuchReader => "That reader is not on this shelf.",
-        AccountProblem.ResetExpired => "That reset link has expired or was used already. Ask for a new one.",
-        AccountProblem.EmailInvalid => "That does not look like an email address.",
-        AccountProblem.CodeWrong => "That code does not match. Try the newest code from your authenticator, or a recovery code.",
-        _ => "Something went wrong.",
+        AccountProblem.NameMissing => T("Choose a name."),
+        AccountProblem.NameTooLong => T("Keep the name to {0} characters.", MaxNameLength),
+        AccountProblem.NameCharacters => T("Use letters, numbers, spaces, and . - _ ' in a name."),
+        AccountProblem.NameTaken => T("That name is taken."),
+        AccountProblem.PasswordTooShort => T("Use a password of at least {0} characters.", MinPasswordLength),
+        AccountProblem.PasswordTooLong => T("Keep the password to {0} characters.", MaxPasswordLength),
+        AccountProblem.PasswordsDiffer => T("The two passwords are different."),
+        AccountProblem.WrongPassword => T("That name and password do not match."),
+        AccountProblem.CurrentPasswordWrong => T("The current password does not match."),
+        AccountProblem.SignUpClosed => T("This shelf is not taking new readers."),
+        AccountProblem.LastAdmin => T("The shelf needs at least one admin. Make another reader an admin first."),
+        AccountProblem.NoSuchReader => T("That reader is not on this shelf."),
+        AccountProblem.ResetExpired => T("That reset link has expired or was used already. Ask for a new one."),
+        AccountProblem.EmailInvalid => T("That does not look like an email address."),
+        AccountProblem.CodeWrong => T("That code does not match. Try the newest code from your authenticator, or a recovery code."),
+        _ => T("Something went wrong."),
     };
 
     public static async Task<(Reader? Reader, AccountProblem? Problem)> CreateAsync(
@@ -121,7 +122,7 @@ public static class ReaderRules
             await ClaimUnownedAsync(db, reader.Id, cancellationToken);
         }
 
-        await Audit.NoteAsync(db, reader.IsAdmin ? "Signed up, the first reader and admin" : "Signed up", reader, cancellationToken: cancellationToken);
+        await Audit.NoteAsync(db, reader.IsAdmin ? Localization.Words.Say("Signed up, the first reader and admin") : Localization.Words.Say("Signed up"), reader, cancellationToken: cancellationToken);
         return (reader, null);
     }
 
@@ -146,7 +147,7 @@ public static class ReaderRules
         var result = Hasher.VerifyHashedPassword(reader, reader.PasswordHash, password);
         if (result == PasswordVerificationResult.Failed)
         {
-            await Audit.NoteAsync(db, "A sign-in failed: wrong password", reader, cancellationToken: cancellationToken);
+            await Audit.NoteAsync(db, Localization.Words.Say("A sign-in failed: wrong password"), reader, cancellationToken: cancellationToken);
             return null;
         }
 
@@ -182,7 +183,7 @@ public static class ReaderRules
         reader.Stamp = NewStamp();
         await db.SaveChangesAsync(cancellationToken);
         await db.ReaderSessions.Where(session => session.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
-        await Audit.NoteAsync(db, "Changed the password", reader, cancellationToken: cancellationToken);
+        await Audit.NoteAsync(db, Localization.Words.Say("Changed the password"), reader, cancellationToken: cancellationToken);
         return null;
     }
 
@@ -199,7 +200,7 @@ public static class ReaderRules
         reader.Stamp = NewStamp();
         await db.SaveChangesAsync(cancellationToken);
         await db.ReaderSessions.Where(session => session.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
-        await Audit.NoteAsync(db, "Set a new password", reader, cancellationToken: cancellationToken);
+        await Audit.NoteAsync(db, Localization.Words.Say("Set a new password"), reader, cancellationToken: cancellationToken);
         return true;
     }
 
@@ -238,13 +239,13 @@ public static class ReaderRules
         await db.SaveChangesAsync(cancellationToken);
         await db.ReaderSessions.Where(session => session.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
 
-        await Audit.NoteAsync(db, "Gave a new password", reader, cancellationToken: cancellationToken);
+        await Audit.NoteAsync(db, Localization.Words.Say("Gave a new password"), reader, cancellationToken: cancellationToken);
 
         // Passkeys go too: if someone else got in, they may have added one of their own.
         var passkeys = await db.ReaderPasskeys.Where(key => key.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
         if (passkeys > 0)
         {
-            await Audit.NoteAsync(db, "Removed every passkey", reader, $"{passkeys} removed", cancellationToken);
+            await Audit.NoteAsync(db, Localization.Words.Say("Removed every passkey"), reader, $"{passkeys} removed", cancellationToken);
         }
 
         // An admin's reset is the way back in after a lost phone, so it turns two-step sign-in off too.
@@ -291,7 +292,7 @@ public static class ReaderRules
         await db.SaveChangesAsync(cancellationToken);
         if (changed)
         {
-            await Audit.NoteAsync(db, isAdmin ? "Made an admin" : "Took away admin rights", reader, cancellationToken: cancellationToken);
+            await Audit.NoteAsync(db, isAdmin ? Localization.Words.Say("Made an admin") : Localization.Words.Say("Took away admin rights"), reader, cancellationToken: cancellationToken);
         }
 
         return null;
@@ -362,7 +363,7 @@ public static class ReaderRules
         }
 
         await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
-        await Audit.NoteAsync(db, "Removed the account and its shelf", reader, $"{files.Count} books", cancellationToken);
+        await Audit.NoteAsync(db, Localization.Words.Say("Removed the account and its shelf"), reader, $"{files.Count} books", cancellationToken);
         return null;
     }
 
@@ -405,7 +406,7 @@ public static class ReaderRules
             .Replace('/', '_');
         reader.KeyHash = HashKey(key);
         await db.SaveChangesAsync(cancellationToken);
-        await Audit.NoteAsync(db, "Made a new device key", reader, cancellationToken: cancellationToken);
+        await Audit.NoteAsync(db, Localization.Words.Say("Made a new device key"), reader, cancellationToken: cancellationToken);
         return key;
     }
 

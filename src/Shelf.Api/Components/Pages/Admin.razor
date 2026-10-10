@@ -132,7 +132,7 @@ else
             if (await StillAdminAsync(db))
             {
                 var taken = await Schedule.TakeAsync(CancellationToken.None);
-                await Audit.NoteAsync(db, "Took a backup", detail: taken.Name);
+                await Audit.NoteAsync(db, Say("Took a backup"), detail: taken.Name);
                 activity = await Audit.RecentAsync(db, take: 100);
             }
         }

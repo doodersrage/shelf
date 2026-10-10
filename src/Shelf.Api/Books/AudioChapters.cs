@@ -325,5 +325,5 @@ public static class AudioChapters
     }
 
     private static string Title(string title, int index) =>
-        string.IsNullOrWhiteSpace(title) ? $"Chapter {index + 1}" : title.Trim();
+        string.IsNullOrWhiteSpace(title) ? Localization.Words.T("Chapter {0}", index + 1) : title.Trim();
 }

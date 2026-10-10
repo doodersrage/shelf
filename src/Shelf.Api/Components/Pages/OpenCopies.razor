@@ -8,15 +8,15 @@
         {
             <li>
                 <span>
-                    On <a href="/shelves/@copy.OwnerId">@copy.Owner's open shelf</a>@Has(copy)@(copy.OnLoan ? ", on loan just now" : "").
+                    <a href="/shelves/@copy.OwnerId">@T("{0}'s open shelf", copy.Owner)</a>@Has(copy)@(copy.OnLoan ? T(", on loan just now") : "").
                 </span>
                 @if (copy.Asked || asked.Contains(copy.Id))
                 {
-                    <span class="saved">Asked</span>
+                    <span class="saved">@T("Asked")</span>
                 }
                 else
                 {
-                    <button type="button" class="quiet" @onclick="() => Ask(copy)" aria-label="@($"Ask {copy.Owner} to borrow {copy.Title}")">Ask to borrow</button>
+                    <button type="button" class="quiet" @onclick="() => Ask(copy)" aria-label="@T("Ask {0} to borrow {1}", copy.Owner, copy.Title)">@T("Ask to borrow")</button>
                 }
             </li>
         }
@@ -36,9 +36,9 @@
 
     private static string Has(OpenCopy copy) => (copy.HasEbook, copy.HasAudio) switch
     {
-        (true, true) => ", with an e-book and an audiobook",
-        (true, false) => ", with an e-book",
-        (false, true) => ", with an audiobook",
+        (true, true) => T(", with an e-book and an audiobook"),
+        (true, false) => T(", with an e-book"),
+        (false, true) => T(", with an audiobook"),
         _ => "",
     };
 
@@ -49,8 +49,8 @@
         message = result switch
         {
             AskResult.Asked => null,
-            AskResult.AlreadyYours => "That book is already lent to you.",
-            _ => "That book is no longer on an open shelf.",
+            AskResult.AlreadyYours => T("That book is already lent to you."),
+            _ => T("That book is no longer on an open shelf."),
         };
         if (result == AskResult.Asked)
         {

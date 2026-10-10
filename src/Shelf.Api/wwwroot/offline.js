@@ -2,6 +2,9 @@
 import * as pdfjs from "/lib/pdfjs/pdf.min.mjs";
 import * as marks from "/offline-marks.js";
 
+const t = (text, ...values) => (window.t ? window.t(text, ...values) : text);
+window.translatePage?.();
+
 pdfjs.GlobalWorkerOptions.workerSrc = "/lib/pdfjs/pdf.worker.min.mjs";
 
 const BOOKS = "shelf-books";
@@ -108,7 +111,7 @@ function listBooks() {
 async function open(item) {
   const response = await (await caches.open(BOOKS)).match(`/books/${item.id}/ebook/file`);
   if (!response) {
-    $("page").textContent = "This book's file is no longer on this device.";
+    $("page").textContent = t("This book's file is no longer on this device.");
     return;
   }
 
@@ -127,7 +130,7 @@ async function turn(step) {
   index = Math.min(Math.max(index + step, 0), count - 1);
   $("previous").disabled = index === 0;
   $("next").disabled = index >= count - 1;
-  $("where").textContent = `${book.type === "pdf" ? "Page" : "Chapter"} ${index + 1} of ${count}`;
+  $("where").textContent = book.type === "pdf" ? t("Page {0} of {1}", index + 1, count) : t("Chapter {0} of {1}", index + 1, count);
   await show(index);
   hideMarking();
   showMarks();
@@ -229,7 +232,7 @@ function showMarks() {
     marks.paint(container, here);
   }
 
-  $("marks-heading").textContent = book.type === "pdf" ? "On this page" : "In this chapter";
+  $("marks-heading").textContent = book.type === "pdf" ? t("On this page") : t("In this chapter");
   $("marks-here").hidden = here.length === 0;
   $("marks-waiting").hidden = !marks.waiting(book.id);
   const list = $("marks");
@@ -250,13 +253,13 @@ function showMarks() {
     if (mark.pending) {
       const hint = document.createElement("p");
       hint.className = "hint";
-      hint.textContent = "On this device; sent to the shelf when you are online.";
+      hint.textContent = t("On this device; sent to the shelf when you are online.");
       item.append(hint);
     }
 
     const remove = document.createElement("button");
     remove.type = "button";
-    remove.textContent = "Remove";
+    remove.textContent = t("Remove");
     remove.addEventListener("click", () => {
       marks.remove(book.id, mark.id);
       showMarks();
@@ -328,7 +331,7 @@ function route() {
 }
 
 function connection() {
-  $("connection").textContent = navigator.onLine ? "Online again" : "Offline";
+  $("connection").textContent = navigator.onLine ? t("Online again") : t("Offline");
   if (navigator.onLine) {
     sendPlaces();
     sendMarks();

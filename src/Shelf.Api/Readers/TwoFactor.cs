@@ -135,7 +135,7 @@ public static class TwoFactor
     {
         if (reader.TwoFactorEnabled)
         {
-            await Audit.NoteAsync(db, "Turned off two-step sign-in", reader, cancellationToken: cancellationToken);
+            await Audit.NoteAsync(db, Localization.Words.Say("Turned off two-step sign-in"), reader, cancellationToken: cancellationToken);
         }
 
         reader.TwoFactorEnabled = false;
@@ -202,7 +202,7 @@ public static class TwoFactor
         var ended = await EndSessionAsync(db, readerId, sessionId, cancellationToken);
         if (ended > 0)
         {
-            await Audit.NoteAsync(db, "Signed out a device", await db.Readers.FindAsync([readerId], cancellationToken), device, cancellationToken);
+            await Audit.NoteAsync(db, Localization.Words.Say("Signed out a device"), await db.Readers.FindAsync([readerId], cancellationToken), device, cancellationToken);
         }
 
         return ended;
@@ -213,7 +213,7 @@ public static class TwoFactor
         var ended = await db.ReaderSessions.Where(item => item.ReaderId == readerId && item.Id != keep).ExecuteDeleteAsync(cancellationToken);
         if (ended > 0)
         {
-            await Audit.NoteAsync(db, "Signed out every other device", await db.Readers.FindAsync([readerId], cancellationToken), $"{ended} signed out", cancellationToken);
+            await Audit.NoteAsync(db, Localization.Words.Say("Signed out every other device"), await db.Readers.FindAsync([readerId], cancellationToken), $"{ended} signed out", cancellationToken);
         }
 
         return ended;

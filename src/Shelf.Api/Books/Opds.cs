@@ -51,7 +51,7 @@ public static class Opds
         var books = await db.Books.AsNoTracking()
             .Where(book => book.EbookStoredName != null && (status == null || book.Status == status))
             .ToListAsync(cancellationToken);
-        var title = status is { } chosen ? BookRules.StatusLabel(chosen) : "All e-books";
+        var title = status is { } chosen ? BookRules.StatusLabel(chosen) : Localization.Words.T("All e-books");
         return Xml(Acquire($"urn:shelf:opds:books:{status}", title, status is null ? "/opds/books" : $"/opds/books?status={status}", books), Acquisition);
     }
 

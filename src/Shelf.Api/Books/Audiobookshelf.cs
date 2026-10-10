@@ -485,7 +485,7 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
         scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(job.ReaderId);
         var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
         var done = job.Lines.Values.Count(line => line.State == AbsState.Done);
-        await Audit.NoteAsync(db, "Imported from Audiobookshelf", detail: $"{done} of {job.Items.Count} books from {job.Connection.Server.GetLeftPart(UriPartial.Authority)}", cancellationToken: cancellationToken);
+        await Audit.NoteAsync(db, Localization.Words.Say("Imported from Audiobookshelf"), detail: $"{done} of {job.Items.Count} books from {job.Connection.Server.GetLeftPart(UriPartial.Authority)}", cancellationToken: cancellationToken);
     }
 
     private static string? Fit(string? value, int length) =>

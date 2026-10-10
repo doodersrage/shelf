@@ -2,13 +2,13 @@
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 
-<PageTitle>Authors · Shelf</PageTitle>
+<PageTitle>@T("Authors") · Shelf</PageTitle>
 
-<h1>Authors</h1>
+<h1>@T("Authors")</h1>
 
 @if (authors.Count == 0)
 {
-    <EmptyState Title="No authors yet" Text="Each author on your shelf is listed here with how many of their books you have." ActionHref="/?add=1" ActionLabel="Add a book" />
+    <EmptyState Title="@T("No authors yet")" Text="@T("Each author on your shelf is listed here with how many of their books you have.")" ActionHref="/?add=1" ActionLabel="@T("Add a book")" />
 }
 else
 {
@@ -17,7 +17,7 @@ else
         {
             <li>
                 <a href="@($"/?author={Uri.EscapeDataString(author.Name)}")">@author.Name</a>
-                <span class="hint">@author.Count @(author.Count == 1 ? "book" : "books")</span>
+                <span class="hint">@Localization.Counts.Books(author.Count)</span>
             </li>
         }
     </ul>

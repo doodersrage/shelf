@@ -1,5 +1,6 @@
 // Passkeys in the browser: the server's options become a WebAuthn call, and the device's answer goes back as JSON.
 // Binary fields travel as base64url both ways.
+const t = (text, ...values) => (window.t ? window.t(text, ...values) : text);
 export function supported() {
   return Boolean(window.PublicKeyCredential && navigator.credentials?.create);
 }
@@ -45,7 +46,7 @@ async function post(url, body) {
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     const message = data?.errors ? Object.values(data.errors).flat()[0] : null;
-    throw new Error(message || "That did not work. Try again.");
+    throw new Error(message || t("That did not work. Try again."));
   }
 
   return data;
@@ -53,14 +54,14 @@ async function post(url, body) {
 
 function describe(error) {
   if (error?.name === "NotAllowedError" || error?.name === "AbortError") {
-    return "The passkey was not used. Try again when you are ready.";
+    return t("The passkey was not used. Try again when you are ready.");
   }
 
   if (error?.name === "InvalidStateError") {
-    return "This device already has a passkey for this shelf.";
+    return t("This device already has a passkey for this shelf.");
   }
 
-  return error?.message || "That did not work. Try again.";
+  return error?.message || t("That did not work. Try again.");
 }
 
 // Account page: make a passkey on this device. Returns null when it worked, or what went wrong.

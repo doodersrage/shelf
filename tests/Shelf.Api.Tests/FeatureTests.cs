@@ -619,8 +619,50 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         }
 
         // The reader's own choice wins over the browser's.
-        Assert.Contains("Finished 14 Mar 2024", await ListAsync("de-DE"));
-        Assert.Contains("Dates and numbers", await reader.GetStringAsync("/account"));
+        Assert.Contains("14 Mar 2024", await ListAsync("de-DE"));
+        Assert.Contains("Language and region", await reader.GetStringAsync("/account"));
+    }
+
+    [Fact]
+    public async Task Pages_are_in_the_browsers_language_or_the_readers_choice()
+    {
+        var reader = await factory.SignUpAsync("Polyglot Reader");
+        async Task<string> PageAsync(string? language)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/authors");
+            if (language is not null)
+            {
+                request.Headers.AcceptLanguage.ParseAdd(language);
+            }
+
+            return WebUtility.HtmlDecode(await (await reader.SendAsync(request)).Content.ReadAsStringAsync());
+        }
+
+        var english = await PageAsync(null);
+        Assert.Contains("<html lang=\"en\">", english);
+        Assert.Contains("No authors yet", english);
+        var spanish = await PageAsync("es-MX,es;q=0.9");
+        Assert.Contains("<html lang=\"es\">", spanish);
+        Assert.Contains("Aún no hay autores", spanish);
+        Assert.Contains("Pas encore d'auteurs", await PageAsync("fr-FR"));
+        Assert.Contains("Noch keine Autoren", await PageAsync("de"));
+        Assert.Contains("No authors yet", await PageAsync("ja-JP"));
+
+        // The reader's own choice wins over the browser's.
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            var id = await factory.ReaderIdAsync("Polyglot Reader");
+            db.Readers.Single(item => item.Id == id).Language = "de";
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Contains("Noch keine Autoren", await PageAsync("es-ES"));
+
+        // Before signing in, the browser's language decides.
+        using var signIn = new HttpRequestMessage(HttpMethod.Get, "/signin");
+        signIn.Headers.AcceptLanguage.ParseAdd("fr-CA");
+        Assert.Contains("Se connecter", WebUtility.HtmlDecode(await (await factory.CreateClient().SendAsync(signIn)).Content.ReadAsStringAsync()));
     }
 
     [Fact]

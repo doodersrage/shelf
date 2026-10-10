@@ -1,7 +1,7 @@
 @* Lines from the activity log, newest first: when, who, what, and to whom. *@
 @if (Lines.Count == 0)
 {
-    <p class="hint">Nothing yet.</p>
+    <p class="hint">@T("Nothing yet.")</p>
 }
 else
 {
@@ -13,11 +13,11 @@ else
                 <span>
                     @if (ShowActor && line.Actor is not null)
                     {
-                        <strong>@line.Actor</strong> @Lower(line.Action)
+                        <strong>@line.Actor</strong> <text>·</text> @T(line.Action)
                     }
                     else
                     {
-                        @line.Action
+                        @T(line.Action)
                     }
                     @if (line.Target is not null)
                     {
@@ -39,6 +39,4 @@ else
 
     [Parameter]
     public bool ShowActor { get; set; } = true;
-
-    private static string Lower(string action) => action.Length > 0 ? char.ToLowerInvariant(action[0]) + action[1..] : action;
 }

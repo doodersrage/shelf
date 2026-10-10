@@ -23,4 +23,7 @@
     <ProjectReference Include="..\Shelf.ServiceDefaults\Shelf.ServiceDefaults.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Localization\*.json" />
+  </ItemGroup>
 </Project>

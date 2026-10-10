@@ -353,7 +353,7 @@ public static class BookEndpoints
 
             if (result is not null)
             {
-                await Readers.Audit.NoteAsync(db, "Restored a backup", detail: $"{result.Added} books added, {result.Skipped} already there, {result.Files} files", cancellationToken: cancellationToken);
+                await Readers.Audit.NoteAsync(db, Localization.Words.Say("Restored a backup"), detail: $"{result.Added} books added, {result.Skipped} already there, {result.Files} files", cancellationToken: cancellationToken);
             }
 
             return TypedResults.Redirect(result is null

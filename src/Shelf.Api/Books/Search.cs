@@ -83,7 +83,7 @@ public static partial class Search
                 var (at, length) = Locate(row.Text, term);
                 var start = Math.Max(0, at - Around);
                 var end = Math.Min(row.Text.Length, at + length + Around);
-                var where = EbookStore.IsPdf(row.EbookStoredName) ? $"Page {row.Part + 1}" : $"Chapter {row.Part + 1}";
+                var where = EbookStore.IsPdf(row.EbookStoredName) ? Localization.Words.T("Page {0}", row.Part + 1) : Localization.Words.T("Chapter {0}", row.Part + 1);
                 return new SearchHit(
                     row.Id,
                     row.Title,

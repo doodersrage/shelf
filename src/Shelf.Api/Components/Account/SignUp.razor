@@ -3,23 +3,23 @@
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject IConfiguration Configuration
 
-<PageTitle>Make an account · Shelf</PageTitle>
+<PageTitle>@T("Make an account") · Shelf</PageTitle>
 
-<h1>Make an account</h1>
+<h1>@T("Make an account")</h1>
 
 @if (closed)
 {
-    <p>@ReaderRules.Describe(AccountProblem.SignUpClosed) <a href="/signin">Sign in</a></p>
+    <p>@ReaderRules.Describe(AccountProblem.SignUpClosed) <a href="/signin">@T("Sign in")</a></p>
 }
 else
 {
     @if (first)
     {
-        <p class="hint">This is the first account here. It keeps the books already on the shelf.</p>
+        <p class="hint">@T("This is the first account here. It keeps the books already on the shelf.")</p>
     }
     else
     {
-        <p class="hint">Each reader has a shelf of their own, and can lend books to the others.</p>
+        <p class="hint">@T("Each reader has a shelf of their own, and can lend books to the others.")</p>
     }
 
     @if (Problem is AccountProblem problem)
@@ -31,21 +31,21 @@ else
         <AntiforgeryToken />
         <input type="hidden" name="returnUrl" value="@SafeReturnUrl" />
         <label>
-            Name
+            @T("Name")
             <input name="name" value="@Name" maxlength="@ReaderRules.MaxNameLength" autocomplete="username" required autofocus />
         </label>
         <label>
-            Password, at least @ReaderRules.MinPasswordLength characters
+            @T("Password, at least {0} characters", ReaderRules.MinPasswordLength)
             <input type="password" name="password" minlength="@ReaderRules.MinPasswordLength" maxlength="@ReaderRules.MaxPasswordLength" autocomplete="new-password" required />
         </label>
         <label>
-            The password again
+            @T("The password again")
             <input type="password" name="confirm" minlength="@ReaderRules.MinPasswordLength" maxlength="@ReaderRules.MaxPasswordLength" autocomplete="new-password" required />
         </label>
-        <button type="submit">Make the account</button>
+        <button type="submit">@T("Make the account")</button>
     </form>
 
-    <p class="hint">Already a reader here? <a href="/signin">Sign in</a></p>
+    <p class="hint">@T("Already a reader here?") <a href="/signin">@T("Sign in")</a></p>
 }
 
 @code {

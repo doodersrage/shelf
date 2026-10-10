@@ -2,13 +2,13 @@
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 
-<PageTitle>Places · Shelf</PageTitle>
+<PageTitle>@T("Places") · Shelf</PageTitle>
 
-<h1>Places</h1>
+<h1>@T("Places")</h1>
 
 @if (places.Count == 0)
 {
-    <EmptyState Title="No places yet" Text="Note where a copy sits, such as a room or a box, in its details, and the places gather here." ActionHref="/" ActionLabel="Open the library" />
+    <EmptyState Title="@T("No places yet")" Text="@T("Note where a copy sits, such as a room or a box, in its details, and the places gather here.")" ActionHref="/" ActionLabel="@T("Open the library")" />
 }
 else
 {
@@ -17,7 +17,7 @@ else
         {
             <li>
                 <a href="@($"/?place={Uri.EscapeDataString(place.Name)}")">@place.Name</a>
-                <span class="hint">@place.Count @(place.Count == 1 ? "book" : "books")</span>
+                <span class="hint">@Localization.Counts.Books(place.Count)</span>
             </li>
         }
     </ul>

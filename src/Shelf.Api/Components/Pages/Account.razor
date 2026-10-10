@@ -59,7 +59,17 @@ else if (emailNote is not null)
 </section>
 
 <section class="panel">
-<h2>Dates and numbers</h2>
+<h2>Language and region</h2>
+<label>
+    Language of the pages
+    <select @bind="language" @bind:after="SaveLanguage">
+        <option value="">My browser's language</option>
+        @foreach (var (languageCode, name) in Languages)
+        {
+            <option value="@languageCode" lang="@languageCode">@name</option>
+        }
+    </select>
+</label>
 <label>
     Write dates and numbers the way they are written in
     <select @bind="culture" @bind:after="SaveCulture">
@@ -70,7 +80,7 @@ else if (emailNote is not null)
         }
     </select>
 </label>
-<p class="hint">Today is @DateOnly.FromDateTime(DateTime.UtcNow).Medium() here. The words on the pages stay in English.</p>
+<p class="hint">Today is @DateOnly.FromDateTime(DateTime.UtcNow).Medium() here.</p>
 </section>
 
 <section class="panel">
@@ -241,6 +251,7 @@ else
     private string removePassword = "";
     private AccountProblem? removeProblem;
     private string culture = "";
+    private string language = "";
     private bool twoFactorOn;
     private string? setupSecret;
     private string? setupUri;
@@ -315,6 +326,7 @@ else
         emailReminders = me.EmailReminders;
         twoFactorOn = me.TwoFactorEnabled;
         culture = me.Culture ?? "";
+        language = me.Language ?? "";
         currentSession = (await Authentication.GetAuthenticationStateAsync()).User.FindFirst(TwoFactor.SessionClaim)?.Value;
         sessions = await TwoFactor.SessionsAsync(db, db.ReaderId, currentSession);
     }
@@ -324,6 +336,15 @@ else
         shelfOpen = change.Value is true;
         await using var db = await DbFactory.CreateDbContextAsync();
         await Asking.SetShelfOpenAsync(db, shelfOpen);
+    }
+
+    private async Task SaveLanguage()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var me = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
+        me.Language = IsSupported(language) ? language : null;
+        await db.SaveChangesAsync();
+        Navigation.NavigateTo("/account", forceLoad: true);
     }
 
     // A live page keeps the culture it opened with, so the page reloads to show the new one.
@@ -362,7 +383,7 @@ else
         var me = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
         me.TwoFactorEnabled = true;
         await db.SaveChangesAsync();
-        await Audit.NoteAsync(db, "Turned on two-step sign-in", me);
+        await Audit.NoteAsync(db, Say("Turned on two-step sign-in"), me);
         recovery = await TwoFactor.NewRecoveryCodesAsync(db, me.Id);
         twoFactorOn = true;
         twoFactorProblem = null;

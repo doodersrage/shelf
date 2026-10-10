@@ -155,7 +155,7 @@ public static class EmailRules
 
         reset.Used = true;
         await db.SaveChangesAsync(cancellationToken);
-        await Audit.NoteAsync(db, "Used a reset link from email", await db.Readers.FindAsync([reset.ReaderId], cancellationToken), cancellationToken: cancellationToken);
+        await Audit.NoteAsync(db, Localization.Words.Say("Used a reset link from email"), await db.Readers.FindAsync([reset.ReaderId], cancellationToken), cancellationToken: cancellationToken);
         return await ReaderRules.SetPasswordAsync(db, reset.ReaderId, password!, cancellationToken)
             ? null
             : AccountProblem.ResetExpired;

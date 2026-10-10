@@ -28,7 +28,7 @@ document.addEventListener("submit", (event) => {
     bar.removeAttribute("value");
   }
 
-  say("Sending…");
+  say(t("Sending…"));
   request.upload.addEventListener("progress", (progress) => {
     if (!progress.lengthComputable) {
       return;
@@ -40,7 +40,7 @@ document.addEventListener("submit", (event) => {
       bar.value = percent;
     }
 
-    say(percent < 100 ? `Sent ${percent}%` : "Sent. Shelf is putting it away…");
+    say(percent < 100 ? t("Sent {0}%", percent) : t("Sent. Shelf is putting it away…"));
   });
 
   request.addEventListener("load", () => {
@@ -49,7 +49,7 @@ document.addEventListener("submit", (event) => {
   });
 
   request.addEventListener("error", () => {
-    say("The upload stopped. Check the connection and try again.");
+    say(t("The upload stopped. Check the connection and try again."));
     if (button) {
       button.disabled = false;
     }

@@ -18,7 +18,7 @@ public static class AdminEndpoints
         admin.MapPost("/backups", async (BackupSchedule schedule, ShelfDb db, CancellationToken cancellationToken) =>
         {
             var taken = await schedule.TakeAsync(cancellationToken);
-            await Audit.NoteAsync(db, "Took a backup", detail: taken.Name, cancellationToken: cancellationToken);
+            await Audit.NoteAsync(db, Localization.Words.Say("Took a backup"), detail: taken.Name, cancellationToken: cancellationToken);
             return TypedResults.Ok(taken);
         });
         admin.MapGet("/audit", async (ShelfDb db, CancellationToken cancellationToken) => TypedResults.Ok(await Audit.RecentAsync(db, take: 500, cancellationToken: cancellationToken)));
@@ -62,7 +62,7 @@ public static class AdminEndpoints
     {
         var path = TempFileResult.NewPath(".zip");
         await Backup.WriteSnapshotAsync(db, ebooks, audio, covers, path, cancellationToken);
-        await Audit.NoteAsync(db, "Downloaded a snapshot of the whole server", cancellationToken: cancellationToken);
+        await Audit.NoteAsync(db, Localization.Words.Say("Downloaded a snapshot of the whole server"), cancellationToken: cancellationToken);
         return new TempFileResult(path, "application/zip", $"shelf-snapshot-{DateTime.UtcNow:yyyy-MM-dd}.zip");
     }
 

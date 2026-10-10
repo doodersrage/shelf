@@ -6,17 +6,17 @@
 
 @if (owner is null)
 {
-    <h1>Not an open shelf</h1>
-    <p>That reader has not opened their shelf. <a href="/shelves">Back to the shelves</a></p>
+    <h1>@T("Not an open shelf")</h1>
+    <p>@T("That reader has not opened their shelf.") <a href="/shelves">@T("Back to the shelves")</a></p>
 }
 else
 {
-    <p class="hint"><a href="/shelves">Shelves</a></p>
-    <h1>@owner's shelf</h1>
-    <p class="hint">Ask for a book and it waits on @owner's Loans page until they lend it or decline. You see titles here, never their notes.</p>
+    <p class="hint"><a href="/shelves">@T("Shelves")</a></p>
+    <h1>@T("{0}'s shelf", owner)</h1>
+    <p class="hint">@T("Ask for a book and it waits on {0}'s Loans page until they lend it or decline. You see titles here, never their notes.", owner)</p>
     @if (books.Count == 0)
     {
-        <p class="hint">Nothing on it yet.</p>
+        <p class="hint">@T("Nothing on it yet.")</p>
     }
     else
     {
@@ -30,24 +30,24 @@ else
                     <div class="badges">
                         @if (book.OnLoan)
                         {
-                            <span class="badge loan">On loan</span>
+                            <span class="badge loan">@T("On loan")</span>
                         }
                         @if (book.HasEbook)
                         {
-                            <span class="badge plain">E-book</span>
+                            <span class="badge plain">@T("E-book")</span>
                         }
                         @if (book.HasAudio)
                         {
-                            <span class="badge plain">Audio</span>
+                            <span class="badge plain">@T("Audio")</span>
                         }
                     </div>
                     @if (book.Asked)
                     {
-                        <p class="saved">Asked</p>
+                        <p class="saved">@T("Asked")</p>
                     }
                     else
                     {
-                        <button type="button" @onclick="() => Ask(book.Id)" aria-label="@($"Ask to borrow {book.Title}")">Ask to borrow</button>
+                        <button type="button" @onclick="() => Ask(book.Id)" aria-label="@T("Ask to borrow {0}", book.Title)">@T("Ask to borrow")</button>
                     }
                 </li>
             }
@@ -84,8 +84,8 @@ else
             message = await Asking.AskAsync(db, bookId) switch
             {
                 AskResult.Asked => null,
-                AskResult.AlreadyYours => "That book is already lent to you.",
-                _ => "That book is no longer on an open shelf.",
+                AskResult.AlreadyYours => T("That book is already lent to you."),
+                _ => T("That book is no longer on an open shelf."),
             };
         }
 

@@ -68,7 +68,7 @@ test("adding a book another reader has on an open shelf offers to borrow it", as
   await reader.getByLabel("Title", { exact: true }).fill(title);
   await reader.getByLabel("Author", { exact: true }).fill("Ursula K. Le Guin");
   await reader.keyboard.press("Tab");
-  await expect(reader.locator(".open-copies")).toContainText(`On ${lenderName}'s open shelf`);
+  await expect(reader.locator(".open-copies")).toContainText(`${lenderName}'s open shelf`);
   await reader.click(`button[aria-label="Ask ${lenderName} to borrow ${title}"]`);
   await expect(reader.locator(".open-copies .saved")).toHaveText("Asked");
 

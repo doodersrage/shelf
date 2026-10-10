@@ -2,32 +2,32 @@
 @attribute [AllowAnonymous]
 @inject IEmailSender Email
 
-<PageTitle>Forgot the password · Shelf</PageTitle>
+<PageTitle>@T("Forgot the password") · Shelf</PageTitle>
 
-<h1>Forgot the password</h1>
+<h1>@T("Forgot the password")</h1>
 
 @if (!Email.Enabled)
 {
-    <p>This shelf cannot send email, so an admin has to give you a new password. They can do it from Readers.</p>
-    <p class="hint"><a href="/signin">Back to sign in</a></p>
+    <p>@T("This shelf cannot send email, so an admin has to give you a new password. They can do it from Readers.")</p>
+    <p class="hint"><a href="/signin">@T("Back to sign in")</a></p>
 }
 else if (Sent == "1")
 {
-    <p role="status">If that name or address belongs to a reader with an email address, a link to choose a new password is on its way. It works for an hour.</p>
-    <p class="hint"><a href="/signin">Back to sign in</a></p>
+    <p role="status">@T("If that name or address belongs to a reader with an email address, a link to choose a new password is on its way. It works for an hour.")</p>
+    <p class="hint"><a href="/signin">@T("Back to sign in")</a></p>
 }
 else
 {
-    <p class="hint">Enter your name or the email address on your account, and we will send a link to choose a new password.</p>
+    <p class="hint">@T("Enter your name or the email address on your account, and we will send a link to choose a new password.")</p>
     <form class="account" method="post" action="/account/forgot">
         <AntiforgeryToken />
         <label>
-            Name or email address
+            @T("Name or email address")
             <input name="who" maxlength="@EmailRules.MaxAddressLength" autocomplete="username" required autofocus />
         </label>
-        <button type="submit">Send the link</button>
+        <button type="submit">@T("Send the link")</button>
     </form>
-    <p class="hint"><a href="/signin">Back to sign in</a></p>
+    <p class="hint"><a href="/signin">@T("Back to sign in")</a></p>
 }
 
 @code {

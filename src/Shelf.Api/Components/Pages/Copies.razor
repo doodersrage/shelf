@@ -2,13 +2,13 @@
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 
-<PageTitle>Copies · Shelf</PageTitle>
+<PageTitle>@T("Copies") · Shelf</PageTitle>
 
-<h1>Copies</h1>
+<h1>@T("Copies")</h1>
 
 @if (groups.Count == 0)
 {
-    <EmptyState Title="No conditions noted" Text="Mark a copy fine, good, fair, or poor in its details, and copies are grouped here from best to worst." ActionHref="/" ActionLabel="Open the library" />
+    <EmptyState Title="@T("No conditions noted")" Text="@T("Mark a copy fine, good, fair, or poor in its details, and copies are grouped here from best to worst.")" ActionHref="/" ActionLabel="@T("Open the library")" />
 }
 else
 {
@@ -22,7 +22,7 @@ else
                     <a href="/library/@copy.Id">@copy.Title</a>
                     @if (copy.Acquisition is Acquisition arrived)
                     {
-                        <span class="hint">@(arrived == Acquisition.Gift ? "A gift" : arrived.ToString())</span>
+                        <span class="hint">@BookRules.AcquisitionLabel(arrived)</span>
                     }
                 </li>
             }

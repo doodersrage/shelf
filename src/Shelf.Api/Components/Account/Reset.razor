@@ -2,14 +2,14 @@
 @attribute [AllowAnonymous]
 @inject IDbContextFactory<ShelfDb> DbFactory
 
-<PageTitle>Choose a new password · Shelf</PageTitle>
+<PageTitle>@T("Choose a new password") · Shelf</PageTitle>
 
-<h1>Choose a new password</h1>
+<h1>@T("Choose a new password")</h1>
 
 @if (!live)
 {
     <p>@ReaderRules.Describe(AccountProblem.ResetExpired)</p>
-    <p class="hint"><a href="/forgot">Ask for a new link</a></p>
+    <p class="hint"><a href="/forgot">@T("Ask for a new link")</a></p>
 }
 else
 {
@@ -22,15 +22,15 @@ else
         <AntiforgeryToken />
         <input type="hidden" name="token" value="@Token" />
         <label>
-            New password, at least @ReaderRules.MinPasswordLength characters
+            @T("New password, at least {0} characters", ReaderRules.MinPasswordLength)
             <input type="password" name="password" minlength="@ReaderRules.MinPasswordLength" maxlength="@ReaderRules.MaxPasswordLength" autocomplete="new-password" required autofocus />
         </label>
         <label>
-            The new password again
+            @T("The new password again")
             <input type="password" name="confirm" minlength="@ReaderRules.MinPasswordLength" maxlength="@ReaderRules.MaxPasswordLength" autocomplete="new-password" required />
         </label>
-        <p class="hint">Saving it signs you out everywhere else.</p>
-        <button type="submit">Save the new password</button>
+        <p class="hint">@T("Saving it signs you out everywhere else.")</p>
+        <button type="submit">@T("Save the new password")</button>
     </form>
 }
 

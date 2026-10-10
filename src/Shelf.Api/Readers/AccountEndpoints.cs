@@ -148,7 +148,7 @@ public static class AccountEndpoints
 
         reader.TwoFactorEnabled = true;
         await db.SaveChangesAsync(cancellationToken);
-        await Audit.NoteAsync(db, "Turned on two-step sign-in", reader, cancellationToken: cancellationToken);
+        await Audit.NoteAsync(db, Localization.Words.Say("Turned on two-step sign-in"), reader, cancellationToken: cancellationToken);
         return TypedResults.Ok(new RecoveryCodes(await TwoFactor.NewRecoveryCodesAsync(db, reader.Id, cancellationToken)));
     }
 

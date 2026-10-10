@@ -22,7 +22,7 @@ else if (Focused)
     <div class="app focus">
         <header class="focus-bar">
             <a class="wordmark" href="/">@Mark shelf</a>
-            <a href="/">Library</a>
+            <a href="/">@T("Library")</a>
         </header>
         <main id="main" class="focus-main">
             @Body
@@ -31,7 +31,7 @@ else if (Focused)
 }
 else
 {
-    <a class="skip-link" href="#main">Skip to the page</a>
+    <a class="skip-link" href="#main">@T("Skip to the page")</a>
     <div class="app signed-in">
         <aside class="sidebar" aria-label="Shelf">
             @Sidebar
@@ -41,8 +41,8 @@ else
             <header class="topbar">
                 <a class="wordmark" href="/">@Mark shelf</a>
                 <details class="drawer">
-                    <summary class="button" aria-label="Menu">Menu</summary>
-                    <aside class="sidebar" aria-label="Shelf menu">
+                    <summary class="button" aria-label="@T("Menu")">@T("Menu")</summary>
+                    <aside class="sidebar" aria-label="@T("Shelf menu")">
                         @Sidebar
                     </aside>
                 </details>
@@ -60,19 +60,19 @@ else
             </main>
         </div>
 
-        <nav class="bottom-nav" aria-label="Most used">
-            <a href="/" aria-current="@Current("/")">@Icon("M4 5h4v14H4zM10 5h4v14h-4zM16 6l3.5-.9 3 13.5-3.5.9z") Library</a>
-            <a href="/?status=Reading" aria-current="@Current("/?status=Reading")">@Icon("M4 6c3-1.5 5.5-1.5 8 0v13c-2.5-1.5-5-1.5-8 0zM12 6c2.5-1.5 5-1.5 8 0v13c-3-1.5-5.5-1.5-8 0z") Reading</a>
-            <a href="/?add=1" aria-current="@Current("/?add=1")">@Icon("M12 5v14M5 12h14") Add</a>
-            <a href="/loans" aria-current="@Current("/loans")">@Icon("M7 7h11l-3-3M17 17H6l3 3") Loans</a>
-            <a href="/stats" aria-current="@Current("/stats")">@Icon("M5 19V11M12 19V5M19 19v-6") Stats</a>
+        <nav class="bottom-nav" aria-label="@T("Most used")">
+            <a href="/" aria-current="@Current("/")">@Icon("M4 5h4v14H4zM10 5h4v14h-4zM16 6l3.5-.9 3 13.5-3.5.9z") @T("Library")</a>
+            <a href="/?status=Reading" aria-current="@Current("/?status=Reading")">@Icon("M4 6c3-1.5 5.5-1.5 8 0v13c-2.5-1.5-5-1.5-8 0zM12 6c2.5-1.5 5-1.5 8 0v13c-3-1.5-5.5-1.5-8 0z") @T("Reading")</a>
+            <a href="/?add=1" aria-current="@Current("/?add=1")">@Icon("M12 5v14M5 12h14") @T("Add")</a>
+            <a href="/loans" aria-current="@Current("/loans")">@Icon("M7 7h11l-3-3M17 17H6l3 3") @T("Loans")</a>
+            <a href="/stats" aria-current="@Current("/stats")">@Icon("M5 19V11M12 19V5M19 19v-6") @T("Stats")</a>
         </nav>
     </div>
 }
 
 <div id="blazor-error-ui" data-nosnippet>
-    The connection dropped.
-    <a href="." class="reload">Reload</a>
+    @T("The connection dropped.")
+    <a href="." class="reload">@T("Reload")</a>
     <span class="dismiss">✕</span>
 </div>
 
@@ -95,59 +95,59 @@ else
     private RenderFragment Sidebar => @<text>
         <a class="wordmark" href="/">@Mark shelf</a>
         <form class="search" action="/" method="get" role="search" data-enhance>
-            <label class="visually-hidden" for="@SearchId">Search the library</label>
-            <input id="@SearchId" name="q" type="search" placeholder="Search the library" autocomplete="off" />
+            <label class="visually-hidden" for="@SearchId">@T("Search the library")</label>
+            <input id="@SearchId" name="q" type="search" placeholder="@T("Search the library")" autocomplete="off" />
         </form>
-        <a class="button primary" href="/?add=1">Add a book</a>
-        <nav class="nav-group" aria-label="Your library">
-            <h2>Your library</h2>
+        <a class="button primary" href="/?add=1">@T("Add a book")</a>
+        <nav class="nav-group" aria-label="@T("Your library")">
+            <h2>@T("Your library")</h2>
             <ul>
-                <li><a href="/" aria-current="@Current("/")">Library</a></li>
-                <li><a href="/?status=Reading" aria-current="@Current("/?status=Reading")">Reading</a></li>
-                <li><a href="/?status=Want" aria-current="@Current("/?status=Want")">Want to read</a></li>
-                <li><a href="/?status=Finished" aria-current="@Current("/?status=Finished")">Finished</a></li>
+                <li><a href="/" aria-current="@Current("/")">@T("Library")</a></li>
+                <li><a href="/?status=Reading" aria-current="@Current("/?status=Reading")">@T("Reading")</a></li>
+                <li><a href="/?status=Want" aria-current="@Current("/?status=Want")">@T("Want to read")</a></li>
+                <li><a href="/?status=Finished" aria-current="@Current("/?status=Finished")">@T("Finished")</a></li>
                 <li>
                     <a href="/loans" aria-current="@Current("/loans")">
-                        Loans
+                        @T("Loans")
                         @if (reminders is { Any: true } due)
                         {
-                            <span class="badge plain" aria-label="@($"{Waiting(due)} waiting")">@Waiting(due)</span>
+                            <span class="badge plain" aria-label="@T("{0} waiting", Waiting(due))">@Waiting(due)</span>
                         }
                     </a>
                 </li>
-                <li><a href="/shelves" aria-current="@Current("/shelves")">Shelves</a></li>
+                <li><a href="/shelves" aria-current="@Current("/shelves")">@T("Shelves")</a></li>
             </ul>
         </nav>
-        <nav class="nav-group" aria-label="Discover and reflect">
-            <h2>Discover &amp; reflect</h2>
+        <nav class="nav-group" aria-label="@T("Discover and reflect")">
+            <h2>@T("Discover & reflect")</h2>
             <ul>
-                <li><a href="/authors" aria-current="@Current("/authors")">Authors</a></li>
-                <li><a href="/series" aria-current="@Current("/series")">Series</a></li>
-                <li><a href="/quotes" aria-current="@Current("/quotes")">Quotes &amp; highlights</a></li>
-                <li><a href="/search" aria-current="@Current("/search")">Search inside books</a></li>
-                <li><a href="/free" aria-current="@Current("/free")">Free books</a></li>
-                <li><a href="/stats" aria-current="@Current("/stats")">Stats</a></li>
-                <li><a href="/years" aria-current="@Current("/years")">Years</a></li>
+                <li><a href="/authors" aria-current="@Current("/authors")">@T("Authors")</a></li>
+                <li><a href="/series" aria-current="@Current("/series")">@T("Series")</a></li>
+                <li><a href="/quotes" aria-current="@Current("/quotes")">@T("Quotes & highlights")</a></li>
+                <li><a href="/search" aria-current="@Current("/search")">@T("Search inside books")</a></li>
+                <li><a href="/free" aria-current="@Current("/free")">@T("Free books")</a></li>
+                <li><a href="/stats" aria-current="@Current("/stats")">@T("Stats")</a></li>
+                <li><a href="/years" aria-current="@Current("/years")">@T("Years")</a></li>
             </ul>
         </nav>
-        <nav class="nav-group" aria-label="Your copies">
-            <h2>Your copies</h2>
+        <nav class="nav-group" aria-label="@T("Your copies")">
+            <h2>@T("Your copies")</h2>
             <ul>
-                <li><a href="/places" aria-current="@Current("/places")">Places</a></li>
-                <li><a href="/copies" aria-current="@Current("/copies")">Condition</a></li>
-                <li><a href="/recommenders" aria-current="@Current("/recommenders")">Recommenders</a></li>
+                <li><a href="/places" aria-current="@Current("/places")">@T("Places")</a></li>
+                <li><a href="/copies" aria-current="@Current("/copies")">@T("Condition")</a></li>
+                <li><a href="/recommenders" aria-current="@Current("/recommenders")">@T("Recommenders")</a></li>
             </ul>
         </nav>
-        <nav class="nav-group" aria-label="Settings">
-            <h2>Settings</h2>
+        <nav class="nav-group" aria-label="@T("Settings")">
+            <h2>@T("Settings")</h2>
             <ul>
-                <li><a href="/account" aria-current="@Current("/account")">Account</a></li>
-                <li><a href="/backup" aria-current="@Current("/backup")">Backup &amp; restore</a></li>
-                <li><a href="/sync" aria-current="@Current("/sync")">Devices</a></li>
-                <li><a href="/offline.html">Offline reading</a></li>
+                <li><a href="/account" aria-current="@Current("/account")">@T("Account")</a></li>
+                <li><a href="/backup" aria-current="@Current("/backup")">@T("Backup & restore")</a></li>
+                <li><a href="/sync" aria-current="@Current("/sync")">@T("Devices")</a></li>
+                <li><a href="/offline.html">@T("Offline reading")</a></li>
                 @if (isAdmin)
                 {
-                    <li><a href="/admin" aria-current="@Current("/admin")">Readers</a></li>
+                    <li><a href="/admin" aria-current="@Current("/admin")">@T("Readers")</a></li>
                 }
             </ul>
         </nav>
@@ -156,10 +156,10 @@ else
                 <span class="reader-name">@readerName</span> ·
                 <form class="inline" method="post" action="/account/signout">
                     <AntiforgeryToken />
-                    <button type="submit" class="link">Sign out</button>
+                    <button type="submit" class="link">@T("Sign out")</button>
                 </form>
             </p>
-            <p title="@(ShelfVersion.Commit is null ? null : $"Built from {ShelfVersion.Commit}")">Shelf @ShelfVersion.Number</p>
+            <p title="@(ShelfVersion.Commit is null ? null : T("Built from {0}", ShelfVersion.Commit))">Shelf @ShelfVersion.Number</p>
             <p>
                 <a href="/books">JSON</a>
                 @if (Environment.IsDevelopment())
@@ -215,22 +215,22 @@ else
     {
         if (due.LentOverdue > 0)
         {
-            yield return $"{due.LentOverdue} {(due.LentOverdue == 1 ? "book you lent is" : "books you lent are")} overdue";
+            yield return due.LentOverdue == 1 ? T("1 book you lent is overdue") : T("{0} books you lent are overdue", due.LentOverdue);
         }
 
         if (due.BorrowedOverdue > 0)
         {
-            yield return $"{due.BorrowedOverdue} {(due.BorrowedOverdue == 1 ? "book you borrowed is" : "books you borrowed are")} overdue";
+            yield return due.BorrowedOverdue == 1 ? T("1 book you borrowed is overdue") : T("{0} books you borrowed are overdue", due.BorrowedOverdue);
         }
 
         if (due.BorrowedDueSoon > 0)
         {
-            yield return $"{due.BorrowedDueSoon} borrowed {(due.BorrowedDueSoon == 1 ? "book is" : "books are")} due within three days";
+            yield return due.BorrowedDueSoon == 1 ? T("1 borrowed book is due within three days") : T("{0} borrowed books are due within three days", due.BorrowedDueSoon);
         }
 
         if (due.Asks > 0)
         {
-            yield return $"{due.Asks} {(due.Asks == 1 ? "reader has" : "readers have")} asked to borrow";
+            yield return due.Asks == 1 ? T("1 reader has asked to borrow") : T("{0} readers have asked to borrow", due.Asks);
         }
     }
 }

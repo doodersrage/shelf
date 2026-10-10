@@ -259,10 +259,10 @@ public static class Lending
 
     public static string Describe(LendResult result) => result switch
     {
-        LendResult.NoBook => "That book is not on your shelf.",
-        LendResult.NoReader => "Choose a reader on this shelf.",
-        LendResult.ToSelf => "The book is already yours.",
-        LendResult.AlreadyOut => "The book is on loan. Mark it returned first.",
+        LendResult.NoBook => Localization.Words.T("That book is not on your shelf."),
+        LendResult.NoReader => Localization.Words.T("Choose a reader on this shelf."),
+        LendResult.ToSelf => Localization.Words.T("The book is already yours."),
+        LendResult.AlreadyOut => Localization.Words.T("The book is on loan. Mark it returned first."),
         _ => "",
     };
 
