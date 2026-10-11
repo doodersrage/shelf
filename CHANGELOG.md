@@ -12,6 +12,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - Time spent listening, by day: **Stats** shows today, this week, and this year, the last two weeks, and the books most listened to. A day of listening counts toward the reading streak.
 - Playing an audiobook to its end marks the book finished.
 - **Reading now** in the library shows how long is left of an audiobook.
+- Listening offline: **Keep for listening offline** saves an audiobook's tracks in the browser. It then plays from the device, and with no connection the offline page has a player for it; the place and the time listened go back to the shelf when it answers.
 
 ### Changed
 

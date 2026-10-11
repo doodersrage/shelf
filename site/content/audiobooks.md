@@ -34,6 +34,12 @@ If the files carry cover art (an `.m4b`'s cover, or an MP3's front-cover picture
 
 Leave the player and the book plays on in a bar at the foot of every page, with its cover, chapter, play and pause, skips, and the time left in the chapter; its title opens the full player again, and **×** closes it. After a reload it waits there, paused where you stopped. **Play while you browse** on a book's page, and the play button on a book being read in the library, start a book there without leaving the page.
 
+### Listening offline
+
+**Keep for listening offline** on a book's page saves every track in that browser, with a count of the tracks as they come down. From then on the book plays from the device, which spares your data; and when the shelf can't be reached, the offline page (the one any page turns into without a connection) lists it under **Kept for listening** with a player of its own. Where you stop, and how long you listened, go back to the shelf once it answers again. **Kept for listening offline · forget** removes the tracks.
+
+A long recording takes a lot of room, often several hundred megabytes. Shelf asks the browser to keep it rather than clear it when space runs short; a browser may still refuse, or clear it if you clear the site's data.
+
 ### When the book ends
 
 Playing to the end of the recording marks the book **Finished**, with today's date, and starts its place over. A borrower's ending leaves the owner's book as it was.

@@ -138,6 +138,18 @@ else if (book is not null)
                 {
                     <a class="button" href="/library/@book.Id/listen">@T("Listen to this audiobook")</a>
                     <button type="button" class="quiet play-here" data-play-book="@book.Id"><PlayerIcon Name="play" /> @T("Play while you browse")</button>
+                    @if (offlineSupported)
+                    {
+                        @if (keptAudio)
+                        {
+                            <button type="button" class="quiet" @onclick="ForgetAudio" aria-pressed="true">@T("Kept for listening offline · forget")</button>
+                        }
+                        else
+                        {
+                            <button type="button" class="quiet" @onclick="KeepAudio" disabled="@keepingAudio">@(keepingAudio ? T("Keeping…") : T("Keep for listening offline"))</button>
+                        }
+                        <span class="hint" data-keep-progress data-template="@T("Track {0} of {1}")" aria-live="polite"></span>
+                    }
                 }
             </div>
             @if (!string.IsNullOrWhiteSpace(book.AudioStoredName) && ((book.AudioTrack ?? 0) > 0 || (book.AudioSeconds ?? 0) > 0))
@@ -569,6 +581,8 @@ else if (book is not null)
     private IJSObjectReference? keepModule;
     private bool offlineSupported;
     private bool keptOffline;
+    private bool keptAudio;
+    private bool keepingAudio;
     private bool keeping;
     private string? offlineNote;
     private bool sendingToKindle;
@@ -601,7 +615,7 @@ else if (book is not null)
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || book is null || string.IsNullOrWhiteSpace(book.EbookStoredName))
+        if (!firstRender || book is null || (string.IsNullOrWhiteSpace(book.EbookStoredName) && string.IsNullOrWhiteSpace(book.AudioStoredName)))
         {
             return;
         }
@@ -611,6 +625,7 @@ else if (book is not null)
             keepModule = await Js.InvokeAsync<IJSObjectReference>("import", "./keep.js");
             offlineSupported = await keepModule.InvokeAsync<bool>("supported");
             keptOffline = offlineSupported && await keepModule.InvokeAsync<bool>("isKept", book.Id);
+            keptAudio = offlineSupported && await keepModule.InvokeAsync<bool>("isAudioKept", book.Id);
             StateHasChanged();
         }
         catch (JSException)
@@ -644,6 +659,44 @@ else if (book is not null)
         {
             keeping = false;
         }
+    }
+
+    // Every track goes into this browser's storage, so the book plays with no connection, here or in the offline page.
+    private async Task KeepAudio()
+    {
+        if (keepModule is null || book is null)
+        {
+            return;
+        }
+
+        keepingAudio = true;
+        try
+        {
+            keptAudio = await keepModule.InvokeAsync<bool>("keepAudio", TimeSpan.FromHours(1), [book.Id]);
+            offlineNote = keptAudio
+                ? T("Kept on this device. It plays from here, and with no connection it is in the offline page; your place goes back when you are online.")
+                : T("This audiobook could not be kept on this device.");
+        }
+        catch (JSException)
+        {
+            offlineNote = T("This browser would not keep the audiobook. It may be out of space, or in a private window.");
+        }
+        finally
+        {
+            keepingAudio = false;
+        }
+    }
+
+    private async Task ForgetAudio()
+    {
+        if (keepModule is null || book is null)
+        {
+            return;
+        }
+
+        await keepModule.InvokeVoidAsync("forgetAudio", book.Id);
+        keptAudio = false;
+        offlineNote = T("No longer kept on this device.");
     }
 
     private async Task ForgetOffline()

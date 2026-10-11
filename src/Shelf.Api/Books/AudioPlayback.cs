@@ -24,7 +24,7 @@ public sealed record AudioPlanTrack(int Index, string Title, double? Length, str
 public sealed record AudioPlanChapter(int Index, string Title, int Track, double Start);
 
 // Listened is how many seconds the player played since it last said, by the clock rather than the book, and Day
-// the listener's own date, so time listened lands on the day it was where they are.
+// the day it was played (in UTC, as the shelf counts days), which matters for time sent late.
 public sealed record AudioPlaceRequest(int Track, double Seconds, double? Listened = null, DateOnly? Day = null);
 
 // Time spent listening to one book on one day, by one reader.
@@ -48,6 +48,9 @@ public sealed record AudioSpeedRequest(int Speed);
 
 public sealed record FinishedResponse(bool Marked);
 
+// Time listened with no connection, sent once the shelf answers again: up to a day's worth, from the last month.
+public sealed record ListenedRequest(DateOnly Day, double Seconds);
+
 public static class AudioPlayback
 {
     public static void Map(RouteGroupBuilder books)
@@ -56,6 +59,7 @@ public static class AudioPlayback
         books.MapPut("/{id:int}/audio/place", Place);
         books.MapPut("/audio/speed", Speed);
         books.MapPost("/{id:int}/audio/finished", Finished);
+        books.MapPost("/{id:int}/audio/listened", Listened);
         books.MapGet("/listening", async (ShelfDb db, CancellationToken cancellationToken) => TypedResults.Ok(await SummaryAsync(db, cancellationToken: cancellationToken)));
     }
 
@@ -125,11 +129,11 @@ public static class AudioPlayback
     // The player says every fifteen seconds or so; more than two minutes at once is not believed.
     private const int MostAtOnce = 120;
 
-    public static async Task NoteListeningAsync(ShelfDb db, int bookId, DateOnly? day, double listened, CancellationToken cancellationToken = default)
+    public static async Task NoteListeningAsync(ShelfDb db, int bookId, DateOnly? day, double listened, CancellationToken cancellationToken = default, int most = MostAtOnce, int daysBack = 1)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var when = day is { } given && Math.Abs(given.DayNumber - today.DayNumber) <= 1 ? given : today;
-        var seconds = (int)Math.Round(Math.Min(listened, MostAtOnce));
+        var when = day is { } given && given.DayNumber - today.DayNumber <= 1 && today.DayNumber - given.DayNumber <= daysBack ? given : today;
+        var seconds = (int)Math.Round(Math.Min(listened, most));
         var row = await db.ListeningDays.FirstOrDefaultAsync(item => item.BookId == bookId && item.Day == when, cancellationToken);
         if (row is null)
         {
@@ -170,6 +174,21 @@ public static class AudioPlayback
             rows.Sum(row => row.Seconds),
             lastDays,
             top);
+    }
+
+    private static async Task<Results<NoContent, NotFound>> Listened(int id, ListenedRequest request, ShelfDb db, CancellationToken cancellationToken)
+    {
+        if (await Lending.OpenAsync(db, id, cancellationToken) is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        if (request.Seconds >= 1)
+        {
+            await NoteListeningAsync(db, id, request.Day, request.Seconds, cancellationToken, most: 24 * 60 * 60, daysBack: 31);
+        }
+
+        return TypedResults.NoContent();
     }
 
     // The end of the recording: the owner's book is finished, unless it already was. A borrower's ending changes

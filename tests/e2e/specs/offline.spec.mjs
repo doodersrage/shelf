@@ -28,6 +28,39 @@ test("a kept book opens offline, and the place goes back when online", async ({ 
   await expect.poll(async () => (await (await page.request.get(`/books/${book.id}/place`)).json()).ebookChapter, { timeout: 20_000 }).toBe(1);
 });
 
+test("a kept audiobook plays with no connection, and its place and time go back when online", async ({ browser }) => {
+  const page = await signUp(browser, unique("Commuter"));
+  const book = await createBook(page, { title: unique("Three Tracks"), author: "Someone", status: "Reading" });
+  await upload(page, book.id, "audio", "three-tracks.zip", "application/zip");
+
+  await page.goto(`/library/${book.id}`);
+  await ready(page);
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.click('button:text-is("Keep for listening offline")');
+  await expect(page.getByText("Kept on this device.")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("button", { name: "Kept for listening offline · forget" })).toBeVisible();
+
+  await page.context().setOffline(true);
+  await page.goto(`/library/${book.id}`);
+  await expect(page.locator("#listening h2")).toHaveText("Kept for listening");
+  await page.click(`#kept-audio a:text-is("${book.title}")`);
+  await expect(page.locator("#listen h1")).toHaveText(book.title);
+  await expect(page.locator("#listen [data-show=book-elapsed]")).toHaveText("0:00");
+
+  // It plays from the device, across tracks, and seeks within them.
+  await page.evaluate(() => window.shelfPlayer.seek(8));
+  await page.click("#toggle");
+  await expect.poll(async () => (await page.evaluate(() => window.shelfPlayer.now())).bookSeconds, { timeout: 10_000 }).toBeGreaterThan(9);
+  await page.click("#toggle");
+  const heard = await page.evaluate(() => window.shelfPlayer.now());
+  expect(heard.track).toBe(2);
+
+  await page.context().setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect.poll(async () => (await (await page.request.get(`/books/${book.id}/place`)).json()).audioTrack, { timeout: 20_000 }).toBe(2);
+  await expect.poll(async () => (await (await page.request.get("/books/listening")).json()).totalSeconds, { timeout: 20_000 }).toBeGreaterThan(0);
+});
+
 // Selects a passage inside the offline page, as a reader's drag would, and lets the page notice.
 async function selectWords(page, scope, words) {
   await page.locator(scope).evaluate((root, wanted) => {

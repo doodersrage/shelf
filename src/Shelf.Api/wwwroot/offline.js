@@ -23,6 +23,46 @@ function kept() {
   }
 }
 
+function keptAudio() {
+  try {
+    return JSON.parse(localStorage.getItem("shelf-kept-audio") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+// The player's words, in the page's language; listen.js reads them from these attributes.
+function labelPlayer() {
+  const label = (id, text) => $(id).setAttribute("aria-label", text);
+  label("prev", t("Previous chapter"));
+  label("jump-back", t("Back"));
+  label("jump-forward", t("Forward"));
+  label("next-chapter", t("Next chapter"));
+  label("slower", t("Slower"));
+  label("faster", t("Faster"));
+  label("scrub", t("Place in this chapter"));
+  $("toggle").dataset.labelPlay = t("Play");
+  $("toggle").dataset.labelPause = t("Pause");
+  $("toggle").setAttribute("aria-label", t("Play"));
+  $("book-left").dataset.template = t("{0} left");
+  $("chapter-number").dataset.template = t("Chapter {0} of {1}");
+}
+
+// A kept audiobook plays from this device: what the player needs was kept with its tracks.
+async function listen(item) {
+  const kept = await (await caches.open(BOOKS)).match(`/books/${item.id}/audio/plan`);
+  if (!kept) {
+    location.hash = "";
+    return;
+  }
+
+  $("shelf").hidden = true;
+  $("reader").hidden = true;
+  $("listen").hidden = false;
+  $("listen").dataset.book = String(item.id);
+  await window.shelfPlayer?.open(await kept.json());
+}
+
 function place(id) {
   try {
     return JSON.parse(localStorage.getItem(`shelf-place-${id}`) || "null");
@@ -79,9 +119,38 @@ async function sendPlaces() {
 
 function listBooks() {
   const books = kept();
+  const recordings = keptAudio();
   const list = $("kept");
   list.replaceChildren();
-  $("nothing").hidden = books.length > 0;
+  $("nothing").hidden = books.length + recordings.length > 0;
+  $("listening").hidden = recordings.length === 0;
+  const audioList = $("kept-audio");
+  audioList.replaceChildren();
+  for (const item of recordings) {
+    const card = document.createElement("li");
+    card.className = "strip-card";
+    const body = document.createElement("div");
+    const title = document.createElement("p");
+    title.className = "title";
+    const link = document.createElement("a");
+    link.href = `#listen-${item.id}`;
+    link.textContent = item.title;
+    title.append(link);
+    const by = document.createElement("p");
+    by.className = "by";
+    by.textContent = item.author;
+    body.append(title, by);
+    const cover = document.createElement("span");
+    cover.className = "cover-frame";
+    const spine = document.createElement("span");
+    spine.className = "spine";
+    spine.setAttribute("aria-hidden", "true");
+    spine.textContent = item.title;
+    cover.append(spine);
+    card.append(cover, body);
+    audioList.append(card);
+  }
+
   for (const item of books) {
     const card = document.createElement("li");
     card.className = "strip-card";
@@ -319,6 +388,15 @@ function resolve(base, relative) {
 }
 
 function route() {
+  const heard = location.hash.match(/^#listen-(\d+)$/);
+  const recording = heard ? keptAudio().find((entry) => entry.id === Number(heard[1])) : null;
+  if (recording) {
+    listen(recording);
+    return;
+  }
+
+  $("listen").hidden = true;
+  window.shelfPlayer?.pause();
   const match = location.hash.match(/^#book-(\d+)$/);
   const item = match ? kept().find((entry) => entry.id === Number(match[1])) : null;
   if (item) {
@@ -341,6 +419,10 @@ function connection() {
 $("previous").addEventListener("click", () => turn(-1));
 $("next").addEventListener("click", () => turn(1));
 $("size").addEventListener("change", () => turn(0));
+$("listen-back").addEventListener("click", (event) => {
+  event.preventDefault();
+  location.hash = "";
+});
 $("back").addEventListener("click", (event) => {
   event.preventDefault();
   location.hash = "";
@@ -359,5 +441,6 @@ $("marking-cancel").addEventListener("click", hideMarking);
 window.addEventListener("hashchange", route);
 window.addEventListener("online", connection);
 window.addEventListener("offline", connection);
+labelPlayer();
 connection();
 route();

@@ -92,6 +92,7 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | `GET /books/{id}/audio/tracks/{index}` | One track, with range requests for seeking. |
 | `GET /books/{id}/audio/plan` | What the player needs: the tracks with their lengths in seconds, the chapters (each in a track, from a time), where you stopped, and your speed. |
 | `PUT /books/{id}/audio/place` | `{"track": 2, "seconds": 341.5}` keeps your place in the recording exactly, back or forward. Add `"listened": 15, "day": "2026-10-10"` to count seconds of listening on that day. |
+| `POST /books/{id}/audio/listened` | `{"day": "2026-10-09", "seconds": 5400}` counts time listened with no connection, sent later: up to a day's worth, from the last month. |
 | `POST /books/{id}/audio/finished` | The recording played to its end: marks your own book finished. Answers `{"marked": true}` when it did. |
 | `GET /books/listening` | Time spent listening: today, this week, this year, each of the last 14 days, and the five books most listened to this year, in seconds. |
 | `PUT /books/audio/speed` | `{"speed": 125}` keeps your playback speed, in percent from 50 to 300. |

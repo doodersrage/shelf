@@ -69,7 +69,7 @@ Offline, you can still:
 - **see your highlights**, which come along when you keep a book;
 - **highlight passages and remove highlights**, kept on the device and sent to the shelf when it answers.
 
-A scanned PDF's OCR words are not kept offline, and comics aren't offered for offline reading.
+A scanned PDF's OCR words are not kept offline, and comics aren't offered for offline reading. Audiobooks can be kept too; see [Listening offline](audiobooks.md#listening-offline).
 
 > [!TIP]
 > On a phone, add Shelf to the home screen from the browser's menu. It opens like an app, and the offline reader works from there too.

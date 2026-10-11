@@ -45,6 +45,22 @@ public sealed class ListeningTests(ShelfApiFactory factory) : IClassFixture<Shel
     }
 
     [Fact]
+    public async Task Time_listened_offline_arrives_later_on_the_day_it_was()
+    {
+        var reader = await factory.SignUpAsync("Offline Listener");
+        var book = await WithAudioAsync(reader, "Heard on a Train");
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        // An afternoon with no connection, sent the next day: up to a day's worth, from the last month.
+        Assert.Equal(HttpStatusCode.NoContent, (await reader.PostAsJsonAsync($"/books/{book.Id}/audio/listened", new ListenedRequest(today.AddDays(-3), 2 * 60 * 60), JsonOptions)).StatusCode);
+        await reader.PostAsJsonAsync($"/books/{book.Id}/audio/listened", new ListenedRequest(today.AddDays(-3), 99 * 60 * 60), JsonOptions);
+        var summary = await reader.GetFromJsonAsync<ListeningSummary>("/books/listening", JsonOptions);
+        Assert.Equal(2 * 60 * 60 + 24 * 60 * 60, summary!.LastDays.Single(day => day.Day == today.AddDays(-3)).Seconds);
+        Assert.Equal(0, summary.TodaySeconds);
+        Assert.Equal(HttpStatusCode.NotFound, (await (await factory.SignUpAsync("Not Listening")).PostAsJsonAsync($"/books/{book.Id}/audio/listened", new ListenedRequest(today, 60), JsonOptions)).StatusCode);
+    }
+
+    [Fact]
     public async Task The_end_of_the_recording_finishes_the_owners_book_but_not_for_a_borrower()
     {
         var owner = await factory.SignUpAsync("Finishing Owner");

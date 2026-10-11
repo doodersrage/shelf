@@ -204,21 +204,80 @@
     render();
   });
 
+  // The day as the shelf counts days (UTC, as reading sessions and the streak do), taken now rather than when sent.
+  const shelfDay = () => new Date().toISOString().slice(0, 10);
+
+  // The place is kept on this device as well, marked waiting until the shelf has it: with no connection (a kept
+  // book in the offline player, say) it goes back once the shelf answers again, as does the time listened.
   function save() {
     if (!plan || track < 0) return Promise.resolve();
     lastSaved = performance.now();
+    const bookId = plan.bookId;
     const seconds = pending ? pending.seconds : audio.currentTime || 0;
     const listened = Math.round(heard);
     heard -= listened;
-    const today = new Date();
-    const day = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-    return fetch(`/books/${plan.bookId}/audio/place`, {
+    const day = shelfDay();
+    write(`shelf-audio-place-${bookId}`, { track, seconds, waiting: true });
+    const missed = () => {
+      if (listened < 1) return;
+      const owed = read("shelf-audio-heard", {});
+      owed[bookId] = owed[bookId] || {};
+      owed[bookId][day] = (owed[bookId][day] || 0) + listened;
+      write("shelf-audio-heard", owed);
+    };
+    return fetch(`/books/${bookId}/audio/place`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ track, seconds, listened, day }),
       keepalive: true,
       credentials: "same-origin",
-    }).catch(() => {});
+    }).then((response) => {
+      if (response.ok) {
+        const kept = read(`shelf-audio-place-${bookId}`, null);
+        if (kept && kept.track === track && kept.seconds === seconds) write(`shelf-audio-place-${bookId}`, { track, seconds, waiting: false });
+      } else if (response.status !== 404) {
+        missed();
+      }
+    }, missed);
+  }
+
+  // Places and time from while the shelf could not be reached go back to it now.
+  async function catchUp() {
+    if (!navigator.onLine) return;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const bookId = Number(/^shelf-audio-place-(\d+)$/.exec(key || "")?.[1]);
+        const kept = bookId ? read(key, null) : null;
+        if (!kept?.waiting || plan?.bookId === bookId) continue;
+        const response = await fetch(`/books/${bookId}/audio/place`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ track: kept.track, seconds: kept.seconds }),
+          credentials: "same-origin",
+        });
+        if (response.ok || response.status === 404 || response.status === 400) write(key, { ...kept, waiting: false });
+      }
+
+      const owed = read("shelf-audio-heard", {});
+      for (const [bookId, days] of Object.entries(owed)) {
+        for (const [day, seconds] of Object.entries(days)) {
+          const response = await fetch(`/books/${bookId}/audio/listened`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ day, seconds }),
+            credentials: "same-origin",
+          });
+          if (!response.ok && response.status !== 404 && response.status !== 400) return;
+          delete days[day];
+          write("shelf-audio-heard", owed);
+        }
+        delete owed[bookId];
+        write("shelf-audio-heard", owed);
+      }
+    } catch {
+      // Still out of reach; next time.
+    }
   }
 
   // Seconds into the whole book.
@@ -465,9 +524,12 @@
     write(STORE, { bookId: next.bookId });
     await prepare(next);
     handle();
-    const start = Math.min(Math.max(0, next.track), lengths.length - 1);
+    // A place kept here that the shelf has not had yet is newer than the shelf's.
+    const local = read(`shelf-audio-place-${next.bookId}`, null);
+    const from = local?.waiting ? local : next;
+    const start = Math.min(Math.max(0, from.track), lengths.length - 1);
     if (options.arrive) arrive(options.arrive);
-    else setTrack(start, Math.min(next.seconds || 0, Math.max(0, lengths[start] - 1)), Boolean(options.play));
+    else setTrack(start, Math.min(from.seconds || 0, Math.max(0, lengths[start] - 1)), Boolean(options.play));
   }
 
   // The way in from the e-book: a fraction of the way through a part of one track.
@@ -586,6 +648,7 @@
   // Leaving or hiding the page keeps the place.
   document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && save());
   window.addEventListener("pagehide", save);
+  window.addEventListener("online", catchUp);
   setInterval(tick, 500);
 
   // After a reload, the book that was playing waits in the mini player, paused where it stopped.
@@ -625,6 +688,10 @@
     render,
   };
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", restore, { once: true });
-  else restore();
+  const start = () => {
+    catchUp();
+    if (!document.body.dataset.noRestore) restore();
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
+  else start();
 })();
