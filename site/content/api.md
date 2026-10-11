@@ -87,7 +87,7 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 
 | Call | What it does |
 | --- | --- |
-| `POST /books/{id}/ebook` | Upload an EPUB, PDF, comic, or Kindle file, up to 80 MB (`Uploads:MaxEbookMegabytes`). `DELETE` removes it. Answers with a redirect to the book's page; `?ebook=duplicate&held=…` means the same file is on another book. Send `keepBoth=true` to add it anyway. |
+| `POST /books/{id}/ebook` | Upload an EPUB, PDF, comic, or Kindle file, up to 80 MB by default ([upload limits](configuration.md#upload-limits)). `DELETE` removes it. Answers with a redirect to the book's page; `?ebook=duplicate&held=…` means the same file is on another book. Send `keepBoth=true` to add it anyway. |
 | `GET /books/{id}/ebook/file` | The e-book file. |
 | `GET /books/{id}/ebook/chapters/{index}` | One EPUB chapter, ready to show. |
 | `GET /books/{id}/ebook/pages/{index}` | One page of a comic, as an image. |

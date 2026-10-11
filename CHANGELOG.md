@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Changed
+
+- The upload limits have a section of their own in the configuration docs, with the Docker form and the reverse proxy note.
+
 ## [2.4.0] - 2026-10-11
 
 ### Added

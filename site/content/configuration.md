@@ -37,6 +37,25 @@ Off unless `Oidc:Authority` and `Oidc:ClientId` are set. See [Single sign-on](se
 | `Oidc:Scopes` | `openid profile email` | The scopes asked for. |
 | `Oidc:RequireHttpsMetadata` | `true` | Set to `false` only for a provider on plain `http://` inside your own network. |
 
+## Upload limits
+
+The largest file Shelf takes, in megabytes. A larger one is refused with a note saying how large it may be.
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `Uploads:MaxEbookMegabytes` | `80` | The largest EPUB, PDF, Kindle file, or comic. |
+| `Uploads:MaxAudioMegabytes` | `1024` | The largest audiobook, all its tracks together; also the most an upload of many files at once may total. |
+
+In Docker, as environment variables:
+
+```yaml
+environment:
+  - Uploads__MaxEbookMegabytes=500
+  - Uploads__MaxAudioMegabytes=4096
+```
+
+A reverse proxy in front of Shelf has a limit of its own, which refuses a large file before Shelf sees it; raise it to match (for nginx, `client_max_body_size 4g;`). See [HTTPS and a reverse proxy](server.md#https-and-a-reverse-proxy).
+
 ## Where things are kept
 
 | Setting | Default | What it does |
@@ -44,8 +63,6 @@ Off unless `Oidc:Authority` and `Oidc:ClientId` are set. See [Single sign-on](se
 | `ConnectionStrings:Shelf` | `Data Source=shelf.db` | The SQLite database. In Docker, `/data/shelf.db`. |
 | `EbookStore:Root` | `ebooks` beside the app | E-book files. In Docker, `/data/ebooks`. |
 | `AudioStore:Root` | `audio` beside the app | Audiobooks. In Docker, `/data/audio`. |
-| `Uploads:MaxAudioMegabytes` | `1024` | The largest audiobook, all its tracks together, in megabytes; also the most an upload of many files at once may total. A reverse proxy has a limit of its own to raise to match (see [HTTPS and a reverse proxy](server.md#https-and-a-reverse-proxy)). |
-| `Uploads:MaxEbookMegabytes` | `80` | The largest e-book, PDF, or comic file, in megabytes. |
 | `CoverStore:Root` | `covers` beside the app | Cover pictures kept on the shelf. In Docker, `/data/covers`. |
 | `DataProtection:KeysPath` | `keys` beside the database | The keys that seal sign-in cookies and two-step secrets. Keep it private and keep it with backups, or everyone signs in again after a restore. |
 
