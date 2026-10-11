@@ -415,6 +415,22 @@ public static class BookRules
             setting?.ReaderPaged ?? false).Clamped();
     }
 
+    public static async Task<bool> GetComicSpreadAsync(ShelfDb db, CancellationToken cancellationToken = default) =>
+        await db.Settings.AsNoTracking().Where(item => item.Id == db.ReaderId).Select(item => item.ComicSpread).FirstOrDefaultAsync(cancellationToken);
+
+    public static async Task SetComicSpreadAsync(ShelfDb db, bool spread, CancellationToken cancellationToken = default)
+    {
+        var setting = await db.Settings.FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
+        if (setting is null)
+        {
+            setting = new ShelfSetting { Id = db.ReaderId };
+            db.Settings.Add(setting);
+        }
+
+        setting.ComicSpread = spread;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public static async Task SetReaderTypeAsync(ShelfDb db, ReaderType type, CancellationToken cancellationToken = default)
     {
         type = type.Clamped();

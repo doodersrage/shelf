@@ -28,7 +28,11 @@ A scanned PDF's pages are pictures. When Tesseract and Poppler are installed on 
 
 ## Comics
 
-A comic book archive (`.cbz`) reads a page at a time, in natural name order (page 2 before page 10), as large as the window allows. The arrow keys turn pages, and the next page loads ahead.
+A comic book archive reads a page at a time, in natural name order (page 2 before page 10), as large as the window allows. The arrow keys turn pages, and the next page loads ahead. CBZ files are kept as they are; CBR (RAR), CB7 (7-Zip), and CBT (tar) files are repacked as CBZ when they're added, so every device and app that takes comics can open them.
+
+- **Right to left, as manga** turns the pages the other way: the left arrow goes forward, and the buttons and spreads are mirrored. It's on by itself for a comic whose `ComicInfo.xml` says it's manga, and kept for each book.
+- **Two pages at a time** shows the cover alone, then pages side by side as a printed book lies open. It's kept for all your comics.
+- **Match on ComicVine**, on a comic's page, finds the issue at [ComicVine](https://comicvine.gamespot.com) and takes its series and number, writers, publisher, year, and cover. It needs a free API key from ComicVine, which an admin sets as `Comics:ComicVineKey`.
 
 ## Kindle files
 

@@ -74,17 +74,25 @@ else if (book is not null)
             }
             else
             {
-                <div class="reader-nav">
+                var (first, count) = ComicFile.Spread(chapter, comicPages, comicSpread);
+                <div class="reader-nav @(comicRtl ? "rtl" : "")">
                     <button type="button" @onclick="PreviousPage" disabled="@(chapter == 0)">@T("Previous")</button>
-                    <span class="hint" aria-live="polite">@T("Page {0} of {1}", chapter + 1, comicPages)</span>
-                    <button type="button" @onclick="NextPage" disabled="@(chapter >= comicPages - 1)">@T("Next")</button>
+                    <span class="hint" aria-live="polite">@(count == 2 ? T("Pages {0} and {1} of {2}", first + 1, first + 2, comicPages) : T("Page {0} of {1}", first + 1, comicPages))</span>
+                    <button type="button" @onclick="NextPage" disabled="@(first + count >= comicPages)">@T("Next")</button>
                 </div>
-                <div class="comic-viewer" tabindex="0" role="region" @onkeydown="ComicKey"
-                     aria-label="@T("{0}, page {1} of {2}. Use the arrow keys to turn pages.", book.Title, chapter + 1, comicPages)">
-                    <img src="/books/@book.Id/ebook/pages/@chapter" alt="@T("Page {0}", chapter + 1)" />
-                    @if (chapter < comicPages - 1)
+                <div class="comic-settings">
+                    <label class="check"><input type="checkbox" checked="@comicRtl" @onchange="ChangeRtl" /> @T("Right to left, as manga")</label>
+                    <label class="check"><input type="checkbox" checked="@comicSpread" @onchange="ChangeSpread" /> @T("Two pages at a time")</label>
+                </div>
+                <div class="comic-viewer @(count == 2 ? "spread" : "") @(comicRtl ? "rtl" : "")" tabindex="0" role="region" @onkeydown="ComicKey"
+                     aria-label="@T("{0}, page {1} of {2}. Use the arrow keys to turn pages.", book.Title, first + 1, comicPages)">
+                    @for (var shown = first; shown < first + count; shown++)
                     {
-                        <img src="/books/@book.Id/ebook/pages/@(chapter + 1)" alt="" hidden />
+                        <img src="/books/@book.Id/ebook/pages/@shown" alt="@T("Page {0}", shown + 1)" />
+                    }
+                    @if (first + count < comicPages)
+                    {
+                        <img src="/books/@book.Id/ebook/pages/@(first + count)" alt="" hidden />
                     }
                 </div>
                 <p class="hint"><a href="/books/@book.Id/ebook/file">@T("Download the comic")</a></p>
@@ -340,6 +348,8 @@ else if (book is not null)
         if (book is not null && EbookStore.IsComic(book.EbookStoredName))
         {
             comicPages = ComicFile.Pages(Ebooks.OpenPath(book.EbookStoredName)).Count;
+            comicRtl = book.ComicRightToLeft ?? ComicFile.IsRightToLeft(Ebooks.OpenPath(book.EbookStoredName));
+            comicSpread = await BookRules.GetComicSpreadAsync(db);
             chapter = Math.Clamp(ChapterQuery ?? (await Lending.PlaceAsync(db, open!)).EbookChapter ?? 0, 0, Math.Max(0, comicPages - 1));
             return;
         }
@@ -690,35 +700,60 @@ else if (book is not null)
         }
     });
 
+    private bool comicRtl;
+    private bool comicSpread;
+
     private async Task PreviousPage()
     {
-        if (chapter > 0)
+        var (first, _) = ComicFile.Spread(chapter, comicPages, comicSpread);
+        if (first > 0)
         {
-            chapter--;
+            chapter = comicSpread ? Math.Max(0, first - 2) : first - 1;
             await RememberChapter();
         }
     }
 
     private async Task NextPage()
     {
-        if (chapter < comicPages - 1)
+        var (first, count) = ComicFile.Spread(chapter, comicPages, comicSpread);
+        if (first + count < comicPages)
         {
-            chapter++;
+            chapter = first + count;
             await RememberChapter();
         }
     }
 
+    // Right to left, the left arrow goes forward, as the pages do.
     private async Task ComicKey(KeyboardEventArgs key)
     {
-        switch (key.Key)
+        var forward = comicRtl ? "ArrowLeft" : "ArrowRight";
+        var back = comicRtl ? "ArrowRight" : "ArrowLeft";
+        if (key.Key == forward || key.Key is "PageDown" or " ")
         {
-            case "ArrowRight" or "PageDown" or " ":
-                await NextPage();
-                break;
-            case "ArrowLeft" or "PageUp":
-                await PreviousPage();
-                break;
+            await NextPage();
         }
+        else if (key.Key == back || key.Key == "PageUp")
+        {
+            await PreviousPage();
+        }
+    }
+
+    // Kept on the book for its owner; for a borrower, for this visit.
+    private async Task ChangeRtl(ChangeEventArgs change)
+    {
+        comicRtl = change.Value is true;
+        if (book is not null && !borrowed)
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            await db.Books.Where(item => item.Id == book.Id).ExecuteUpdateAsync(set => set.SetProperty(item => item.ComicRightToLeft, comicRtl));
+        }
+    }
+
+    private async Task ChangeSpread(ChangeEventArgs change)
+    {
+        comicSpread = change.Value is true;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await BookRules.SetComicSpreadAsync(db, comicSpread);
     }
 
     private async Task RememberChapter()

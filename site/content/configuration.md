@@ -114,6 +114,7 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 
 | Setting | Default | What it does |
 | --- | --- | --- |
+| `Comics:ComicVineKey` | none | An API key from [ComicVine](https://comicvine.gamespot.com/api/), for **Match on ComicVine** on comics' pages. Without one, the button isn't shown. |
 | `Ebooks:Convert` | `ebook-convert` | Calibre's converter, which turns Kindle files into EPUBs. Without it, Kindle files are refused with a note saying why. |
 | `FreeBooks:Enabled` | `true` | The Free books page, which reaches gutenberg.org, librivox.org, and archive.org. Turn it off for a shelf with no internet. |
 | `Kobo:Kepub` | `true` | Send books to Kobo e-readers as KEPUBs, made from the EPUBs and kept beside them, for the Kobo's page numbers and statistics. `false` sends the EPUBs as they are. |

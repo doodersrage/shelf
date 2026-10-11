@@ -22,6 +22,11 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
             return await ConvertAsync(source, originalName, cancellationToken);
         }
 
+        if (IsOtherComic(originalName))
+        {
+            return await RepackAsync(source, originalName, cancellationToken);
+        }
+
         if (extension is not ".epub" and not ".pdf" and not ".cbz")
         {
             return new EbookSave(EbookSaveStatus.Unsupported, null, null);
@@ -72,6 +77,47 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
         }
 
         return new EbookSave(EbookSaveStatus.Saved, storedName, displayName);
+    }
+
+    // Comics in RAR, 7-Zip, or tar archives, which are repacked as CBZ, the zip every comic reader takes.
+    public static bool IsOtherComic(string name) => Path.GetExtension(name).ToLowerInvariant() is ".cbr" or ".cb7" or ".cbt";
+
+    private async Task<EbookSave> RepackAsync(Stream source, string originalName, CancellationToken cancellationToken)
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"shelf-repack-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var input = Path.Combine(folder, "comic" + Path.GetExtension(originalName).ToLowerInvariant());
+            await using (var output = File.Create(input))
+            {
+                var buffer = new byte[81920];
+                long total = 0;
+                int read;
+                while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0)
+                {
+                    if ((total += read) > MaxBytes)
+                    {
+                        return new EbookSave(EbookSaveStatus.TooLarge, null, null);
+                    }
+
+                    await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                }
+            }
+
+            var zip = Path.Combine(folder, "comic.cbz");
+            if (!ComicFile.Repack(input, zip))
+            {
+                return new EbookSave(EbookSaveStatus.Unsupported, null, null);
+            }
+
+            await using var repacked = File.OpenRead(zip);
+            return await SaveAsync(repacked, Path.ChangeExtension(originalName, ".cbz"), cancellationToken);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
     }
 
     private async Task<EbookSave> ConvertAsync(Stream source, string originalName, CancellationToken cancellationToken)

@@ -25,7 +25,7 @@ public sealed class BookImport(EbookStore ebooks, AudioStore audio, CoverStore c
 {
     public const string UnknownAuthor = "Unknown author";
 
-    private static readonly HashSet<string> EbookExtensions = new(StringComparer.OrdinalIgnoreCase) { ".epub", ".pdf", ".cbz" };
+    private static readonly HashSet<string> EbookExtensions = new(StringComparer.OrdinalIgnoreCase) { ".epub", ".pdf", ".cbz", ".cbr", ".cb7", ".cbt" };
 
     public static bool IsEbook(string name) => EbookExtensions.Contains(Path.GetExtension(name)) || EbookStore.IsKindle(name);
 

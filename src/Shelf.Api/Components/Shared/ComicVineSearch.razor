@@ -1,0 +1,101 @@
+@* Finds a comic issue at ComicVine and takes its series, number, writers, publisher, year, and cover. *@
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject IComicCatalog Catalog
+@inject CoverStore Covers
+
+@if (Catalog.Ready)
+{
+    <details class="edit" id="comicvine">
+        <summary>@T("Match on ComicVine")</summary>
+        <p class="hint">@T("Find this issue at ComicVine for its series and number, writers, publisher, year, and cover. Search by series and issue number, such as Saga 12.")</p>
+        <form class="audible-search" @onsubmit="Search" @onsubmit:preventDefault>
+            <label>
+                @T("Series and issue")
+                <input type="search" @bind="query" @bind:event="oninput" maxlength="200" />
+            </label>
+            <button type="submit" disabled="@(busy || string.IsNullOrWhiteSpace(query))">@(busy ? T("Looking…") : T("Search ComicVine"))</button>
+        </form>
+        @if (issues is { Count: 0 })
+        {
+            <p class="hint" role="status">@T("ComicVine found nothing by that name.")</p>
+        }
+        else if (issues is not null)
+        {
+            <label class="check"><input type="checkbox" @bind="takeCover" /> @T("Take the cover too")</label>
+            <ul class="audible-matches">
+                @foreach (var issue in issues)
+                {
+                    <li>
+                        @if (issue.Cover is not null)
+                        {
+                            <img src="@issue.Cover" alt="" loading="lazy" referrerpolicy="no-referrer" />
+                        }
+                        <div>
+                            <strong>@issue.Series@(issue.Number is null ? "" : $" #{issue.Number}")</strong>
+                            @if (issue.Name is not null)
+                            {
+                                <span class="hint">@issue.Name</span>
+                            }
+                            <span class="hint">@issue.Year</span>
+                        </div>
+                        <button type="button" @onclick="() => Take(issue.Id)" disabled="@busy" aria-label="@T("Use {0}", $"{issue.Series} #{issue.Number}")">@T("Use this")</button>
+                    </li>
+                }
+            </ul>
+        }
+        @if (note is not null)
+        {
+            <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
+        }
+    </details>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public int BookId { get; set; }
+
+    [Parameter]
+    public string InitialQuery { get; set; } = "";
+
+    [Parameter]
+    public EventCallback Changed { get; set; }
+
+    private string query = "";
+    private bool busy;
+    private bool problem;
+    private bool takeCover;
+    private string? note;
+    private IReadOnlyList<ComicIssue>? issues;
+
+    protected override void OnInitialized() => query = InitialQuery;
+
+    private async Task Search()
+    {
+        (busy, note) = (true, null);
+        try
+        {
+            issues = await Catalog.SearchAsync(query.Trim(), CancellationToken.None);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task Take(int id)
+    {
+        busy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var taken = await ComicVine.ApplyAsync(db, Catalog, Covers, BookId, id, takeCover);
+            (problem, note) = taken ? (false, T("Took the details from ComicVine.")) : (true, T("ComicVine could not be reached. Try again in a while."));
+            issues = taken ? null : issues;
+            await Changed.InvokeAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

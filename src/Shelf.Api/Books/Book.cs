@@ -95,6 +95,9 @@ public sealed class Book
     // Who reads the audiobook aloud.
     public string? Narrator { get; set; }
 
+    // A comic read right to left, as manga is; null goes by what its ComicInfo.xml says.
+    public bool? ComicRightToLeft { get; set; }
+
     // The audiobook's id at Audible, once matched there, and the chapters Audible names for it, as JSON from the
     // start of the whole recording; the player uses those over the file's own when they fit the recording.
     public string? Asin { get; set; }
@@ -167,6 +170,9 @@ public sealed class ShelfSetting
 
     // The reader turns pages rather than scrolling.
     public bool ReaderPaged { get; set; }
+
+    // Comics two pages at a time, as a printed book lies open.
+    public bool ComicSpread { get; set; }
     public bool LibraryAsList { get; set; }
     public int? AudioSpeed { get; set; }
 

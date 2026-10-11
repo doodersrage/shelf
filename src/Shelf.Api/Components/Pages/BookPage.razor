@@ -177,7 +177,7 @@ else if (book is not null)
     }
     else if (EbookMessage == "unsupported")
     {
-        <p class="validation-message" role="alert">@T("Choose an EPUB, a PDF, a comic (CBZ), or a Kindle file.")</p>
+        <p class="validation-message" role="alert">@T("Choose an EPUB, a PDF, a comic (CBZ, CBR, or CB7), or a Kindle file.")</p>
     }
     else if (EbookMessage == "large")
     {
@@ -545,13 +545,18 @@ else if (book is not null)
     }
     <form action="/books/@book.Id/ebook" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
         <label>
-            @T("EPUB, PDF, comic (CBZ), or Kindle file, up to 80 MB")
-            <input type="file" name="file" accept=".epub,.pdf,.cbz,.mobi,.azw3,.azw,application/epub+zip,application/pdf" required />
+            @T("EPUB, PDF, comic (CBZ, CBR, or CB7), or Kindle file, up to 80 MB")
+            <input type="file" name="file" accept=".epub,.pdf,.cbz,.cbr,.cb7,.cbt,.mobi,.azw3,.azw,application/epub+zip,application/pdf" required />
         </label>
         <progress data-upload-progress max="100" hidden></progress>
         <p class="hint" data-upload-status role="status" hidden></p>
         <button type="submit">@T("Upload")</button>
     </form>
+
+    @if (EbookStore.IsComic(book.EbookStoredName))
+    {
+        <ComicVineSearch BookId="book.Id" InitialQuery="@(book.Series is { } series ? $"{series} {book.SeriesNumber}".Trim() : book.Title)" Changed="() => LoadAsync()" />
+    }
 
     <h3>@T("Audiobook")</h3>
     @if (!string.IsNullOrWhiteSpace(book.AudioFileName))

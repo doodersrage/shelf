@@ -10,6 +10,40 @@ public static partial class ComicFile
 {
     private const long MaxPageBytes = 40L * 1024 * 1024;
 
+    // Pages and ComicInfo.xml from a RAR, 7-Zip, or tar archive into a zip, in the same order; false when none could be read.
+    public static bool Repack(string archive, string cbz)
+    {
+        try
+        {
+            using var source = SharpCompress.Archives.ArchiveFactory.OpenArchive(archive);
+            var wanted = source.Entries
+                .Where(entry => !entry.IsDirectory && entry.Key is { } key && (ImageType(key) is not null || Path.GetFileName(key).Equals("ComicInfo.xml", StringComparison.OrdinalIgnoreCase))
+                    && !key.Replace('\\', '/').Split('/').Any(part => part.StartsWith('.') || part == "__MACOSX"))
+                .ToList();
+            if (!wanted.Any(entry => ImageType(entry.Key!) is not null))
+            {
+                return false;
+            }
+
+            using var file = File.Create(cbz);
+            using var target = new ZipArchive(file, ZipArchiveMode.Create);
+            foreach (var entry in wanted)
+            {
+                // Images are packed already; storing them saves time and nothing else.
+                var made = target.CreateEntry(entry.Key!.Replace('\\', '/'), ImageType(entry.Key) is null ? CompressionLevel.Optimal : CompressionLevel.NoCompression);
+                using var input = entry.OpenEntryStream();
+                using var output = made.Open();
+                input.CopyTo(output);
+            }
+
+            return true;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or InvalidDataException or IOException or SharpCompress.Common.ArchiveException or SharpCompress.Common.InvalidFormatException or NotSupportedException or IndexOutOfRangeException)
+        {
+            return false;
+        }
+    }
+
     public static IReadOnlyList<string> Pages(string? path)
     {
         if (path is null || !File.Exists(path))
@@ -86,6 +120,45 @@ public static partial class ComicFile
         {
             return null;
         }
+    }
+
+    // Whether ComicInfo.xml says the comic reads right to left, as manga does.
+    public static bool IsRightToLeft(string? path)
+    {
+        if (path is null || !File.Exists(path))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var zip = ZipFile.OpenRead(path);
+            var info = zip.Entries.FirstOrDefault(entry => entry.Name.Equals("ComicInfo.xml", StringComparison.OrdinalIgnoreCase));
+            if (info is null)
+            {
+                return false;
+            }
+
+            using var stream = info.Open();
+            using var reader = XmlReader.Create(stream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            return XDocument.Load(reader).Root?.Elements().FirstOrDefault(element => element.Name.LocalName == "Manga")?.Value.Trim() == "YesAndRightToLeft";
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or XmlException)
+        {
+            return false;
+        }
+    }
+
+    // The pages shown together from a page: the cover alone, then two at a time (2 and 3, 4 and 5, …) in a spread.
+    public static (int First, int Count) Spread(int page, int pages, bool spread)
+    {
+        if (!spread || page <= 0)
+        {
+            return (Math.Max(0, page), 1);
+        }
+
+        var first = page % 2 == 1 ? page : page - 1;
+        return (first, Math.Min(2, pages - first));
     }
 
     private static string? ImageType(string name) => Path.GetExtension(name).ToLowerInvariant() switch

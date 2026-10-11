@@ -111,6 +111,9 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<int?>("BorrowerId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool?>("ComicRightToLeft")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Condition")
                         .HasMaxLength(16)
                         .HasColumnType("TEXT");
@@ -1237,6 +1240,9 @@ namespace Shelf.Api.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<int?>("AudioSpeed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("ComicSpread")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("HoursGoal")

@@ -188,3 +188,26 @@ test("an EPUB laid out as pages turns them, and turns into the next chapter and 
   await expect(where).toContainText(`of ${pages}`);
   noProblems(page);
 });
+
+test("a manga in a 7-Zip archive reads right to left, two pages at a time", async ({ browser }) => {
+  const page = await signUp(browser, unique("Manga Reader"));
+  const book = await createBook(page, { title: "A Manga", author: "Someone", status: "Reading" });
+  await upload(page, book.id, "ebook", "manga.cb7", "application/x-cb7-compressed");
+
+  await page.goto(`/library/${book.id}/read`);
+  await ready(page);
+  await expect(page.getByLabel("Right to left, as manga")).toBeChecked();
+  await expect(page.locator(".reader-nav")).toContainText("Page 1 of 3");
+  // Right to left, the left arrow goes forward.
+  await page.locator(".comic-viewer").focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.locator(".reader-nav")).toContainText("Page 2 of 3");
+
+  await page.getByLabel("Two pages at a time").check();
+  await expect(page.locator(".reader-nav")).toContainText("Pages 2 and 3 of 3");
+  await expect(page.locator(".comic-viewer img:not([hidden])")).toHaveCount(2);
+  await page.reload();
+  await ready(page);
+  await expect(page.getByLabel("Two pages at a time")).toBeChecked();
+  noProblems(page);
+});

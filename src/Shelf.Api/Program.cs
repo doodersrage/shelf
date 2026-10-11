@@ -99,6 +99,12 @@ builder.Services.AddHttpClient<IWordLookup, WikimediaLookup>(client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("Shelf/1.0 (personal library; +https://github.com/doodersrage/shelf)");
 });
 builder.Services.AddHostedService(static services => services.GetRequiredService<SeriesWatch>());
+// Comics matched at ComicVine, when an admin gives a key (Comics:ComicVineKey).
+builder.Services.AddHttpClient<IComicCatalog, ComicVineCatalog>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(20);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Shelf/1.0 (personal library; +https://github.com/doodersrage/shelf)");
+});
 // Audiobooks matched at Audible for their narrator, series, cover, and chapter names.
 builder.Services.AddHttpClient<IAudibleCatalog, AudibleCatalog>(client =>
 {

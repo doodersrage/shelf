@@ -1188,7 +1188,7 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         content.Add(new ByteArrayContent("hello"u8.ToArray()), "file", "notes.txt");
         var uploaded = await _client.PostAsync($"/books/{book.Id}/ebook", content);
         var html = await uploaded.Content.ReadAsStringAsync();
-        Assert.Contains("Choose an EPUB, a PDF, a comic (CBZ), or a Kindle file.", html);
+        Assert.Contains("Choose an EPUB, a PDF, a comic (CBZ, CBR, or CB7), or a Kindle file.", html);
         var stored = await _client.GetFromJsonAsync<BookResponse>($"/books/{book.Id}", JsonOptions);
         Assert.Null(stored?.EbookFileName);
     }
