@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-11
+
 ### Added
 
 - Audiobookshelf's phone apps sign in to Shelf as to an Audiobookshelf server: your audiobooks and e-books listed, streamed, or downloaded for offline listening, with Android Auto and CarPlay, and the place, bookmarks, and time listened kept in step. With two-step sign-in, an API token is the password.
@@ -255,7 +257,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/doodersrage/shelf/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/doodersrage/shelf/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/doodersrage/shelf/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/doodersrage/shelf/compare/v1.5.0...v1.6.0
