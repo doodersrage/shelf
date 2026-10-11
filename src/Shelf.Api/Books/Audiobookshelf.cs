@@ -386,9 +386,9 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
             }
         }
 
-        if (book.Notes is null && AbsClient.Text(metadata, "narratorName") is { } narrator)
+        if (book.Narrator is null && AbsClient.Text(metadata, "narratorName") is { } narrator)
         {
-            book.Notes = T("Read by {0}.", narrator);
+            book.Narrator = Fit(narrator, 200);
         }
     }
 

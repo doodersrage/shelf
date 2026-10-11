@@ -88,6 +88,9 @@ public sealed class BookFormModel
     [MaxLength(200, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.Translator), ResourceType = typeof(FormWords))]
     public string Translator { get; set; } = "";
 
+    [MaxLength(200, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.Narrator), ResourceType = typeof(FormWords))]
+    public string Narrator { get; set; } = "";
+
     [MaxLength(120, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.RecommendedBy), ResourceType = typeof(FormWords))]
     public string RecommendedBy { get; set; } = "";
 
@@ -128,7 +131,8 @@ public sealed class BookFormModel
         DueOn,
         Queued,
         Enum.TryParse<Acquisition>(Arrival, out var acquisition) ? acquisition : null,
-        Enum.TryParse<CopyCondition>(Condition, out var condition) ? condition : null);
+        Enum.TryParse<CopyCondition>(Condition, out var condition) ? condition : null,
+        Narrator);
 
     public bool FillBlanks(CatalogMatch match)
     {
@@ -229,6 +233,7 @@ public sealed class BookFormModel
         Arrival = "";
         Condition = "";
         Translator = "";
+        Narrator = "";
         OriginalTitle = "";
         Inscription = "";
         RecommendedBy = "";
@@ -266,6 +271,7 @@ public sealed class BookFormModel
         Arrival = book.Acquisition?.ToString() ?? "",
         Condition = book.Condition?.ToString() ?? "",
         Translator = book.Translator ?? "",
+        Narrator = book.Narrator ?? "",
         OriginalTitle = book.OriginalTitle ?? "",
         Inscription = book.Inscription ?? "",
         RecommendedBy = book.RecommendedBy ?? "",

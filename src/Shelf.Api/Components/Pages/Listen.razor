@@ -45,6 +45,10 @@ else if (book is not null)
                 </p>
                 <h1>@book.Title</h1>
                 <p class="listen-author">@book.Author</p>
+                @if (!string.IsNullOrWhiteSpace(book.Narrator))
+                {
+                    <p class="hint">@T("Read by {0}", book.Narrator)</p>
+                }
 
                 <p class="listen-chapter" aria-live="polite"><span data-show="chapter">@plan.Chapters.FirstOrDefault()?.Title</span></p>
                 @if (plan.Chapters.Length > 1)

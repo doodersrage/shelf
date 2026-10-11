@@ -25,7 +25,7 @@ Can't choose what to read next? `/books/pick` picks one book from the want list.
 
 A book's details hold as much or as little as you like:
 
-- **Title, subtitle, author, and year**, with the original title of a translation and its translator.
+- **Title, subtitle, author, and year**, with the original title of a translation and its translator, and the narrator of an audiobook (search finds narrators too).
 - **Series and number**, so the next volume is offered from the book's page.
 - **ISBN, publisher, language, page count, and format** (hardcover, paperback, e-book, or audiobook).
 - **About your copy:** where it sits, its condition from fine to poor, how it arrived (bought, a gift, or found), the date, any inscription written in the front, and who recommended it.

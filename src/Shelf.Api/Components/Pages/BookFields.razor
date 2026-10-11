@@ -201,6 +201,10 @@ else if (Borrowable.Length > 0)
         </label>
     </div>
     <label>
+        @T("Narrator")
+        <InputText @bind-Value="Model.Narrator" maxlength="200" />
+    </label>
+    <label>
         @T("Inscription")
         <InputTextArea @bind-Value="Model.Inscription" maxlength="500" rows="3" />
     </label>

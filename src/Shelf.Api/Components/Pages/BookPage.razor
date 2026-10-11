@@ -36,6 +36,10 @@ else if (book is not null)
                 {
                     <span class="hint"> · @T("translated by {0}", book.Translator)</span>
                 }
+                @if (!string.IsNullOrWhiteSpace(book.Narrator))
+                {
+                    <span class="hint"> · @T("read by {0}", book.Narrator)</span>
+                }
             </p>
             @if (!string.IsNullOrWhiteSpace(book.OriginalTitle))
             {

@@ -61,7 +61,7 @@ public sealed class AudiobookshelfTests(ShelfApiFactory factory) : IClassFixture
         var earthsea = await client.GetFromJsonAsync<BookResponse>($"/books/{lines["li-earthsea"].BookId}", JsonOptions);
         Assert.Equal(("A Wizard of Earthsea", "Ursula K. Le Guin", BookStatus.Reading, "2 tracks"), (earthsea!.Title, earthsea.Author, earthsea.Status, earthsea.AudioFileName));
         Assert.Equal(("Earthsea Cycle", 1), (earthsea.Series, earthsea.SeriesNumber));
-        Assert.Equal("Read by Rob Inglis.", earthsea.Notes);
+        Assert.Equal("Rob Inglis", earthsea.Narrator);
         Assert.Contains("fantasy", earthsea.Tags);
         Assert.Equal(1968, earthsea.Year);
         var place = await client.GetFromJsonAsync<PlaceResponse>($"/books/{earthsea.Id}/place", JsonOptions);

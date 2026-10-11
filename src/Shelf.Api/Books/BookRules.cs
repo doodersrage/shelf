@@ -174,6 +174,7 @@ public static class BookRules
         book.Acquisition = write.Acquisition;
         book.Condition = write.Condition;
         book.Translator = BlankToNull(write.Translator);
+        book.Narrator = BlankToNull(write.Narrator);
         book.OriginalTitle = BlankToNull(write.OriginalTitle);
         book.Inscription = BlankToNull(write.Inscription);
         book.RecommendedBy = BlankToNull(write.RecommendedBy);
@@ -941,6 +942,7 @@ public static class BookRules
                     || (book.Review != null && book.Review.ToLower().Contains(term))
                     || (book.Location != null && book.Location.ToLower().Contains(term))
                     || (book.Translator != null && book.Translator.ToLower().Contains(term))
+                    || (book.Narrator != null && book.Narrator.ToLower().Contains(term))
                     || (book.OriginalTitle != null && book.OriginalTitle.ToLower().Contains(term))
                     || (book.Inscription != null && book.Inscription.ToLower().Contains(term))
                     || (book.RecommendedBy != null && book.RecommendedBy.ToLower().Contains(term))
@@ -955,6 +957,7 @@ public static class BookRules
                     || (book.Review != null && book.Review.ToLower().Contains(term))
                     || (book.Location != null && book.Location.ToLower().Contains(term))
                     || (book.Translator != null && book.Translator.ToLower().Contains(term))
+                    || (book.Narrator != null && book.Narrator.ToLower().Contains(term))
                     || (book.OriginalTitle != null && book.OriginalTitle.ToLower().Contains(term))
                     || (book.Inscription != null && book.Inscription.ToLower().Contains(term))
                     || (book.RecommendedBy != null && book.RecommendedBy.ToLower().Contains(term))

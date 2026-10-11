@@ -91,6 +91,9 @@ public sealed class Book
     public int? AudioTrack { get; set; }
     public int? AudioSeconds { get; set; }
     public string? Translator { get; set; }
+
+    // Who reads the audiobook aloud.
+    public string? Narrator { get; set; }
     public string? OriginalTitle { get; set; }
     public string? Inscription { get; set; }
     public string? RecommendedBy { get; set; }
@@ -239,12 +242,13 @@ public sealed record CreateBookRequest(
     DateOnly? DueOn = null,
     bool Queued = false,
     Acquisition? Acquisition = null,
-    CopyCondition? Condition = null)
+    CopyCondition? Condition = null,
+    [MaxLength(200)] string? Narrator = null)
 {
     public BookWrite ToWrite() => BookWrite.From(
         Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
         Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn,
-        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition, Condition);
+        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition, Condition, Narrator);
 }
 
 public sealed record UpdateBookRequest(
@@ -280,12 +284,13 @@ public sealed record UpdateBookRequest(
     DateOnly? DueOn = null,
     bool Queued = false,
     Acquisition? Acquisition = null,
-    CopyCondition? Condition = null)
+    CopyCondition? Condition = null,
+    [MaxLength(200)] string? Narrator = null)
 {
     public BookWrite ToWrite() => BookWrite.From(
         Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
         Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn,
-        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition, Condition);
+        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition, Condition, Narrator);
 }
 
 public sealed record BookWrite(
@@ -321,7 +326,8 @@ public sealed record BookWrite(
     DateOnly? DueOn,
     bool Queued,
     Acquisition? Acquisition,
-    CopyCondition? Condition)
+    CopyCondition? Condition,
+    string? Narrator = null)
 {
     public static BookWrite From(
         string title,
@@ -356,16 +362,17 @@ public sealed record BookWrite(
         DateOnly? dueOn,
         bool queued,
         Acquisition? acquisition,
-        CopyCondition? condition) => new(
+        CopyCondition? condition,
+        string? narrator = null) => new(
             title, author, status, rating, year, isbn, pages, currentPage, notes, startedOn, finishedOn, loanedTo, tags ?? [],
             subtitle, publisher, language, format, series, seriesNumber, coverUrl, review, loved, loanedOn,
-            location, acquiredOn, translator, recommendedBy, originalTitle, inscription, dueOn, queued, acquisition, condition);
+            location, acquiredOn, translator, recommendedBy, originalTitle, inscription, dueOn, queued, acquisition, condition, narrator);
 
     public static BookWrite From(BookResponse book) => From(
         book.Title, book.Author, book.Status, book.Rating, book.Year, book.Isbn, book.Pages, book.CurrentPage, book.Notes,
         book.StartedOn, book.FinishedOn, book.LoanedTo, book.Tags, book.Subtitle, book.Publisher, book.Language, book.Format,
         book.Series, book.SeriesNumber, book.CoverUrl, book.Review, book.Loved, book.LoanedOn,
-        book.Location, book.AcquiredOn, book.Translator, book.RecommendedBy, book.OriginalTitle, book.Inscription, book.DueOn, book.Queued, book.Acquisition, book.Condition);
+        book.Location, book.AcquiredOn, book.Translator, book.RecommendedBy, book.OriginalTitle, book.Inscription, book.DueOn, book.Queued, book.Acquisition, book.Condition, book.Narrator);
 }
 
 public sealed record BookResponse(
@@ -409,7 +416,8 @@ public sealed record BookResponse(
     string? EbookFileName,
     string? AudioFileName,
     int? BorrowerId = null,
-    HighlightResponse[]? Highlights = null)
+    HighlightResponse[]? Highlights = null,
+    string? Narrator = null)
 {
     public static BookResponse From(Book book) => new(
         book.Id,
@@ -452,7 +460,8 @@ public sealed record BookResponse(
         book.EbookFileName,
         book.AudioFileName,
         book.BorrowerId,
-        book.Highlights.OrderBy(mark => mark.ChapterIndex).ThenBy(mark => mark.Id).Select(HighlightResponse.From).ToArray());
+        book.Highlights.OrderBy(mark => mark.ChapterIndex).ThenBy(mark => mark.Id).Select(HighlightResponse.From).ToArray(),
+        book.Narrator);
 }
 
 public sealed record ShelfCopy(int Id, string Title, Acquisition? Acquisition);

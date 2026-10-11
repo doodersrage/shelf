@@ -13,6 +13,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - Playing an audiobook to its end marks the book finished.
 - **Reading now** in the library shows how long is left of an audiobook.
 - Listening offline: **Keep for listening offline** saves an audiobook's tracks in the browser. It then plays from the device, and with no connection the offline page has a player for it; the place and the time listened go back to the shelf when it answers.
+- A book's narrator: a field of its own, shown on the book's page and in the player, and found by search. The Audiobookshelf import fills it, and narrators an earlier import put in the notes move across.
 
 ### Changed
 
