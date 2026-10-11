@@ -142,36 +142,14 @@ else
         }
     </section>
 
-    @if (listening is { TotalSeconds: > 0 } heard)
+    @if (reading is { TotalSeconds: > 0 })
     {
-        <section class="panel" aria-labelledby="listening-heading">
-            <h2 id="listening-heading">@T("Listening")</h2>
-            <p>@T("Today {0} · this week {1} · this year {2}", Span(heard.TodaySeconds), Span(heard.WeekSeconds), Span(heard.YearSeconds))</p>
-            <h3>@T("The last two weeks")</h3>
-            <ul class="month-bars" aria-label="@T("Time spent listening each day for the last two weeks")">
-                @foreach (var day in heard.LastDays)
-                {
-                    <li>
-                        <span class="label">@day.Day.ToString("ddd d")</span>
-                        <span class="bar"><span style="width:@(ListenWidth(day.Seconds))%"></span></span>
-                        <span class="value">@(day.Seconds > 0 ? Span(day.Seconds) : "")</span>
-                    </li>
-                }
-            </ul>
-            @if (heard.TopBooks.Length > 0)
-            {
-                <h3>@T("Most listened this year")</h3>
-                <ul class="tag-counts">
-                    @foreach (var book in heard.TopBooks)
-                    {
-                        <li>
-                            <a href="/library/@book.BookId">@book.Title</a>
-                            <span class="hint">@Span(book.Seconds)</span>
-                        </li>
-                    }
-                </ul>
-            }
-        </section>
+        <TimePanel Id="reading-heading" Title="@T("Reading time")" Summary="reading" BarsLabel="@T("Time spent reading each day for the last two weeks")" TopTitle="@T("Most read this year")" />
+    }
+
+    @if (listening is { TotalSeconds: > 0 })
+    {
+        <TimePanel Id="listening-heading" Title="@T("Listening")" Summary="listening" BarsLabel="@T("Time spent listening each day for the last two weeks")" TopTitle="@T("Most listened this year")" />
     }
 
     @if (finished.Count > 0)
@@ -248,6 +226,7 @@ else
     private List<RecentSession> lately = [];
     private int streak;
     private ListeningSummary? listening;
+    private ListeningSummary? reading;
     private DateOnly shown = new(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
     private DateOnly? chosen;
     private readonly GoalFormModel goal = new();
@@ -268,25 +247,15 @@ else
         finished = BookRules.FinishedInYear(shelf, year).ToList();
         lately = BookRules.RecentSessions(shelf).ToList();
         listening = await AudioPlayback.SummaryAsync(db);
-        // A day spent listening is a day of reading too.
+        reading = await ReadingTime.SummaryAsync(db);
+        // A day spent listening, or with a book open in the reader, is a day of reading too.
         var listenedOn = await db.ListeningDays.AsNoTracking().Select(day => day.Day).ToListAsync();
-        streak = BookRules.ReadingStreak(shelf.SelectMany(book => book.Sessions).Select(session => session.Date).Concat(listenedOn), DateOnly.FromDateTime(DateTime.UtcNow));
+        var readOn = await db.ReadingDays.AsNoTracking().Select(day => day.Day).ToListAsync();
+        streak = BookRules.ReadingStreak(shelf.SelectMany(book => book.Sessions).Select(session => session.Date).Concat(listenedOn).Concat(readOn), DateOnly.FromDateTime(DateTime.UtcNow));
     }
 
     private DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
 
-    // 3 h 20 min, or 12 min.
-    private static string Span(int seconds)
-    {
-        var minutes = (int)Math.Round(seconds / 60.0);
-        return minutes >= 60 ? T("{0} h {1} min", minutes / 60, minutes % 60) : T("{0} min", minutes);
-    }
-
-    private double ListenWidth(int seconds)
-    {
-        var most = listening?.LastDays.Max(day => day.Seconds) ?? 0;
-        return most == 0 ? 0 : Math.Round(seconds * 100.0 / most, 1);
-    }
 
     private DateOnly ThisMonth => new(Today.Year, Today.Month, 1);
 

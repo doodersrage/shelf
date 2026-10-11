@@ -74,6 +74,10 @@ A scanned PDF's OCR words are not kept offline, and comics aren't offered for of
 > [!TIP]
 > On a phone, add Shelf to the home screen from the browser's menu. It opens like an app, and the offline reader works from there too.
 
+## Time spent reading
+
+The reader counts the time you spend with a book open, while the page is in view and you have scrolled, turned a page, or touched it in the last two minutes, so a book left open on the table does not count. **Stats** shows it under **Reading time**, beside the time spent listening to audiobooks: today, this week, this year, each of the last two weeks, and the books you gave most time this year. A day of reading time keeps your reading streak going.
+
 ## Where you stopped
 
 Your place is your own. A borrower has a place of their own in a book lent to them, separate from the owner's. KOReader and another shelf can move your place forward too; see [Devices and apps](devices.md).

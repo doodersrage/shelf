@@ -61,6 +61,26 @@ public sealed class ListeningTests(ShelfApiFactory factory) : IClassFixture<Shel
     }
 
     [Fact]
+    public async Task Time_in_the_reader_is_kept_by_day_and_keeps_the_streak()
+    {
+        var reader = await factory.SignUpAsync("Timed Reader");
+        var book = await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("Read Slowly", "Someone", BookStatus.Reading, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await reader.PostAsJsonAsync($"/books/{book!.Id}/reading-time", new ReadingTimeRequest(today, 60), JsonOptions)).StatusCode);
+        // More than five minutes at once is not believed.
+        await reader.PostAsJsonAsync($"/books/{book.Id}/reading-time", new ReadingTimeRequest(today, 5000), JsonOptions);
+        var summary = await reader.GetFromJsonAsync<ListeningSummary>("/books/reading-time", JsonOptions);
+        Assert.Equal(360, summary!.TodaySeconds);
+        Assert.Equal("Read Slowly", Assert.Single(summary.TopBooks).Title);
+        Assert.Equal(HttpStatusCode.NotFound, (await (await factory.SignUpAsync("Not Reading")).PostAsJsonAsync($"/books/{book.Id}/reading-time", new ReadingTimeRequest(today, 60), JsonOptions)).StatusCode);
+
+        var stats = await reader.GetStringAsync("/stats");
+        Assert.Contains("Reading time", stats);
+        Assert.Contains("You read today or yesterday.", stats);
+    }
+
+    [Fact]
     public async Task The_end_of_the_recording_finishes_the_owners_book_but_not_for_a_borrower()
     {
         var owner = await factory.SignUpAsync("Finishing Owner");

@@ -138,3 +138,21 @@ test("a comic turns its pages with the arrow keys", async ({ browser }) => {
   await expect.poll(async () => (await (await page.request.get(`/books/${book.id}/place`)).json()).ebookChapter).toBe(1);
   noProblems(page);
 });
+
+test("time with a book open in the reader is counted while someone is reading", async ({ browser }) => {
+  const page = await signUp(browser, unique("Timed"));
+  const book = await createBook(page, { title: "Moby-Dick", author: "Herman Melville", status: "Reading" });
+  await upload(page, book.id, "ebook", "moby.epub", "application/epub+zip");
+
+  await page.goto(`/library/${book.id}/read`);
+  await ready(page);
+  // Two counts of five seconds, kept busy, then leaving the reader sends them.
+  for (let i = 0; i < 3; i++) {
+    await page.mouse.wheel(0, 200);
+    await page.waitForTimeout(4000);
+  }
+  await page.getByRole("link", { name: "Library", exact: true }).first().click();
+  await page.waitForURL((url) => url.pathname === "/");
+  await expect.poll(async () => (await (await page.request.get("/books/reading-time")).json()).totalSeconds, { timeout: 10_000 }).toBeGreaterThanOrEqual(10);
+  noProblems(page);
+});

@@ -96,6 +96,7 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | `PUT /books/{id}/audio/place` | `{"track": 2, "seconds": 341.5}` keeps your place in the recording exactly, back or forward. Add `"listened": 15, "day": "2026-10-10"` to count seconds of listening on that day. |
 | `POST /books/{id}/audio/listened` | `{"day": "2026-10-09", "seconds": 5400}` counts time listened with no connection, sent later: up to a day's worth, from the last month. |
 | `POST /books/{id}/audio/finished` | The recording played to its end: marks your own book finished. Answers `{"marked": true}` when it did. |
+| `POST /books/{id}/reading-time` | `{"day": "2026-10-11", "seconds": 60}` counts time spent reading the book; up to five minutes at once. `GET /books/reading-time` sums it up as `/books/listening` does. |
 | `GET /books/listening` | Time spent listening: today, this week, this year, each of the last 14 days, and the five books most listened to this year, in seconds. |
 | `PUT /books/audio/speed` | `{"speed": 125}` keeps your playback speed, in percent from 50 to 300. |
 | `GET /books/{id}/cover` | The cover picture kept on the shelf, or the e-book's own. `POST` a picture as `file` to keep one; `DELETE` removes it. |

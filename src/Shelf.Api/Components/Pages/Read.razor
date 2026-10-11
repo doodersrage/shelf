@@ -186,6 +186,7 @@ else if (book is not null)
     private int? editingId;
     private string? markError;
     private IJSObjectReference? reader;
+    private IJSObjectReference? readingTime;
     private DotNetObjectReference<Read>? self;
     // A highlight's ChapterIndex is the chapter of an EPUB, or the page of a PDF.
     private bool IsPdf => EbookStore.IsPdf(book?.EbookStoredName);
@@ -322,6 +323,11 @@ else if (book is not null)
         self ??= DotNetObjectReference.Create(this);
         reader = await Js.InvokeAsync<IJSObjectReference>("import", "./reader.js");
         await reader.InvokeVoidAsync("listen", self);
+        if (book is not null && !string.IsNullOrWhiteSpace(book.EbookStoredName))
+        {
+            readingTime = await Js.InvokeAsync<IJSObjectReference>("import", "./reading-time.js");
+            await readingTime.InvokeVoidAsync("start", book.Id);
+        }
 
         if (book is not null && (EbookStore.IsEpub(book.EbookStoredName) || IsPdf))
         {
@@ -768,6 +774,18 @@ else if (book is not null)
             {
                 await speech.InvokeVoidAsync("stop");
                 await speech.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+
+        if (readingTime is not null)
+        {
+            try
+            {
+                await readingTime.InvokeVoidAsync("stop");
+                await readingTime.DisposeAsync();
             }
             catch (JSDisconnectedException)
             {

@@ -128,6 +128,14 @@ public static class ReaderMarks
             go();
             window.addEventListener("load", go, { once: true });
           }
+          // Any touch, key, or wheel inside the chapter tells the page someone is reading.
+          let nudged = 0;
+          const nudge = () => {
+            if (Date.now() - nudged < 5000) return;
+            nudged = Date.now();
+            parent.postMessage({ source: "shelf-active" }, "*");
+          };
+          for (const name of ["keydown", "pointerdown", "wheel", "touchstart"]) window.addEventListener(name, nudge, { passive: true });
           let told = 0;
           window.addEventListener("scroll", () => {
             clearTimeout(told);

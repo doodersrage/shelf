@@ -7,6 +7,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 ### Added
 
 - Collections: lists you make by hand, in the order you choose, for a book club, summer reading, or books to lend. Add a book from its page, reorder and describe a collection on its own page, and share it by link like a saved search.
+- Reading time: the reader counts time spent with a book open while someone is reading it, and **Stats** shows it beside listening time. It keeps the reading streak too.
 
 ## [1.6.0] - 2026-10-11
 

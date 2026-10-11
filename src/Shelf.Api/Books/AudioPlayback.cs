@@ -154,8 +154,16 @@ public static class AudioPlayback
         var me = db.ReaderId;
         var rows = await db.ListeningDays.IgnoreQueryFilters().AsNoTracking()
             .Where(item => item.ReaderId == me && me != 0)
-            .Select(item => new { item.BookId, item.Day, item.Seconds, Title = item.Book!.Title, Author = item.Book.Author })
+            .Select(item => new TimeRow(item.BookId, item.Day, item.Seconds, item.Book!.Title, item.Book.Author))
             .ToListAsync(cancellationToken);
+        return Summarize(rows, day);
+    }
+
+    public sealed record TimeRow(int BookId, DateOnly Day, int Seconds, string Title, string Author);
+
+    // Time by day, in the shape Stats shows: today, the week, the year, the last fortnight, and the top books.
+    public static ListeningSummary Summarize(IReadOnlyList<TimeRow> rows, DateOnly day)
+    {
         var weekStart = day.AddDays(-6);
         var lastDays = Enumerable.Range(0, 14)
             .Select(back => day.AddDays(back - 13))

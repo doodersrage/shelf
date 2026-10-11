@@ -1,0 +1,59 @@
+@* Time spent by day, reading or listening: today, the week, the year, the last fortnight, and the books most given time. *@
+<section class="panel" aria-labelledby="@Id">
+    <h2 id="@Id">@Title</h2>
+    <p>@T("Today {0} · this week {1} · this year {2}", Span(Summary.TodaySeconds), Span(Summary.WeekSeconds), Span(Summary.YearSeconds))</p>
+    <h3>@T("The last two weeks")</h3>
+    <ul class="month-bars" aria-label="@BarsLabel">
+        @foreach (var day in Summary.LastDays)
+        {
+            <li>
+                <span class="label">@day.Day.ToString("ddd d")</span>
+                <span class="bar"><span style="width:@(Width(day.Seconds))%"></span></span>
+                <span class="value">@(day.Seconds > 0 ? Span(day.Seconds) : "")</span>
+            </li>
+        }
+    </ul>
+    @if (Summary.TopBooks.Length > 0)
+    {
+        <h3>@TopTitle</h3>
+        <ul class="tag-counts">
+            @foreach (var book in Summary.TopBooks)
+            {
+                <li>
+                    <a href="/library/@book.BookId">@book.Title</a>
+                    <span class="hint">@Span(book.Seconds)</span>
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public string BarsLabel { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public string TopTitle { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public ListeningSummary Summary { get; set; } = default!;
+
+    // 3 h 20 min, or 12 min.
+    public static string Span(int seconds)
+    {
+        var minutes = (int)Math.Round(seconds / 60.0);
+        return minutes >= 60 ? T("{0} h {1} min", minutes / 60, minutes % 60) : T("{0} min", minutes);
+    }
+
+    private double Width(int seconds)
+    {
+        var most = Summary.LastDays.Max(day => day.Seconds);
+        return most == 0 ? 0 : Math.Round(seconds * 100.0 / most, 1);
+    }
+}
