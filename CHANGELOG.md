@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-10-11
+
 ### Security
 
 - Addresses readers give the server to fetch (a podcast's feed and its episodes, an Audiobookshelf to import from when the reader isn't an admin) can no longer reach the server itself, the local network, or a cloud's metadata service. `Network:AllowPrivateAddresses` allows the local network. Notices and webhooks may still reach the local network, never the metadata service.
@@ -365,7 +367,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.4.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.4.1...HEAD
+[2.4.1]: https://github.com/doodersrage/shelf/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/doodersrage/shelf/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/doodersrage/shelf/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/doodersrage/shelf/compare/v2.1.1...v2.2.0
