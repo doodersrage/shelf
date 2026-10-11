@@ -11,6 +11,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - Your year in books: a review of each year, linked from Years and Stats, with the year's books, pages, hours, new authors, busiest month, standouts, favourites, and the words you kept.
 - New books in your series come by email, each once, to readers with series alerts and email reminders turned on.
 - Highlights from a Kindle: bring its My Clippings.txt in on Devices. Highlights land in an EPUB's chapters with their notes, or as quotes with their pages on other books, each once.
+- Duplicates: books with the same ISBN, or the same title and author, are listed together, and keeping one merges the others into it: details, status, notes, quotes, highlights, reading log, time spent, collections, and the files it lacks.
 
 ## [1.6.0] - 2026-10-11
 

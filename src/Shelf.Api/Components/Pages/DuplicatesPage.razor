@@ -1,0 +1,95 @@
+@page "/duplicates"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject EbookStore Ebooks
+@inject AudioStore Audio
+@inject CoverStore Covers
+
+<PageTitle>@T("Duplicates") · Shelf</PageTitle>
+
+<h1>@T("Duplicates")</h1>
+<p class="hint">@T("Books that look like the same book: the same ISBN, or the same title and author. Keep one, and the other's details, notes, quotes, highlights, reading log, and files it lacks come across to it before the other goes.")</p>
+
+@if (note is not null)
+{
+    <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
+}
+
+@if (groups is null)
+{
+}
+else if (groups.Length == 0)
+{
+    <EmptyState Title="@T("No duplicates")" Text="@T("No two books on your shelf look like the same book.")" ActionHref="/" ActionLabel="@T("Open the library")" />
+}
+else
+{
+    @foreach (var group in groups)
+    {
+        <section class="panel duplicate-group">
+            <h2>@group.Books[0].Title</h2>
+            <p class="hint">@(group.Reason == "isbn" ? T("The same ISBN, {0}.", group.Books[0].Isbn ?? "") : T("The same title and author."))</p>
+            <ul class="duplicate-books">
+                @foreach (var book in group.Books)
+                {
+                    <li class="strip-card">
+                        <BookCover Title="@book.Title" Url="@book.CoverUrl" />
+                        <div>
+                            <p class="title"><a href="/library/@book.Id">@book.Title</a></p>
+                            <p class="by">@book.Author@(book.Year is int year ? $" · {year}" : "")</p>
+                            <p class="hint">
+                                @BookRules.StatusLabel(book.Status)@(book.Format is BookFormat format ? " · " + BookRules.FormatLabel(format) : "")@(book.HasEbook ? " · " + T("e-book") : "")@(book.HasAudio ? " · " + T("audiobook") : "")
+                                · @T("added {0}", book.AddedAt.Medium())
+                            </p>
+                        </div>
+                        <button type="button" class="strip-action" @onclick="() => Keep(group, book.Id)" disabled="@busy">@T("Keep this one")</button>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+}
+
+@code {
+    private DuplicateGroup[]? groups;
+    private string? note;
+    private bool problem;
+    private bool busy;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        groups = await Merging.FindAsync(db);
+    }
+
+    // The others in the group merge into the one chosen.
+    private async Task Keep(DuplicateGroup group, int keepId)
+    {
+        busy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            foreach (var other in group.Books.Where(book => book.Id != keepId))
+            {
+                var trouble = await Merging.MergeAsync(db, Ebooks, Audio, Covers, keepId, other.Id);
+                if (trouble != MergeProblem.None)
+                {
+                    problem = true;
+                    note = Merging.Describe(trouble);
+                    await LoadAsync();
+                    return;
+                }
+            }
+
+            problem = false;
+            note = T("Merged into one book.");
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

@@ -76,6 +76,7 @@ A reader with two-step sign-in is asked for a code next, at `/account/signin/cod
 | `POST /books/collections/{id}/books` | `{"bookId": 12}` adds a book at the end; `DELETE /books/collections/{id}/books/{bookId}` takes it out; `PUT /books/collections/{id}/order` with `{"bookIds": [3, 1, 2]}` puts them in that order. |
 | `GET /books/series/alerts` | New books in your series that are not on your shelf. `POST /books/series/alerts/{id}/want` adds one to the want list; `DELETE /books/series/alerts/{id}` dismisses it; `POST /books/series/alerts/check` looks now. |
 | `GET /books/years/{year}/review` | A year in books: finished books and pages, time reading and listening, authors new that year, books by month, formats, tags, the longest and shortest, favourites, and quotes and highlights kept. |
+| `GET /books/duplicates` | Books that look like the same book, by ISBN or by title and author. `POST /books/{id}/merge` with `{"otherId": 12}` merges book 12 into book `id`. |
 | `GET /books/stats` | The year's goal, books finished each month, counts, and the streak. |
 | `GET /books/calendar` | The days with a reading session. `?year=&month=` picks another month. |
 | `GET`, `PUT /settings` | The yearly goal. |

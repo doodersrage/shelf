@@ -63,6 +63,16 @@ On **Series**, tick **Tell me when a new book comes out in a series I am reading
 
 Box sets and collections are left out. Open Library knows the series of many books but not all, so a book it has not filed under the series is missed; the series name on your books should match Open Library's (with or without a leading *The*).
 
+## Duplicates
+
+Under **Your copies**, **Duplicates** lists books that look like the same book: the same ISBN, or the same title and author (case and punctuation aside). Choose **Keep this one** on the entry to keep, and the others merge into it:
+
+- its empty details are filled from them, the further status wins (finished over reading over wanting to read), with the earliest start and the latest finish;
+- tags, notes, reviews, quotes, highlights, the reading log, time spent reading and listening, and collections come across;
+- an e-book, audiobook, or cover picture it has none of comes across with everything that belongs to it. Where both have a file of one kind, the one kept stays, and the other's goes, with the bookmarks in its recording.
+
+A book out on loan can't be merged away until it's back.
+
 ## Changing many books at once
 
 In the list view, tick books to change their status, add or remove a tag, mark them loved, or delete them, up to a thousand at a time.

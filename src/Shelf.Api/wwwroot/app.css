@@ -895,6 +895,23 @@ code.key {
     text-decoration: none;
 }
 
+/* Duplicates: each look-alike with a way to keep it. */
+.duplicate-books {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: var(--space-3);
+}
+
+.duplicate-books .strip-card {
+    grid-template-columns: 3.5rem minmax(0, 1fr) auto;
+}
+
+.strip-action {
+    position: relative;
+    z-index: 1;
+}
+
 /* Collections: a mosaic of the first covers, then the name. */
 .collection-grid {
     list-style: none;

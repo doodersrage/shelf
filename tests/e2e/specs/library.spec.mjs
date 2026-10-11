@@ -181,3 +181,20 @@ test("a collection is made, filled from books' pages, put in order, and shared",
   await expect(stranger.locator(".shared-list strong")).toHaveText([second.title, first.title]);
   noProblems(page);
 });
+
+test("two entries for one book are found and merged into the one kept", async ({ browser }) => {
+  const page = await signUp(browser, unique("Tidy"));
+  const title = unique("The Tombs of Atuan");
+  const first = await createBook(page, { title, author: "Ursula K. Le Guin", status: "Finished", rating: 5 });
+  await createBook(page, { title, author: "Ursula K. Le Guin", status: "Want", year: 1971 });
+
+  await page.goto("/duplicates");
+  await ready(page);
+  await expect(page.locator(".duplicate-group")).toHaveCount(1);
+  await page.locator(".duplicate-books li").first().getByRole("button", { name: "Keep this one" }).click();
+  await expect(page.getByText("Merged into one book.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No duplicates" })).toBeVisible();
+  const kept = await (await page.request.get(`/books/${first.id}`)).json();
+  expect([kept.status, kept.rating, kept.year]).toEqual(["Finished", 5, 1971]);
+  noProblems(page);
+});
