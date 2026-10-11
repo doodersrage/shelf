@@ -92,7 +92,9 @@ Then start Shelf with the same two settings. The SQLite file stays as it was, to
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| `Hosting:BehindProxy` | `false` | Trust a reverse proxy's `X-Forwarded-Proto`, `X-Forwarded-Host`, and `X-Forwarded-For`. Only set it when Shelf cannot be reached except through that proxy. |
+| `Hosting:BehindProxy` | `false` | Trust a reverse proxy's `X-Forwarded-Proto`, `X-Forwarded-Host`, and `X-Forwarded-For`. Only set it when Shelf cannot be reached except through that proxy, or set `Hosting:KnownProxies` too. |
+| `Hosting:KnownProxies` | none | The reverse proxy's addresses or ranges, such as `172.18.0.0/16` or `10.0.0.2`, separated by commas. Forwarded headers from anywhere else are ignored, so a request that reaches Shelf's port directly can't claim another address to get around the sign-in limit. Without it, a proxy at any address is trusted. |
+| `Network:AllowPrivateAddresses` | `false` | Let addresses readers type reach this machine and the local network: a podcast feed, and an Audiobookshelf to import from when a reader who isn't an admin brings one in. Off, those must be on the internet, so the shelf can't be used to look inside the network it runs in. An admin's Audiobookshelf, and notices and webhooks, may always reach the local network; nothing reaches a cloud's metadata service. |
 | `Passkeys:Origin` | the address of each request | The address readers open Shelf at, such as `https://shelf.example.org`, when a proxy hides it. Passkeys are tied to it. |
 | `Passkeys:RelyingParty` | the host name of `Passkeys:Origin` | The name passkeys are made for. Rarely needed. |
 
@@ -107,7 +109,7 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 | `Email:Security` | `auto` | `auto`, `starttls`, `ssl` (port 465), or `none` for a server on the same machine. |
 | `Email:User`, `Email:Password` | none | The account to send with, if the server wants one. |
 | `Email:From` | none | The address emails come from. |
-| `Email:PublicAddress` | none | Shelf's own address, such as `https://shelf.example.org`, for links in emails. |
+| `Email:PublicAddress` | none | Shelf's own address, such as `https://shelf.example.org`, for links in emails. A password reset needs it (or `AllowedHosts` set to the shelf's own names): without it, no reset email is sent, since the link would point wherever the request claimed to be from. |
 
 ## Nightly backups
 

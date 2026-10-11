@@ -1646,13 +1646,21 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
         HttpClient client,
         string page,
         string action,
-        Dictionary<string, string> fields)
+        Dictionary<string, string> fields,
+        string? host = null)
     {
         var html = await client.GetStringAsync(page);
         var token = AntiforgeryToken().Match(html);
         Assert.True(token.Success, $"No antiforgery token on {page}.");
         fields["__RequestVerificationToken"] = System.Net.WebUtility.HtmlDecode(token.Groups[1].Value);
-        return await client.PostAsync(action, new FormUrlEncodedContent(fields));
+        // A request can name any host it likes; a test sends one naming another site's.
+        using var request = new HttpRequestMessage(HttpMethod.Post, action) { Content = new FormUrlEncodedContent(fields) };
+        if (host is not null)
+        {
+            request.Headers.Host = host;
+        }
+
+        return await client.SendAsync(request);
     }
 
     [System.Text.RegularExpressions.GeneratedRegex("name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"")]

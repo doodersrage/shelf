@@ -51,6 +51,8 @@ export default defineConfig({
       FreeBooks__Enabled: "false",
       Accounts__SignInsPerMinute: "1000",
       // Read-along's speech-to-text, played by the read-along spec itself.
+      // The specs play podcast feeds and other services on this machine, which readers' addresses may not reach unless allowed.
+      Network__AllowPrivateAddresses: "true",
       // Find new books searches Open Library; the find spec plays it.
       Finding__SearchUrl: `http://127.0.0.1:${process.env.SHELF_E2E_SEARCH_PORT ?? "5195"}/`,
       ReadAlong__Url: `http://127.0.0.1:${process.env.SHELF_E2E_SPEECH_PORT ?? "5197"}/v1/audio/transcriptions`,

@@ -246,9 +246,18 @@ public static class AccountEndpoints
         ShelfDb db,
         IEmailSender email,
         IConfiguration configuration,
+        ILoggerFactory loggers,
         CancellationToken cancellationToken)
     {
-        await EmailRules.RequestResetAsync(db, email, who, EmailRules.PublicAddress(configuration, http.Request), cancellationToken);
+        if (EmailRules.ResetAddress(configuration, http.Request) is { } address)
+        {
+            await EmailRules.RequestResetAsync(db, email, who, address, cancellationToken);
+        }
+        else if (email.Enabled)
+        {
+            loggers.CreateLogger("Shelf.Accounts").LogWarning("A password reset was asked for, but no email was sent: set Email:PublicAddress to the shelf's own address, so the link in it points there.");
+        }
+
         return TypedResults.Redirect("/forgot?sent=1");
     }
 

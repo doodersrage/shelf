@@ -49,6 +49,16 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
     options.KnownIPNetworks.Clear();
     options.KnownProxies.Clear();
+    // The proxy's own addresses, when given: forwarded headers from anywhere else are ignored, so a request that
+    // reaches Shelf's port directly can't claim another address to get around the sign-in limit. Without them, any.
+    foreach (var item in (builder.Configuration["Hosting:KnownProxies"] ?? "").Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    {
+        var range = item.Contains('/') ? item : item + (item.Contains(':') ? "/128" : "/32");
+        if (System.Net.IPNetwork.TryParse(range, out var network))
+        {
+            options.KnownIPNetworks.Add(network);
+        }
+    }
 });
 
 // Scoped, so each context is built in the scope that knows which reader is signed in.
@@ -140,12 +150,15 @@ builder.Services.AddSingleton<ShelfEvents>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<ShelfEvents>());
 // Notifications by browser push, ntfy, or Gotify, for readers who set them up.
 builder.Services.AddSingleton(services => new WebPushKeys(keysPath, services.GetRequiredService<IDataProtectionProvider>()));
-builder.Services.AddHttpClient<INoticeChannels, NoticeChannels>(client => client.Timeout = TimeSpan.FromSeconds(15));
+// Notices and webhooks may go to the local network (ntfy, Home Assistant), never to a cloud's metadata service.
+builder.Services.AddHttpClient<INoticeChannels, NoticeChannels>(client => client.Timeout = TimeSpan.FromSeconds(15))
+    .ConfigurePrimaryHttpMessageHandler(() => OutboundGuard.Handler(OutboundReach.Local));
 builder.Services.AddSingleton<Notices>();
 builder.Services.AddSingleton<IShelfEventHandler>(static services => services.GetRequiredService<Notices>());
 builder.Services.AddHostedService(static services => services.GetRequiredService<Notices>());
 // Each reader's own webhooks, for Home Assistant, Discord, Slack, and the like (Webhooks:Enabled).
-builder.Services.AddHttpClient<IWebhookPoster, WebhookPoster>(client => client.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddHttpClient<IWebhookPoster, WebhookPoster>(client => client.Timeout = TimeSpan.FromSeconds(10))
+    .ConfigurePrimaryHttpMessageHandler(() => OutboundGuard.Handler(OutboundReach.Local));
 builder.Services.AddSingleton<Webhooks>();
 builder.Services.AddSingleton<IShelfEventHandler>(static services => services.GetRequiredService<Webhooks>());
 // Read-along: a recording heard by a speech-to-text service (ReadAlong:Url) and matched to its e-book, word by word.
@@ -167,9 +180,12 @@ builder.Services.AddHttpClient<IPodcastClient, PodcastClient>(client =>
 {
     client.Timeout = TimeSpan.FromHours(1);
     client.DefaultRequestHeaders.UserAgent.ParseAdd($"Shelf/{ShelfVersion.Response.Version} (podcasts; +https://github.com/doodersrage/shelf)");
-}).Patient(attempt: TimeSpan.FromMinutes(30), total: TimeSpan.FromHours(1));
+}).ConfigurePrimaryHttpMessageHandler(() => OutboundGuard.Handler(OutboundGuard.ReaderReach(builder.Configuration)))
+    .Patient(attempt: TimeSpan.FromMinutes(30), total: TimeSpan.FromHours(1));
 #pragma warning disable EXTEXP0001
-builder.Services.AddHttpClient(PodcastClient.StreamName, client => client.Timeout = Timeout.InfiniteTimeSpan).RemoveAllResilienceHandlers();
+// A feed names its episodes' addresses, and any reader can follow a feed: both kept to the open internet.
+builder.Services.AddHttpClient(PodcastClient.StreamName, client => client.Timeout = Timeout.InfiniteTimeSpan)
+    .ConfigurePrimaryHttpMessageHandler(() => OutboundGuard.Handler(OutboundGuard.ReaderReach(builder.Configuration))).RemoveAllResilienceHandlers();
 #pragma warning restore EXTEXP0001
 // Linked shelves: other Shelf servers whose readers borrow from this one's, and lend to them.
 #pragma warning disable EXTEXP0001
@@ -206,6 +222,9 @@ builder.Services.AddSingleton<FreeBooks>();
 // Audiobookshelf, to bring a library across. Its address is the reader's to give.
 // A large library takes a while to list.
 builder.Services.AddHttpClient(AbsClient.ClientName, client => client.Timeout = TimeSpan.FromMinutes(30))
+    .Patient(attempt: TimeSpan.FromMinutes(2), total: TimeSpan.FromMinutes(5));
+builder.Services.AddHttpClient(AbsClient.ReaderClientName, client => client.Timeout = TimeSpan.FromMinutes(30))
+    .ConfigurePrimaryHttpMessageHandler(() => OutboundGuard.Handler(OutboundGuard.ReaderReach(builder.Configuration)))
     .Patient(attempt: TimeSpan.FromMinutes(2), total: TimeSpan.FromMinutes(5));
 builder.Services.AddSingleton<ShelfJobs>();
 builder.Services.AddSingleton<AbsImporter>();
@@ -377,6 +396,30 @@ if (!app.Environment.IsDevelopment())
 // Passwords and device keys travel with every request, so plain HTTP is sent to HTTPS when the shelf has a port for it.
 app.UseHttpsRedirection();
 
+// Headers every answer carries: a file's type is never guessed from what is in it; Shelf's pages are never shown inside
+// another site's frame, where a click on them could be steered; and a page's address isn't passed to the sites its
+// covers come from. The public page and its widget are made to be shown on other sites, so they may be framed.
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        var headers = context.Response.Headers;
+        headers.XContentTypeOptions = "nosniff";
+        headers["Referrer-Policy"] = "same-origin";
+        if (!context.Request.Path.StartsWithSegments("/public"))
+        {
+            headers.XFrameOptions = "SAMEORIGIN";
+            if (!headers.ContainsKey("Content-Security-Policy"))
+            {
+                headers.ContentSecurityPolicy = "frame-ancestors 'self'";
+            }
+        }
+
+        return Task.CompletedTask;
+    });
+    await next();
+});
+
 // The library moved from / to /library in 2.0, and / became Home; an address kept from before still finds its view.
 app.Use(async (context, next) =>
 {
@@ -473,6 +516,11 @@ static class SlowServers
             options.AttemptTimeout.Timeout = attempt;
             options.TotalRequestTimeout.Timeout = total;
             options.CircuitBreaker.SamplingDuration = attempt * 2;
+            // An address the outbound guard refused is refused at once, and doesn't count against the other end.
+            var retry = options.Retry.ShouldHandle;
+            options.Retry.ShouldHandle = args => OutboundGuard.IsRefusal(args.Outcome.Exception) ? ValueTask.FromResult(false) : retry(args);
+            var breaker = options.CircuitBreaker.ShouldHandle;
+            options.CircuitBreaker.ShouldHandle = args => OutboundGuard.IsRefusal(args.Outcome.Exception) ? ValueTask.FromResult(false) : breaker(args);
         });
         return client;
     }

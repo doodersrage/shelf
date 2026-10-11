@@ -4,6 +4,19 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Security
+
+- Addresses readers give the server to fetch (a podcast's feed and its episodes, an Audiobookshelf to import from when the reader isn't an admin) can no longer reach the server itself, the local network, or a cloud's metadata service. `Network:AllowPrivateAddresses` allows the local network. Notices and webhooks may still reach the local network, never the metadata service.
+- A password reset link always goes to `Email:PublicAddress`; without it, no reset email is sent, where before the link went to whatever host the request named, so a forged request could send a reader a working link to someone else's site.
+- Every answer carries `X-Content-Type-Options: nosniff`, a referrer policy, and, except the public page and its widget, a rule against being shown in another site's frame.
+- `Hosting:KnownProxies` limits which addresses forwarded headers are trusted from.
+
+### Fixed
+
+- A child's account no longer has new books by followed authors fetched for it.
+- Opening a search on **Find new books** from its address asks Open Library once, not twice.
+- The daily look for followed authors' books notes the activity log only when it finds one.
+
 ### Changed
 
 - The upload limits have a section of their own in the configuration docs, with the Docker form and the reverse proxy note.

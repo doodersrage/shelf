@@ -135,7 +135,7 @@ public sealed class AbsKeeper(IServiceScopeFactory scopes, IHttpClientFactory cl
 
         try
         {
-            var http = clients.CreateClient(AbsClient.ClientName);
+            var http = clients.CreateClient(AbsClient.ClientFor(await ReaderRules.IsAdminAsync(db, setting.ReaderId, cancellationToken)));
             var connection = await AbsClient.ConnectAsync(http, new Uri(setting.Server + "/"), Seal.Unprotect(setting.SealedKey), null, null, cancellationToken);
             var items = await AbsClient.ItemsAsync(http, connection, setting.LibraryId, cancellationToken);
             var brought = (await db.AbsLinks.AsNoTracking().Where(link => link.ReaderId == setting.ReaderId && link.Server == setting.Server).Select(link => link.ItemId).ToListAsync(cancellationToken)).ToHashSet();

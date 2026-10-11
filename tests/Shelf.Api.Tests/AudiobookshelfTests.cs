@@ -21,8 +21,12 @@ public sealed class AudiobookshelfTests(ShelfApiFactory factory) : IClassFixture
     [Fact]
     public async Task A_library_comes_across_with_its_files_cover_series_and_place()
     {
+        // The stand-in answers for both clients: an admin's, and the one kept to the internet for other readers.
         await using var app = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
-            services.AddHttpClient(AbsClient.ClientName).ConfigurePrimaryHttpMessageHandler(() => new FakeAudiobookshelf())));
+        {
+            services.AddHttpClient(AbsClient.ClientName).ConfigurePrimaryHttpMessageHandler(() => new FakeAudiobookshelf());
+            services.AddHttpClient(AbsClient.ReaderClientName).ConfigurePrimaryHttpMessageHandler(() => new FakeAudiobookshelf());
+        }));
         var client = app.CreateClient();
         await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Abs Reader", ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
         var readerId = await factory.ReaderIdAsync("Abs Reader");

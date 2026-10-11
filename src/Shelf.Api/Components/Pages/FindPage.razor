@@ -148,7 +148,8 @@ else if (hits.Count > 0)
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
-        if (!string.IsNullOrWhiteSpace(Query))
+        // Searched once the page is live, not also while it is first drawn on the server, so Open Library is asked once.
+        if (!string.IsNullOrWhiteSpace(Query) && RendererInfo.IsInteractive)
         {
             query = Query;
             await SearchAsync();

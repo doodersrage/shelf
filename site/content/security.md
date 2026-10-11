@@ -97,4 +97,16 @@ A shelf linked to another (see [Linked shelves](lending.md#linked-shelves)) answ
 
 ## Closing sign-up
 
-Once your readers have accounts, set `Accounts:AllowSignUp` to `false`. The sign-up page then says sign-up is closed, though the first account can always be made.
+Sign-up is open until you close it, so anyone who can reach the shelf can make an account. Once your readers have accounts, set `Accounts:AllowSignUp` to `false`. The sign-up page then says sign-up is closed, though the first account can always be made, so make yours before the shelf can be reached from outside.
+
+## Addresses readers give
+
+A podcast's feed and the episodes it lists, and an Audiobookshelf to import from, are fetched by the server at addresses a reader types. So the shelf can't be used to reach inside the network it runs in, those must be on the internet: the server refuses to connect to itself, the local network, or a cloud's metadata service, checking the address a name resolves to at the moment of connecting, redirects included. An admin's Audiobookshelf may be on the local network, as may notices (ntfy, Gotify) and webhooks. Set `Network:AllowPrivateAddresses` to let readers' addresses reach the local network too.
+
+## Headers
+
+Every answer tells the browser not to guess a file's type from its contents, and not to show Shelf's pages inside another site's frame (so a click can't be steered there); the public page and its widget are the exceptions, being made for other sites. Pages don't pass their address to the sites covers come from. A book's chapters and pictures come with a policy that refuses scripts, as described under [Reading](reading.md#epubs).
+
+## Password resets
+
+The link in a reset email goes to `Email:PublicAddress`. Without it, no reset email is sent: a request can claim to come from any site, and the email would carry a working link there. Behind a reverse proxy, set `Hosting:KnownProxies` to the proxy's address, so the sign-in limit counts each visitor's own address even if Shelf's port can be reached directly.

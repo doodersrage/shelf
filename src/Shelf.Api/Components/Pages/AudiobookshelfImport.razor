@@ -200,12 +200,14 @@ else
     private bool bringProgress = true;
     private AbsImportJob? job;
     private int readerId;
+    private bool isAdmin;
     private Timer? timer;
 
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         readerId = db.ReaderId;
+        isAdmin = await ReaderRules.IsAdminAsync(db, readerId);
         job = Importer.Latest(readerId);
         kept = await AbsKeeper.StateAsync(db);
     }
@@ -266,7 +268,7 @@ else
         try
         {
             using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            connection = await AbsClient.ConnectAsync(Http.CreateClient(AbsClient.ClientName), server, useKey ? apiKey : null, user, password, limit.Token);
+            connection = await AbsClient.ConnectAsync(Http.CreateClient(AbsClient.ClientFor(isAdmin)), server, useKey ? apiKey : null, user, password, limit.Token);
             // Held for this page only, in case the reader asks to keep in step; saved only then.
             keptKey = useKey && apiKey.Length > 0 ? apiKey : null;
             apiKey = "";
@@ -315,7 +317,7 @@ else
                     listing = step;
                 }
             });
-            items = await AbsClient.ItemsAsync(Http.CreateClient(AbsClient.ClientName), connection, libraryId, listingStop.Token, progress);
+            items = await AbsClient.ItemsAsync(Http.CreateClient(AbsClient.ClientFor(isAdmin)), connection, libraryId, listingStop.Token, progress);
         }
         catch (Exception ex) when (ex is AbsProblem or TaskCanceledException or OperationCanceledException or System.Text.Json.JsonException or KeyNotFoundException)
         {
@@ -363,7 +365,7 @@ else
             return;
         }
 
-        job = Importer.Start(readerId, connection, bringProgress, items.Where(item => chosen.Contains(item.Id)).ToList());
+        job = Importer.Start(readerId, connection, bringProgress, items.Where(item => chosen.Contains(item.Id)).ToList(), isAdmin);
         if (keepInStep && keptKey is not null)
         {
             await using var db = await DbFactory.CreateDbContextAsync();

@@ -28,6 +28,12 @@ public static partial class AbsClient
 {
     public const string ClientName = "audiobookshelf";
 
+    // For a reader who isn't an admin: their Audiobookshelf must be on the internet, unless an admin lets readers'
+    // addresses reach the local network (Network:AllowPrivateAddresses), so the shelf can't be pointed inside it.
+    public const string ReaderClientName = "audiobookshelf-reader";
+
+    public static string ClientFor(bool admin) => admin ? ClientName : ReaderClientName;
+
     public static Uri? ServerAddress(string? typed)
     {
         var text = typed?.Trim().TrimEnd('/');
@@ -185,8 +191,10 @@ public enum AbsState
 
 public sealed record AbsImportLine(string ItemId, string Title, AbsState State, long Bytes, int? BookId, string? Note);
 
-public sealed class AbsImportJob(Guid id, int readerId, AbsConnection connection, bool progress, IReadOnlyList<AbsItem> items) : IShelfJob
+public sealed class AbsImportJob(Guid id, int readerId, AbsConnection connection, bool progress, IReadOnlyList<AbsItem> items, string clientName = AbsClient.ReaderClientName) : IShelfJob
 {
+    public string ClientName { get; } = clientName;
+
     public string Language { get; } = Words.Current;
 
     public Guid Id { get; } = id;
@@ -222,9 +230,9 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
     private readonly Channel<Guid> _queue = Channel.CreateUnbounded<Guid>();
     private readonly ConcurrentDictionary<Guid, AbsImportJob> _jobs = new();
 
-    public AbsImportJob Start(int readerId, AbsConnection connection, bool progress, IReadOnlyList<AbsItem> items)
+    public AbsImportJob Start(int readerId, AbsConnection connection, bool progress, IReadOnlyList<AbsItem> items, bool admin = false)
     {
-        var job = new AbsImportJob(Guid.NewGuid(), readerId, connection, progress, items);
+        var job = new AbsImportJob(Guid.NewGuid(), readerId, connection, progress, items, AbsClient.ClientFor(admin));
         _jobs[job.Id] = job;
         register.Add(job);
         _queue.Writer.TryWrite(job.Id);
@@ -279,7 +287,7 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
 
     private async Task ImportAsync(AbsImportJob job, AbsItem item, CancellationToken cancellationToken)
     {
-        var http = clients.CreateClient(AbsClient.ClientName);
+        var http = clients.CreateClient(job.ClientName);
         var server = job.Connection.Server;
         var token = job.Connection.Token;
         Set(job, item.Id, line => line with { State = AbsState.Downloading });

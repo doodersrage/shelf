@@ -121,6 +121,20 @@ public static class EmailRules
             ? configured
             : request is null ? "" : $"{request.Scheme}://{request.Host}").TrimEnd('/');
 
+    // Where a reset link may point. Never simply the address the request names: anyone can send a request naming
+    // their own site, and the reset email would carry a working link to it. Email:PublicAddress, or the request's
+    // host when AllowedHosts lists the shelf's names (ASP.NET refuses any other); otherwise none, and no link is sent.
+    public static string? ResetAddress(IConfiguration configuration, HttpRequest request)
+    {
+        if (configuration["Email:PublicAddress"] is { Length: > 0 } configured)
+        {
+            return configured.TrimEnd('/');
+        }
+
+        var allowed = configuration["AllowedHosts"];
+        return string.IsNullOrWhiteSpace(allowed) || allowed.Split(';').Any(host => host.Trim() == "*") ? null : $"{request.Scheme}://{request.Host}";
+    }
+
     // Sends a reset link when the name or address belongs to a reader with an address. Says nothing either way.
     public static async Task RequestResetAsync(
         ShelfDb db,

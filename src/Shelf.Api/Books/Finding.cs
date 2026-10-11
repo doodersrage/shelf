@@ -245,6 +245,7 @@ public sealed class AuthorWatch(IServiceScopeFactory scopes, IConfiguration conf
             .Where(hit => !shelf.Contains(Finding.Key(hit.Title, hit.Author)) && !offered.Contains(hit.Key))
             .DistinctBy(hit => Tidy.Plain(hit.Title))
             .ToList();
+        var wantAtOnce = follow.AutoFetch && !await Family.IsRestrictedAsync(db, cancellationToken: cancellationToken);
         foreach (var hit in fresh)
         {
             db.AuthorAlerts.Add(new AuthorAlert
@@ -258,12 +259,13 @@ public sealed class AuthorWatch(IServiceScopeFactory scopes, IConfiguration conf
                 CoverUrl = hit.CoverUrl is { Length: <= 500 } cover ? cover : null,
                 FoundAt = DateTimeOffset.UtcNow,
                 // Wanted straight away, below, when the reader asked for it.
-                Dismissed = follow.AutoFetch,
+                Dismissed = wantAtOnce,
             });
         }
 
         await db.SaveChangesAsync(cancellationToken);
-        if (follow.AutoFetch)
+        // A child's account never fetches, whatever was ticked before it was one.
+        if (wantAtOnce)
         {
             var fetcher = scope.ServiceProvider.GetRequiredService<Fetcher>();
             var settings = await FetchRules.SettingsAsync(db, cancellationToken);
@@ -287,7 +289,12 @@ public sealed class AuthorWatch(IServiceScopeFactory scopes, IConfiguration conf
             }
         }
 
-        await Audit.NoteAsync(db, Say("Looked for new books by an author"), detail: $"{follow.Name}: {fresh.Count}", cancellationToken: cancellationToken);
+        // Noted only when something was found, so a daily look at many authors doesn't crowd the activity log.
+        if (fresh.Count > 0)
+        {
+            await Audit.NoteAsync(db, Say("Looked for new books by an author"), detail: $"{follow.Name}: {fresh.Count}", cancellationToken: cancellationToken);
+        }
+
         return fresh.Count;
     }
 }

@@ -306,16 +306,26 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal(HttpStatusCode.BadRequest, (await reader.PutAsJsonAsync("/account/email", new EmailSettingsRequest("not an address", false), JsonOptions)).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await reader.PutAsJsonAsync("/account/email", new EmailSettingsRequest("forgetful@example.org", true), JsonOptions)).StatusCode);
 
-        var visitor = factory.CreateClient(new() { AllowAutoRedirect = false });
+        // Without the shelf's own address, a request naming another site gets no link to it, nor any link at all.
+        var stranger = factory.CreateClient(new() { AllowAutoRedirect = false });
         var before = factory.Mail.Sent.Count;
+        await ShelfApiFactory.PostFormAsync(stranger, "/forgot", "/account/forgot", new() { ["who"] = "forgetful@example.org" }, host: "evil.example");
+        Assert.Equal(before, factory.Mail.Sent.Count);
+
+        // The same shelf, with its address set.
+        await using var addressed = factory.WithWebHostBuilder(builder => builder.UseSetting("Email:PublicAddress", "https://shelf.test"));
+        var visitor = addressed.CreateClient(new() { AllowAutoRedirect = false });
         var unknown = await ShelfApiFactory.PostFormAsync(visitor, "/forgot", "/account/forgot", new() { ["who"] = "Nobody Here" });
         Assert.Equal("/forgot?sent=1", unknown.Headers.Location?.OriginalString);
         Assert.Equal(before, factory.Mail.Sent.Count);
 
-        var asked = await ShelfApiFactory.PostFormAsync(visitor, "/forgot", "/account/forgot", new() { ["who"] = "FORGETFUL@example.org" });
+        // Asked by a request naming another site: the link is to the shelf's own address all the same.
+        var asked = await ShelfApiFactory.PostFormAsync(visitor, "/forgot", "/account/forgot", new() { ["who"] = "FORGETFUL@example.org" }, host: "evil.example");
         Assert.Equal("/forgot?sent=1", asked.Headers.Location?.OriginalString);
         var message = factory.Mail.Sent.Last();
         Assert.Equal("forgetful@example.org", message.To);
+        Assert.Contains("https://shelf.test/reset?token=", message.Body);
+        Assert.DoesNotContain("evil.example", message.Body);
         var link = System.Text.RegularExpressions.Regex.Match(message.Body, @"/reset\?token=([A-Za-z0-9_-]+)");
         Assert.True(link.Success);
         Assert.Contains("Choose a new password", await visitor.GetStringAsync(link.Value));
@@ -344,6 +354,21 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
             ["password"] = "a brand new password",
         });
         Assert.Equal("/", signedIn.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
+    public async Task Every_answer_says_not_to_guess_its_type_and_only_the_public_page_may_sit_in_another_sites_frame()
+    {
+        var page = await _client.GetAsync("/library");
+        Assert.Equal("nosniff", page.Headers.GetValues("X-Content-Type-Options").Single());
+        Assert.Equal("SAMEORIGIN", page.Headers.GetValues("X-Frame-Options").Single());
+        Assert.Equal("frame-ancestors 'self'", page.Headers.GetValues("Content-Security-Policy").Single());
+        Assert.Equal("same-origin", page.Headers.GetValues("Referrer-Policy").Single());
+
+        // A public page's widget is made for other sites' pages.
+        var widget = await factory.CreateClient().GetAsync("/public/no-such-token/widget");
+        Assert.Equal("nosniff", widget.Headers.GetValues("X-Content-Type-Options").Single());
+        Assert.False(widget.Headers.Contains("X-Frame-Options"));
     }
 
     [Fact]
@@ -387,7 +412,9 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Contains("1 libro que tomaste prestado está atrasado.", reminder.Body);
 
         // Asked for from an English browser, the reset still comes in Spanish; the work after it is in English again.
-        var visitor = factory.CreateClient(new() { AllowAutoRedirect = false });
+        // Reset links need the shelf's own address: the same shelf, with it set.
+        await using var addressed = factory.WithWebHostBuilder(builder => builder.UseSetting("Email:PublicAddress", "https://shelf.test"));
+        var visitor = addressed.CreateClient(new() { AllowAutoRedirect = false });
         visitor.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US");
         await ShelfApiFactory.PostFormAsync(visitor, "/forgot", "/account/forgot", new() { ["who"] = "Lectora" });
         var reset = factory.Mail.Sent.Last(item => item.To == "lectora@example.org");
