@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-11
+
 ### Added
 
 - Match an audiobook on Audible: search by title and author, or ASIN, in any Audible store, and take its narrator, series, publisher, year, and language, its cover, and its chapter names, which the player then shows across one file or many tracks.
@@ -240,7 +242,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/doodersrage/shelf/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/doodersrage/shelf/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/doodersrage/shelf/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/doodersrage/shelf/compare/v1.4.1...v1.5.0
