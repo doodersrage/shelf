@@ -122,10 +122,23 @@ public sealed class GoogleBooksLookup(HttpClient http, IConfiguration configurat
             : null;
 }
 
-// Open Library first, as before; Google Books for a book it does not know, and for the fields it leaves blank.
-public sealed class CatalogLookup(OpenLibraryLookup openLibrary, GoogleBooksLookup google) : IBookLookup
+// Open Library first, as before; Google Books for a book it does not know, and for the fields it leaves blank; then
+// Hardcover, where the reader has connected it, for what is still blank: a series and its number above all.
+public sealed class CatalogLookup(OpenLibraryLookup openLibrary, GoogleBooksLookup google, IHardcoverLookup hardcover) : IBookLookup
 {
     public async Task<CatalogMatch?> FindAsync(string? isbn, string? title, string? author, CancellationToken cancellationToken)
+    {
+        var found = await OpenLibraryAndGoogleAsync(isbn, title, author, cancellationToken);
+        if (found is not null && !Lacking(found) && found.Series is not null)
+        {
+            return found;
+        }
+
+        var third = await hardcover.FindAsync(isbn ?? found?.Isbn, title ?? found?.Title, author ?? found?.Author, cancellationToken);
+        return Merge(found, third);
+    }
+
+    private async Task<CatalogMatch?> OpenLibraryAndGoogleAsync(string? isbn, string? title, string? author, CancellationToken cancellationToken)
     {
         var first = await openLibrary.FindAsync(isbn, title, author, cancellationToken);
         if (first is not null && !Lacking(first))
@@ -134,6 +147,12 @@ public sealed class CatalogLookup(OpenLibraryLookup openLibrary, GoogleBooksLook
         }
 
         var second = await google.FindAsync(isbn ?? first?.Isbn, title ?? first?.Title, author ?? first?.Author, cancellationToken);
+        return Merge(first, second);
+    }
+
+    // The first's answers, with the second's where the first has none.
+    public static CatalogMatch? Merge(CatalogMatch? first, CatalogMatch? second)
+    {
         if (first is null || second is null)
         {
             return first ?? second;
@@ -149,6 +168,8 @@ public sealed class CatalogLookup(OpenLibraryLookup openLibrary, GoogleBooksLook
             Isbn = first.Isbn ?? second.Isbn,
             Subtitle = first.Subtitle ?? second.Subtitle,
             Tags = first.Tags is { Length: > 0 } ? first.Tags : second.Tags,
+            Series = first.Series ?? second.Series,
+            SeriesNumber = first.Series is not null ? first.SeriesNumber : second.SeriesNumber,
         };
     }
 

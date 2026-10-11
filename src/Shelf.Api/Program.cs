@@ -85,6 +85,15 @@ builder.Services.AddHttpClient<GoogleBooksLookup>(client =>
     client.BaseAddress = new Uri("https://www.googleapis.com/");
     client.Timeout = TimeSpan.FromSeconds(15);
 });
+builder.Services.AddScoped<IHardcoverLookup, HardcoverLookup>();
+builder.Services.AddHttpClient<IBookSearch, OpenLibrarySearch>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Finding:SearchUrl"] is { Length: > 0 } searchUrl ? searchUrl : "https://openlibrary.org/");
+    client.Timeout = TimeSpan.FromSeconds(20);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Shelf/1.0 (personal library; +https://github.com/doodersrage/shelf)");
+});
+builder.Services.AddSingleton<AuthorWatch>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<AuthorWatch>());
 builder.Services.AddTransient<IBookLookup, CatalogLookup>();
 // Series alerts: once a day, for readers who ask, new books in their series (SeriesAlerts:Enabled).
 builder.Services.AddHttpClient<ISeriesCatalog, OpenLibrarySeries>(client =>

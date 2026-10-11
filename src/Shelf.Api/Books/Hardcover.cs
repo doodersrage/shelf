@@ -25,6 +25,9 @@ public interface IHardcoverClient
     // Hardcover's id for a book, by ISBN first, then by title and author.
     Task<int?> FindAsync(string token, string? isbn, string title, string author, CancellationToken cancellationToken);
 
+    // What Hardcover knows of a book: its series and number above all, which the other catalogs seldom have.
+    Task<CatalogMatch?> DetailsAsync(string token, int bookId, CancellationToken cancellationToken);
+
     // Puts the book on the account's shelf, or updates it there; returns Hardcover's id for the reader's copy.
     Task<int?> SaveAsync(string token, int bookId, int? userBookId, HardcoverStatus status, CancellationToken cancellationToken);
 
@@ -86,6 +89,56 @@ public sealed class HardcoverClient(HttpClient http) : IHardcoverClient
         }
 
         return null;
+    }
+
+    public async Task<CatalogMatch?> DetailsAsync(string token, int bookId, CancellationToken cancellationToken)
+    {
+        const string Query = """
+            query Book($id: Int!) { books(where: {id: {_eq: $id}}, limit: 1) {
+              title subtitle release_year pages
+              image { url }
+              contributions(limit: 3) { author { name } }
+              book_series(limit: 1) { position series { name } }
+              editions(limit: 1, order_by: {users_count: desc}) { isbn_13 isbn_10 publisher { name } language { language } }
+            } }
+            """;
+        var data = await AskAsync(token, Query, new { id = bookId }, cancellationToken);
+        if (data?.GetProperty("books") is not { ValueKind: JsonValueKind.Array } books || books.GetArrayLength() == 0)
+        {
+            return null;
+        }
+
+        var book = books[0];
+        static string? Text(JsonElement element, string name) =>
+            element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String && value.GetString() is { Length: > 0 } text ? text.Trim() : null;
+        static int? Number(JsonElement element, string name) =>
+            element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number) ? (int)number : null;
+        static JsonElement First(JsonElement element, string name) =>
+            element.TryGetProperty(name, out var list) && list.ValueKind == JsonValueKind.Array && list.GetArrayLength() > 0 ? list[0] : default;
+
+        var authors = book.TryGetProperty("contributions", out var contributions) && contributions.ValueKind == JsonValueKind.Array
+            ? contributions.EnumerateArray().Select(item => item.TryGetProperty("author", out var author) ? Text(author, "name") : null).OfType<string>().ToList()
+            : [];
+        var series = First(book, "book_series");
+        var edition = First(book, "editions");
+        var title = Text(book, "title");
+        if (title is null)
+        {
+            return null;
+        }
+
+        return new CatalogMatch(
+            title,
+            authors.Count > 0 ? string.Join(" & ", authors) : "",
+            Number(book, "release_year"),
+            Number(book, "pages") is int pages and > 0 ? pages : null,
+            edition.ValueKind == JsonValueKind.Object && edition.TryGetProperty("publisher", out var publisher) ? Text(publisher, "name") : null,
+            edition.ValueKind == JsonValueKind.Object && edition.TryGetProperty("language", out var language) ? Text(language, "language") : null,
+            book.TryGetProperty("image", out var image) ? Text(image, "url") : null,
+            Text(edition, "isbn_13") ?? Text(edition, "isbn_10"),
+            Text(book, "subtitle"),
+            Series: series.ValueKind == JsonValueKind.Object && series.TryGetProperty("series", out var named) ? Text(named, "name") : null,
+            SeriesNumber: series.ValueKind == JsonValueKind.Object ? Number(series, "position") : null);
     }
 
     public async Task<int?> SaveAsync(string token, int bookId, int? userBookId, HardcoverStatus status, CancellationToken cancellationToken)

@@ -96,6 +96,67 @@ public sealed class KosyncTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
         Assert.Equal(0, Kosync.ChapterOf("nonsense", null, 30));
     }
 
+    // A chapter as real ones come: a doctype, HTML's named characters, spaces between blocks, emphasis, and a script.
+    private const string Chapter = """
+        <?xml version="1.0" encoding="utf-8"?>
+        <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+        <html xmlns="http://www.w3.org/1999/xhtml">
+          <head><title>One</title><script>alert(1)</script></head>
+          <body>
+            <h1>Chapter&nbsp;One</h1>
+            <script>alert(2)</script>
+            <div class="text">
+              <p>First.</p>
+              <p>Second <em>with</em> more words.</p>
+              <p>Third paragraph here.</p>
+              <p><em>Lead</em>tail words</p>
+            </div>
+          </body>
+        </html>
+        """;
+
+    [Theory]
+    // The third paragraph's words: the div is the body's second element (the script is gone, as in the reader).
+    [InlineData("/body/DocFragment[2]/body/div/p[3]/text().6", "epubcfi(/6/4!/4/4/6/1:6)")]
+    // Words after emphasis: the paragraph's second text node.
+    [InlineData("/body/DocFragment[2]/body/div/p[2]/text()[2].1", "epubcfi(/6/4!/4/4/4/3:1)")]
+    // A named character read as itself.
+    [InlineData("/body/DocFragment[2]/body/h1/text().8", "epubcfi(/6/4!/4/2/1:8)")]
+    // Words after an element with no text before it: epub.js counts it the first text node.
+    [InlineData("/body/DocFragment[2]/body/div/p[4]/text().4", "epubcfi(/6/4!/4/4/8/1:4)")]
+    public void A_KOReader_place_and_a_readers_are_one_and_the_same(string xpointer, string cfi)
+    {
+        var document = EpubFile.ChapterDocument(Chapter)!;
+        Assert.Equal(cfi, KoreaderPlace.ToCfi(xpointer, 1, document));
+        Assert.Equal(xpointer, KoreaderPlace.ToXPointer(cfi, document));
+        Assert.Equal(1, KoreaderPlace.ChapterOf(xpointer));
+        Assert.Equal(1, KoreaderPlace.ChapterOfCfi(cfi));
+    }
+
+    [Fact]
+    public void A_place_with_epubjs_assertions_or_none_in_the_chapter_is_read_or_let_go()
+    {
+        var document = EpubFile.ChapterDocument(Chapter)!;
+        // epub.js writes the spine item's id and an element's, in brackets.
+        Assert.Equal("/body/DocFragment[2]/body/div/p[3]/text().6", KoreaderPlace.ToXPointer("epubcfi(/6/4[c2]!/4[body]/4/6/1:6)", document));
+        // An element alone, and a KOReader place at an element.
+        Assert.Equal("/body/DocFragment[2]/body/div/p[2]/text().0", KoreaderPlace.ToXPointer("epubcfi(/6/4!/4/4/4)", document));
+        Assert.Equal("epubcfi(/6/4!/4/4/2)", KoreaderPlace.ToCfi("/body/DocFragment[2]/body/div/p", 1, document));
+        // Places that lead nowhere.
+        Assert.Null(KoreaderPlace.ToCfi("/body/DocFragment[2]/body/section/p[9]/text().0", 1, document));
+        Assert.Null(KoreaderPlace.ToXPointer("epubcfi(/6/4!/4/40/2)", document));
+        Assert.Null(KoreaderPlace.ToCfi("#_doc_fragment_3", 1, document));
+        Assert.Null(EpubFile.ChapterDocument("<html><body><p>Not XML</body></html>"));
+
+        // Which comes first, by path: a later paragraph, further words, an element's own start before what's in it.
+        Assert.True(KoreaderPlace.Compare("epubcfi(/6/4!/4/4/6/1:6)", "epubcfi(/6/4[c2]!/4/4/8/1:0)") < 0);
+        Assert.True(KoreaderPlace.Compare("epubcfi(/6/4!/4/4/6/1:9)", "epubcfi(/6/4!/4/4/6/1:6)") > 0);
+        Assert.True(KoreaderPlace.Compare("epubcfi(/6/4!/4/4/6)", "epubcfi(/6/4!/4/4/6/1:0)") < 0);
+        Assert.True(KoreaderPlace.Compare("epubcfi(/6/6!/4/2)", "epubcfi(/6/4!/4/40/1:0)") > 0);
+        Assert.Equal(0, KoreaderPlace.Compare("epubcfi(/6/4!/4/4/6/1:6)", "epubcfi(/6/4!/4/4/6/1:6)"));
+        Assert.Null(KoreaderPlace.Compare("nonsense", "epubcfi(/6/4!/4)"));
+    }
+
     private static string Md5(string text) => Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(text))).ToLowerInvariant();
 
     private static byte[] FourChapters()

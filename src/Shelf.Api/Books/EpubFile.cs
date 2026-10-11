@@ -101,6 +101,58 @@ public static partial class EpubFile
         }
     }
 
+    // A chapter as XML, for finding a place in it: the doctype ignored, HTML's named characters read as themselves,
+    // and what the reader strips (scripts, frames, forms) taken out, so its elements are counted as the reader's are.
+    public static XDocument? ChapterDocument(string path, int index)
+    {
+        var chapters = Chapters(path);
+        if (chapters is null || index < 0 || index >= chapters.Count)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var zip = ZipFile.OpenRead(path);
+            if (Find(zip, chapters[index].Href) is not { } entry)
+            {
+                return null;
+            }
+
+            using var reader = new StreamReader(entry.Open(), Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+            return ChapterDocument(reader.ReadToEnd());
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException)
+        {
+            return null;
+        }
+    }
+
+    public static XDocument? ChapterDocument(string xhtml)
+    {
+        var text = NamedCharacter().Replace(xhtml, match => match.Groups[1].Value is "amp" or "lt" or "gt" or "quot" or "apos"
+            ? match.Value
+            : System.Net.WebUtility.HtmlDecode(match.Value) is { Length: 1 or 2 } decoded && decoded != match.Value
+                ? string.Concat(decoded.EnumerateRunes().Select(rune => $"&#{rune.Value};"))
+                : "");
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(text), new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
+            var document = XDocument.Load(reader);
+            document.Descendants().Where(element => Stripped.Contains(element.Name.LocalName.ToLowerInvariant())).ToList().ForEach(element => element.Remove());
+            return document;
+        }
+        catch (XmlException)
+        {
+            return null;
+        }
+    }
+
+    private static readonly HashSet<string> Stripped = ["script", "iframe", "frame", "frameset", "object", "embed", "applet", "form", "base"];
+
+    [GeneratedRegex("&([A-Za-z][A-Za-z0-9]*);")]
+    private static partial Regex NamedCharacter();
+
     public static (byte[] Bytes, string ContentType)? Asset(string path, string assetPath)
     {
         if (string.IsNullOrWhiteSpace(assetPath) || assetPath.Contains("..", StringComparison.Ordinal))

@@ -151,6 +151,9 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 | `Lookup:Dictionary` | `true` | **Look up** in the reader, which sends the chosen words to Wiktionary and Wikipedia. Set `false` to keep them on the shelf. |
 | `Lookup:GoogleBooks` | `true` | Ask Google Books when Open Library has no match or leaves fields blank. It sends the ISBN, or the title and author, to Google; set `false` to keep look-ups to Open Library alone. |
 | `Lookup:GoogleBooksKey` | none | A Google Books API key (free, from the Google Cloud console). Without one, look-ups share Google's allowance for anonymous callers everywhere, which often runs out for the day; Shelf then carries on with Open Library alone. |
+| `Hardcover:LookupToken` | none | A Hardcover API token that every reader's look-ups use, to fill a book's series and number and other blanks. Without it, only readers who connected Hardcover under Account ask it, with their own token. |
+| `AuthorWatch:Enabled` | `true` | The daily look at Open Library for new books by the authors readers follow. Set `false` to stop it for everyone. |
+| `Finding:SearchUrl` | `https://openlibrary.org/` | Where **Find new books** and followed authors search: Open Library, or a mirror of its search API. |
 | `SeriesAlerts:Enabled` | `true` | The daily look at Open Library for new books in a series, for readers who turn it on under Series. Set `false` to stop it for everyone. |
 
 ## Recaps

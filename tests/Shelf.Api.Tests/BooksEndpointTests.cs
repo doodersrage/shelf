@@ -1590,6 +1590,8 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
 
     public StubHardcover Hardcover { get; } = new();
 
+    public StubBookSearch BookSearch { get; } = new();
+
     public StubAudible Audible { get; } = new();
 
     public StubNoticeChannels Channels { get; } = new();
@@ -1676,6 +1678,8 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
         builder.UseSetting("DataProtection:KeysPath", _keysRoot);
         builder.UseSetting("Backup:Enabled", "false");
         builder.UseSetting("SeriesAlerts:PauseMilliseconds", "0");
+        builder.UseSetting("AuthorWatch:Enabled", "false");
+        builder.UseSetting("AuthorWatch:PauseMilliseconds", "0");
         builder.UseSetting("Hardcover:PauseMilliseconds", "0");
         builder.UseSetting("Backup:Folder", Path.Combine(_keysRoot, "backups"));
         if (PublicAddress is not null)
@@ -1691,6 +1695,7 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
             services.AddSingleton<IWordLookup>(Words);
             services.AddSingleton<IReadwiseClient>(Readwise);
             services.AddSingleton<IHardcoverClient>(Hardcover);
+            services.AddSingleton<IBookSearch>(BookSearch);
             services.AddSingleton<IAudibleCatalog>(Audible);
             services.AddSingleton<Shelf.Api.Readers.INoticeChannels>(Channels);
             services.AddSingleton<IWebhookPoster>(Posts);

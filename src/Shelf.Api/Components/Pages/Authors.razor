@@ -4,7 +4,10 @@
 
 <PageTitle>@T("Authors") · Shelf</PageTitle>
 
-<h1>@T("Authors")</h1>
+<div class="page-head">
+    <h1>@T("Authors")</h1>
+    <a href="/find">@T("Find new books")</a>
+</div>
 
 @if (authors.Count == 0)
 {
@@ -18,6 +21,17 @@ else
             <li>
                 <a href="@($"/library?author={Uri.EscapeDataString(author.Name)}")">@author.Name</a>
                 <span class="hint">@Localization.Counts.Books(author.Count)</span>
+                @if (author.Name != BookImport.UnknownAuthor)
+                {
+                    @if (followed.Contains(Tidy.AuthorKey(author.Name)))
+                    {
+                        <span class="hint">· @T("Following")</span>
+                    }
+                    else
+                    {
+                        <button type="button" class="quiet" @onclick="() => FollowAsync(author.Name)" aria-label="@T("Follow {0}", author.Name)">@T("Follow")</button>
+                    }
+                }
             </li>
         }
     </ul>
@@ -25,11 +39,20 @@ else
 
 @code {
     private List<AuthorCount> authors = [];
+    private HashSet<string> followed = [];
 
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         var names = await db.Books.AsNoTracking().Select(book => book.Author).ToListAsync();
         authors = BookRules.AuthorCounts(names).ToList();
+        followed = [.. (await Finding.FollowsAsync(db)).Select(item => Tidy.AuthorKey(item.Name))];
+    }
+
+    private async Task FollowAsync(string name)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Finding.FollowAsync(db, name);
+        followed.Add(Tidy.AuthorKey(name));
     }
 }

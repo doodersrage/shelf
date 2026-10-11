@@ -4,6 +4,15 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-10-11
+
+### Added
+
+- **Find new books**: search Open Library for a book you don't have by title, author, or ISBN, and put it on your want list, ready to fetch.
+- Follow an author, and their new books are offered once a day, or wanted and fetched straight away. The sidebar counts what's waiting.
+- Hardcover, once connected, fills in what Open Library and Google Books leave blank when details are looked up: above all a book's series and number. `Hardcover:LookupToken` asks it for every reader.
+- KOReader's place in an EPUB is traded with Shelf's reader to the word, both ways, instead of by the chapter.
+
 ## [2.3.0] - 2026-10-11
 
 ### Changed
@@ -339,7 +348,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.3.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/doodersrage/shelf/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/doodersrage/shelf/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/doodersrage/shelf/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/doodersrage/shelf/compare/v2.1.0...v2.1.1

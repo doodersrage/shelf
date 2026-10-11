@@ -19,7 +19,7 @@ test("every page passes an accessibility audit in both themes", async ({ browser
   await page.request.post(`/books/collections/${collection.id}/books`, { data: { bookId: book.id } });
 
   const pages = ["/", "/library", "/reading", "/insights", "/library?view=list", "/library?add=1", `/library/${book.id}`, `/library/${book.id}/read`, `/library/${book.id}/listen`, "/quotes", "/search?q=ishmael",
-    "/free", "/import/audiobookshelf", "/import/calibre", "/authors", "/series", "/places", "/copies", "/recommenders", "/years", `/years/${year}`, "/loans", "/shelves", "/collections", `/collections/${collection.id}`, "/duplicates", "/clubs", `/clubs/${club.id}`, "/stats", "/backup", "/sync", "/account", "/admin", "/next", "/podcasts", "/downloads", "/wanted", "/tidy", "/activity"];
+    "/free", "/import/audiobookshelf", "/import/calibre", "/authors", "/series", "/places", "/copies", "/recommenders", "/years", `/years/${year}`, "/loans", "/shelves", "/collections", `/collections/${collection.id}`, "/duplicates", "/clubs", `/clubs/${club.id}`, "/stats", "/backup", "/sync", "/account", "/admin", "/next", "/podcasts", "/downloads", "/wanted", "/find", "/find?q=Harbour", "/tidy", "/activity"];
   const failures = [];
   for (const scheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: scheme });

@@ -64,14 +64,43 @@ public sealed class GoogleBooksTests
         Assert.Null(await busy.FindAsync("9788445076750", null, null, CancellationToken.None));
     }
 
-    private static (CatalogLookup Lookup, Answering Google, Answering OpenLibrary) Make(Func<string, HttpResponseMessage> openLibrary, Func<string, HttpResponseMessage> google, bool enabled = true)
+    [Fact]
+    public async Task Hardcover_gives_the_series_and_what_else_the_others_leave_blank()
+    {
+        var hardcover = new Hardcover(new CatalogMatch("The Fifth Season", "N. K. Jemisin", 2015, 468, "Orbit", "English", "https://assets.hardcover.app/fifth.jpg", Series: "The Broken Earth", SeriesNumber: 1));
+        var (lookup, _, _) = Make(openLibrary: _ => NotFound(), google: _ => Json(Volume), hardcover: hardcover);
+        var match = (await lookup.FindAsync("9788445076750", null, null, CancellationToken.None))!;
+        Assert.Equal("The Broken Earth", match.Series);
+        Assert.Equal(1, match.SeriesNumber);
+        // Google's answers stand where it had them.
+        Assert.NotEqual("The Fifth Season", match.Title);
+        Assert.Single(hardcover.Asked);
+
+        // Without Hardcover connected, as before.
+        var (plain, _, _) = Make(openLibrary: _ => NotFound(), google: _ => Json(Volume));
+        Assert.Null((await plain.FindAsync("9788445076750", null, null, CancellationToken.None))!.Series);
+    }
+
+    private sealed class Hardcover(CatalogMatch? match) : IHardcoverLookup
+    {
+        public List<string?> Asked { get; } = [];
+
+        public Task<CatalogMatch?> FindAsync(string? isbn, string? title, string? author, CancellationToken cancellationToken)
+        {
+            Asked.Add(isbn ?? title);
+            return Task.FromResult(match);
+        }
+    }
+
+    private static (CatalogLookup Lookup, Answering Google, Answering OpenLibrary) Make(Func<string, HttpResponseMessage> openLibrary, Func<string, HttpResponseMessage> google, bool enabled = true, IHardcoverLookup? hardcover = null)
     {
         var openLibraryHandler = new Answering(openLibrary);
         var googleHandler = new Answering(google);
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Lookup:GoogleBooks"] = enabled ? "true" : "false" }).Build();
         var lookup = new CatalogLookup(
             new OpenLibraryLookup(new HttpClient(openLibraryHandler) { BaseAddress = new Uri("https://openlibrary.org/") }),
-            new GoogleBooksLookup(new HttpClient(googleHandler) { BaseAddress = new Uri("https://www.googleapis.com/") }, configuration));
+            new GoogleBooksLookup(new HttpClient(googleHandler) { BaseAddress = new Uri("https://www.googleapis.com/") }, configuration),
+            hardcover ?? new Hardcover(null));
         return (lookup, googleHandler, openLibraryHandler);
     }
 

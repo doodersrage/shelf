@@ -1,0 +1,267 @@
+@page "/find"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject IBookSearch Search
+@inject AuthorWatch Watch
+@inject NavigationManager Navigation
+
+<PageTitle>@T("Find new books") · Shelf</PageTitle>
+
+@* Books not on the shelf yet, as Sonarr's Add new: found in Open Library, put on the want list, and fetched from the book's page. *@
+<div class="page-head">
+    <h1>@T("Find new books")</h1>
+</div>
+
+<form class="find-form" role="search" @onsubmit="SearchAsync" @onsubmit:preventDefault>
+    <label for="find-query">@T("Title, author, or ISBN")</label>
+    <div class="find-row">
+        <input id="find-query" type="search" maxlength="200" @bind="query" autocomplete="off" />
+        <button type="submit" class="primary" disabled="@searching">@T("Search")</button>
+    </div>
+</form>
+
+@if (searching)
+{
+    <p class="hint" role="status">@T("Searching…")</p>
+}
+else if (searched && hits.Count == 0)
+{
+    <p class="hint" role="status">@T("Open Library knows no book by that. Try fewer words, or the ISBN.")</p>
+}
+else if (hits.Count > 0)
+{
+    <ul class="find-results" aria-label="@T("Books found")">
+        @foreach (var hit in hits)
+        {
+            <li>
+                <BookCover Title="@hit.Title" Url="@hit.CoverUrl" Width="4.5rem" />
+                <div class="find-text">
+                    <strong>@hit.Title</strong>
+                    <span>
+                        @hit.Author
+                        @if (hit.Year is { } year)
+                        {
+                            <span class="hint"> · @year</span>
+                        }
+                    </span>
+                    <div class="find-actions">
+                        @if (added.TryGetValue(hit.Key, out var bookId))
+                        {
+                            <span class="hint" role="status">@T("On your want list")</span>
+                            <a href="@($"/library/{bookId}{(fetching ? "#fetch-heading" : "")}")">@(fetching ? T("Fetch it") : T("Open it"))</a>
+                        }
+                        else if (shelf.Contains(Finding.Key(hit.Title, hit.Author)))
+                        {
+                            <span class="hint">@T("On your shelf already")</span>
+                        }
+                        else
+                        {
+                            <button type="button" @onclick="() => WantAsync(hit)">@T("Want to read")</button>
+                        }
+                        @* Offered once for each author, on their first book found. *@
+                        @if (hit.Author != BookImport.UnknownAuthor && !Follows(hit.Author) && FirstBy(hit))
+                        {
+                            <button type="button" class="quiet" @onclick="() => FollowAsync(hit.Author)">@T("Follow {0}", hit.Author)</button>
+                        }
+                    </div>
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+@if (alerts.Count > 0)
+{
+    <section class="panel" aria-labelledby="new-heading">
+        <h2 id="new-heading">@T("New from authors you follow")</h2>
+        <ul class="find-results">
+            @foreach (var alert in alerts)
+            {
+                <li>
+                    <BookCover Title="@alert.Title" Url="@alert.CoverUrl" Width="4.5rem" />
+                    <div class="find-text">
+                        <strong>@alert.Title</strong>
+                        <span>@alert.Author @if (alert.Year is { } year) { <span class="hint"> · @year</span> }</span>
+                        <div class="find-actions">
+                            <button type="button" @onclick="() => WantAlertAsync(alert.Id)">@T("Want to read")</button>
+                            <button type="button" class="quiet" @onclick="() => DismissAsync(alert.Id)">@T("Not for me")</button>
+                        </div>
+                    </div>
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+<section class="panel" aria-labelledby="follow-heading">
+    <h2 id="follow-heading">@T("Authors you follow")</h2>
+    <p class="hint">@T("Once a day, Shelf looks for books by the authors you follow published since you followed them, and offers them here.")</p>
+    @if (follows.Count > 0)
+    {
+        <ul class="follow-list">
+            @foreach (var follow in follows)
+            {
+                <li>
+                    <a href="@($"/library?author={Uri.EscapeDataString(follow.Name)}")">@follow.Name</a>
+                    @if (fetching)
+                    {
+                        <label class="check">
+                            <input type="checkbox" checked="@follow.AutoFetch" @onchange="args => SetAutoFetchAsync(follow.Id, args.Value is true)" />
+                            @T("Want and fetch new books straight away")
+                        </label>
+                    }
+                    <span class="hint">@(follow.CheckedAt is { } at ? T("Looked {0}", at.ToLocalTime().ToString("d")) : T("Not looked yet"))</span>
+                    <button type="button" class="quiet" disabled="@(looking == follow.Id)" @onclick="() => LookAsync(follow.Id)">@(looking == follow.Id ? T("Looking…") : T("Look now"))</button>
+                    <button type="button" class="quiet" @onclick="() => UnfollowAsync(follow.Id)" aria-label="@T("Stop following {0}", follow.Name)">@T("Stop following")</button>
+                </li>
+            }
+        </ul>
+    }
+    @if (lookedNote is not null)
+    {
+        <p class="hint" role="status">@lookedNote</p>
+    }
+    <form class="find-row" @onsubmit="FollowNamedAsync" @onsubmit:preventDefault>
+        <label for="follow-name" class="visually-hidden">@T("Author to follow")</label>
+        <input id="follow-name" maxlength="200" placeholder="@T("Author to follow")" @bind="newAuthor" />
+        <button type="submit" disabled="@string.IsNullOrWhiteSpace(newAuthor)">@T("Follow")</button>
+    </form>
+</section>
+
+@code {
+    [SupplyParameterFromQuery(Name = "q")]
+    public string? Query { get; set; }
+
+    private string query = "";
+    private bool searching;
+    private bool searched;
+    private bool fetching;
+    private List<CatalogHit> hits = [];
+    private HashSet<string> shelf = [];
+    private readonly Dictionary<string, int> added = [];
+    private List<AuthorFollow> follows = [];
+    private List<AuthorAlert> alerts = [];
+    private string newAuthor = "";
+    private int? looking;
+    private string? lookedNote;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        if (!string.IsNullOrWhiteSpace(Query))
+        {
+            query = Query;
+            await SearchAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        fetching = Fetcher.Ready(await FetchRules.SettingsAsync(db)) && !await Family.IsRestrictedAsync(db);
+        shelf = await Finding.ShelfKeysAsync(db);
+        follows = [.. await Finding.FollowsAsync(db)];
+        alerts = [.. await Finding.AlertsAsync(db)];
+    }
+
+    private bool FirstBy(CatalogHit hit) =>
+        hits.First(item => Tidy.AuthorKey(item.Author) == Tidy.AuthorKey(hit.Author)) == hit;
+
+    private bool Follows(string author) =>
+        follows.Any(item => Tidy.AuthorKey(item.Name) == Tidy.AuthorKey(author));
+
+    private async Task SearchAsync()
+    {
+        var term = query.Trim();
+        if (term.Length == 0)
+        {
+            return;
+        }
+
+        (searching, searched) = (true, false);
+        StateHasChanged();
+        try
+        {
+            hits = [.. await Search.SearchAsync(term, CancellationToken.None)];
+        }
+        finally
+        {
+            (searching, searched) = (false, true);
+        }
+
+        // The address carries the search, to share or come back to; never sent for the address already open, which
+        // while the page is first drawn on the server would be a redirect to itself.
+        var address = $"/find?q={Uri.EscapeDataString(term)}";
+        if (!Navigation.ToBaseRelativePath(Navigation.Uri).Equals(address.TrimStart('/'), StringComparison.Ordinal))
+        {
+            Navigation.NavigateTo(address, replace: true);
+        }
+    }
+
+    private async Task WantAsync(CatalogHit hit)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var book = await Finding.WantAsync(db, hit);
+        added[hit.Key] = book.Id;
+        shelf.Add(Finding.Key(hit.Title, hit.Author));
+    }
+
+    private async Task WantAlertAsync(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Finding.WantAlertAsync(db, id);
+        await LoadAsync();
+    }
+
+    private async Task DismissAsync(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Finding.DismissAsync(db, id);
+        await LoadAsync();
+    }
+
+    private async Task FollowAsync(string author)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Finding.FollowAsync(db, author);
+        follows = [.. await Finding.FollowsAsync(db)];
+    }
+
+    private async Task FollowNamedAsync()
+    {
+        await FollowAsync(newAuthor);
+        newAuthor = "";
+    }
+
+    private async Task UnfollowAsync(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Finding.UnfollowAsync(db, id);
+        follows = [.. await Finding.FollowsAsync(db)];
+    }
+
+    private async Task SetAutoFetchAsync(int id, bool on)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Finding.SetAutoFetchAsync(db, id, on);
+        follows = [.. await Finding.FollowsAsync(db)];
+    }
+
+    private async Task LookAsync(int id)
+    {
+        looking = id;
+        lookedNote = null;
+        StateHasChanged();
+        try
+        {
+            var found = await Watch.CheckAsync(id, CancellationToken.None);
+            lookedNote = found == 0 ? T("Nothing new.") : Localization.Counts.NewBooks(found);
+        }
+        finally
+        {
+            looking = null;
+        }
+
+        await LoadAsync();
+    }
+}

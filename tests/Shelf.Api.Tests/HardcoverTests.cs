@@ -183,6 +183,8 @@ public sealed class StubHardcover : IHardcoverClient
 
     public List<HardcoverShelfBook> Shelf { get; } = [];
 
+    public ConcurrentDictionary<int, CatalogMatch> Details { get; } = new();
+
     public Task<IReadOnlyList<HardcoverShelfBook>?> ShelfAsync(string token, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<HardcoverShelfBook>?>(token == Good ? [.. Shelf] : null);
 
@@ -190,6 +192,9 @@ public sealed class StubHardcover : IHardcoverClient
 
     public Task<int?> FindAsync(string token, string? isbn, string title, string author, CancellationToken cancellationToken) =>
         Task.FromResult(isbn is not null && Books.TryGetValue(isbn, out var id) ? id : (int?)null);
+
+    public Task<CatalogMatch?> DetailsAsync(string token, int bookId, CancellationToken cancellationToken) =>
+        Task.FromResult(token == Good && Details.TryGetValue(bookId, out var match) ? match : null);
 
     public Task<int?> SaveAsync(string token, int bookId, int? userBookId, HardcoverStatus status, CancellationToken cancellationToken)
     {

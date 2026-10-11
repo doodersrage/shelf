@@ -59,6 +59,8 @@ public class ShelfDb : DbContext
     public DbSet<AbsLink> AbsLinks => Set<AbsLink>();
     public DbSet<AbsSyncSetting> AbsSyncs => Set<AbsSyncSetting>();
     public DbSet<FetchSetting> FetchSettings => Set<FetchSetting>();
+    public DbSet<AuthorFollow> AuthorFollows => Set<AuthorFollow>();
+    public DbSet<AuthorAlert> AuthorAlerts => Set<AuthorAlert>();
     public DbSet<FetchGrab> FetchGrabs => Set<FetchGrab>();
     public DbSet<ApiToken> ApiTokens => Set<ApiToken>();
     public DbSet<SeriesAlert> SeriesAlerts => Set<SeriesAlert>();
@@ -192,6 +194,25 @@ public class ShelfDb : DbContext
             fetch.Property(item => item.Category).HasMaxLength(100);
             fetch.Property(item => item.EbookFormats).HasMaxLength(200);
             fetch.Property(item => item.AudioFormats).HasMaxLength(200);
+        });
+
+        // Authors followed, and their new books waiting; by reader id, for the watcher to reach every reader's.
+        modelBuilder.Entity<AuthorFollow>(follow =>
+        {
+            follow.Property(item => item.Name).HasMaxLength(200);
+            follow.HasIndex(item => item.ReaderId);
+            follow.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AuthorAlert>(alert =>
+        {
+            alert.Property(item => item.Key).HasMaxLength(100);
+            alert.Property(item => item.Author).HasMaxLength(200);
+            alert.Property(item => item.Title).HasMaxLength(200);
+            alert.Property(item => item.Isbn).HasMaxLength(20);
+            alert.Property(item => item.CoverUrl).HasMaxLength(500);
+            alert.HasIndex(item => new { item.ReaderId, item.Key });
+            alert.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<FetchGrab>(grab =>

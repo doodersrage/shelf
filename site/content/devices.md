@@ -71,7 +71,7 @@ KOReader's **progress sync** sends the page you reach to Shelf, and fetches the 
 2. In KOReader, open a book, then **Tools, Progress sync, Custom sync server**, and enter `https://<your shelf>/kosync`.
 3. Sign in with your reader name and that password.
 
-A book matches when KOReader has the same file Shelf has, which it does when it came from Shelf's catalog. Reading further on the device moves Shelf's place forward; reading further in Shelf sends the device to the start of that chapter, or that page of a PDF. Going back on the device never pulls Shelf's place back. **Stop syncing with KOReader** turns the password off.
+A book matches when KOReader has the same file Shelf has, which it does when it came from Shelf's catalog. In an EPUB the place goes both ways to the word: KOReader's place in a chapter becomes the reader's here, and the page you turn to in Shelf's reader opens on the device at the paragraph and word at its top. Reading further on either moves the other forward; going back on the device never pulls Shelf's place back. A chapter Shelf can't read as XHTML, and a PDF, go by the chapter or the page. **Stop syncing with KOReader** turns the password off.
 
 > [!NOTE]
 > KOReader sends its password as a hash. Shelf keeps only a hash of that, separate from your sign-in password, so the KOReader password can't sign in to Shelf itself.
@@ -120,6 +120,7 @@ It works the other way as well. **Bring highlights now**, or **Bring highlights 
 - Only books whose status, stars, or dates changed since they last went are sent, forty at a time, as Hardcover asks to be called gently. Reading dates go as a new read only when they change, so Hardcover doesn't count a read twice.
 - Changes made on Hardcover come back to books that haven't changed on Shelf since they were last sent. When a book changed in both places, Shelf's goes to Hardcover. A book on both that was never sent takes only what it lacks from Hardcover (stars, dates, or a status further along).
 - **Add books that are only on Hardcover** adds those too, with their status, stars, dates, and ISBN. Hardcover's half-stars are rounded to whole ones.
+- Once connected, **Look up** and **Fill empty details** ask Hardcover too, after Open Library and Google Books, for what they left blank: above all a book's series and its number in it, which Hardcover knows for most books and the others seldom do. An admin can set `Hardcover:LookupToken` so every reader's look-ups ask it.
 
 Hardcover's API is young and still changing; if a send stops working after a change on their side, it will need a newer Shelf. **Disconnect** forgets the token.
 

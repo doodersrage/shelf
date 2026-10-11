@@ -7,6 +7,8 @@ public static class Counts
 {
     public static string Books(int count) => count == 1 ? T("1 book") : T("{0} books", count);
 
+    public static string NewBooks(int count) => count == 1 ? T("1 new book") : T("{0} new books", count);
+
     public static string Files(int count) => count == 1 ? T("1 file") : T("{0} files", count);
 
     // A size, in the units the reader's language writes (Mo in French, for one).

@@ -11,7 +11,7 @@ Any book with an e-book opens in the reader from its page or its card in the lib
 
 An EPUB opens in a page-turning reader built on [epub.js](https://github.com/futurepress/epub.js), the engine Audiobookshelf's reader uses. The whole book is one view: turn a page by tapping the right or left of it, swiping, pressing the arrow keys, Page Up and Page Down, or the space bar, or with **Previous** and **Next**; the last page of a chapter turns into the next one. The list of chapters jumps to any of them, and the line beside it says where you are: the chapter, the page of it, and how far through the whole book (counted once on each device, then kept there). The book's title above is the way back to its page.
 
-Your place is kept to the word, as an EPUB CFI, every time you turn a page, so the book opens where you stopped on any device, whatever its screen or your text size. Audiobookshelf's phone apps keep their e-book place the same way, and the two share it. A Kobo or KOReader, which keep a chapter only, move you to the start of the chapter they were in when they're further on.
+Your place is kept to the word, as an EPUB CFI, every time you turn a page, so the book opens where you stopped on any device, whatever its screen or your text size. Audiobookshelf's phone apps keep their e-book place the same way, and the two share it. [KOReader](devices.md#keeping-your-place-in-step-with-koreader) trades its place with Shelf to the word too. A Kobo, which keeps a chapter only, moves you to the start of the chapter it was in when it's further on.
 
 **Aa Text settings** sets:
 

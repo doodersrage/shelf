@@ -151,6 +151,84 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("AudioBookmarks");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.AuthorAlert", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Author")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CoverUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Dismissed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("FoundAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Isbn")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Year")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReaderId", "Key");
+
+                    b.ToTable("AuthorAlerts");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.AuthorFollow", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("AutoFetch")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("CheckedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReaderId");
+
+                    b.ToTable("AuthorFollows");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.Book", b =>
                 {
                     b.Property<int>("Id")
@@ -2153,6 +2231,24 @@ namespace Shelf.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Book");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.AuthorAlert", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.AuthorFollow", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Book", b =>

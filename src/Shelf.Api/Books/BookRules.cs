@@ -1369,6 +1369,12 @@ public static class BookRules
             changed = true;
         }
 
+        if (string.IsNullOrWhiteSpace(book.Series) && match.Series is { Length: > 0 and <= 200 } series)
+        {
+            (book.Series, book.SeriesNumber) = (series.Trim(), book.SeriesNumber ?? match.SeriesNumber);
+            changed = true;
+        }
+
         foreach (var tag in UsefulSubjects(match.Tags))
         {
             if (tags.Count >= MaxTags || tags.Contains(tag, StringComparer.OrdinalIgnoreCase))

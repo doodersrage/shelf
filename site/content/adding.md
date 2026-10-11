@@ -94,6 +94,16 @@ An admin can bring in a [Calibre](https://calibre-ebook.com) library from the se
 
 Export your library as CSV from either service, then upload it on **Backup & restore**. Shelves become statuses and tags, ratings, reviews, and dates come along, and books already on your shelf are skipped.
 
+## Finding new books
+
+**Find new books**, under **Browse** (and linked from **Authors**), searches [Open Library](https://openlibrary.org) for a book you don't have yet, by its title, its author, or its ISBN. Each book found shows its cover, author, and year, and those on your shelf already say so. **Want to read** puts it on your want list with what Open Library knows of it (ISBN, pages, cover, year); with finding and fetching set up (below), **Fetch it** then takes you to the book's page to search your indexers. The page's address keeps the search, to come back to or share.
+
+### Following an author
+
+Follow an author from **Authors**, from a book found on **Find new books**, or by name at the foot of that page. Once a day Shelf asks Open Library for each author's newest books, sending only the name. A book published since you followed them, and not on your shelf, is offered under **New from authors you follow**, and the sidebar's **Find new books** shows how many are waiting: **Want to read** adds it, **Not for me** lets it go, and either way the same book is never offered twice. **Look now** asks straight away.
+
+With finding and fetching set up, ticking **Want and fetch new books straight away** beside an author skips the offer: a new book goes onto the want list and its best match is fetched at once, as **Wanted** would. **Stop following** ends it.
+
 ## Finding and fetching books
 
 Like Sonarr does for shows, Shelf can search your indexers for a book, send the release to your download client, and bring the finished file onto the book that wanted it. It works with:

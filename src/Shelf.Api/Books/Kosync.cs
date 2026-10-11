@@ -141,6 +141,9 @@ public static partial class Kosync
         if (await FindAsync(db, progress.Document, cancellationToken) is { } book && await Lending.OpenAsync(db, book.Id, cancellationToken) is { } open)
         {
             var chapter = ChapterOf(progress.Progress, progress.Percentage, Count(store, book));
+            var percentage = Math.Clamp(progress.Percentage ?? 0, 0, 1);
+            // The very place in an EPUB, as the reader in Shelf keeps it, when the chapter can be read.
+            var cfi = EpubPath(store, book) is { } epub && EpubFile.ChapterDocument(epub, chapter) is { } xhtml ? KoreaderPlace.ToCfi(progress.Progress, chapter, xhtml) : null;
             var kept = await db.KosyncPlaces.FirstOrDefaultAsync(item => item.ReaderId == reader.Id && item.BookId == book.Id, cancellationToken);
             if (kept is null)
             {
@@ -149,7 +152,7 @@ public static partial class Kosync
             }
 
             kept.Progress = progress.Progress;
-            kept.Percentage = Math.Clamp(progress.Percentage ?? 0, 0, 1);
+            kept.Percentage = percentage;
             kept.Chapter = chapter;
             kept.Device = Fit(progress.Device);
             kept.DeviceId = Fit(progress.DeviceId);
@@ -157,9 +160,16 @@ public static partial class Kosync
             await db.SaveChangesAsync(cancellationToken);
             await Lending.KeepPlaceAsync(db, open, place =>
             {
-                if (chapter > (place.EbookChapter ?? -1))
+                // On, never back: a later chapter, or further into the same one.
+                var further = chapter > (place.EbookChapter ?? -1)
+                    || (chapter == place.EbookChapter && cfi is not null && (place.EbookCfi is null || KoreaderPlace.Compare(cfi, place.EbookCfi) is null or > 0));
+                if (further)
                 {
                     place.EbookChapter = chapter;
+                    if (cfi is { Length: <= 1000 })
+                    {
+                        (place.EbookCfi, place.EbookProgress) = (cfi, percentage);
+                    }
                 }
             }, cancellationToken);
         }
@@ -181,9 +191,11 @@ public static partial class Kosync
             return Results.Json(new { });
         }
 
-        var chapter = (await Lending.PlaceAsync(db, open, cancellationToken)).EbookChapter ?? 0;
+        var shelfPlace = await Lending.PlaceAsync(db, open, cancellationToken);
+        var chapter = shelfPlace.EbookChapter ?? 0;
         var kept = await db.KosyncPlaces.AsNoTracking().FirstOrDefaultAsync(item => item.ReaderId == reader.Id && item.BookId == book.Id, cancellationToken);
-        if (kept is not null && kept.Chapter >= chapter)
+        var deviceFurther = kept is not null && (kept.Chapter > chapter || (kept.Chapter == chapter && DeviceFurther(kept, shelfPlace, store, book)));
+        if (kept is not null && deviceFurther)
         {
             return Results.Json(new
             {
@@ -201,7 +213,25 @@ public static partial class Kosync
             return Results.Json(new { });
         }
 
-        // Read further in Shelf than on the device: the start of that chapter, or that page of a PDF.
+        // Read further in Shelf than on the device, in an EPUB to the word: the very place, as KOReader writes it.
+        if (shelfPlace.EbookCfi is { } shelfCfi
+            && KoreaderPlace.ChapterOfCfi(shelfCfi) is { } cfiChapter
+            && EpubPath(store, book) is { } epub
+            && EpubFile.ChapterDocument(epub, cfiChapter) is { } xhtml
+            && KoreaderPlace.ToXPointer(shelfCfi, xhtml) is { } pointer)
+        {
+            return Results.Json(new
+            {
+                document,
+                progress = pointer,
+                percentage = Math.Round(shelfPlace.EbookProgress ?? 0, 4),
+                device = "Shelf",
+                device_id = "shelf",
+                timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            });
+        }
+
+        // Otherwise the start of that chapter, or that page of a PDF.
         var count = Count(store, book);
         var pdf = EbookStore.IsPdf(book.EbookStoredName) || EbookStore.IsComic(book.EbookStoredName);
         return Results.Json(new
@@ -246,6 +276,24 @@ public static partial class Kosync
 
         return book.Pages ?? 0;
     }
+
+    // In the same chapter: the device's place is further unless Shelf's is a CFI past it, both read as paths in the
+    // chapter; the two books' shares are counted differently, KOReader's by its pages and Shelf's by its words.
+    private static bool DeviceFurther(KosyncPlace kept, LoanPlace shelfPlace, EbookStore store, Book book)
+    {
+        if (shelfPlace.EbookCfi is not { } shelfCfi)
+        {
+            return true;
+        }
+
+        var deviceCfi = EpubPath(store, book) is { } epub && EpubFile.ChapterDocument(epub, kept.Chapter) is { } xhtml ? KoreaderPlace.ToCfi(kept.Progress, kept.Chapter, xhtml) : null;
+        return deviceCfi is not null && KoreaderPlace.Compare(deviceCfi, shelfCfi) is { } order
+            ? order >= 0
+            : kept.Percentage >= (shelfPlace.EbookProgress ?? 0);
+    }
+
+    private static string? EpubPath(EbookStore store, Book book) =>
+        EbookStore.IsEpub(book.EbookStoredName) ? store.OpenPath(book.EbookStoredName) : null;
 
     private static string? Fit(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Length > 100 ? value[..100] : value;
 

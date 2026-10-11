@@ -162,6 +162,88 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.ToTable("AudioBookmarks");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.AuthorAlert", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Author")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("CoverUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("Dismissed")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("FoundAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Isbn")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int?>("Year")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReaderId", "Key");
+
+                    b.ToTable("AuthorAlerts");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.AuthorFollow", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AutoFetch")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("CheckedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReaderId");
+
+                    b.ToTable("AuthorFollows");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.Book", b =>
                 {
                     b.Property<int>("Id")
@@ -2240,6 +2322,24 @@ namespace Shelf.Api.Data.PostgresMigrations
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Book");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.AuthorAlert", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.AuthorFollow", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Book", b =>

@@ -4207,3 +4207,15 @@ blockquote mark {
         border-radius: var(--radius-control);
     }
 }
+
+/* Find new books: a search, and what it finds, a cover beside each. */
+.find-form label { display: block; margin-bottom: 0.25rem; }
+.find-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.find-row input { flex: 1 1 14rem; min-width: 0; }
+.find-results { list-style: none; padding: 0; margin: 1rem 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); }
+.find-results li { display: flex; gap: 0.75rem; align-items: flex-start; }
+.find-results .cover-frame { flex: 0 0 4.5rem; }
+.find-text { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; overflow-wrap: anywhere; }
+.find-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.25rem; }
+.follow-list { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+.follow-list li { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }

@@ -104,6 +104,7 @@ else
     private Reminders? reminders;
     private List<SavedSearch> savedSearches = [];
     private int seriesAlerts;
+    private int authorAlerts;
     private bool fetching;
     private ImportSummary? import;
     private string importDone = "";
@@ -149,7 +150,7 @@ else
                 <li><a href="/stats" aria-current="@Current("/stats")">@Icon(InsightsIcon) @T("Insights")</a></li>
             </ul>
         </nav>
-        <details class="nav-group" open="@(Within(BrowseLinks) || savedSearches.Count > 0 || seriesAlerts > 0)">
+        <details class="nav-group" open="@(Within(BrowseLinks) || savedSearches.Count > 0 || seriesAlerts > 0 || authorAlerts > 0)">
             <summary>@T("Browse")</summary>
             <ul>
                 <li><a href="/library?status=Want" aria-current="@Current("/library?status=Want")">@T("Want to read")</a></li>
@@ -169,6 +170,15 @@ else
                     </a>
                 </li>
                 <li><a href="/authors" aria-current="@Current("/authors")">@T("Authors")</a></li>
+                <li>
+                    <a href="/find" aria-current="@Current("/find")">
+                        @T("Find new books")
+                        @if (authorAlerts > 0)
+                        {
+                            <span class="badge plain" aria-label="@T("{0} new", authorAlerts)">@authorAlerts</span>
+                        }
+                    </a>
+                </li>
                 <li><a href="/podcasts" aria-current="@Current("/podcasts")">@T("Podcasts")</a></li>
                 <li><a href="/quotes" aria-current="@Current("/quotes")">@T("Quotes & highlights")</a></li>
                 <li><a href="/search" aria-current="@Current("/search")">@T("Search inside books")</a></li>
@@ -247,6 +257,7 @@ else
             isChild = await Family.IsRestrictedAsync(db);
             savedSearches = await db.SavedSearches.AsNoTracking().OrderBy(search => search.Name).ToListAsync();
             seriesAlerts = await SeriesWatch.CountAsync(db);
+            authorAlerts = await db.AuthorAlerts.CountAsync(item => item.ReaderId == db.ReaderId && !item.Dismissed);
             fetching = Fetcher.Ready(await FetchRules.SettingsAsync(db)) && !isChild;
             var job = ImportJobs.Running(Services, db.ReaderId);
             import = job is null ? null : ImportJobs.Summarize(job, DateTimeOffset.UtcNow);
@@ -281,7 +292,7 @@ else
     private const string LoansIcon = "M7 7h11l-3-3M17 17H6l3 3";
     private const string InsightsIcon = "M5 19V11M12 19V5M19 19v-6";
 
-    private static readonly string[] BrowseLinks = ["/library?status=Want", "/library?status=Finished", "/collections", "/series", "/authors", "/podcasts", "/quotes", "/search", "/next", "/wanted", "/clubs", "/free", "/years"];
+    private static readonly string[] BrowseLinks = ["/library?status=Want", "/library?status=Finished", "/collections", "/series", "/authors", "/find", "/podcasts", "/quotes", "/search", "/next", "/wanted", "/clubs", "/free", "/years"];
     private static readonly string[] CopiesLinks = ["/shelves", "/places", "/copies", "/recommenders", "/duplicates", "/tidy"];
     private static readonly string[] SettingsLinks = ["/account", "/activity", "/backup", "/sync", "/admin", "/downloads"];
 

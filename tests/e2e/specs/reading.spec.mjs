@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { test, expect } from "@playwright/test";
 import { createBook, noProblems, ready, signUp, unique, upload } from "../helpers.mjs";
 
@@ -209,6 +210,58 @@ test("the page-turning reader turns across chapters, and opens again at the very
   // The classic reader is a link away.
   await page.click('a:text-is("Classic reader")');
   await expect(page.locator("iframe.reader-frame")).toBeVisible();
+  noProblems(page);
+});
+
+// The paragraphs of the book showing in the reader's box: its frames are wider than the box, a page of columns each.
+const showing = (page) =>
+  page.evaluate(() => {
+    const box = document.querySelector(".shelf-epub").getBoundingClientRect();
+    return [...document.querySelectorAll(".shelf-epub iframe")].flatMap((frame) => {
+      const at = frame.getBoundingClientRect();
+      return [...frame.contentDocument.querySelectorAll("p")]
+        .filter((paragraph) => [...paragraph.getClientRects()].some((rect) => at.left + rect.right > box.left + 1 && at.left + rect.left < box.right - 1 && at.top + rect.bottom > box.top && at.top + rect.top < box.bottom))
+        .map((paragraph) => Number(paragraph.textContent.match(/^Paragraph (\d+)/)?.[1] ?? 0));
+    });
+  });
+
+test("a place reached in KOReader opens at that very paragraph, and one reached here goes back to it", async ({ browser }) => {
+  const name = unique("Koreader");
+  const page = await signUp(browser, name);
+  const book = await createBook(page, { title: "The Harbour", author: "Someone", status: "Reading" });
+  await upload(page, book.id, "ebook", "koreader.epub", "application/epub+zip");
+  await page.goto("/sync");
+  await ready(page);
+  await page.click('button:text-is("Make a KOReader password")');
+  const shown = page.locator("dd", { hasText: "Copy it now" }).locator("code.key");
+  await expect(shown).toBeVisible();
+  const password = (await shown.textContent()).trim();
+  const md5 = (text) => createHash("md5").update(text).digest("hex");
+  const device = { headers: { "x-auth-user": name, "x-auth-key": md5(password), accept: "application/vnd.koreader.v1+json" } };
+  // KOReader names a book it got with this file name by the name, as well as by samples of the file.
+  const document = md5("koreader.epub");
+
+  // KOReader, at the start of the thirtieth paragraph of the second chapter.
+  const put = await page.request.put("/kosync/syncs/progress", { ...device, data: { document, progress: "/body/DocFragment[2]/body/div/p[30]/text().0", percentage: 0.6, device: "Kobo", device_id: "kobo-1" } });
+  expect(put.ok()).toBe(true);
+  expect((await (await page.request.get(`/books/${book.id}/place`)).json()).ebookCfi).toMatch(/^epubcfi\(\/6\/4!/);
+
+  await page.setViewportSize({ width: 360, height: 640 });
+  await page.goto(`/library/${book.id}/read`);
+  await ready(page);
+  await expect(page.locator(".reader-where")).toContainText(/Chapter 2 of 2 · page ([2-9]|\d\d)/, { timeout: 20_000 });
+  await expect.poll(() => showing(page)).toContain(30);
+
+  // Two pages on, here: KOReader is sent the paragraph at the top of the page, which may have begun on the one before.
+  const pageNumber = async () => Number((await page.locator(".reader-where").textContent()).match(/page (\d+)/)[1]);
+  const opened = await pageNumber();
+  await page.click('button[aria-label="Next page"]');
+  await page.click('button[aria-label="Next page"]');
+  await expect.poll(pageNumber).toBe(opened + 2);
+  const top = Math.min(...(await showing(page)).filter((number) => number > 0));
+  expect(top).toBeGreaterThan(30);
+  await expect.poll(async () => (await (await page.request.get(`/kosync/syncs/progress/${document}`, device)).json()).progress, { timeout: 10_000 })
+    .toMatch(new RegExp(`^/body/DocFragment\\[2\\]/body/div/p\\[${top}\\]/text\\(\\)(\\[2\\])?\\.\\d+$`));
   noProblems(page);
 });
 

@@ -707,7 +707,9 @@ public sealed record CatalogMatch(
     string? Isbn = null,
     string? Subtitle = null,
     BookFormat? Format = null,
-    string[]? Tags = null);
+    string[]? Tags = null,
+    string? Series = null,
+    int? SeriesNumber = null);
 
 public sealed record EditionChoice(
     string? Title,
