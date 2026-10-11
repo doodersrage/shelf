@@ -10,6 +10,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - Reading time: the reader counts time spent with a book open while someone is reading it, and **Stats** shows it beside listening time. It keeps the reading streak too.
 - Your year in books: a review of each year, linked from Years and Stats, with the year's books, pages, hours, new authors, busiest month, standouts, favourites, and the words you kept.
 - New books in your series come by email, each once, to readers with series alerts and email reminders turned on.
+- Highlights from a Kindle: bring its My Clippings.txt in on Devices. Highlights land in an EPUB's chapters with their notes, or as quotes with their pages on other books, each once.
 
 ## [1.6.0] - 2026-10-11
 

@@ -109,6 +109,7 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | --- | --- |
 | `GET /books/{id}/place` | Where you stopped: `ebookChapter` (an EPUB chapter, or a PDF or comic page, from 0), `audioTrack`, and `audioSeconds`. |
 | `PUT /books/{id}/place` | `{"ebookChapter": 3}` moves your place forward; a place behind the one kept is ignored. |
+| `POST /books/highlights/kindle` | A Kindle's `My Clippings.txt` as `file`: highlights land in EPUB chapters or as quotes. Answers with how many of each, how many were already there, and the titles not found. |
 | `GET /books/{id}/highlights` | Your highlights in a book. `POST` adds one: `{"text": "…", "chapterIndex": 2, "note": "…", "prefix": "…", "suffix": "…"}`. `PUT` and `DELETE /books/{id}/highlights/{highlightId}` change or remove one. |
 | `GET /books/{id}/quotes` | A book's quotes. `POST {"text": "…", "page": 12}` adds one; `DELETE /books/{id}/quotes/{quoteId}` removes it. |
 | `GET /books/quotes` | Every quote and highlight. |

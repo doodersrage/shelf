@@ -73,6 +73,17 @@ else if (hasKey)
 {
     <p class="@(highlightProblem ? "validation-message" : "saved")" role="status">@highlightNote</p>
 }
+
+<h3>@T("Bring highlights from a Kindle")</h3>
+<p>@T("A Kindle keeps every highlight and note in a file called My Clippings.txt, in its documents folder. Connect the Kindle to this computer by its cable, and choose that file here. On a book with an EPUB, each highlight goes to its chapter with its note; on other books it becomes a quote.")</p>
+<label>
+    @T("My Clippings.txt")
+    <InputFile OnChange="ImportClippings" accept=".txt,text/plain" disabled="@importingClippings" />
+</label>
+@if (clippingNote is not null)
+{
+    <p class="@(clippingProblem ? "validation-message" : "saved")" role="status">@clippingNote</p>
+}
 </section>
 
 <section class="panel">
@@ -138,6 +149,43 @@ else if (hasKey)
         finally
         {
             importingHighlights = false;
+        }
+    }
+
+    private bool importingClippings;
+    private string? clippingNote;
+    private bool clippingProblem;
+
+    private async Task ImportClippings(InputFileChangeEventArgs change)
+    {
+        importingClippings = true;
+        clippingNote = null;
+        try
+        {
+            await using var stream = change.File.OpenReadStream(KindleClippings.MaxBytes);
+            using var reader = new StreamReader(stream);
+            var text = await reader.ReadToEndAsync();
+            if (!text.Contains("==========", StringComparison.Ordinal))
+            {
+                clippingProblem = true;
+                clippingNote = T("That is not a Kindle's My Clippings.txt.");
+                return;
+            }
+
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var result = await KindleClippings.ImportAsync(db, Ebooks, text, CancellationToken.None);
+            clippingProblem = false;
+            clippingNote = T("Highlights: {0}. Quotes: {1}. Already here: {2}. Books matched: {3}.", result.Highlights, result.Quotes, result.AlreadyHere, result.Books)
+                + (result.NotFound.Count > 0 ? " " + T("Not on your shelf: {0}.", string.Join(", ", result.NotFound.Take(20))) : "");
+        }
+        catch (IOException)
+        {
+            clippingProblem = true;
+            clippingNote = T("Choose the My Clippings.txt file from the Kindle's documents folder, of up to 20 MB.");
+        }
+        finally
+        {
+            importingClippings = false;
         }
     }
 

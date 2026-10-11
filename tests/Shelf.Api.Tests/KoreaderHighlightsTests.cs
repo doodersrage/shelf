@@ -81,7 +81,7 @@ public sealed class KoreaderHighlightsTests(ShelfApiFactory factory) : IClassFix
         return (await response.Content.ReadFromJsonAsync<KoreaderImport>(JsonOptions))!;
     }
 
-    private static byte[] Epub()
+    internal static byte[] Epub()
     {
         using var memory = new MemoryStream();
         using (var zip = new ZipArchive(memory, ZipArchiveMode.Create, leaveOpen: true))

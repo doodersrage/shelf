@@ -127,7 +127,7 @@ public static partial class KoreaderHighlights
     }
 
     // The words of each chapter, as one line of text, to find a highlight in.
-    private static List<string> Chapters(string path)
+    internal static List<string> Chapters(string path)
     {
         var count = EpubFile.Chapters(path)?.Count ?? 0;
         return Enumerable.Range(0, count).Select(index => EpubFile.ChapterHtml(path, index, "") is { } html ? Search.PlainText(html) : "").ToList();
@@ -135,7 +135,7 @@ public static partial class KoreaderHighlights
 
     // The chapter a highlight is in, and the words around it. The position KOReader gives comes first; when the words
     // are not there (a different edition, say), every chapter is searched.
-    private static (int Chapter, string? Prefix, string? Suffix) Locate(List<string> chapters, int? hinted, string text)
+    internal static (int Chapter, string? Prefix, string? Suffix) Locate(List<string> chapters, int? hinted, string text)
     {
         var wanted = Spaces().Replace(text, " ");
         var order = hinted is int hint && hint >= 0 && hint < chapters.Count
