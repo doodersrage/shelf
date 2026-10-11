@@ -3076,3 +3076,32 @@ blockquote mark {
     cursor: pointer;
     font-weight: 600;
 }
+
+/* The storage table: one reader a row, scrolled sideways on a narrow screen. */
+.table-scroll {
+    overflow-x: auto;
+    margin: 0 0 var(--space-3);
+}
+
+.storage {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: var(--text-sm);
+}
+
+.storage th,
+.storage td {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-rule);
+    text-align: right;
+    white-space: nowrap;
+}
+
+.storage th:first-child,
+.storage thead th {
+    text-align: left;
+}
+
+.storage input {
+    width: 7rem;
+}

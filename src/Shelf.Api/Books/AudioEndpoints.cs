@@ -14,6 +14,7 @@ public static class AudioEndpoints
         AudioStore store,
         CoverStore covers,
         IDataProtectionProvider protection,
+        Storage storage,
         CancellationToken cancellationToken)
     {
         var book = await db.Books.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
@@ -47,6 +48,12 @@ public static class AudioEndpoints
             {
                 var reason = saved.Status == AudioSaveStatus.TooLarge ? "large" : "unsupported";
                 return TypedResults.Redirect($"/library/{id}?audio={reason}");
+            }
+
+            if (!await storage.FitsAsync(db, db.ReaderId, store.Size(saved.StoredName) - store.Size(book.AudioStoredName), cancellationToken))
+            {
+                store.Delete(saved.StoredName);
+                return TypedResults.Redirect($"/library/{id}?audio=full");
             }
 
             // The same recording on another of this reader's books: hold it and ask before keeping a second copy.

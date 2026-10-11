@@ -18,6 +18,7 @@ public static class EbookEndpoints
         EbookStore store,
         OcrService ocr,
         IDataProtectionProvider protection,
+        Storage storage,
         CancellationToken cancellationToken)
     {
         var book = await db.Books.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
@@ -42,6 +43,13 @@ public static class EbookEndpoints
                 _ => "unsupported",
             };
             return TypedResults.Redirect($"/library/{id}?ebook={reason}");
+        }
+
+        // Past the reader's storage limit, the file goes again.
+        if (!await storage.FitsAsync(db, db.ReaderId, storage.EbookSize(saved.StoredName) - storage.EbookSize(book.EbookStoredName), cancellationToken))
+        {
+            store.Delete(saved.StoredName);
+            return TypedResults.Redirect($"/library/{id}?ebook=full");
         }
 
         // The same bytes on another of this reader's books: hold the upload and ask before keeping a second copy.

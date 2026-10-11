@@ -183,6 +183,10 @@ else if (book is not null)
     {
         <p class="validation-message" role="alert">@T("That file is larger than 80 MB.")</p>
     }
+    else if (EbookMessage == "full" || AudioMessage == "full")
+    {
+        <p class="validation-message" role="alert">@T("That file would take you past your storage limit. Ask an admin for more room, or remove files you no longer need.")</p>
+    }
     else if (EbookMessage == "convert")
     {
         <p class="validation-message" role="alert">@T("That Kindle file could not be turned into an EPUB. Shelf needs Calibre installed on the server for that, and a file locked with DRM cannot be converted at all.")</p>

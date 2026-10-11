@@ -46,6 +46,7 @@ public static class ImportEndpoints
         var skipped = results.Count(result => result.Outcome == ImportOutcome.AlreadyOnShelf);
         var failed = results.Count(result => result.Outcome is ImportOutcome.Unsupported or ImportOutcome.TooLarge);
         var kindle = results.Count(result => result.Outcome == ImportOutcome.NeedsConverter);
-        return TypedResults.Redirect($"/?imported={added}&joined={joined}&skipped={skipped}&failed={failed}" + (kindle > 0 ? $"&kindle={kindle}" : ""));
+        var full = results.Count(result => result.Outcome == ImportOutcome.Full);
+        return TypedResults.Redirect($"/?imported={added}&joined={joined}&skipped={skipped}&failed={failed}" + (kindle > 0 ? $"&kindle={kindle}" : "") + (full > 0 ? $"&full={full}" : ""));
     }
 }

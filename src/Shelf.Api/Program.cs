@@ -183,6 +183,7 @@ builder.Services.AddHostedService(static services => services.GetRequiredService
 builder.Services.AddHostedService(static services => services.GetRequiredService<FreeBooks>());
 builder.Services.AddSingleton<EbookStore>();
 builder.Services.AddSingleton<KepubStore>();
+builder.Services.AddSingleton<Storage>();
 builder.Services.AddSingleton<AudioStore>();
 builder.Services.AddSingleton<CoverStore>();
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();

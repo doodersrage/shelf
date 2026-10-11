@@ -640,6 +640,18 @@ public sealed class PodcastService(IServiceScopeFactory scopes, IPodcastClient c
             return false;
         }
 
+        // Past the owner's storage limit, the download goes again.
+        await using (var scope = scopes.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            var owner = await db.Podcasts.IgnoreQueryFilters().Where(podcast => podcast.Id == episode.PodcastId).Select(podcast => podcast.OwnerId).FirstAsync(cancellationToken);
+            if (!await scope.ServiceProvider.GetRequiredService<Storage>().FitsAsync(db, owner, 0, cancellationToken))
+            {
+                File.Delete(Path.Combine(folder, stored));
+                return false;
+            }
+        }
+
         episode.StoredName = stored;
         return true;
     }

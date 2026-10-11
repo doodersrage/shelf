@@ -76,6 +76,9 @@ public sealed class Reader
     public string? GotifyToken { get; set; }
     public DateOnly? LastNoticeOn { get; set; }
 
+    // The most space this reader's files may take, set by an admin; null for no limit.
+    public int? StorageLimitMegabytes { get; set; }
+
     // A hash of the token in this reader's calendar address, and the token in their public page's address, when on.
     public string? CalendarTokenHash { get; set; }
     public string? PublicToken { get; set; }

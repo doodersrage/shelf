@@ -12,6 +12,9 @@ public enum ImportOutcome
     Unsupported,
     TooLarge,
     NeedsConverter,
+
+    // Past the reader's storage limit.
+    Full,
 }
 
 public sealed record ImportedFile(string FileName, ImportOutcome Outcome, int? BookId = null, string? Title = null, int? SameAsId = null);
@@ -21,7 +24,7 @@ public sealed record ImportFile(string Name, Stream Content, long Length);
 // Turns files into books: each e-book, each zip of tracks, and each run of audio files sharing an album becomes one.
 // What the files say fills the catalog. A file already on another book is skipped unless both are wanted, and a
 // book already on the shelf without that kind of file takes it instead of a second book being made.
-public sealed class BookImport(EbookStore ebooks, AudioStore audio, CoverStore covers, IConfiguration configuration)
+public sealed class BookImport(EbookStore ebooks, AudioStore audio, CoverStore covers, Storage storage, IConfiguration configuration)
 {
     public const string UnknownAuthor = "Unknown author";
 
@@ -100,6 +103,12 @@ public sealed class BookImport(EbookStore ebooks, AudioStore audio, CoverStore c
             });
         }
 
+        if (db.ReaderId != 0 && !await storage.FitsAsync(db, db.ReaderId, storage.EbookSize(saved.StoredName), cancellationToken))
+        {
+            ebooks.Delete(saved.StoredName);
+            return new ImportedFile(name, ImportOutcome.Full);
+        }
+
         if (!keepBoth && await Duplicates.FindEbookAsync(db, ebooks, 0, saved.StoredName, cancellationToken) is { } same)
         {
             ebooks.Delete(saved.StoredName);
@@ -168,6 +177,12 @@ public sealed class BookImport(EbookStore ebooks, AudioStore audio, CoverStore c
         if (saved.Status != AudioSaveStatus.Saved || saved.StoredName is null || saved.FileName is null)
         {
             return new ImportedFile(label, saved.Status == AudioSaveStatus.TooLarge ? ImportOutcome.TooLarge : ImportOutcome.Unsupported);
+        }
+
+        if (db.ReaderId != 0 && !await storage.FitsAsync(db, db.ReaderId, audio.Size(saved.StoredName), cancellationToken))
+        {
+            audio.Delete(saved.StoredName);
+            return new ImportedFile(label, ImportOutcome.Full);
         }
 
         if (!keepBoth && await Duplicates.FindAudioAsync(db, audio, 0, saved.StoredName, cancellationToken) is { } same)

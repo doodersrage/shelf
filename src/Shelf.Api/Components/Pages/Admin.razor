@@ -8,6 +8,7 @@
 @inject FolderImport ImportFolder
 @inject OffsiteBackup Offsite
 @inject Federation Federation
+@inject Storage Storage
 @inject IConfiguration Configuration
 @inject NavigationManager Navigation
 
@@ -138,6 +139,43 @@ else
     }
     </section>
 
+    <section class="panel" id="storage">
+    <h2>@T("Storage")</h2>
+    @if (storage is null)
+    {
+        <button type="button" @onclick="MeasureStorage" disabled="@measuring">@(measuring ? T("Measuring…") : T("Measure the space files take"))</button>
+    }
+    else
+    {
+        @if (storage.Free is long free && storage.Size is long size)
+        {
+            <p>@T("{0} free of {1} on the disk the files are on.", Bytes(free), Bytes(size))</p>
+        }
+        <div class="table-scroll">
+        <table class="storage">
+            <thead>
+                <tr><th scope="col">@T("Reader")</th><th scope="col">@T("E-books")</th><th scope="col">@T("Audiobooks")</th><th scope="col">@T("Covers")</th><th scope="col">@T("Podcasts")</th><th scope="col">@T("In all")</th><th scope="col">@T("Limit, in MB")</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var use in storage.Readers)
+                {
+                    <tr>
+                        <th scope="row">@use.Name</th>
+                        <td>@Bytes(use.Ebooks)</td>
+                        <td>@Bytes(use.Audio)</td>
+                        <td>@Bytes(use.Covers)</td>
+                        <td>@Bytes(use.Podcasts)</td>
+                        <td class="@(use.LimitMegabytes is int limit && use.Total > Storage.Megabytes(limit) ? "late" : "")">@Bytes(use.Total)</td>
+                        <td><input type="number" min="0" step="100" value="@use.LimitMegabytes" @onchange="change => SetLimit(use.ReaderId, change)" aria-label="@T("Storage limit for {0}, in megabytes", use.Name)" placeholder="@T("None")" /></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+        <p class="hint">@T("Shared by the shelf, not any one reader (Kobo copies, uploads waiting on a choice): {0}.", Bytes(storage.Shared)) @T("A reader past their limit can still read and listen; new files are refused until there is room.")</p>
+    }
+    </section>
+
     <section class="panel" id="links">
     <h2>@T("Linked shelves")</h2>
     <p class="hint">@T("Link this shelf to a friend's Shelf, and the readers of each can see the other's open shelves and borrow from them. A book lent across goes as a copy while it is out. Make a code here and send it to the other shelf's admin, or enter the code they sent you.")</p>
@@ -220,6 +258,43 @@ else
         activity = allowed ? await Audit.RecentAsync(db, take: 100) : [];
         links = allowed ? await Federation.ListAsync(db) : [];
     }
+
+    private StorageReport? storage;
+    private bool measuring;
+
+    private async Task MeasureStorage()
+    {
+        measuring = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            if (await StillAdminAsync(db))
+            {
+                storage = await Storage.ReportAsync(db);
+            }
+        }
+        finally
+        {
+            measuring = false;
+        }
+    }
+
+    private async Task SetLimit(int readerId, ChangeEventArgs change)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await StillAdminAsync(db))
+        {
+            await Storage.SetLimitAsync(db, readerId, int.TryParse(change.Value?.ToString(), out var megabytes) ? megabytes : null);
+            storage = await Storage.ReportAsync(db);
+        }
+    }
+
+    private static string Bytes(long bytes) => bytes switch
+    {
+        >= 1024L * 1024 * 1024 => T("{0} GB", (bytes / (1024.0 * 1024 * 1024)).ToString("0.0", System.Globalization.CultureInfo.CurrentCulture)),
+        >= 1024 * 1024 => T("{0} MB", (bytes / (1024.0 * 1024)).ToString("0", System.Globalization.CultureInfo.CurrentCulture)),
+        _ => T("{0} KB", (bytes / 1024.0).ToString("0", System.Globalization.CultureInfo.CurrentCulture)),
+    };
 
     private ShelfLinkSummary[] links = [];
     private string? linkCode;

@@ -87,6 +87,10 @@ docker exec shelf dotnet Shelf.Api.dll --make-admin "Their Name"
 dotnet run --project src/Shelf.Api -- --reset-password "Their Name"
 ```
 
+## Storage
+
+**Admin**, **Storage**, measures the space each reader's files take on the disk: e-books, audiobooks, covers, and podcast episodes, and what the shelf keeps for itself (Kobo copies, uploads waiting on a choice), with the disk's free space. An admin can give any reader a limit in megabytes. A file that would take a reader past it is refused, with a note saying why (uploads, imports, and podcast downloads alike); what they have already stays, to read and listen to.
+
 ## Linked shelves
 
 A shelf linked to another (see [Linked shelves](lending.md#linked-shelves)) answers that shelf's calls under `/federation`, each carrying the secret this shelf gave it, of which it keeps only a hash. Those calls see open shelves' titles, take asks to borrow, and fetch the files of books lent to that shelf's readers, while they are lent; nothing else. The one-time link code is good for a day. Unlinking stops the calls at once.

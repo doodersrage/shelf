@@ -654,6 +654,9 @@ else if (visible.Count > 0)
     [SupplyParameterFromQuery(Name = "kindle")]
     public int? Kindle { get; set; }
 
+    [SupplyParameterFromQuery(Name = "full")]
+    public int? Full { get; set; }
+
     // "Added: 3 books. Went on books you had: 1 file."
     private string? ImportSummary
     {
@@ -683,6 +686,11 @@ else if (visible.Count > 0)
             if (Kindle is > 0)
             {
                 parts.Add(T("Kindle files that could not be turned into EPUB: {0}. That needs Calibre on the server, and a file locked with DRM cannot be converted.", Localization.Counts.Files(Kindle.Value)));
+            }
+
+            if (Full is > 0)
+            {
+                parts.Add(T("Past your storage limit: {0}. Ask an admin for more room, or remove files you no longer need.", Localization.Counts.Files(Full.Value)));
             }
 
             return string.Join(" ", parts);
