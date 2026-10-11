@@ -40,6 +40,7 @@ public sealed class ShelfDb : DbContext
     public DbSet<SavedSearch> SavedSearches => Set<SavedSearch>();
     public DbSet<ApiToken> ApiTokens => Set<ApiToken>();
     public DbSet<SeriesAlert> SeriesAlerts => Set<SeriesAlert>();
+    public DbSet<ListeningDay> ListeningDays => Set<ListeningDay>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -113,6 +114,15 @@ public sealed class ShelfDb : DbContext
             saved.HasIndex(s => s.ShareToken).IsUnique();
             saved.HasOne<Reader>().WithMany().HasForeignKey(s => s.OwnerId).OnDelete(DeleteBehavior.Cascade);
             saved.HasQueryFilter(s => s.OwnerId == ReaderId);
+        });
+
+        // A listener's own time, on their own books and on books lent to them alike.
+        modelBuilder.Entity<ListeningDay>(day =>
+        {
+            day.HasIndex(item => new { item.ReaderId, item.BookId, item.Day }).IsUnique();
+            day.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
+            day.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+            day.HasQueryFilter(item => item.ReaderId == ReaderId);
         });
 
         modelBuilder.Entity<SeriesAlert>(alert =>

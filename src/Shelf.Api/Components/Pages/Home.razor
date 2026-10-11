@@ -85,7 +85,12 @@
                     <div>
                         <p class="title"><a href="/library/@open.Id">@open.Title</a></p>
                         <p class="by">@open.Author</p>
-                        @if (open.Pages is int pages)
+                        @if ((open.Format == BookFormat.Audiobook || open.Pages is null) && Listened(open) is var (heard, length))
+                        {
+                            <progress max="@((int)length)" value="@((int)heard)" aria-label="@T("{0} left", Span(length - heard))"></progress>
+                            <p class="hint">@T("{0} left", Span(length - heard))</p>
+                        }
+                        else if (open.Pages is int pages)
                         {
                             <progress max="@pages" value="@(open.CurrentPage ?? 0)" aria-label="@T("Page {0} of {1}", open.CurrentPage ?? 0, pages)"></progress>
                             <p class="hint">@T("{0} of {1} pages", open.CurrentPage ?? 0, pages)</p>
@@ -817,6 +822,32 @@ else if (visible.Count > 0)
     private int ReadingCount => books.Count(book => book.Status == BookStatus.Reading);
 
     private int QueuedCount => books.Count(book => book.Status == BookStatus.Want && book.Queued);
+
+    // How far into its recording a book is, and how long the recording runs, when every track's length is known.
+    private (double Heard, double Length)? Listened(Book book)
+    {
+        if (string.IsNullOrWhiteSpace(book.AudioStoredName))
+        {
+            return null;
+        }
+
+        var lengths = Audio.Lengths(book.AudioStoredName);
+        if (lengths.Count == 0 || lengths.Any(length => length is null))
+        {
+            return null;
+        }
+
+        var track = Math.Clamp(book.AudioTrack ?? 0, 0, lengths.Count - 1);
+        var heard = lengths.Take(track).Sum(length => length!.Value) + (book.AudioSeconds ?? 0);
+        var total = lengths.Sum(length => length!.Value);
+        return total > 0 ? (Math.Min(heard, total), total) : null;
+    }
+
+    private static string Span(double seconds)
+    {
+        var minutes = (int)Math.Round(Math.Max(0, seconds) / 60);
+        return minutes >= 60 ? T("{0} h {1} min", minutes / 60, minutes % 60) : T("{0} min", minutes);
+    }
 
     private List<Book> ReadingNow => books.Where(book => book.Status == BookStatus.Reading)
         .OrderByDescending(book => book.StartedOn)

@@ -34,7 +34,15 @@ If the files carry cover art (an `.m4b`'s cover, or an MP3's front-cover picture
 
 Leave the player and the book plays on in a bar at the foot of every page, with its cover, chapter, play and pause, skips, and the time left in the chapter; its title opens the full player again, and **×** closes it. After a reload it waits there, paused where you stopped. **Play while you browse** on a book's page, and the play button on a book being read in the library, start a book there without leaving the page.
 
-A borrower listening to a book lent to them has their own place and bookmarks.
+### When the book ends
+
+Playing to the end of the recording marks the book **Finished**, with today's date, and starts its place over. A borrower's ending leaves the owner's book as it was.
+
+### Time spent listening
+
+**Stats** shows how long you have listened today, this week, and this year, a bar for each of the last two weeks, and the books you listened to most this year. The time is counted by the clock while a book plays, not by how much of the book went by, so listening at 2× counts the minutes you spent. A day of listening keeps your reading streak going. The library's **Reading now** shows how long is left of an audiobook.
+
+A borrower listening to a book lent to them has their own place, bookmarks, and listening time.
 
 ## Audiobooks and e-books together
 

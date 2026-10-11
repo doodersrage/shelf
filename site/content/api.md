@@ -91,7 +91,9 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | `POST /books/{id}/audio` | Upload an audio file or a zip of tracks, up to 1 GB. `DELETE` removes it. |
 | `GET /books/{id}/audio/tracks/{index}` | One track, with range requests for seeking. |
 | `GET /books/{id}/audio/plan` | What the player needs: the tracks with their lengths in seconds, the chapters (each in a track, from a time), where you stopped, and your speed. |
-| `PUT /books/{id}/audio/place` | `{"track": 2, "seconds": 341.5}` keeps your place in the recording exactly, back or forward. |
+| `PUT /books/{id}/audio/place` | `{"track": 2, "seconds": 341.5}` keeps your place in the recording exactly, back or forward. Add `"listened": 15, "day": "2026-10-10"` to count seconds of listening on that day. |
+| `POST /books/{id}/audio/finished` | The recording played to its end: marks your own book finished. Answers `{"marked": true}` when it did. |
+| `GET /books/listening` | Time spent listening: today, this week, this year, each of the last 14 days, and the five books most listened to this year, in seconds. |
 | `PUT /books/audio/speed` | `{"speed": 125}` keeps your playback speed, in percent from 50 to 300. |
 | `GET /books/{id}/cover` | The cover picture kept on the shelf, or the e-book's own. `POST` a picture as `file` to keep one; `DELETE` removes it. |
 | `POST /books/import/files` | Make books from any number of files, as on the library's **Add from files**. Ask for `application/json` to get what happened to each file. `keepBoth=true` adds files already on another book. |

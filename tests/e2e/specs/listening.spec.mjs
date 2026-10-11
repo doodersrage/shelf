@@ -185,6 +185,17 @@ test("a book of several tracks plays as one recording, from one track into the n
   await expect.poll(async () => (await player(page)).playing).toBe(true);
   await expect(page.locator(".chapter-list .current")).toHaveCount(1);
   await page.locator(".listen [data-player=toggle]").click();
+
+  // The library shows how much is left; playing to the end finishes the book.
+  await page.goto("/");
+  await ready(page);
+  await expect(page.locator(".strip-card", { hasText: "Three Tracks" })).toContainText("min left");
+  await page.goto(`/library/${book.id}/listen`);
+  await ready(page);
+  await page.evaluate(() => window.shelfPlayer.seek(10.5));
+  await page.locator(".listen [data-player=toggle]").click();
+  await expect(page.locator("[data-show=note]")).toHaveText("The end. The book is marked finished.", { timeout: 10_000 });
+  await expect.poll(async () => (await (await page.request.get(`/books/${book.id}`)).json()).status).toBe("Finished");
   noProblems(page);
 });
 

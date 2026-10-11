@@ -32,6 +32,8 @@
   let speedSoon = 0;
   let shownChapter = -1;
   let note = "";
+  // Seconds played since the last save, by the clock, for the reader's listening time.
+  let heard = 0;
 
   const read = (key, fallback) => {
     try {
@@ -171,10 +173,24 @@
       setTrack(track + 1, 0, true);
     } else {
       wantPlay = false;
-      save();
+      // The place first, so marking the book finished (which starts the place over) comes after it.
+      save().finally(finished);
       render();
     }
   });
+
+  // The end of the book: it is marked finished on the shelf, and the player says so.
+  function finished() {
+    const bookId = plan.bookId;
+    fetch(`/books/${bookId}/audio/finished`, { method: "POST", credentials: "same-origin" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((answer) => {
+        if (plan?.bookId !== bookId) return;
+        note = answer?.marked ? "finished" : "ended";
+        render();
+      })
+      .catch(() => {});
+  }
 
   audio.addEventListener("error", () => {
     switching = false;
@@ -189,13 +205,17 @@
   });
 
   function save() {
-    if (!plan || track < 0) return;
+    if (!plan || track < 0) return Promise.resolve();
     lastSaved = performance.now();
     const seconds = pending ? pending.seconds : audio.currentTime || 0;
-    fetch(`/books/${plan.bookId}/audio/place`, {
+    const listened = Math.round(heard);
+    heard -= listened;
+    const today = new Date();
+    const day = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    return fetch(`/books/${plan.bookId}/audio/place`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ track, seconds }),
+      body: JSON.stringify({ track, seconds, listened, day }),
       keepalive: true,
       credentials: "same-origin",
     }).catch(() => {});
@@ -257,6 +277,7 @@
     if (!plan) return;
     const moment = performance.now();
     const playing = !audio.paused && !audio.ended;
+    if (playing) heard += Math.min(5, (moment - lastTick) / 1000);
     if (playing && sleep.mode === "time") {
       sleep.left -= moment - lastTick;
       if (sleep.left <= 0) slept();
