@@ -59,7 +59,7 @@ A saved search or a collection can be shared with anyone, signed in or not: open
 
 ### New books in your series
 
-On **Series**, tick **Tell me when a new book comes out in a series I am reading**. Once a day Shelf asks Open Library about each series you are reading or have finished a book of, sending only the series and author names. A book in the series that is newer than yours and not on your shelf appears under **New in your series**, and the sidebar's **Series** shows how many are waiting. **Want to read** adds it to the want list, numbered after the last one you have; **Dismiss** lets it go. Either way, the same book is never offered twice. **Look now** asks straight away.
+On **Series**, tick **Tell me when a new book comes out in a series I am reading**. Once a day Shelf asks Open Library about each series you are reading or have finished a book of, sending only the series and author names. A book in the series that is newer than yours and not on your shelf appears under **New in your series**, and the sidebar's **Series** shows how many are waiting. **Want to read** adds it to the want list, numbered after the last one you have; **Dismiss** lets it go. Either way, the same book is never offered twice. **Look now** asks straight away. With reminders by email turned on under **Account**, new books found by the daily look come by email too, each book once.
 
 Box sets and collections are left out. Open Library knows the series of many books but not all, so a book it has not filed under the series is missed; the series name on your books should match Open Library's (with or without a leading *The*).
 

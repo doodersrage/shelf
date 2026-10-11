@@ -9,6 +9,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - Collections: lists you make by hand, in the order you choose, for a book club, summer reading, or books to lend. Add a book from its page, reorder and describe a collection on its own page, and share it by link like a saved search.
 - Reading time: the reader counts time spent with a book open while someone is reading it, and **Stats** shows it beside listening time. It keeps the reading streak too.
 - Your year in books: a review of each year, linked from Years and Stats, with the year's books, pages, hours, new authors, busiest month, standouts, favourites, and the words you kept.
+- New books in your series come by email, each once, to readers with series alerts and email reminders turned on.
 
 ## [1.6.0] - 2026-10-11
 

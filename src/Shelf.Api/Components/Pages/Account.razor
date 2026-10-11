@@ -43,7 +43,7 @@
     <input type="checkbox" @bind="emailReminders" disabled="@(string.IsNullOrWhiteSpace(emailAddress))" />
     @T("Email me once a day when a loan is overdue or due soon, or someone asks to borrow")
 </label>
-<p class="hint">@T("Used only for password resets and the reminders you choose.")</p>
+<p class="hint">@T("Used only for password resets and the reminders you choose.") @T("With series alerts on, under Series, new books in your series come by email too.")</p>
 <button type="button" class="primary" @onclick="SaveEmail">@T("Save")</button>
 @if (Email.Enabled)
 {

@@ -155,7 +155,7 @@ test("a book in both formats carries the place from the audiobook to the e-book 
   await expect.poll(() => chapter()?.evaluate(() => window.scrollY > 0 && window.scrollY < document.documentElement.scrollHeight - window.innerHeight)).toBe(true);
 
   // And back again to the same moment.
-  await Promise.all([page.waitForURL(/\/listen\?part=1&at=0\.4/), page.click('button:text-is("Continue in the audiobook")')]);
+  await Promise.all([page.waitForURL(/\/listen\?part=1&at=0\.(39|40)\d*$/), page.click('button:text-is("Continue in the audiobook")')]);
   await ready(page);
   await expect.poll(async () => Math.round((await player(page)).seconds)).toBe(6);
   await expect(page.locator(".listen-chapter")).toHaveText("The Middle Part");

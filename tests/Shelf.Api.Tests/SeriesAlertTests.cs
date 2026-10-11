@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.DependencyInjection;
 using Shelf.Api.Books;
 
 namespace Shelf.Api.Tests;
@@ -50,6 +51,37 @@ public sealed class SeriesAlertTests(ShelfApiFactory factory) : IClassFixture<Sh
         // Another reader sees none of them.
         var other = await factory.SignUpAsync("Seriesless Reader");
         Assert.Empty((await other.GetFromJsonAsync<SeriesAlertResponse[]>("/books/series/alerts", JsonOptions))!);
+    }
+}
+
+public sealed class SeriesAlertMailTests(ShelfApiFactory factory) : IClassFixture<ShelfApiFactory>
+{
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
+
+    [Fact]
+    public async Task New_books_in_a_series_are_mailed_once_to_a_reader_with_reminders()
+    {
+        var reader = await factory.SignUpAsync("Mailed Series Reader");
+        await reader.PutAsJsonAsync("/account/email", new Shelf.Api.Readers.EmailSettingsRequest("series@example.org", true), JsonOptions);
+        await reader.PostAsJsonAsync("/books", new CreateBookRequest("Ancillary Justice", "Ann Leckie", BookStatus.Finished, null, Year: 2013, Series: "Imperial Radch", SeriesNumber: 1), JsonOptions);
+        factory.SeriesCatalog.Books[("Imperial Radch", "Ann Leckie")] = [new("/works/OL9W", "Ancillary Sword", 2014), new("/works/OL8W", "Ancillary Mercy", 2015)];
+
+        var readerId = await factory.ReaderIdAsync("Mailed Series Reader");
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<Shelf.Api.Readers.ShelfReader>().Use(readerId);
+            await SeriesWatch.SetAsync(scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>(), true);
+        }
+
+        var watch = factory.Services.GetRequiredService<SeriesWatch>();
+        await watch.CheckDueAsync(CancellationToken.None);
+        var mail = Assert.Single(factory.Mail.Sent, message => message.To == "series@example.org");
+        Assert.Equal("2 new books in your series", mail.Subject);
+        Assert.Contains("Ancillary Sword (2014), in Imperial Radch", mail.Body);
+
+        // The same books are not mailed again.
+        Assert.False(await watch.MailAsync(readerId, CancellationToken.None));
+        Assert.Single(factory.Mail.Sent, message => message.To == "series@example.org");
     }
 }
 

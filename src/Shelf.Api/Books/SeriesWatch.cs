@@ -22,6 +22,9 @@ public sealed class SeriesAlert
     public required string WorkKey { get; set; }
     public DateTimeOffset FoundAt { get; set; }
     public bool Dismissed { get; set; }
+
+    // Told by email already, for a reader who has reminders by email.
+    public bool Mailed { get; set; }
 }
 
 public sealed record SeriesEntry(string Key, string Title, int? Year);
@@ -80,7 +83,7 @@ public sealed class OpenLibrarySeries(HttpClient http) : ISeriesCatalog
 // Once a day, for each reader who asks for it, every series they have read or are reading is looked up, and a book
 // in it that is newer than theirs and not on their shelf becomes an alert on the Series page. Only the series and
 // author names leave the shelf.
-public sealed partial class SeriesWatch(IServiceScopeFactory scopes, IConfiguration configuration, ILogger<SeriesWatch> logger) : BackgroundService
+public sealed partial class SeriesWatch(IServiceScopeFactory scopes, IConfiguration configuration, IEmailSender email, ILogger<SeriesWatch> logger) : BackgroundService
 {
     public const int MaxSeriesPerCheck = 60;
     private const int NewestWithoutYear = 3;
@@ -127,8 +130,55 @@ public sealed partial class SeriesWatch(IServiceScopeFactory scopes, IConfigurat
 
         foreach (var readerId in due)
         {
-            await CheckAsync(readerId, cancellationToken);
+            if (await CheckAsync(readerId, cancellationToken) is > 0)
+            {
+                await MailAsync(readerId, cancellationToken);
+            }
         }
+    }
+
+    // New books in a reader's series, by email, when they have reminders by email: each book once.
+    public async Task<bool> MailAsync(int readerId, CancellationToken cancellationToken)
+    {
+        if (!email.Enabled)
+        {
+            return false;
+        }
+
+        await using var scope = scopes.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
+        var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+        var reader = await db.Readers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == readerId, cancellationToken);
+        if (reader is not { EmailReminders: true, Email: { } address })
+        {
+            return false;
+        }
+
+        var news = await db.SeriesAlerts.Where(alert => !alert.Dismissed && !alert.Mailed).OrderBy(alert => alert.Series).ThenBy(alert => alert.Year).ToListAsync(cancellationToken);
+        if (news.Count == 0)
+        {
+            return false;
+        }
+
+        EmailMessage message;
+        using (Localization.Words.Speaking(reader.Language))
+        {
+            var site = EmailRules.PublicAddress(configuration, null);
+            var lines = news.Select(alert => alert.Year is int year ? T("{0} ({1}), in {2}", alert.Title, year, alert.Series) : T("{0}, in {1}", alert.Title, alert.Series));
+            var link = site.Length > 0 ? T("See them on Shelf: {0}", $"{site}/series") : T("Open Shelf and go to Series to see them.");
+            var body = T("Hello {0},", reader.Name) + "\n\n" + T("There are new books in series you are reading:") + "\n\n" + string.Join('\n', lines.Select(line => "- " + line))
+                + "\n\n" + link + "\n\n" + T("You can turn these emails off from your account, or series alerts off under Series.");
+            message = new EmailMessage(address, news.Count == 1 ? T("A new book in your series") : T("{0} new books in your series", news.Count), body);
+        }
+
+        await email.SendAsync(message, cancellationToken);
+        foreach (var alert in news)
+        {
+            alert.Mailed = true;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     // Looks now for one reader. Returns how many new books were found, or null when another look is under way.
