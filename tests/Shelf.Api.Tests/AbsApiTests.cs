@@ -83,6 +83,32 @@ public sealed class AbsApiTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
     }
 
     [Fact]
+    public async Task The_apps_reader_and_shelfs_share_the_place_in_an_e_book_to_the_word()
+    {
+        var reader = await factory.SignUpAsync("App Bookworm");
+        var book = (await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("Moby-Dick", "Herman Melville", BookStatus.Reading, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        using (var content = new MultipartFormDataContent { { new StreamContent(File.OpenRead(Path.Combine(Fixtures, "moby.epub"))), "file", "moby.epub" } })
+        {
+            (await reader.PostAsync($"/books/{book.Id}/ebook", content)).EnsureSuccessStatusCode();
+        }
+
+        var app = factory.CreateClient();
+        var login = await (await app.PostAsJsonAsync("/login", new { username = "App Bookworm", password = ShelfApiFactory.Password })).Content.ReadFromJsonAsync<JsonObject>();
+        app.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!["user"]!["accessToken"]!.GetValue<string>());
+
+        // Read in the app: the place comes to Shelf, chapter and all.
+        Assert.Equal(HttpStatusCode.OK, (await app.PatchAsJsonAsync($"/api/me/progress/{book.Id}", new { ebookLocation = "epubcfi(/6/4!/4/2/1:12)", ebookProgress = 0.6 })).StatusCode);
+        var place = await reader.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions);
+        Assert.Equal(("epubcfi(/6/4!/4/2/1:12)", 1, 0.6), (place!.EbookCfi, place.EbookChapter, place.EbookProgress));
+
+        // And from Shelf back to the app.
+        var progress = await app.GetFromJsonAsync<JsonObject>($"/api/me/progress/{book.Id}");
+        Assert.Equal(("epubcfi(/6/4!/4/2/1:12)", 0.6), (progress!["ebookLocation"]!.GetValue<string>(), progress["ebookProgress"]!.GetValue<double>()));
+        Assert.Equal(HttpStatusCode.OK, (await app.PatchAsJsonAsync($"/api/me/progress/{book.Id}", new { ebookLocation = "javascript:alert(1)" })).StatusCode);
+        Assert.Equal("epubcfi(/6/4!/4/2/1:12)", (await reader.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!.EbookCfi);
+    }
+
+    [Fact]
     public async Task A_reader_with_two_step_sign_in_signs_in_with_an_api_token()
     {
         var reader = await factory.SignUpAsync("App Careful");

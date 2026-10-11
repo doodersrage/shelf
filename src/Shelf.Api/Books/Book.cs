@@ -86,6 +86,10 @@ public sealed class Book
     public string? EbookFileName { get; set; }
     public string? EbookStoredName { get; set; }
     public int? EbookChapter { get; set; }
+
+    // The exact place in the e-book, as an EPUB CFI, and how far through the whole book it is, from 0 to 1.
+    public string? EbookCfi { get; set; }
+    public double? EbookProgress { get; set; }
     public string? AudioFileName { get; set; }
     public string? AudioStoredName { get; set; }
     public int? AudioTrack { get; set; }
@@ -599,6 +603,8 @@ public sealed class LoanPlace
     public int BookId { get; set; }
     public int ReaderId { get; set; }
     public int? EbookChapter { get; set; }
+    public string? EbookCfi { get; set; }
+    public double? EbookProgress { get; set; }
     public int? AudioTrack { get; set; }
     public int? AudioSeconds { get; set; }
 }

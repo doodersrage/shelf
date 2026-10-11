@@ -46,13 +46,14 @@ export function voices() {
   });
 }
 
-// source: { chapter: "/books/1/ebook/chapters/3" } for an EPUB, or { page: true } for the PDF page showing.
+// source: { chapter: "/books/1/ebook/chapters/3" } for an EPUB, { text } for words already in hand (the EPUB
+// reader's from the top of the page), or { page: true } for the PDF page showing.
 export async function start(reference, source, options) {
   stop();
   dotnet = reference;
   savePrefs(options.rate, options.voice);
   const mine = run;
-  const text = source.chapter ? await chapterText(source.chapter) : await pageText();
+  const text = typeof source.text === "string" ? source.text : source.chapter ? await chapterText(source.chapter) : await pageText();
   if (mine !== run) {
     return;
   }

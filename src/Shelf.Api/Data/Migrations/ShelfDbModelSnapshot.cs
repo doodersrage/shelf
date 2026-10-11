@@ -216,12 +216,19 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<DateOnly?>("DueOn")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("EbookCfi")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
                     b.Property<int?>("EbookChapter")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("EbookFileName")
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
+
+                    b.Property<double?>("EbookProgress")
+                        .HasColumnType("REAL");
 
                     b.Property<string>("EbookStoredName")
                         .HasMaxLength(48)
@@ -967,8 +974,15 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<int>("BookId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("EbookCfi")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
                     b.Property<int?>("EbookChapter")
                         .HasColumnType("INTEGER");
+
+                    b.Property<double?>("EbookProgress")
+                        .HasColumnType("REAL");
 
                     b.Property<int>("ReaderId")
                         .HasColumnType("INTEGER");

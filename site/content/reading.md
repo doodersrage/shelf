@@ -9,16 +9,22 @@ Any book with an e-book opens in the reader from its page or its card in the lib
 
 ## EPUBs
 
-An EPUB reads chapter by chapter, with **Previous**, **Next**, and a list of its chapters; the line beside them says which chapter of how many you're in. The book's title above is the way back to its page. **Aa Text settings** sets:
+An EPUB opens in a page-turning reader built on [epub.js](https://github.com/futurepress/epub.js), the engine Audiobookshelf's reader uses. The whole book is one view: turn a page by tapping the right or left of it, swiping, pressing the arrow keys, Page Up and Page Down, or the space bar, or with **Previous** and **Next**; the last page of a chapter turns into the next one. The list of chapters jumps to any of them, and the line beside it says where you are: the chapter, the page of it, and how far through the whole book (counted once on each device, then kept there). The book's title above is the way back to its page.
+
+Your place is kept to the word, as an EPUB CFI, every time you turn a page, so the book opens where you stopped on any device, whatever its screen or your text size. Audiobookshelf's phone apps keep their e-book place the same way, and the two share it. A Kobo or KOReader, which keep a chapter only, move you to the start of the chapter they were in when they're further on.
+
+**Aa Text settings** sets:
 
 - **Page**: light, sepia, or dark, or as the device is set;
 - **Typeface**: the book's own, a serif, or a sans serif;
 - **Text size**, from smaller to largest;
 - **Line spacing**: snug, comfortable, or airy;
 - **Reading width**: narrow, medium, or wide;
-- **Layout**: **Scroll**, a chapter as one long page, or **Pages**, a chapter laid out a screen at a time. In pages, tap the right or left of the page, swipe, use the arrow keys or Page Up and Page Down, or turn the mouse wheel to turn; the line under the page says which page of the chapter you're on. Turning past the last page opens the next chapter, and turning back from the first opens the previous one at its end. Selecting a passage and tapping a highlight work as in scroll.
+- **Layout**: **Pages** (where a new reader starts) or **Scroll**, the book as one long page.
 
-Your settings are kept for you, so every book opens the same way. A book's own styles are kept where they don't fight these, and anything active in a book (scripts, forms) is stripped, so an EPUB can never act on your shelf.
+Your settings are kept for you, so every book opens the same way. A book's own styles are kept where they don't fight these. Nothing in a book can run: before a chapter is shown, its scripts, event handlers, `javascript:` links, forms, and embedded frames are taken out, and it carries a policy that refuses any script the cleaning might miss, so an EPUB can never act on your shelf.
+
+**Classic reader**, under the page, opens the chapter-at-a-time reader from before. **Listen along**, which marks each word as the audiobook reads it, uses it, and the page-turning reader comes back when you stop.
 
 ## PDFs
 

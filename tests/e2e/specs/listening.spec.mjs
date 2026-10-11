@@ -146,18 +146,19 @@ test("a book in both formats carries the place from the audiobook to the e-book 
   // Six seconds in, nearly half way through the recording, is about half way through the first chapter's text.
   await Promise.all([page.waitForURL(/\/read\?chapter=0&at=0\.5\d*$/), page.click('button:text-is("Continue in the e-book")')]);
   await ready(page);
-  await expect(page.locator("iframe.reader-frame")).toHaveAttribute("src", /chapters\/0\?t=0&at=0\.5\d*$/);
-  // On a narrow screen the chapter runs long, and opens part way down.
+  await expect(page.locator(".reader-where")).toContainText("Chapter 1 of 2", { timeout: 20_000 });
+  // On a narrow screen the chapter runs to pages, and it opens part way through, not at its first page.
   await page.setViewportSize({ width: 360, height: 640 });
   await page.reload();
   await ready(page);
-  const chapter = () => page.frames().find((frame) => frame.url().includes("/ebook/chapters/0"));
-  await expect.poll(() => chapter()?.evaluate(() => window.scrollY > 0 && window.scrollY < document.documentElement.scrollHeight - window.innerHeight)).toBe(true);
+  await expect(page.locator(".reader-where")).toContainText(/Chapter 1 of 2 · page [2-9]/, { timeout: 20_000 });
 
   // And back again to the same moment.
-  await Promise.all([page.waitForURL(/\/listen\?part=1&at=0\.(39|40)\d*$/), page.click('button:text-is("Continue in the audiobook")')]);
+  await Promise.all([page.waitForURL(/\/listen\?part=1&at=0\.\d+$/), page.click('button:text-is("Continue in the audiobook")')]);
   await ready(page);
-  await expect.poll(async () => Math.round((await player(page)).seconds)).toBe(6);
+  // From the top of the page showing, which on a small screen can begin a little before the word it came to.
+  await expect.poll(async () => Math.round((await player(page)).seconds)).toBeGreaterThanOrEqual(3);
+  expect(Math.round((await player(page)).seconds)).toBeLessThanOrEqual(7);
   await expect(page.locator(".listen-chapter")).toHaveText("The Middle Part");
   noProblems(page);
 });

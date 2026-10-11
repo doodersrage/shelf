@@ -4,6 +4,20 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-11
+
+### Changed
+
+- EPUBs open in a page-turning reader built on epub.js, as Audiobookshelf's is: the whole book in one view, turned by tapping, swiping, or the keys across chapters, with the page and how far through the book alongside. New readers start in pages; the classic chapter-at-a-time reader is a link away, and **Listen along** uses it.
+
+### Added
+
+- The place in an e-book is kept to the word (an EPUB CFI) as you turn pages, so it opens where you stopped on any device and screen. Audiobookshelf's phone apps share it both ways.
+
+### Fixed
+
+- A long chapter no longer reopens at its start: the place within it was only ever kept for the visit.
+
 ## [2.2.0] - 2026-10-11
 
 ### Added
@@ -325,7 +339,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/doodersrage/shelf/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/doodersrage/shelf/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/doodersrage/shelf/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/doodersrage/shelf/compare/v2.0.1...v2.1.0

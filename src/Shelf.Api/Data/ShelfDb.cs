@@ -88,6 +88,7 @@ public class ShelfDb : DbContext
         modelBuilder.Entity<Book>(book =>
         {
             book.Property(b => b.Title).HasMaxLength(200).IsRequired();
+            book.Property(b => b.EbookCfi).HasMaxLength(1000);
             book.Property(b => b.Author).HasMaxLength(200).IsRequired();
             book.Property(b => b.Status).HasConversion<string>().HasMaxLength(16);
             book.Property(b => b.Isbn).HasMaxLength(13);
@@ -597,6 +598,7 @@ public class ShelfDb : DbContext
         // A borrower's place belongs to the book and the borrower; the owner's query filters never see it.
         modelBuilder.Entity<LoanPlace>(place =>
         {
+            place.Property(item => item.EbookCfi).HasMaxLength(1000);
             place.HasOne<Book>()
                 .WithMany()
                 .HasForeignKey(item => item.BookId)

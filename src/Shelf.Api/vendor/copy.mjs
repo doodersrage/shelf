@@ -19,6 +19,9 @@ const files = [
   ["pdfjs-dist/build/pdf.worker.min.mjs", "lib/pdfjs/pdf.worker.min.mjs"],
   ["pdfjs-dist/LICENSE", "lib/pdfjs/LICENSE.txt"],
   ["jszip/dist/jszip.min.js", "lib/jszip/jszip.min.js"],
+  // The EPUB reader's engine, as Audiobookshelf uses: pages turned across the whole book, places as EPUB CFIs.
+  ["epubjs/dist/epub.min.js", "lib/epubjs/epub.min.js"],
+  ["epubjs/license", "lib/epubjs/LICENSE.txt"],
   ["jszip/LICENSE.markdown", "lib/jszip/LICENSE.md"],
   // Barcode reading where the browser has none of its own: ZXing compiled to WebAssembly, served from here.
   ["barcode-detector/dist/iife/ponyfill.js", "lib/barcode/barcode-detector.js"],

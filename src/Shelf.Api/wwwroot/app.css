@@ -4175,3 +4175,35 @@ blockquote mark {
     break-inside: avoid;
     padding: 2px 0;
 }
+
+/* The page-turning reader: one view of the whole book, as tall as the window allows. */
+.shelf-epub {
+    position: relative;
+    height: calc(100vh - 16rem);
+    height: calc(100dvh - 16rem);
+    min-height: 22rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-card);
+    background: var(--color-surface);
+    overflow: hidden;
+}
+
+.epub-column {
+    height: 100%;
+}
+
+.shelf-epub[data-theme="sepia"] {
+    border-color: #e2d6bb;
+}
+
+.shelf-epub[data-theme="dark"] {
+    border-color: #2f3a34;
+}
+
+@media (max-width: 40rem) {
+    .shelf-epub {
+        height: calc(100dvh - 15rem);
+        margin: 0 calc(-1 * var(--space-2));
+        border-radius: var(--radius-control);
+    }
+}

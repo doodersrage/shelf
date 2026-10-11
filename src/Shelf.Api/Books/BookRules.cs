@@ -444,7 +444,8 @@ public static class BookRules
             setting?.ReaderTextSize ?? ReaderType.DefaultSize,
             setting?.ReaderLineHeight ?? ReaderType.DefaultLeading,
             setting?.ReaderWidth ?? ReaderType.DefaultWidth,
-            setting?.ReaderPaged ?? false,
+            // Pages unless the reader chose otherwise: a reader who has never set the type turns pages.
+            setting?.ReaderTextSize is null ? true : setting.ReaderPaged,
             setting?.ReaderTheme,
             setting?.ReaderFont).Clamped();
     }

@@ -774,6 +774,20 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
     private async Task<IResult> PatchProgress(int id, JsonObject body, HttpContext http, ShelfDb db, CancellationToken cancellationToken)
     {
         var finished = body["isFinished"] is JsonValue value && value.TryGetValue<bool>(out var done) && done;
+
+        // A place in the e-book from the apps' reader: kept to the word, as Shelf's reader keeps it.
+        if (body["ebookLocation"]?.ToString() is { Length: > 0 and <= 1000 } location && location.StartsWith("epubcfi(", StringComparison.Ordinal)
+            && await Lending.OpenAsync(db, id, cancellationToken) is { } open)
+        {
+            var share = body["ebookProgress"] is JsonValue given && given.TryGetValue<double>(out var part) ? Math.Clamp(part, 0, 1) : (double?)null;
+            await Lending.KeepPlaceAsync(db, open, place =>
+            {
+                place.EbookCfi = location;
+                place.EbookChapter = AbsClient.SpineIndex(location) ?? place.EbookChapter;
+                place.EbookProgress = share ?? place.EbookProgress;
+            }, cancellationToken);
+        }
+
         if (body.ContainsKey("currentTime") || finished)
         {
             if (!await KeepAsync(db, id, Number(body["currentTime"]), 0, finished, cancellationToken))

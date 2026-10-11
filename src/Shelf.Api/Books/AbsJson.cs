@@ -290,14 +290,16 @@ public static class AbsJson
     // Where a reader is in a book, as Audiobookshelf counts it: seconds from the start, and how much is heard.
     public static JsonObject? Progress(Book book, Recording? recording, int readerId, bool finished, DateTimeOffset? updated)
     {
-        if (recording is null && !finished)
+        // The place in the e-book, to the word, as the apps' own reader keeps it: the owner's, on the book.
+        var (ebookCfi, ebookProgress) = book.OwnerId == readerId ? (book.EbookCfi, book.EbookProgress) : (null, null);
+        if (recording is null && !finished && ebookCfi is null)
         {
             return null;
         }
 
         var duration = recording?.Duration ?? 0;
         var current = finished ? duration : recording?.CurrentTime ?? 0;
-        if (current <= 0 && !finished)
+        if (current <= 0 && !finished && ebookCfi is null)
         {
             return null;
         }
@@ -312,12 +314,12 @@ public static class AbsJson
             ["mediaItemId"] = $"media-{book.Id}",
             ["mediaItemType"] = "book",
             ["duration"] = duration,
-            ["progress"] = duration > 0 ? Math.Min(1, current / duration) : finished ? 1 : 0,
+            ["progress"] = duration > 0 ? Math.Min(1, current / duration) : finished ? 1 : ebookProgress ?? 0,
             ["currentTime"] = current,
             ["isFinished"] = finished,
             ["hideFromContinueListening"] = false,
-            ["ebookLocation"] = null,
-            ["ebookProgress"] = null,
+            ["ebookLocation"] = ebookCfi,
+            ["ebookProgress"] = ebookProgress,
             ["lastUpdate"] = when,
             ["startedAt"] = when,
             ["finishedAt"] = finished && book.FinishedOn is DateOnly day ? Ms(new DateTimeOffset(day.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)) : null,

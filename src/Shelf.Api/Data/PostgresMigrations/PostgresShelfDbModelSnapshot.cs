@@ -229,12 +229,19 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Property<DateOnly?>("DueOn")
                         .HasColumnType("date");
 
+                    b.Property<string>("EbookCfi")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<int?>("EbookChapter")
                         .HasColumnType("integer");
 
                     b.Property<string>("EbookFileName")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<double?>("EbookProgress")
+                        .HasColumnType("double precision");
 
                     b.Property<string>("EbookStoredName")
                         .HasMaxLength(48)
@@ -1008,8 +1015,15 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Property<int>("BookId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("EbookCfi")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<int?>("EbookChapter")
                         .HasColumnType("integer");
+
+                    b.Property<double?>("EbookProgress")
+                        .HasColumnType("double precision");
 
                     b.Property<int>("ReaderId")
                         .HasColumnType("integer");

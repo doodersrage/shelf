@@ -20,7 +20,7 @@ public sealed record OpenBook(Book Book, bool Borrowed);
 
 public sealed record PlaceRequest(int? EbookChapter);
 
-public sealed record PlaceResponse(int? EbookChapter, int? AudioTrack, int? AudioSeconds);
+public sealed record PlaceResponse(int? EbookChapter, int? AudioTrack, int? AudioSeconds, string? EbookCfi = null, double? EbookProgress = null);
 
 public static class Lending
 {
@@ -186,6 +186,8 @@ public static class Lending
             {
                 BookId = open.Book.Id,
                 EbookChapter = open.Book.EbookChapter,
+                EbookCfi = open.Book.EbookCfi,
+                EbookProgress = open.Book.EbookProgress,
                 AudioTrack = open.Book.AudioTrack,
                 AudioSeconds = open.Book.AudioSeconds,
             };
@@ -211,9 +213,10 @@ public static class Lending
                 return;
             }
 
-            var place = new LoanPlace { EbookChapter = book.EbookChapter, AudioTrack = book.AudioTrack, AudioSeconds = book.AudioSeconds };
-            move(place);
+            var place = new LoanPlace { EbookChapter = book.EbookChapter, EbookCfi = book.EbookCfi, EbookProgress = book.EbookProgress, AudioTrack = book.AudioTrack, AudioSeconds = book.AudioSeconds };
+            Move(place, move);
             book.EbookChapter = place.EbookChapter;
+            (book.EbookCfi, book.EbookProgress) = (place.EbookCfi, place.EbookProgress);
             book.AudioTrack = place.AudioTrack;
             book.AudioSeconds = place.AudioSeconds;
             await db.SaveChangesAsync(cancellationToken);
@@ -233,8 +236,20 @@ public static class Lending
             db.LoanPlaces.Add(kept);
         }
 
-        move(kept);
+        Move(kept, move);
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    // A move that changes the chapter alone (a Kobo, KOReader, or offline reading, which know chapters only) leaves
+    // the exact place behind, so it cannot send the reader back.
+    private static void Move(LoanPlace place, Action<LoanPlace> move)
+    {
+        var (chapter, cfi) = (place.EbookChapter, place.EbookCfi);
+        move(place);
+        if (place.EbookChapter != chapter && place.EbookCfi == cfi)
+        {
+            (place.EbookCfi, place.EbookProgress) = (null, null);
+        }
     }
 
     // Where this reader stopped: the book's own place for the owner, their own for a borrower.
@@ -246,7 +261,7 @@ public static class Lending
         }
 
         var place = await PlaceAsync(db, open, cancellationToken);
-        return TypedResults.Ok(new PlaceResponse(place.EbookChapter, place.AudioTrack, place.AudioSeconds));
+        return TypedResults.Ok(new PlaceResponse(place.EbookChapter, place.AudioTrack, place.AudioSeconds, place.EbookCfi, place.EbookProgress));
     }
 
     // A place read elsewhere, offline say, moves this reader's place only forward, as sync does.

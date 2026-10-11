@@ -170,7 +170,14 @@ else if (book is not null)
         else
         {
             <div class="reader-nav">
-                <button type="button" @onclick="Previous" disabled="@(chapter == 0)">@T("Previous")</button>
+                @if (UseEngine)
+                {
+                    <button type="button" @onclick="() => TurnPage(-1)" aria-label="@T("Previous page")">‹ @T("Previous")</button>
+                }
+                else
+                {
+                    <button type="button" @onclick="Previous" disabled="@(chapter == 0)">@T("Previous")</button>
+                }
                 <label>
                     @T("Chapter")
                     <select @bind="chapter" @bind:after="RememberChapter">
@@ -180,8 +187,15 @@ else if (book is not null)
                         }
                     </select>
                 </label>
-                <button type="button" @onclick="Next" disabled="@(chapter >= chapters.Count - 1)">@T("Next")</button>
-                <span class="hint reader-where" aria-live="polite">@T("Chapter {0} of {1}", chapter + 1, chapters.Count)</span>
+                @if (UseEngine)
+                {
+                    <button type="button" @onclick="() => TurnPage(1)" aria-label="@T("Next page")">@T("Next") ›</button>
+                }
+                else
+                {
+                    <button type="button" @onclick="Next" disabled="@(chapter >= chapters.Count - 1)">@T("Next")</button>
+                }
+                <span class="hint reader-where" aria-live="polite">@Where</span>
                 @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
                 {
                     <button type="button" class="quiet" @onclick="ContinueInAudio">@T("Continue in the audiobook")</button>
@@ -202,10 +216,30 @@ else if (book is not null)
             }
             @ReadAloud
             @Passage
-            <iframe @key="@($"{chapter}:{markRevision}:{typeRevision}")" class="reader-frame@(type.Paged ? " paged" : "")" title="@chapters[chapter].Title" src="@FrameSrc" data-paged="@(type.Paged ? "true" : "false")"></iframe>
-            @if (type.Paged && pages > 0)
+            @if (UseEngine)
             {
-                <p class="hint reader-pages" aria-live="polite">@T("Page {0} of {1} in this chapter", page, pages) · @T("Tap the sides, swipe, or use the arrow keys to turn.")</p>
+                @* The whole book in one view, a page at a time or scrolled; epub.js draws it and epub-reader.js drives it. *@
+                <div class="shelf-epub@(type.Paged ? " paged" : "")" @ref="epubHost" role="region" aria-label="@book.Title" data-theme="@(type.Theme.Length > 0 ? type.Theme : null)"></div>
+                @if (engineFailed)
+                {
+                    <p class="validation-message" role="alert">@T("This EPUB could not be opened in the reader.") <a href="/library/@book.Id/read?classic=1">@T("Open it in the classic reader")</a></p>
+                }
+                <p class="hint reader-pages">
+                    @(type.Paged ? T("Tap the sides, swipe, or use the arrow keys to turn.") : T("Scroll to read; the arrow keys go on a screen at a time."))
+                    · <a href="/library/@book.Id/read?classic=1">@T("Classic reader")</a>
+                </p>
+            }
+            else
+            {
+                <iframe @key="@($"{chapter}:{markRevision}:{typeRevision}")" class="reader-frame@(type.Paged ? " paged" : "")" title="@chapters[chapter].Title" src="@FrameSrc" data-paged="@(type.Paged ? "true" : "false")"></iframe>
+                @if (type.Paged && pages > 0)
+                {
+                    <p class="hint reader-pages" aria-live="polite">@T("Page {0} of {1} in this chapter", page, pages) · @T("Tap the sides, swipe, or use the arrow keys to turn.")</p>
+                }
+                @if (Classic == "1")
+                {
+                    <p class="hint"><a href="/library/@book.Id/read">@T("Back to the page-turning reader")</a></p>
+                }
             }
             @MarkList(T("In this chapter"))
         }
@@ -340,6 +374,122 @@ else if (book is not null)
     [SupplyParameterFromQuery(Name = "chapter")]
     public int? ChapterQuery { get; set; }
 
+    // ?classic=1 opens the chapter-at-a-time reader, as Listen along does too.
+    [SupplyParameterFromQuery(Name = "classic")]
+    public string? Classic { get; set; }
+
+    // The page-turning reader, on epub.js: the whole book in one view, the place kept to the word as an EPUB CFI.
+    private bool UseEngine => chapters is { Count: > 0 } && Classic != "1" && !alongOn && book is not null && EbookStore.IsEpub(book.EbookStoredName);
+    private ElementReference epubHost;
+    private IJSObjectReference? epub;
+    private bool engineOpen;
+    private bool engineFailed;
+    private string? savedCfi;
+    private double? bookShare;
+    private int? selectedChapter;
+
+    private object MarkData => marks.Select(mark => new { id = mark.Id, chapter = mark.ChapterIndex, text = mark.Text, prefix = mark.Prefix, suffix = mark.Suffix }).ToList();
+
+    private string Where
+    {
+        get
+        {
+            var where = T("Chapter {0} of {1}", chapter + 1, chapters?.Count ?? 0);
+            if (UseEngine && type.Paged && pages > 1)
+            {
+                where += " · " + T("page {0} of {1}", page, pages);
+            }
+
+            if (UseEngine && bookShare is double share)
+            {
+                where += " · " + T("{0}% of the book", (int)Math.Round(share * 100));
+            }
+
+            return where;
+        }
+    }
+
+    private async Task OpenEngineAsync()
+    {
+        if (book is null || chapters is null)
+        {
+            return;
+        }
+
+        self ??= DotNetObjectReference.Create(this);
+        engineOpen = true;
+        try
+        {
+            epub ??= await Js.InvokeAsync<IJSObjectReference>("import", "./epub-reader.js");
+            await epub.InvokeVoidAsync("open", epubHost, new
+            {
+                url = $"/books/{book.Id}/ebook/file",
+                key = $"{book.Id}-{book.EbookStoredName}",
+                cfi = savedCfi,
+                chapter,
+                at = chapterAt,
+                flow = type.Paged ? "paginated" : "scrolled",
+                theme = type.Theme,
+                font = type.Font,
+                size = type.Size,
+                leading = type.Leading,
+                width = type.Width,
+                hrefs = chapters.Select(item => item.Href).ToList(),
+                titles = chapters.Select(item => item.Title).ToList(),
+                title = book.Title,
+                marks = MarkData,
+            }, self);
+        }
+        catch (JSException)
+        {
+            engineFailed = true;
+            StateHasChanged();
+        }
+    }
+
+    // Where the reader is now: kept on the server as it changes, so any device opens there.
+    [JSInvokable]
+    public Task Relocated(string cfi, int index, double at, double share, int shown, int count) => InvokeAsync(async () =>
+    {
+        (chapter, chapterAt, page, pages, savedCfi) = (Math.Clamp(index, 0, Math.Max(0, (chapters?.Count ?? 1) - 1)), Math.Clamp(at, 0, 1), shown, count, cfi);
+        if (share >= 0)
+        {
+            bookShare = Math.Clamp(share, 0, 1);
+        }
+
+        if (open is not null)
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var kept = chapter;
+            await Lending.KeepPlaceAsync(db, open, place =>
+            {
+                place.EbookChapter = kept;
+                place.EbookCfi = cfi.Length <= 1000 ? cfi : null;
+                if (share >= 0)
+                {
+                    place.EbookProgress = Math.Clamp(share, 0, 1);
+                }
+            });
+        }
+
+        StateHasChanged();
+    });
+
+    [JSInvokable]
+    public void SelectedIn(string text, string prefix, string suffix, int section)
+    {
+        Selected(text, prefix, suffix);
+        selectedChapter = section;
+    }
+
+    private async Task TurnPage(int step)
+    {
+        if (epub is not null)
+        {
+            await epub.InvokeVoidAsync(step > 0 ? "next" : "prev");
+        }
+    }
+
     // How far down the chapter to open it, from 0 to 1: the way in from the audiobook.
     [SupplyParameterFromQuery(Name = "at")]
     public double? AtQuery { get; set; }
@@ -364,7 +514,11 @@ else if (book is not null)
         {
             var saved = await BookRules.GetReaderTypeAsync(db);
             type = new TypeForm { Size = saved.Size, Leading = saved.Leading, Width = saved.Width, Paged = saved.Paged, Theme = saved.Theme ?? "", Font = saved.Font ?? "" };
-            pdfIndex = Math.Max(0, ChapterQuery ?? (await Lending.PlaceAsync(db, open)).EbookChapter ?? 0);
+            var kept = await Lending.PlaceAsync(db, open);
+            pdfIndex = Math.Max(0, ChapterQuery ?? kept.EbookChapter ?? 0);
+            // A link to a chapter (from search, the audiobook, a recap) wins over the place kept.
+            savedCfi = ChapterQuery is null ? kept.EbookCfi : null;
+            bookShare = kept.EbookProgress;
             marks = await Lending.Marks(db, open).AsNoTracking()
                 .OrderBy(item => item.Id)
                 .ToListAsync();
@@ -467,6 +621,18 @@ else if (book is not null)
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (UseEngine && !engineOpen)
+        {
+            await OpenEngineAsync();
+        }
+        else if (!UseEngine && engineOpen && epub is not null)
+        {
+            // Listening along goes to the chapter reader; coming back, the engine opens where it left off.
+            engineOpen = false;
+            savedCfi = null;
+            await epub.InvokeVoidAsync("close");
+        }
+
         if (pdf is null && !pdfFailed && book is not null && EbookStore.IsPdf(book.EbookStoredName))
         {
             self ??= DotNetObjectReference.Create(this);
@@ -521,6 +687,8 @@ else if (book is not null)
     }
 
     public sealed record SpeechPrefs(double Rate, string Voice);
+
+    public sealed record EngineText(int Chapter, string Text);
 
     [JSInvokable]
     public void Selected(string text, string prefix, string suffix)
@@ -645,7 +813,24 @@ else if (book is not null)
         }
 
         speechState = "speaking";
-        await speech.InvokeVoidAsync("start", self, SpeechSource(), new { rate = double.Parse(speechRate, System.Globalization.CultureInfo.InvariantCulture), voice = speechVoice });
+        // In the page-turning reader, from the top of the page showing.
+        object source = SpeechSource();
+        if (UseEngine && epub is not null)
+        {
+            try
+            {
+                if (await epub.InvokeAsync<EngineText?>("textFromHere") is { } here)
+                {
+                    source = new { text = here.Text };
+                }
+            }
+            catch (JSException)
+            {
+                // The chapter from its start, then.
+            }
+        }
+
+        await speech.InvokeVoidAsync("start", self, source, new { rate = double.Parse(speechRate, System.Globalization.CultureInfo.InvariantCulture), voice = speechVoice });
     }
 
     private async Task PauseReading()
@@ -795,6 +980,12 @@ else if (book is not null)
             return;
         }
 
+        if (UseEngine && epub is not null && engineOpen)
+        {
+            await epub.InvokeVoidAsync("goTo", chapter);
+            return;
+        }
+
         await using var db = await DbFactory.CreateDbContextAsync();
         await Lending.KeepPlaceAsync(db, open, place => place.EbookChapter = chapter);
 
@@ -909,6 +1100,12 @@ else if (book is not null)
 
     private void ClearSelection()
     {
+        selectedChapter = null;
+        if (epub is not null && engineOpen)
+        {
+            _ = epub.InvokeVoidAsync("clearSelection").AsTask();
+        }
+
         meaning = null;
         lookUpNote = null;
         selectedText = "";
@@ -947,7 +1144,8 @@ else if (book is not null)
         }
         else
         {
-            var request = new CreateHighlightRequest(selectedText, Here, selectedNote, selectedPrefix, selectedSuffix);
+            var markChapter = IsPdf ? pdfIndex : selectedChapter ?? chapter;
+            var request = new CreateHighlightRequest(selectedText, markChapter, selectedNote, selectedPrefix, selectedSuffix);
             var problems = BookRules.ValidateHighlight(request);
             if (problems is not null)
             {
@@ -958,7 +1156,7 @@ else if (book is not null)
             db.Highlights.Add(Lending.NewMark(
                 db,
                 open,
-                Here,
+                markChapter,
                 selectedText.Trim(),
                 string.IsNullOrWhiteSpace(selectedNote) ? null : selectedNote.Trim(),
                 selectedPrefix.Length <= 80 ? NullIfEmpty(selectedPrefix) : selectedPrefix[^80..],
@@ -1009,6 +1207,11 @@ else if (book is not null)
         marks = await Lending.Marks(db, open).AsNoTracking()
             .OrderBy(item => item.Id)
             .ToListAsync();
+        if (epub is not null && engineOpen)
+        {
+            await epub.InvokeVoidAsync("setMarks", MarkData);
+        }
+
         if (pdf is not null)
         {
             await pdf.InvokeVoidAsync("marks", PdfMarks());
@@ -1023,6 +1226,18 @@ else if (book is not null)
 
     public async ValueTask DisposeAsync()
     {
+        if (epub is not null)
+        {
+            try
+            {
+                await epub.InvokeVoidAsync("close");
+                await epub.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+
         if (along is not null)
         {
             try
@@ -1093,6 +1308,10 @@ else if (book is not null)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         await BookRules.SetReaderTypeAsync(db, new ReaderType(type.Size, type.Leading, type.Width, type.Paged, type.Theme.Length > 0 ? type.Theme : null, type.Font.Length > 0 ? type.Font : null));
+        if (epub is not null && engineOpen)
+        {
+            await epub.InvokeVoidAsync("setStyle", new { flow = type.Paged ? "paginated" : "scrolled", theme = type.Theme, font = type.Font, size = type.Size, leading = type.Leading, width = type.Width });
+        }
         pages = 0;
         frameAt = chapterAt;
         typeRevision++;

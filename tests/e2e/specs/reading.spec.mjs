@@ -1,6 +1,9 @@
 import { test, expect } from "@playwright/test";
 import { createBook, noProblems, ready, signUp, unique, upload } from "../helpers.mjs";
 
+// The page-turning reader draws each part of the book in a frame of its own, inside .shelf-epub.
+const bookFrame = (page) => page.frameLocator(".shelf-epub iframe").first();
+
 test("an EPUB takes text settings and keeps a highlight with a note", async ({ browser }) => {
   const page = await signUp(browser, unique("Ishmael"));
   const book = await createBook(page, { title: "Moby-Dick", author: "Herman Melville", status: "Reading" });
@@ -9,24 +12,19 @@ test("an EPUB takes text settings and keeps a highlight with a note", async ({ b
   await page.goto(`/library/${book.id}/read`);
   await ready(page);
   await expect(page.locator(".focus-bar")).toBeVisible();
+  await expect(bookFrame(page).locator("p").first()).toContainText("Call me Ishmael", { timeout: 20_000 });
   await page.click('summary:text("Text settings")');
   await page.selectOption('select:has(option:text("Largest"))', "130");
-  const chapter = page.frameLocator("iframe.reader-frame");
-  await expect(chapter.locator("p").first()).toContainText("Call me Ishmael");
-  // Changing the size reloads the chapter, so ask whichever frame is current, and ask again if it is closing.
-  const chapterFrame = () => page.frames().find((frame) => frame.url().includes("/ebook/chapters/0") && !frame.isDetached());
   await expect.poll(async () => {
     try {
-      // A number, since Firefox rounds to 1/60 of a pixel (20.8125px) where Chromium says 20.8px.
-      return parseFloat(await chapterFrame()?.evaluate(() => getComputedStyle(document.documentElement).fontSize));
+      // A number, since Firefox rounds to 1/60 of a pixel where Chromium does not.
+      return parseFloat(await bookFrame(page).locator("p").first().evaluate((paragraph) => getComputedStyle(paragraph).fontSize));
     } catch {
       return null;
     }
   }).toBeCloseTo(20.8, 1);
 
-  const frame = chapterFrame();
-  await frame.evaluate(() => {
-    const paragraph = [...document.querySelectorAll("p")].find((item) => item.textContent.includes("drizzly November"));
+  await bookFrame(page).locator("p", { hasText: "drizzly November" }).evaluate((paragraph) => {
     const text = paragraph.firstChild;
     const start = text.data.indexOf("a damp, drizzly November");
     const range = document.createRange();
@@ -39,9 +37,28 @@ test("an EPUB takes text settings and keeps a highlight with a note", async ({ b
   await expect(page.locator("blockquote.passage")).toHaveText("a damp, drizzly November in my soul");
   await page.fill(".reader textarea", "The best reason to go to sea.");
   await page.click('button:text-is("Highlight")');
-  await expect(page.frameLocator("iframe.reader-frame").locator("mark.shelf-mark")).toHaveText("a damp, drizzly November in my soul");
+  await expect(page.locator(".shelf-epub .shelf-mark")).toHaveCount(1);
   await expect(page.locator("h2:text('In this chapter') + ul")).toContainText("The best reason to go to sea.");
+  const marks = await (await page.request.get(`/books/${book.id}/highlights`)).json();
+  expect(marks.map((mark) => [mark.text, mark.chapterIndex, mark.prefix])).toEqual([["a damp, drizzly November in my soul", 0, expect.stringContaining("whenever it is")]]);
   noProblems(page);
+});
+
+test("nothing in an EPUB can run, whatever it tries", async ({ browser }) => {
+  const page = await signUp(browser, unique("Careful"));
+  const book = await createBook(page, { title: "A Book With Tricks", author: "Nobody", status: "Reading" });
+  await upload(page, book.id, "ebook", "scripted.epub", "application/epub+zip");
+
+  await page.goto(`/library/${book.id}/read`);
+  await ready(page);
+  const frame = bookFrame(page);
+  await expect(frame.locator("h1")).toHaveText("A Book With Tricks", { timeout: 20_000 });
+  await frame.locator("#trap").click();
+  await page.waitForTimeout(1000);
+  expect(await page.evaluate(() => [document.title, window.__ran ?? null])).toEqual([expect.not.stringMatching(/^ran /), null]);
+  expect(await frame.locator("script").count()).toBe(0);
+  expect(await frame.locator("[onerror]").count()).toBe(0);
+  expect(await frame.locator("meta[http-equiv='Content-Security-Policy']").getAttribute("content")).toContain("script-src 'none'");
 });
 
 test("a PDF turns pages, keeps a highlight, and remembers the page", async ({ browser }) => {
@@ -157,35 +174,41 @@ test("time with a book open in the reader is counted while someone is reading", 
   noProblems(page);
 });
 
-test("an EPUB laid out as pages turns them, and turns into the next chapter and back", async ({ browser }) => {
+test("the page-turning reader turns across chapters, and opens again at the very page", async ({ browser }) => {
   const page = await signUp(browser, unique("Turner"));
   const book = await createBook(page, { title: "Moby-Dick", author: "Herman Melville", status: "Reading" });
   await upload(page, book.id, "ebook", "moby.epub", "application/epub+zip");
   await page.setViewportSize({ width: 360, height: 640 });
 
+  // A reader who has never set the type turns pages.
   await page.goto(`/library/${book.id}/read`);
   await ready(page);
-  await page.click('summary:text("Text settings")');
-  await page.getByLabel("Layout").selectOption({ label: "Pages" });
-  const where = page.locator(".reader-pages");
-  await expect(where).toContainText(/Page 1 of [2-9]/);
-  const pages = Number((await where.textContent()).match(/of (\d+)/)[1]);
+  const where = page.locator(".reader-where");
+  await expect(where).toContainText(/page 1 of [2-9]/, { timeout: 20_000 });
+  const pages = Number((await where.textContent()).match(/page 1 of (\d+)/)[1]);
 
   await page.keyboard.press("ArrowRight");
-  await expect(where).toContainText(`Page 2 of ${pages}`);
+  await expect(where).toContainText(`page 2 of ${pages}`);
   for (let i = 2; i <= pages; i++) await page.keyboard.press("ArrowRight");
+  await expect(where).toContainText("Chapter 2 of 2");
   await expect(page.getByLabel("Chapter")).toHaveValue("1");
-  await expect(where).toContainText("Page 1 of");
 
-  // Back from the first page of a chapter is the last page of the one before.
+  // Back from the first page of a chapter is the end of the one before.
   await page.keyboard.press("ArrowLeft");
-  await expect(page.getByLabel("Chapter")).toHaveValue("0");
-  await expect(where).toContainText(`Page ${pages} of ${pages}`);
+  await expect(where).toContainText("Chapter 1 of 2");
+  await expect(where).not.toContainText("page 1 of");
 
-  // The layout is kept for the reader.
-  await page.reload();
-  await ready(page);
-  await expect(where).toContainText(`of ${pages}`);
+  // The place is kept to the page: opened again, here or on another device, it is the same page.
+  await expect.poll(async () => (await (await page.request.get(`/books/${book.id}/place`)).json()).ebookCfi).toMatch(/^epubcfi\(\/6\/2/);
+  const here = (await where.textContent()).split(" · ").slice(0, 2).join(" · ");
+  const other = await (await browser.newContext({ storageState: await page.context().storageState(), viewport: { width: 360, height: 640 } })).newPage();
+  await other.goto(`/library/${book.id}/read`);
+  await ready(other);
+  await expect(other.locator(".reader-where")).toContainText(here, { timeout: 20_000 });
+
+  // The classic reader is a link away.
+  await page.click('a:text-is("Classic reader")');
+  await expect(page.locator("iframe.reader-frame")).toBeVisible();
   noProblems(page);
 });
 
