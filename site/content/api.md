@@ -141,6 +141,15 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | `GET /books/export/full` | A zip of the JSON with every e-book, audiobook, and cover picture. `POST /books/import/full` with `file` restores one. |
 | `POST /books/import/csv` | A Goodreads or StoryGraph CSV export as `file`. |
 
+## Book clubs
+
+| Call | What it does |
+| --- | --- |
+| `GET /books/clubs` | Your clubs. `POST {"name": "…"}` starts one; `GET` and `DELETE /books/clubs/{id}` read and end one. |
+| `POST /books/clubs/{id}/members` | `{"readerId": 3}` invites a reader, for the reader who started the club. `DELETE /books/clubs/{id}/members/{readerId}` removes one, or leaves. |
+| `POST /books/clubs/{id}/books` | `{"bookId": 12}` from your shelf, or `{"title": "…", "author": "…"}`. `PUT /books/clubs/{id}/current/{bookId}` picks the one being read. |
+| `GET /books/clubs/{id}/books/{bookId}/posts` | The conversation about a book; `POST {"text": "…"}` says something. `POST …/shelve` puts the book on your shelf. |
+
 ## Your account
 
 | Call | What it does |

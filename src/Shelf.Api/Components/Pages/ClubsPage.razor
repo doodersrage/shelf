@@ -1,0 +1,60 @@
+@page "/clubs"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject NavigationManager Navigation
+
+<PageTitle>@T("Book clubs") · Shelf</PageTitle>
+
+<h1>@T("Book clubs")</h1>
+<p class="hint">@T("Read the same books as other readers on this shelf, and talk about each one. Start a club and invite them, or open one you were invited to.")</p>
+
+<form class="save-search" @onsubmit="Start" @onsubmit:preventDefault>
+    <label>
+        @T("New club")
+        <input @bind="name" maxlength="@Club.MaxNameLength" placeholder="@T("Book club")" required />
+    </label>
+    <button type="submit" class="primary">@T("Start it")</button>
+</form>
+
+@if (clubs.Length == 0)
+{
+    <EmptyState Title="@T("No clubs yet")" Text="@T("Start one above. Clubs you are invited to appear here too.")" ActionHref="/" ActionLabel="@T("Open the library")" />
+}
+else
+{
+    <ul class="tag-counts">
+        @foreach (var club in clubs)
+        {
+            <li>
+                <span>
+                    <a href="/clubs/@club.Id">@club.Name</a>
+                    @if (club.Current is not null)
+                    {
+                        <span class="hint"> · @T("reading {0}", club.Current)</span>
+                    }
+                </span>
+                <span class="hint">@T("{0} members", club.Members)</span>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private ClubSummary[] clubs = [];
+    private string name = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        clubs = await Clubs.ListAsync(db);
+    }
+
+    private async Task Start()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if ((await Clubs.CreateAsync(db, name, null)).Id is int id)
+        {
+            Navigation.NavigateTo($"/clubs/{id}");
+        }
+    }
+}

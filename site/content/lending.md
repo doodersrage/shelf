@@ -56,3 +56,15 @@ A notice under the header points to **Loans** when:
 - someone has asked to borrow from you.
 
 With [email set up](configuration.md#email), a reader can add their address on **Account** to get these as one email a day, and to reset a forgotten password from the sign-in page.
+
+## Book clubs
+
+Readers on the same shelf can read together. On **Book clubs**, start a club and invite the readers you want; a club you are invited to appears in your list.
+
+- **Books.** Any member adds a book, from their own shelf or by title and author. The first one added is the one being read now; **Read this one now** picks another.
+- **Talking.** Each book has its own conversation: choose it in the list and say something about it. Everyone in the club sees what everyone says.
+- **Your own copy.** **Put it on my shelf** adds the book to your shelf to read; when you already have it, **Your copy** opens it.
+- **Who does what.** The reader who started the club invites and removes members, and can end it. Anyone else can leave.
+
+A club holds only titles and what members say: nobody's notes, highlights, or files are shared, and each member's copy stays on their own shelf.
+

@@ -901,6 +901,67 @@ code.key {
     gap: var(--space-3);
 }
 
+/* A book club: its books beside the talk about the one chosen. */
+.club-layout {
+    display: grid;
+    grid-template-columns: minmax(14rem, 1fr) minmax(0, 2fr);
+    gap: var(--space-6);
+    align-items: start;
+}
+
+@media (max-width: 52rem) {
+    .club-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.club-books {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--space-3);
+}
+
+.club-books li {
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-2);
+    border-radius: var(--radius-control);
+}
+
+.club-books li.chosen {
+    background: var(--color-mark);
+}
+
+.club-books li.chosen .hint {
+    color: var(--color-ink);
+}
+
+.club-books .link {
+    text-align: left;
+}
+
+.club-posts {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: var(--space-3);
+}
+
+.club-posts li {
+    padding: var(--space-3);
+    background: var(--color-canvas);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-card);
+}
+
+.club-posts li.mine {
+    border-color: var(--color-accent);
+}
+
+.club-posts p {
+    margin: 0;
+}
+
 /* A word looked up in the reader. */
 .look-up {
     max-width: 40rem;

@@ -13,11 +13,13 @@ test("every page passes an accessibility audit in both themes", async ({ browser
   await page.request.post(`/books/${book.id}/quotes`, { data: { text: "Call me Ishmael.", page: 1 } });
   const year = new Date().getUTCFullYear();
   await createBook(page, { title: "Walden", author: "Henry David Thoreau", status: "Finished", pages: 352, rating: 5, loved: true, finishedOn: `${year}-01-15`, tags: ["nature"] });
+  const club = await (await page.request.post("/books/clubs", { data: { name: "Sea readers" } })).json();
+  await page.request.post(`/books/clubs/${club.id}/books`, { data: { bookId: book.id } });
   const collection = await (await page.request.post("/books/collections", { data: { name: "Sea stories", description: "Books about the sea." } })).json();
   await page.request.post(`/books/collections/${collection.id}/books`, { data: { bookId: book.id } });
 
   const pages = ["/", "/?view=list", "/?add=1", `/library/${book.id}`, `/library/${book.id}/read`, `/library/${book.id}/listen`, "/quotes", "/search?q=ishmael",
-    "/free", "/import/audiobookshelf", "/import/calibre", "/authors", "/series", "/places", "/copies", "/recommenders", "/years", `/years/${year}`, "/loans", "/shelves", "/collections", `/collections/${collection.id}`, "/duplicates", "/stats", "/backup", "/sync", "/account", "/admin"];
+    "/free", "/import/audiobookshelf", "/import/calibre", "/authors", "/series", "/places", "/copies", "/recommenders", "/years", `/years/${year}`, "/loans", "/shelves", "/collections", `/collections/${collection.id}`, "/duplicates", "/clubs", `/clubs/${club.id}`, "/stats", "/backup", "/sync", "/account", "/admin"];
   const failures = [];
   for (const scheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: scheme });

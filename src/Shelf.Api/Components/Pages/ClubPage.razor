@@ -1,0 +1,287 @@
+@page "/clubs/{Id:int}"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject NavigationManager Navigation
+
+<PageTitle>@(club?.Name ?? T("Book clubs")) · Shelf</PageTitle>
+
+@if (club is null)
+{
+    <h1>@T("Not on the shelf")</h1>
+    <p>@T("That club is not here, or you are not in it.") <a href="/clubs">@T("Book clubs")</a></p>
+}
+else
+{
+    <p class="hint"><a href="/clubs">@T("Book clubs")</a></p>
+    <h1>@club.Name</h1>
+    @if (club.Description is not null)
+    {
+        <p class="collection-description">@club.Description</p>
+    }
+    <p class="hint">@string.Join(", ", club.Members.Select(member => member.Owner ? T("{0} (started it)", member.Name) : member.Name))</p>
+
+    <div class="club-layout">
+        <section class="panel">
+            <h2>@T("Books")</h2>
+            @if (club.Books.Length == 0)
+            {
+                <p class="hint">@T("No books yet. Add the first below.")</p>
+            }
+            else
+            {
+                <ul class="club-books">
+                    @foreach (var book in club.Books)
+                    {
+                        <li class="@(book.Id == Chosen ? "chosen" : null)">
+                            <button type="button" class="link" @onclick="() => Choose(book.Id)" aria-pressed="@(book.Id == Chosen ? "true" : "false")">
+                                <strong>@book.Title</strong>
+                            </button>
+                            <span class="hint">@book.Author @(book.Id == club.CurrentBookId ? " · " + T("reading now") : "") · @T("{0} posts", book.Posts)</span>
+                        </li>
+                    }
+                </ul>
+            }
+            <details>
+                <summary>@T("Add a book")</summary>
+                @if (shelf.Count > 0)
+                {
+                    <div class="save-search">
+                        <label>
+                            @T("From your shelf")
+                            <select @bind="fromShelf">
+                                <option value="0">—</option>
+                                @foreach (var own in shelf)
+                                {
+                                    <option value="@own.Id">@own.Title · @own.Author</option>
+                                }
+                            </select>
+                        </label>
+                        <button type="button" @onclick="AddFromShelf" disabled="@(fromShelf == 0)">@T("Add")</button>
+                    </div>
+                }
+                <div class="save-search">
+                    <label>
+                        @T("Title")
+                        <input @bind="newTitle" @bind:event="oninput" maxlength="@ClubBook.MaxTitleLength" />
+                    </label>
+                    <label>
+                        @T("Author")
+                        <input @bind="newAuthor" @bind:event="oninput" maxlength="@ClubBook.MaxTitleLength" />
+                    </label>
+                    <button type="button" @onclick="AddByTitle" disabled="@(string.IsNullOrWhiteSpace(newTitle) || string.IsNullOrWhiteSpace(newAuthor))">@T("Add")</button>
+                </div>
+            </details>
+        </section>
+
+        @if (ChosenBook is { } chosen)
+        {
+            <section class="panel club-talk" aria-labelledby="talk-heading">
+                <h2 id="talk-heading">@chosen.Title</h2>
+                <p class="hint">@chosen.Author · @T("added by {0}", chosen.AddedBy)</p>
+                <p>
+                    @if (chosen.Id != club.CurrentBookId)
+                    {
+                        <button type="button" class="quiet" @onclick="() => MakeCurrent(chosen.Id)">@T("Read this one now")</button>
+                    }
+                    @if (chosen.OnMyShelf is int mine)
+                    {
+                        <a class="button quiet" href="/library/@mine">@T("Your copy")</a>
+                    }
+                    else
+                    {
+                        <button type="button" class="quiet" @onclick="() => Shelve(chosen.Id)">@T("Put it on my shelf")</button>
+                    }
+                </p>
+                @if (posts.Length == 0)
+                {
+                    <p class="hint">@T("Nobody has said anything yet.")</p>
+                }
+                else
+                {
+                    <ol class="club-posts">
+                        @foreach (var post in posts)
+                        {
+                            <li class="@(post.Mine ? "mine" : null)">
+                                <p class="hint"><strong>@post.Reader</strong> · @post.PostedAt.Medium()</p>
+                                <p class="collection-description">@post.Text</p>
+                            </li>
+                        }
+                    </ol>
+                }
+                <form @onsubmit="Post" @onsubmit:preventDefault>
+                    <label>
+                        @T("Say something about it")
+                        <textarea @bind="postText" @bind:event="oninput" maxlength="@ClubPost.MaxLength" rows="3"></textarea>
+                    </label>
+                    <button type="submit" class="primary" disabled="@string.IsNullOrWhiteSpace(postText)">@T("Post")</button>
+                </form>
+            </section>
+        }
+    </div>
+
+    <section class="panel">
+        <h2>@T("Members")</h2>
+        <ul class="tag-counts">
+            @foreach (var member in club.Members)
+            {
+                <li>
+                    <span>@member.Name@(member.Owner ? " · " + T("started it") : "")</span>
+                    @if (club.Mine && !member.Owner)
+                    {
+                        <button type="button" class="quiet" @onclick="() => Remove(member.Id)" aria-label="@T("Remove {0} from the club", member.Name)">@T("Remove")</button>
+                    }
+                </li>
+            }
+        </ul>
+        @if (club.Mine)
+        {
+            @if (others.Count > 0)
+            {
+                <div class="save-search">
+                    <label>
+                        @T("Invite a reader")
+                        <select @bind="invite">
+                            <option value="0">—</option>
+                            @foreach (var reader in others)
+                            {
+                                <option value="@reader.Id">@reader.Name</option>
+                            }
+                        </select>
+                    </label>
+                    <button type="button" @onclick="Invite" disabled="@(invite == 0)">@T("Invite")</button>
+                </div>
+            }
+            @if (confirmingEnd)
+            {
+                <button type="button" class="danger" @onclick="End">@T("Yes, end the club")</button>
+                <button type="button" class="quiet" @onclick="() => confirmingEnd = false">@T("Cancel")</button>
+            }
+            else
+            {
+                <button type="button" class="quiet" @onclick="() => confirmingEnd = true">@T("End the club")</button>
+            }
+        }
+        else
+        {
+            <button type="button" class="quiet" @onclick="Leave">@T("Leave the club")</button>
+        }
+    </section>
+}
+
+@code {
+    private ClubResponse? club;
+    private ClubPostResponse[] posts = [];
+    private List<Book> shelf = [];
+    private List<ReaderResponse> others = [];
+    private int chosenId;
+    private int fromShelf;
+    private int invite;
+    private string newTitle = "";
+    private string newAuthor = "";
+    private string postText = "";
+    private bool confirmingEnd;
+    private int me;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    private int Chosen => chosenId != 0 ? chosenId : club?.CurrentBookId ?? 0;
+
+    private ClubBookResponse? ChosenBook => club?.Books.FirstOrDefault(book => book.Id == Chosen);
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        me = db.ReaderId;
+        club = await Clubs.FindAsync(db, Id);
+        if (club is null)
+        {
+            return;
+        }
+
+        shelf = await db.Books.AsNoTracking().OrderBy(book => book.Title).Select(book => new Book { Id = book.Id, Title = book.Title, Author = book.Author }).ToListAsync();
+        var members = club.Members.Select(member => member.Id).ToHashSet();
+        others = (await ReaderRules.OthersAsync(db, me)).Where(reader => !members.Contains(reader.Id)).ToList();
+        posts = Chosen == 0 ? [] : await Clubs.PostsAsync(db, Id, Chosen) ?? [];
+    }
+
+    private async Task Choose(int bookId)
+    {
+        chosenId = bookId;
+        await LoadAsync();
+    }
+
+    private async Task AddFromShelf()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var (added, _) = await Clubs.AddBookAsync(db, Id, new ClubBookRequest(BookId: fromShelf));
+        fromShelf = 0;
+        chosenId = added ?? chosenId;
+        await LoadAsync();
+    }
+
+    private async Task AddByTitle()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var (added, _) = await Clubs.AddBookAsync(db, Id, new ClubBookRequest(Title: newTitle, Author: newAuthor));
+        (newTitle, newAuthor) = ("", "");
+        chosenId = added ?? chosenId;
+        await LoadAsync();
+    }
+
+    private async Task MakeCurrent(int bookId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Clubs.SetCurrentAsync(db, Id, bookId);
+        await LoadAsync();
+    }
+
+    private async Task Shelve(int bookId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Clubs.ShelveAsync(db, Id, bookId);
+        await LoadAsync();
+    }
+
+    private async Task Post()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await Clubs.PostAsync(db, Id, Chosen, postText) == ClubProblem.None)
+        {
+            postText = "";
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task Invite()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Clubs.InviteAsync(db, Id, invite);
+        invite = 0;
+        await LoadAsync();
+    }
+
+    private async Task Remove(int readerId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Clubs.RemoveMemberAsync(db, Id, readerId);
+        await LoadAsync();
+    }
+
+    private async Task Leave()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Clubs.RemoveMemberAsync(db, Id, me);
+        Navigation.NavigateTo("/clubs");
+    }
+
+    private async Task End()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Clubs.DeleteAsync(db, Id);
+        Navigation.NavigateTo("/clubs");
+    }
+}

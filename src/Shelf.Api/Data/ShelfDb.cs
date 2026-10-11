@@ -44,6 +44,10 @@ public sealed class ShelfDb : DbContext
     public DbSet<ReadingDay> ReadingDays => Set<ReadingDay>();
     public DbSet<Collection> Collections => Set<Collection>();
     public DbSet<CollectionBook> CollectionBooks => Set<CollectionBook>();
+    public DbSet<Club> Clubs => Set<Club>();
+    public DbSet<ClubMember> ClubMembers => Set<ClubMember>();
+    public DbSet<ClubBook> ClubBooks => Set<ClubBook>();
+    public DbSet<ClubPost> ClubPosts => Set<ClubPost>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -126,6 +130,38 @@ public sealed class ShelfDb : DbContext
             day.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
             day.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
             day.HasQueryFilter(item => item.ReaderId == ReaderId);
+        });
+
+        // Clubs belong to no one shelf: who may see one is decided by membership, in Clubs.
+        modelBuilder.Entity<Club>(club =>
+        {
+            club.Property(item => item.Name).HasMaxLength(Club.MaxNameLength).IsRequired();
+            club.Property(item => item.Description).HasMaxLength(Club.MaxDescriptionLength);
+            club.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            club.HasMany(item => item.Members).WithOne(member => member.Club).HasForeignKey(member => member.ClubId).OnDelete(DeleteBehavior.Cascade);
+            club.HasMany(item => item.Books).WithOne(book => book.Club).HasForeignKey(book => book.ClubId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ClubMember>(member =>
+        {
+            member.HasKey(item => new { item.ClubId, item.ReaderId });
+            member.HasIndex(item => item.ReaderId);
+            member.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ClubBook>(book =>
+        {
+            book.Property(item => item.Title).HasMaxLength(ClubBook.MaxTitleLength).IsRequired();
+            book.Property(item => item.Author).HasMaxLength(ClubBook.MaxTitleLength).IsRequired();
+            book.Property(item => item.CoverUrl).HasMaxLength(500);
+            book.Property(item => item.Isbn).HasMaxLength(13);
+            book.HasMany(item => item.Posts).WithOne(post => post.Book).HasForeignKey(post => post.ClubBookId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ClubPost>(post =>
+        {
+            post.Property(item => item.Text).HasMaxLength(ClubPost.MaxLength).IsRequired();
+            post.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Collection>(collection =>

@@ -98,3 +98,42 @@ test("an API token made on the account page opens the books API", async ({ brows
   await script.dispose();
   noProblems(page);
 });
+
+test("a book club is started, a reader invited, and a book talked about", async ({ browser }) => {
+  const hostName = unique("Host");
+  const guestName = unique("Guest");
+  const host = await signUp(browser, hostName);
+  const guest = await signUp(browser, guestName);
+
+  await host.goto("/clubs");
+  await ready(host);
+  await host.getByLabel("New club").fill("Thursday readers");
+  await Promise.all([host.waitForURL(/\/clubs\/\d+$/), host.getByRole("button", { name: "Start it" }).click()]);
+  await ready(host);
+  await host.getByLabel("Invite a reader").selectOption({ label: guestName });
+  await host.getByRole("button", { name: "Invite", exact: true }).click();
+  await expect(host.locator(".panel", { hasText: "Members" })).toContainText(guestName);
+  await host.locator("summary", { hasText: "Add a book" }).click();
+  await host.getByLabel("Title").fill("Kindred");
+  await host.getByLabel("Author").fill("Octavia E. Butler");
+  await host.locator("details").getByRole("button", { name: "Add", exact: true }).last().click();
+  await expect(host.locator(".club-talk h2")).toHaveText("Kindred");
+  const clubUrl = host.url();
+
+  await guest.goto("/clubs");
+  await ready(guest);
+  await guest.getByRole("link", { name: "Thursday readers" }).click();
+  await guest.waitForURL(clubUrl);
+  await ready(guest);
+  await guest.getByLabel("Say something about it").fill("Dana's 1976 is so vivid.");
+  await guest.getByRole("button", { name: "Post" }).click();
+  await expect(guest.locator(".club-posts")).toContainText("Dana's 1976 is so vivid.");
+  await guest.getByRole("button", { name: "Put it on my shelf" }).click();
+  await expect(guest.getByRole("link", { name: "Your copy" })).toBeVisible();
+
+  await host.reload();
+  await ready(host);
+  await expect(host.locator(".club-posts")).toContainText(guestName);
+  noProblems(host);
+  noProblems(guest);
+});
