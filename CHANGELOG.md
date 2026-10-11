@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-11
+
 ### Added
 
 - Keep in step with Audiobookshelf: connected with an API key, Shelf looks at a library once a day and brings across books added to it since, never the same one twice. **Check now** and **Stop keeping in step** are on the Audiobookshelf page.
@@ -307,7 +309,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/doodersrage/shelf/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/doodersrage/shelf/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/doodersrage/shelf/compare/v1.9.0...v2.0.0
 [1.9.0]: https://github.com/doodersrage/shelf/compare/v1.8.0...v1.9.0
