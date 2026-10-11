@@ -171,6 +171,7 @@ builder.Services.AddSingleton<AbsImporter>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<AbsImporter>());
 builder.Services.AddHostedService(static services => services.GetRequiredService<FreeBooks>());
 builder.Services.AddSingleton<EbookStore>();
+builder.Services.AddSingleton<KepubStore>();
 builder.Services.AddSingleton<AudioStore>();
 builder.Services.AddSingleton<CoverStore>();
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();

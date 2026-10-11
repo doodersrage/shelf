@@ -55,9 +55,15 @@ public sealed class KoboTests(ShelfApiFactory factory) : IClassFixture<ShelfApiF
         var uuid = Kobo.UuidOf(sea.Id).ToString();
         Assert.Equal((uuid, "A Sea Story", "Sea"), (entitlement["BookEntitlement"]!["Id"]!.GetValue<string>(), metadata["Title"]!.GetValue<string>(), metadata["Series"]!["Name"]!.GetValue<string>()));
         Assert.Equal("ReadyToRead", entitlement["ReadingState"]!["StatusInfo"]!["Status"]!.GetValue<string>());
+        // It comes as Kobo's own KEPUB, made from the EPUB.
+        Assert.Equal("KEPUB", metadata["DownloadUrls"]![0]!["Format"]!.GetValue<string>());
         var download = new Uri(metadata["DownloadUrls"]![0]!["Url"]!.GetValue<string>()).PathAndQuery;
         var file = await kobo.GetAsync(download);
-        Assert.Equal(("application/epub+zip", KoreaderHighlightsTests.Epub().Length > 0), (file.Content.Headers.ContentType!.MediaType, (await file.Content.ReadAsByteArrayAsync()).Length > 0));
+        Assert.Equal("application/kepub+zip", file.Content.Headers.ContentType!.MediaType);
+        using (var kepub = new System.IO.Compression.ZipArchive(new MemoryStream(await file.Content.ReadAsByteArrayAsync())))
+        {
+            Assert.Contains(kepub.Entries, entry => entry.FullName.EndsWith(".xhtml", StringComparison.Ordinal) && new StreamReader(entry.Open()).ReadToEnd().Contains("koboSpan", StringComparison.Ordinal));
+        }
 
         // The Kobo reads into the second chapter: Shelf's place and status follow.
         var state = new { ReadingStates = new[] { new { EntitlementId = uuid, CurrentBookmark = new { ProgressPercent = 50, Location = new { Source = "c2.xhtml", Type = "KoboSpan", Value = "kobo.1.1" } }, StatusInfo = new { Status = "Reading" } } } };

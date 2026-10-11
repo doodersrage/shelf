@@ -40,6 +40,7 @@ public static partial class Kobo
         kobo.MapPut("/v1/library/{uuid:guid}/state", PutState);
         kobo.MapDelete("/v1/library/{uuid:guid}", Archive);
         kobo.MapGet("/download/{id:int}/epub", Download);
+        kobo.MapGet("/download/{id:int}/kepub", DownloadKepub);
         kobo.MapGet("/{uuid:guid}/{width:int}/{height:int}/{**rest}", Cover);
         kobo.Map("/{**rest}", () => TypedResults.Json(new { }));
     }
@@ -171,7 +172,7 @@ public static partial class Kobo
                 [isNew ? "NewEntitlement" : "ChangedEntitlement"] = new JsonObject
                 {
                     ["BookEntitlement"] = Entitlement(book, removed: false),
-                    ["BookMetadata"] = BookMetadata(book, host, size),
+                    ["BookMetadata"] = BookMetadata(book, host, size, Kepubs(http)),
                     ["ReadingState"] = ReadingState(book, entry),
                 },
             });
@@ -198,7 +199,7 @@ public static partial class Kobo
         var book = (await WantedAsync(db, reader, cancellationToken)).FirstOrDefault(item => UuidOf(item.Id) == uuid);
         return book is null
             ? TypedResults.NotFound()
-            : TypedResults.Content(new JsonArray(BookMetadata(book, $"{http.Request.Scheme}://{http.Request.Host}/kobo/{token}", BookSize(http, book))).ToJsonString(), "application/json");
+            : TypedResults.Content(new JsonArray(BookMetadata(book, $"{http.Request.Scheme}://{http.Request.Host}/kobo/{token}", BookSize(http, book), Kepubs(http))).ToJsonString(), "application/json");
     }
 
     private static async Task<IResult> GetState(Guid uuid, HttpContext http, ShelfDb db, CancellationToken cancellationToken)
@@ -316,6 +317,21 @@ public static partial class Kobo
             : TypedResults.NotFound();
     }
 
+    // Kobo's own kind of EPUB, made from the EPUB the first time it is wanted; the EPUB itself when it cannot be.
+    private static async Task<IResult> DownloadKepub(int id, HttpContext http, ShelfDb db, EbookStore store, KepubStore kepubs, CancellationToken cancellationToken)
+    {
+        var reader = (Reader)http.Items["kobo-reader"]!;
+        var book = (await WantedAsync(db, reader, cancellationToken)).FirstOrDefault(item => item.Id == id);
+        if (book is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        return await kepubs.PathForAsync(book.EbookStoredName, cancellationToken) is { } kepub
+            ? Results.File(kepub, "application/kepub+zip", $"{Safe(book.Author)} - {Safe(book.Title)}.kepub.epub")
+            : store.OpenPath(book.EbookStoredName) is { } path ? Results.File(path, "application/epub+zip", $"{Safe(book.Author)} - {Safe(book.Title)}.epub") : TypedResults.NotFound();
+    }
+
     private static async Task<IResult> Cover(Guid uuid, HttpContext http, ShelfDb db, EbookStore store, CoverStore covers, CancellationToken cancellationToken)
     {
         var reader = (Reader)http.Items["kobo-reader"]!;
@@ -324,7 +340,10 @@ public static partial class Kobo
     }
 
     private static long BookSize(HttpContext http, Book book) =>
-        http.RequestServices.GetRequiredService<EbookStore>().OpenPath(book.EbookStoredName) is { } path ? new FileInfo(path).Length : 0;
+        http.RequestServices.GetRequiredService<KepubStore>() is { Enabled: true } kepubs ? kepubs.SizeOf(book.EbookStoredName)
+        : http.RequestServices.GetRequiredService<EbookStore>().OpenPath(book.EbookStoredName) is { } path ? new FileInfo(path).Length : 0;
+
+    private static bool Kepubs(HttpContext http) => http.RequestServices.GetRequiredService<KepubStore>().Enabled;
 
     private static string Stamp(DateTimeOffset when) => when.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
 
@@ -349,7 +368,7 @@ public static partial class Kobo
         };
     }
 
-    private static JsonObject BookMetadata(Book book, string host, long size)
+    private static JsonObject BookMetadata(Book book, string host, long size, bool kepub)
     {
         var id = UuidOf(book.Id).ToString();
         var metadata = new JsonObject
@@ -360,7 +379,9 @@ public static partial class Kobo
             ["CurrentDisplayPrice"] = new JsonObject { ["CurrencyCode"] = "USD", ["TotalAmount"] = 0 },
             ["CurrentLoveDisplayPrice"] = new JsonObject { ["TotalAmount"] = 0 },
             ["Description"] = book.Subtitle ?? "",
-            ["DownloadUrls"] = new JsonArray(new JsonObject { ["Format"] = "EPUB", ["Size"] = size, ["Url"] = $"{host}/download/{book.Id}/epub", ["Platform"] = "Generic" }),
+            ["DownloadUrls"] = new JsonArray(kepub
+                ? new JsonObject { ["Format"] = "KEPUB", ["Size"] = size, ["Url"] = $"{host}/download/{book.Id}/kepub", ["Platform"] = "Generic" }
+                : new JsonObject { ["Format"] = "EPUB", ["Size"] = size, ["Url"] = $"{host}/download/{book.Id}/epub", ["Platform"] = "Generic" }),
             ["EntitlementId"] = id,
             ["ExternalIds"] = new JsonArray(),
             ["Genre"] = "00000000-0000-0000-0000-000000000001",

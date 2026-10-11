@@ -159,7 +159,7 @@ public static class Duplicates
 }
 
 // Every few hours, clears held uploads nobody decided on; at the start, also finds the covers inside older e-books.
-public sealed class FileSweep(EbookStore ebooks, AudioStore audio, IServiceScopeFactory scopes, ILogger<FileSweep> logger) : BackgroundService
+public sealed class FileSweep(EbookStore ebooks, AudioStore audio, KepubStore kepubs, IServiceScopeFactory scopes, ILogger<FileSweep> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -181,7 +181,9 @@ public sealed class FileSweep(EbookStore ebooks, AudioStore audio, IServiceScope
                 var removed = Duplicates.Sweep(ebooks, audio, DateTimeOffset.UtcNow);
                 using (var scope = scopes.CreateScope())
                 {
-                    await Readers.Audit.TrimAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), stoppingToken);
+                    var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+                    await Readers.Audit.TrimAsync(db, stoppingToken);
+                    kepubs.Sweep((await db.Books.IgnoreQueryFilters().Where(book => book.EbookStoredName != null).Select(book => book.EbookStoredName!).ToListAsync(stoppingToken)).ToHashSet());
                 }
 
                 if (removed > 0)

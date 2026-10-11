@@ -35,12 +35,13 @@ Then:
 
 - books you add (to the collection, if you chose one) come with the next sync, and books you take away, or delete, leave the Kobo;
 - the Kobo's place moves Shelf's place to the chapter it reached, and finishing a book on the Kobo marks it finished; a book opened on the Kobo moves from want to read to reading;
-- archiving a book on the Kobo keeps it on your shelf, and the Kobo isn't sent it again.
+- archiving a book on the Kobo keeps it on your shelf, and the Kobo isn't sent it again;
+- books go as Kobo's own kind of EPUB (KEPUB), made from yours the first time the Kobo asks, so the Kobo shows page numbers and time left in the chapter, and keeps its reading statistics, as for its store's books. A book that can't be turned into one goes as the EPUB. Set `Kobo:Kepub` to `false` to send EPUBs as they are.
 
 The Kobo's own store pages still go to Kobo. To stop, choose **Stop syncing with the Kobo**, and put the old line back: `api_endpoint=https://storeapi.kobo.com`.
 
 > [!NOTE]
-> Kobo's protocol is not published; Shelf answers it as Calibre-Web does, and is tested against what Calibre-Web documents a Kobo sending. Books go as EPUBs, not Kobo's own KEPUB, so the Kobo's reading statistics and page numbers are simpler than for its store's books. If your Kobo does something unexpected, please open an issue with its model and firmware.
+> Kobo's protocol is not published; Shelf answers it as Calibre-Web does, and is tested against what Calibre-Web documents a Kobo sending. KEPUBs are made the way kepubify makes them. If your Kobo does something unexpected, please open an issue with its model and firmware.
 
 ## Send to Kindle
 
