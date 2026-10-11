@@ -4219,3 +4219,124 @@ blockquote mark {
 .find-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.25rem; }
 .follow-list { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
 .follow-list li { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+
+/* The full-screen reader, as Audiobookshelf's: the page fills the screen, and the bars come and go with a tap in its
+   middle (epub-reader.js sets data-full and data-chrome). Its colors are the page's, set as --epub-page and --epub-ink. */
+.epub-bar {
+    display: none;
+}
+
+.epub-stage[data-full] {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    background: var(--epub-page, var(--color-surface));
+    color: var(--epub-ink, var(--color-ink));
+}
+
+.epub-stage[data-full] .shelf-epub {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    padding: max(0.5rem, env(safe-area-inset-top)) max(0.5rem, env(safe-area-inset-right)) max(0.5rem, env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left));
+}
+
+.epub-stage[data-full] .epub-bar {
+    display: flex;
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 1;
+    gap: var(--space-2);
+    align-items: center;
+    padding: 0.5rem max(1rem, env(safe-area-inset-right)) 0.5rem max(1rem, env(safe-area-inset-left));
+    background: var(--epub-page, var(--color-surface));
+    color: var(--epub-ink, var(--color-ink));
+    box-shadow: 0 0 1.5rem rgb(0 0 0 / 0.18);
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.epub-stage[data-full] .epub-top {
+    top: 0;
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+
+.epub-stage[data-full] .epub-bottom {
+    bottom: 0;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+    flex-wrap: wrap;
+}
+
+.epub-stage[data-full]:not([data-chrome]) .epub-top {
+    transform: translateY(-110%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.epub-stage[data-full]:not([data-chrome]) .epub-bottom {
+    transform: translateY(110%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.epub-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.epub-chapter select {
+    max-width: 12rem;
+}
+
+.epub-where {
+    flex: 1 1 100%;
+    font-size: var(--text-sm);
+    text-align: center;
+}
+
+.epub-bottom input[type="range"] {
+    flex: 1 1 100%;
+    accent-color: currentColor;
+}
+
+.epub-stage[data-full] .epub-top .menu-items {
+    right: 0;
+    left: auto;
+}
+
+/* Nothing behind the full-screen reader scrolls while it is open. */
+html.reading-full,
+html.reading-full body {
+    overflow: hidden;
+}
+
+@media (max-width: 40rem) {
+    .epub-chapter select {
+        max-width: 8rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .epub-stage[data-full] .epub-bar {
+        transition: none;
+    }
+}
+
+/* In the full-screen reader's bar, the settings button is its "Aa" alone; screen readers still hear its name. */
+.epub-top .reader-menu-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}

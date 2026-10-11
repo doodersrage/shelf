@@ -14,7 +14,7 @@ test("an EPUB takes text settings and keeps a highlight with a note", async ({ b
   await ready(page);
   await expect(page.locator(".focus-bar")).toBeVisible();
   await expect(bookFrame(page).locator("p").first()).toContainText("Call me Ishmael", { timeout: 20_000 });
-  await page.click('summary:text("Text settings")');
+  await page.click('summary:has-text("Text settings")');
   await page.selectOption('select:has(option:text("Largest"))', "130");
   await expect.poll(async () => {
     try {
@@ -262,6 +262,58 @@ test("a place reached in KOReader opens at that very paragraph, and one reached 
   expect(top).toBeGreaterThan(30);
   await expect.poll(async () => (await (await page.request.get(`/kosync/syncs/progress/${document}`, device)).json()).progress, { timeout: 10_000 })
     .toMatch(new RegExp(`^/body/DocFragment\\[2\\]/body/div/p\\[${top}\\]/text\\(\\)(\\[2\\])?\\.\\d+$`));
+  noProblems(page);
+});
+
+test("the page-turning reader goes full screen, with its bars a tap in the middle away, and stays so on this device", async ({ browser }) => {
+  const page = await signUp(browser, unique("Fullscreen"));
+  const book = await createBook(page, { title: "The Harbour", author: "Someone", status: "Reading" });
+  await upload(page, book.id, "ebook", "koreader.epub", "application/epub+zip");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/library/${book.id}/read`);
+  await ready(page);
+  const where = page.locator(".reader-where");
+  // The first chapter is a page of its own.
+  await expect(where).toContainText("Chapter 1 of 2", { timeout: 20_000 });
+
+  const stage = page.locator(".epub-stage");
+  await page.click('button[data-full-toggle]:text-is("Full screen")');
+  await expect(stage).toHaveAttribute("data-full", "");
+  await expect(page.getByRole("dialog", { name: "The Harbour" })).toBeVisible();
+  // The book fills the screen (the browser's own full screen, where it allows), the bars over it.
+  await expect(page.getByRole("button", { name: "Leave full screen" })).toBeVisible();
+  await expect.poll(async () => {
+    const [box, size] = [await page.locator(".shelf-epub").boundingBox(), await page.evaluate(() => [innerWidth, innerHeight])];
+    return box.width === size[0] && box.height === size[1];
+  }).toBe(true);
+  const box = await page.locator(".shelf-epub").boundingBox();
+  const middle = [box.x + box.width / 2, box.y + box.height / 2];
+
+  // A tap in the middle hides the bars, another brings them back; a page turned hides them.
+  await page.mouse.click(...middle);
+  await expect(stage).not.toHaveAttribute("data-chrome", "");
+  await page.mouse.click(...middle);
+  await expect(stage).toHaveAttribute("data-chrome", "");
+  await page.mouse.click(box.x + box.width * 0.95, middle[1]);
+  await expect(stage).not.toHaveAttribute("data-chrome", "");
+  await expect(where).toContainText("Chapter 2 of 2 · page 1 of");
+
+  // The slider goes anywhere in the book, once its places are counted.
+  await page.mouse.click(...middle);
+  const slider = page.getByLabel("Where in the book");
+  await expect(slider).toBeEnabled({ timeout: 20_000 });
+  await slider.fill("900");
+  await slider.dispatchEvent("change");
+  await expect(where).toContainText(/Chapter 2 of 2/);
+  await expect.poll(async () => Number((await where.textContent()).match(/(\d+)% of the book/)?.[1] ?? 0)).toBeGreaterThan(80);
+
+  // Opened again on this device, it is full screen again; Esc leaves.
+  await page.reload();
+  await ready(page);
+  await expect(stage).toHaveAttribute("data-full", "", { timeout: 20_000 });
+  await page.keyboard.press("Escape");
+  await expect(stage).not.toHaveAttribute("data-full", "");
+  await expect(page.locator(".reader-nav")).toBeVisible();
   noProblems(page);
 });
 

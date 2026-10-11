@@ -4,6 +4,12 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-10-11
+
+### Added
+
+- A full-screen reader for EPUBs, as Audiobookshelf's: **Full screen** or **F** gives the book the whole screen (the browser's own full screen too, where it allows), and a tap in the middle of the page shows or hides the bars: the way out, the chapters, the text settings, and where in the book, with a slider to go anywhere in it. Remembered on each device.
+
 ## [2.4.1] - 2026-10-11
 
 ### Security
@@ -367,7 +373,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.4.1...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.5.0...HEAD
+[2.5.0]: https://github.com/doodersrage/shelf/compare/v2.4.1...v2.5.0
 [2.4.1]: https://github.com/doodersrage/shelf/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/doodersrage/shelf/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/doodersrage/shelf/compare/v2.2.0...v2.3.0

@@ -34,61 +34,10 @@ else if (book is not null)
             }
             @if (chapters is { Count: > 0 } && !IsPdf && !EbookStore.IsComic(book.EbookStoredName))
             {
-                <details class="menu reader-menu">
-                    <summary class="button quiet"><span aria-hidden="true">Aa</span> @T("Text settings")</summary>
-                    <div class="menu-items reader-settings">
-                        <label>
-                            @T("Page")
-                            <select @bind="type.Theme" @bind:after="SaveType">
-                                <option value="">@T("As the device")</option>
-                                <option value="light">@T("Light")</option>
-                                <option value="sepia">@T("Sepia")</option>
-                                <option value="dark">@T("Dark")</option>
-                            </select>
-                        </label>
-                        <label>
-                            @T("Typeface")
-                            <select @bind="type.Font" @bind:after="SaveType">
-                                <option value="">@T("The book's own")</option>
-                                <option value="serif">@T("Serif")</option>
-                                <option value="sans">@T("Sans serif")</option>
-                            </select>
-                        </label>
-                        <label>
-                            @T("Text size")
-                            <select @bind="type.Size" @bind:after="SaveType">
-                                <option value="85">@T("Smaller")</option>
-                                <option value="100">@T("Default")</option>
-                                <option value="115">@T("Larger")</option>
-                                <option value="130">@T("Large")</option>
-                                <option value="150">@T("Largest")</option>
-                            </select>
-                        </label>
-                        <label>
-                            @T("Line spacing")
-                            <select @bind="type.Leading" @bind:after="SaveType">
-                                <option value="140">@T("Snug")</option>
-                                <option value="160">@T("Comfortable")</option>
-                                <option value="190">@T("Airy")</option>
-                            </select>
-                        </label>
-                        <label>
-                            @T("Layout")
-                            <select @bind="Layout" @bind:after="SaveType">
-                                <option value="scroll">@T("Scroll")</option>
-                                <option value="pages">@T("Pages")</option>
-                            </select>
-                        </label>
-                        <label>
-                            @T("Reading width")
-                            <select @bind="type.Width" @bind:after="SaveType">
-                                <option value="30">@T("Narrow")</option>
-                                <option value="38">@T("Medium")</option>
-                                <option value="50">@T("Wide")</option>
-                            </select>
-                        </label>
-                    </div>
-                </details>
+                @if (!full)
+                {
+                    @TextSettings
+                }
             }
         </div>
         <h1 class="visually-hidden">@book.Title</h1>
@@ -190,6 +139,8 @@ else if (book is not null)
                 @if (UseEngine)
                 {
                     <button type="button" @onclick="() => TurnPage(1)" aria-label="@T("Next page")">@T("Next") ›</button>
+                    @* Handled in the browser, in the tap itself, so the browser allows its own full screen. *@
+                    <button type="button" class="quiet" data-full-toggle>@T("Full screen")</button>
                 }
                 else
                 {
@@ -219,13 +170,43 @@ else if (book is not null)
             @if (UseEngine)
             {
                 @* The whole book in one view, a page at a time or scrolled; epub.js draws it and epub-reader.js drives it. *@
-                <div class="shelf-epub@(type.Paged ? " paged" : "")" @ref="epubHost" role="region" aria-label="@book.Title" data-theme="@(type.Theme.Length > 0 ? type.Theme : null)"></div>
+                @* Full screen (epub-reader.js sets data-full), the page fills the screen and these bars come and go with a
+                   tap in its middle, as in Audiobookshelf's reader. *@
+                <div class="epub-stage" data-theme="@(type.Theme.Length > 0 ? type.Theme : null)">
+                    <div class="epub-bar epub-top">
+                        @if (full)
+                        {
+                            <button type="button" class="icon-button" data-full-toggle aria-label="@T("Leave full screen")">✕</button>
+                            <span class="epub-title">@book.Title</span>
+                            <label class="epub-chapter">
+                                <span class="visually-hidden">@T("Chapter")</span>
+                                <select @bind="chapter" @bind:after="RememberChapter">
+                                    @foreach (var item in chapters)
+                                    {
+                                        <option value="@item.Index">@item.Title</option>
+                                    }
+                                </select>
+                            </label>
+                            @TextSettings
+                        }
+                    </div>
+                    <div class="shelf-epub@(type.Paged ? " paged" : "")" @ref="epubHost" role="region" aria-label="@book.Title" data-theme="@(type.Theme.Length > 0 ? type.Theme : null)"></div>
+                    <div class="epub-bar epub-bottom">
+                        @if (full)
+                        {
+                            <span class="epub-where">@Where</span>
+                            <input type="range" min="0" max="1000" step="1" value="@((int)Math.Round((bookShare ?? 0) * 1000))" disabled="@(bookShare is null)"
+                                   aria-label="@T("Where in the book")" @onchange="JumpInBook" />
+                        }
+                    </div>
+                </div>
                 @if (engineFailed)
                 {
                     <p class="validation-message" role="alert">@T("This EPUB could not be opened in the reader.") <a href="/library/@book.Id/read?classic=1">@T("Open it in the classic reader")</a></p>
                 }
                 <p class="hint reader-pages">
                     @(type.Paged ? T("Tap the sides, swipe, or use the arrow keys to turn.") : T("Scroll to read; the arrow keys go on a screen at a time."))
+                    @T("F, or Full screen, fills the screen; tap the middle of the page there for the controls.")
                     · <a href="/library/@book.Id/read?classic=1">@T("Classic reader")</a>
                 </p>
             }
@@ -247,6 +228,63 @@ else if (book is not null)
 }
 
 @code {
+    // The type and page settings: under the title, and in the bar at the top of the full-screen reader.
+    private RenderFragment TextSettings => @<details class="menu reader-menu">
+            <summary class="button quiet"><span aria-hidden="true">Aa</span> <span class="reader-menu-label">@T("Text settings")</span></summary>
+            <div class="menu-items reader-settings">
+                <label>
+                    @T("Page")
+                    <select @bind="type.Theme" @bind:after="SaveType">
+                        <option value="">@T("As the device")</option>
+                        <option value="light">@T("Light")</option>
+                        <option value="sepia">@T("Sepia")</option>
+                        <option value="dark">@T("Dark")</option>
+                    </select>
+                </label>
+                <label>
+                    @T("Typeface")
+                    <select @bind="type.Font" @bind:after="SaveType">
+                        <option value="">@T("The book's own")</option>
+                        <option value="serif">@T("Serif")</option>
+                        <option value="sans">@T("Sans serif")</option>
+                    </select>
+                </label>
+                <label>
+                    @T("Text size")
+                    <select @bind="type.Size" @bind:after="SaveType">
+                        <option value="85">@T("Smaller")</option>
+                        <option value="100">@T("Default")</option>
+                        <option value="115">@T("Larger")</option>
+                        <option value="130">@T("Large")</option>
+                        <option value="150">@T("Largest")</option>
+                    </select>
+                </label>
+                <label>
+                    @T("Line spacing")
+                    <select @bind="type.Leading" @bind:after="SaveType">
+                        <option value="140">@T("Snug")</option>
+                        <option value="160">@T("Comfortable")</option>
+                        <option value="190">@T("Airy")</option>
+                    </select>
+                </label>
+                <label>
+                    @T("Layout")
+                    <select @bind="Layout" @bind:after="SaveType">
+                        <option value="scroll">@T("Scroll")</option>
+                        <option value="pages">@T("Pages")</option>
+                    </select>
+                </label>
+                <label>
+                    @T("Reading width")
+                    <select @bind="type.Width" @bind:after="SaveType">
+                        <option value="30">@T("Narrow")</option>
+                        <option value="38">@T("Medium")</option>
+                        <option value="50">@T("Wide")</option>
+                    </select>
+                </label>
+            </div>
+        </details>;
+
     private Book? book;
     private OpenBook? open;
     private bool borrowed;
@@ -480,6 +518,25 @@ else if (book is not null)
     {
         Selected(text, prefix, suffix);
         selectedChapter = section;
+    }
+
+    private bool full;
+
+    // Told by epub-reader.js when the reader goes full screen and back.
+    [JSInvokable]
+    public void FullChanged(bool on)
+    {
+        full = on;
+        StateHasChanged();
+    }
+
+    // The slider in the full-screen reader's bar: anywhere in the book, by how far through it.
+    private async Task JumpInBook(ChangeEventArgs args)
+    {
+        if (epub is not null && double.TryParse(args.Value?.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value))
+        {
+            await epub.InvokeVoidAsync("goToShare", value / 1000);
+        }
     }
 
     private async Task TurnPage(int step)
