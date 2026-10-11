@@ -12,8 +12,8 @@ A personal library you run yourself. Shelf keeps the books you own on paper, you
 | --- | --- |
 | ![Every book on the shelf as a grid of covers, with filter chips, stars, and a status menu on each](docs/images/covers.png) | ![A book's page, led by its cover, status, and next step](docs/images/book.png) |
 | **The whole shelf** as covers or a compact list, with search, filters, and saved searches. | **A book's page** leads with the cover and one next step, then the reading log, lending, quotes, highlights, and files. |
-| ![The e-book reader with a highlighted passage, text settings, and a button to continue in the audiobook](docs/images/reader.png) | ![The audiobook player with chapters, a bookmark, and a button to continue in the e-book](docs/images/listen.png) |
-| **The reader** keeps your place, highlights, notes, and text settings, and reads aloud. | **The player** plays many tracks as one book, with chapters, bookmarks, speed, and a sleep timer, and keeps playing in a mini player as you browse. |
+| ![The e-book reader filling the window, a highlighted passage, and the text settings open from the bar over the book](docs/images/reader.png) | ![The audiobook player with chapters, a bookmark, and a button to continue in the e-book](docs/images/listen.png) |
+| **The reader** fills the window with the book, its bars a tap away, and keeps your place, highlights, notes, and text settings. | **The player** plays many tracks as one book, with chapters, bookmarks, speed, and a sleep timer, and keeps playing in a mini player as you browse. |
 | ![Insights with the year's goal and books finished each month](docs/images/stats.png) | ![Loans, with a book lent out and another reader asking to borrow](docs/images/loans.png) |
 | **Insights** lead with the year's goal, then a year of reading, favourites, and milestones. | **Loans** between readers, and asks to borrow from an open shelf. |
 | ![A reading list shared by link, as someone signed out sees it](docs/images/shared.png) | ![Home in dark mode](docs/images/dark.png) |

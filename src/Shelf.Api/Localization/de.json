@@ -1,4 +1,7 @@
 {
+  "Back to {0}": "Zurück zu {0}",
+  "Close": "Schließen",
+  "Tap the middle of the page for the bars; F fills the screen.": "Tippe in die Mitte der Seite für die Leisten; F füllt den Bildschirm.",
   " and ": " und ",
   "\"{0}\" is not a time. Write it as 1:02:03, 62:03, or seconds.": "„{0}“ ist keine Zeit. Schreiben Sie sie als 1:02:03, 62:03 oder in Sekunden.",
   ", a reader here": ", ein Leser hier",
@@ -525,7 +528,6 @@
   "Everything on your shelf in one zip: the catalog, notes, reviews, quotes, reading log, highlights, e-books, audiobooks, and covers.": "Alles aus deinem Regal in einer ZIP-Datei: Katalog, Notizen, Rezensionen, Zitate, Lesetagebuch, Markierungen, E-Books, Hörbücher und Cover.",
   "Everything you've finished": "Alles, was Sie beendet haben",
   "Export your library from Goodreads (My Books, then Import and export) or The StoryGraph (Manage account, then Export), and choose the CSV file here. Shelves, reading status, ratings, dates, reviews, and tags come along; books already on your shelf are skipped.": "Exportiere deine Bibliothek aus Goodreads (My Books, dann Import and export) oder The StoryGraph (Manage account, dann Export), und wähle hier die CSV-Datei. Regale, Lesestatus, Bewertungen, Daten, Rezensionen und Schlagwörter kommen mit; Bücher, die schon in deinem Regal sind, werden übersprungen.",
-  "F, or Full screen, fills the screen; tap the middle of the page there for the controls.": "F oder Vollbild füllt den Bildschirm; tippen Sie dort in die Seitenmitte für die Bedienelemente.",
   "Fair copy": "Ordentliches Exemplar",
   "Family Life": "Familienleben",
   "Fantasy Fiction": "Fantasy",

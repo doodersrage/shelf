@@ -5,6 +5,15 @@ import { createBook, noProblems, ready, signUp, unique, upload } from "../helper
 // The page-turning reader draws each part of the book in a frame of its own, inside .shelf-epub.
 const bookFrame = (page) => page.frameLocator(".shelf-epub iframe").first();
 
+// The page-turning reader's bars, brought back with a tap in the middle of the page if a page turned has hidden them.
+async function showBars(page) {
+  const stage = page.locator(".epub-stage");
+  if ((await stage.getAttribute("data-chrome")) !== null) return;
+  const box = await page.locator(".shelf-epub").boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(stage).toHaveAttribute("data-chrome", "");
+}
+
 test("an EPUB takes text settings and keeps a highlight with a note", async ({ browser }) => {
   const page = await signUp(browser, unique("Ishmael"));
   const book = await createBook(page, { title: "Moby-Dick", author: "Herman Melville", status: "Reading" });
@@ -130,6 +139,7 @@ test("an EPUB is read aloud, going on into the next chapter", async ({ browser }
 
   await page.goto(`/library/${book.id}/read`);
   await ready(page);
+  await page.getByRole("button", { name: "More" }).click();
   await page.selectOption('.read-aloud select:has(option:text("Faster"))', "1.2");
   await page.click('.read-aloud button:text-is("Read aloud")');
   await expect.poll(() => page.evaluate(() => window.__spoken.some((text) => text.includes("Call me Ishmael")))).toBe(true);
@@ -169,8 +179,9 @@ test("time with a book open in the reader is counted while someone is reading", 
     await page.mouse.wheel(0, 200);
     await page.waitForTimeout(4000);
   }
-  await page.getByRole("link", { name: "Library", exact: true }).first().click();
-  await page.waitForURL((url) => url.pathname === "/library");
+  await showBars(page);
+  await page.getByRole("link", { name: "Back to Moby-Dick" }).click();
+  await page.waitForURL((url) => url.pathname === `/library/${book.id}`);
   await expect.poll(async () => (await (await page.request.get("/books/reading-time")).json()).totalSeconds, { timeout: 10_000 }).toBeGreaterThanOrEqual(10);
   noProblems(page);
 });
@@ -207,7 +218,9 @@ test("the page-turning reader turns across chapters, and opens again at the very
   await ready(other);
   await expect(other.locator(".reader-where")).toContainText(here, { timeout: 20_000 });
 
-  // The classic reader is a link away.
+  // The classic reader is a link away, in the panel.
+  await showBars(page);
+  await page.getByRole("button", { name: "More" }).click();
   await page.click('a:text-is("Classic reader")');
   await expect(page.locator("iframe.reader-frame")).toBeVisible();
   noProblems(page);
@@ -265,7 +278,7 @@ test("a place reached in KOReader opens at that very paragraph, and one reached 
   noProblems(page);
 });
 
-test("the page-turning reader goes full screen, with its bars a tap in the middle away, and stays so on this device", async ({ browser }) => {
+test("the page-turning reader fills the window, with its bars over the book a tap in the middle away", async ({ browser }) => {
   const page = await signUp(browser, unique("Fullscreen"));
   const book = await createBook(page, { title: "The Harbour", author: "Someone", status: "Reading" });
   await upload(page, book.id, "ebook", "koreader.epub", "application/epub+zip");
@@ -276,12 +289,13 @@ test("the page-turning reader goes full screen, with its bars a tap in the middl
   // The first chapter is a page of its own.
   await expect(where).toContainText("Chapter 1 of 2", { timeout: 20_000 });
 
+  // The book fills the window from the start, the bars over it, with no other bars of the page's around it.
   const stage = page.locator(".epub-stage");
-  await page.click('button[data-full-toggle]:text-is("Full screen")');
   await expect(stage).toHaveAttribute("data-full", "");
+  await expect(stage).toHaveAttribute("data-chrome", "");
   await expect(page.getByRole("dialog", { name: "The Harbour" })).toBeVisible();
-  // The book fills the screen (the browser's own full screen, where it allows), the bars over it.
-  await expect(page.getByRole("button", { name: "Leave full screen" })).toBeVisible();
+  await expect(page.locator(".reader-nav")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Back to The Harbour" })).toBeVisible();
   await expect.poll(async () => {
     const [box, size] = [await page.locator(".shelf-epub").boundingBox(), await page.evaluate(() => [innerWidth, innerHeight])];
     return box.width === size[0] && box.height === size[1];
@@ -289,7 +303,8 @@ test("the page-turning reader goes full screen, with its bars a tap in the middl
   const box = await page.locator(".shelf-epub").boundingBox();
   const middle = [box.x + box.width / 2, box.y + box.height / 2];
 
-  // A tap in the middle hides the bars, another brings them back; a page turned hides them.
+  // A tap in the middle hides the bars, another brings them back; a page turned on the page hides them, one turned
+  // with the bar's buttons leaves them.
   await page.mouse.click(...middle);
   await expect(stage).not.toHaveAttribute("data-chrome", "");
   await page.mouse.click(...middle);
@@ -297,9 +312,12 @@ test("the page-turning reader goes full screen, with its bars a tap in the middl
   await page.mouse.click(box.x + box.width * 0.95, middle[1]);
   await expect(stage).not.toHaveAttribute("data-chrome", "");
   await expect(where).toContainText("Chapter 2 of 2 · page 1 of");
+  await page.mouse.click(...middle);
+  await page.click('button[aria-label="Previous page"]');
+  await expect(where).toContainText("Chapter 1 of 2");
+  await expect(stage).toHaveAttribute("data-chrome", "");
 
   // The slider goes anywhere in the book, once its places are counted.
-  await page.mouse.click(...middle);
   const slider = page.getByLabel("Where in the book");
   await expect(slider).toBeEnabled({ timeout: 20_000 });
   await slider.fill("900");
@@ -307,13 +325,17 @@ test("the page-turning reader goes full screen, with its bars a tap in the middl
   await expect(where).toContainText(/Chapter 2 of 2/);
   await expect.poll(async () => Number((await where.textContent()).match(/(\d+)% of the book/)?.[1] ?? 0)).toBeGreaterThan(80);
 
-  // Opened again on this device, it is full screen again; Esc leaves.
-  await page.reload();
-  await ready(page);
-  await expect(stage).toHaveAttribute("data-full", "", { timeout: 20_000 });
-  await page.keyboard.press("Escape");
-  await expect(stage).not.toHaveAttribute("data-full", "");
-  await expect(page.locator(".reader-nav")).toBeVisible();
+  // The rest is in the panel from the bar's ⋯, over the book.
+  await page.getByRole("button", { name: "More" }).click();
+  await expect(page.locator("#epub-panel")).toBeVisible();
+  await expect(page.locator("#epub-panel")).toContainText("Classic reader");
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.locator("#epub-panel")).toBeHidden();
+
+  // The way out is the book's page.
+  await page.getByRole("link", { name: "Back to The Harbour" }).click();
+  await expect(page).toHaveURL(new RegExp(`/library/${book.id}$`));
+  await expect(page.locator("html")).not.toHaveClass(/reading-full/);
   noProblems(page);
 });
 

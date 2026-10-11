@@ -4,6 +4,13 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.5.1] - 2026-10-11
+
+### Changed
+
+- The page-turning reader always fills the browser window, as Audiobookshelf's does, with its bars over the book instead of the page's around it: back, the title, the chapters, **Aa**, and **⋯** at the top; the page buttons and where you are, with the slider, at the bottom. A tap in the middle of the page shows or hides them. **⋯** opens a panel with the audiobook, Listen along, read aloud, the recap, this chapter's highlights, and the browser's own full screen; a selected passage gets a sheet over the page.
+- **Full screen** and **F** now take only the browser's own full screen, since the reader already fills the window; Esc leaves it.
+
 ## [2.5.0] - 2026-10-11
 
 ### Added
@@ -373,7 +380,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.5.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.5.1...HEAD
+[2.5.1]: https://github.com/doodersrage/shelf/compare/v2.5.0...v2.5.1
 [2.5.0]: https://github.com/doodersrage/shelf/compare/v2.4.1...v2.5.0
 [2.4.1]: https://github.com/doodersrage/shelf/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/doodersrage/shelf/compare/v2.3.0...v2.4.0

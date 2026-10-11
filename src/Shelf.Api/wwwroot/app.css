@@ -4220,13 +4220,12 @@ blockquote mark {
 .follow-list { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
 .follow-list li { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
 
-/* The full-screen reader, as Audiobookshelf's: the page fills the screen, and the bars come and go with a tap in its
-   middle (epub-reader.js sets data-full and data-chrome). Its colors are the page's, set as --epub-page and --epub-ink. */
-.epub-bar {
-    display: none;
-}
-
-.epub-stage[data-full] {
+/* The page-turning reader, as Audiobookshelf's: the book fills the window, over the app around it, and the bars sit
+   on top of it and come and go with a tap in the middle of the page (epub-reader.js sets data-full and data-chrome).
+   The page keeps a margin the height of the bars, so they never cover the text. Its colors are the page's, set as
+   --epub-page and --epub-ink. */
+.epub-stage {
+    --epub-bar-height: 3.25rem;
     position: fixed;
     inset: 0;
     z-index: 2000;
@@ -4236,40 +4235,54 @@ blockquote mark {
     color: var(--epub-ink, var(--color-ink));
 }
 
-.epub-stage[data-full] .shelf-epub {
+.epub-stage .shelf-epub {
     flex: 1;
     height: auto;
     min-height: 0;
     margin: 0;
     border: 0;
     border-radius: 0;
-    padding: max(0.5rem, env(safe-area-inset-top)) max(0.5rem, env(safe-area-inset-right)) max(0.5rem, env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left));
+    background: transparent;
+    padding: calc(var(--epub-bar-height) + env(safe-area-inset-top)) max(0.5rem, env(safe-area-inset-right)) calc(var(--epub-bar-height) + env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left));
 }
 
-.epub-stage[data-full] .epub-bar {
+.epub-bar {
     display: flex;
     position: absolute;
     left: 0;
     right: 0;
     z-index: 1;
+    min-height: var(--epub-bar-height);
     gap: var(--space-2);
     align-items: center;
-    padding: 0.5rem max(1rem, env(safe-area-inset-right)) 0.5rem max(1rem, env(safe-area-inset-left));
+    padding: 0.25rem max(0.75rem, env(safe-area-inset-right)) 0.25rem max(0.75rem, env(safe-area-inset-left));
     background: var(--epub-page, var(--color-surface));
     color: var(--epub-ink, var(--color-ink));
-    box-shadow: 0 0 1.5rem rgb(0 0 0 / 0.18);
-    transition: transform 0.2s ease, opacity 0.2s ease;
+    transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
 }
 
-.epub-stage[data-full] .epub-top {
+.epub-bar .icon-button,
+.epub-panel .icon-button {
+    color: inherit;
+    font-size: 1.4rem;
+    line-height: 1;
+    text-decoration: none;
+}
+
+.epub-top {
     top: 0;
-    padding-top: max(0.5rem, env(safe-area-inset-top));
+    padding-top: max(0.25rem, env(safe-area-inset-top));
 }
 
-.epub-stage[data-full] .epub-bottom {
+.epub-bottom {
     bottom: 0;
-    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
-    flex-wrap: wrap;
+    padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
+}
+
+/* With the bars showing, they lift off the page; hidden, they slide away and the margins stay plain page. */
+.epub-stage[data-chrome] .epub-bar,
+.epub-stage:not([data-full]) .epub-bar {
+    box-shadow: 0 0 1.5rem rgb(0 0 0 / 0.18);
 }
 
 .epub-stage[data-full]:not([data-chrome]) .epub-top {
@@ -4294,44 +4307,39 @@ blockquote mark {
 }
 
 .epub-chapter select {
-    max-width: 12rem;
+    max-width: 14rem;
 }
 
-.epub-where {
-    flex: 1 1 100%;
+.epub-progress {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.1rem;
+}
+
+.epub-progress .reader-where {
+    align-self: stretch;
+    margin: 0;
     font-size: var(--text-sm);
     text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.epub-bottom input[type="range"] {
-    flex: 1 1 100%;
+.epub-progress input[type="range"] {
+    width: 100%;
     accent-color: currentColor;
 }
 
-.epub-stage[data-full] .epub-top .menu-items {
+.epub-top .menu-items {
     right: 0;
     left: auto;
 }
 
-/* Nothing behind the full-screen reader scrolls while it is open. */
-html.reading-full,
-html.reading-full body {
-    overflow: hidden;
-}
-
-@media (max-width: 40rem) {
-    .epub-chapter select {
-        max-width: 8rem;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .epub-stage[data-full] .epub-bar {
-        transition: none;
-    }
-}
-
-/* In the full-screen reader's bar, the settings button is its "Aa" alone; screen readers still hear its name. */
+/* In the top bar, the settings button is its "Aa" alone; screen readers still hear its name. */
 .epub-top .reader-menu-label {
     position: absolute;
     width: 1px;
@@ -4339,4 +4347,117 @@ html.reading-full body {
     overflow: hidden;
     clip: rect(0 0 0 0);
     white-space: nowrap;
+}
+
+.epub-failed {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: min(30rem, calc(100% - 2rem));
+    text-align: center;
+}
+
+/* A passage selected: its highlight, note, and look-up in a sheet over the foot of the page. */
+.epub-sheet {
+    position: absolute;
+    z-index: 2;
+    left: 50%;
+    bottom: calc(var(--epub-bar-height) + env(safe-area-inset-bottom) + 0.5rem);
+    transform: translateX(-50%);
+    width: min(36rem, calc(100% - 1rem));
+    max-height: 55%;
+    overflow: auto;
+    padding: var(--space-3);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-card);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    box-shadow: 0 0.5rem 2rem rgb(0 0 0 / 0.25);
+}
+
+.epub-sheet .passage {
+    margin-top: 0;
+}
+
+/* Read aloud, while it reads with the panel shut: its pause and stop, just above the bottom bar. */
+.epub-speaking {
+    position: absolute;
+    z-index: 2;
+    left: 50%;
+    bottom: calc(var(--epub-bar-height) + env(safe-area-inset-bottom) + 0.5rem);
+    transform: translateX(-50%);
+    display: flex;
+    gap: var(--space-2);
+    padding: 0.35rem 0.5rem;
+    border-radius: 999px;
+    background: var(--color-surface);
+    color: var(--color-ink);
+    box-shadow: 0 0.25rem 1rem rgb(0 0 0 / 0.2);
+}
+
+/* The panel from the bar's ⋯: the audiobook, read aloud, the recap, and this chapter's highlights, down the right. */
+.epub-panel {
+    position: absolute;
+    z-index: 3;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(24rem, 100%);
+    overflow: auto;
+    padding: max(0.75rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) 1rem;
+    background: var(--color-surface);
+    color: var(--color-ink);
+    box-shadow: 0 0 2rem rgb(0 0 0 / 0.3);
+}
+
+.epub-panel[hidden] {
+    display: none;
+}
+
+.epub-panel-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.epub-panel-head h2 {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: var(--text-lg, 1.125rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.epub-panel-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.epub-panel > h2 {
+    font-size: var(--text-base, 1rem);
+    margin-top: var(--space-4);
+}
+
+/* Nothing behind the reader scrolls while it is open. */
+html.reading-full,
+html.reading-full body {
+    overflow: hidden;
+}
+
+@media (max-width: 40rem) {
+    .epub-chapter select {
+        max-width: 7.5rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .epub-bar {
+        transition: none;
+    }
 }

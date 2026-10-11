@@ -147,14 +147,15 @@ test("a book in both formats carries the place from the audiobook to the e-book 
   await Promise.all([page.waitForURL(/\/read\?chapter=0&at=0\.5\d*$/), page.click('button:text-is("Continue in the e-book")')]);
   await ready(page);
   await expect(page.locator(".reader-where")).toContainText("Chapter 1 of 2", { timeout: 20_000 });
-  // On a narrow screen the chapter runs to pages, and it opens part way through, not at its first page.
-  await page.setViewportSize({ width: 360, height: 640 });
+  // On a small screen the chapter runs to pages, and it opens part way through, not at its first page.
+  await page.setViewportSize({ width: 320, height: 480 });
   await page.reload();
   await ready(page);
-  await expect(page.locator(".reader-where")).toContainText(/Chapter 1 of 2 · page [2-9]/, { timeout: 20_000 });
+  await expect(page.locator(".reader-where")).toContainText(/Chapter 1 of 2 · page ([2-9]|\d\d)/, { timeout: 20_000 });
 
   // And back again to the same moment.
   // The top of the page showing can fall at the end of the first part on a small screen, or in the second.
+  await page.getByRole("button", { name: "More" }).click();
   await Promise.all([page.waitForURL(/\/listen\?part=[01]&at=[01](\.\d+)?$/), page.click('button:text-is("Continue in the audiobook")')]);
   await ready(page);
   // From the top of the page showing, which on a small screen can begin a little before the word it came to.

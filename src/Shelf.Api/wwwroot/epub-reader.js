@@ -15,7 +15,6 @@ let titles = [];
 let view = null;
 let stage = null;
 let gone = null;
-const fullKey = "shelf-reader-full";
 const painted = new Map();
 
 // Shelf's chapter for a part of the book, by its file: the same as epub.js's spine but for an odd book.
@@ -88,30 +87,23 @@ function applyStyle() {
   rendition.themes.fontSize(`${style.size ?? 100}%`);
   const colors = themes[style.theme] ?? themes[deviceTheme()];
   if (view) view.style.background = colors.background;
-  // Full screen, the bars and the space around the page take the page's colors.
+  // The bars and the space around the page take the page's colors.
   stage?.style.setProperty("--epub-page", colors.background);
   stage?.style.setProperty("--epub-ink", colors.color);
 }
 
-// ---- Full screen, as Audiobookshelf's reader: the book fills the screen, and a tap in the middle of the page shows
-// or hides the bars with the way out, the contents, the type, and where in the book. The browser's own full screen is
-// asked for too where it allows (not on an iPhone); either way the reader covers the page it sits on.
-
-function isFull() {
-  return stage?.hasAttribute("data-full") ?? false;
-}
+// ---- The reader fills the window, as Audiobookshelf's: the book is all there is, and a tap in the middle of the page
+// shows or hides the bars over it, with the way back, the contents, the type, and where in the book. The browser's own
+// full screen, without its address bar, is a tap away where it allows (not on an iPhone).
 
 function showChrome(shown) {
-  if (!isFull()) return;
+  if (!stage) return;
   if (shown) stage.setAttribute("data-chrome", "");
   else stage.removeAttribute("data-chrome");
 }
 
-async function setFull(on, browserToo) {
-  if (!stage || on === isFull()) return;
-  // Before the first page is drawn there is no place yet, and nothing to lay out again.
-  const drawn = !!rendition?.manager;
-  const at = drawn ? rendition.currentLocation()?.start?.cfi : null;
+function cover(on) {
+  if (!stage) return;
   if (on) {
     stage.setAttribute("data-full", "");
     stage.setAttribute("role", "dialog");
@@ -119,28 +111,17 @@ async function setFull(on, browserToo) {
     stage.setAttribute("aria-label", view?.getAttribute("aria-label") ?? "");
     document.documentElement.classList.add("reading-full");
     showChrome(true);
-    // Asked for in the tap itself, as browsers require; a refusal leaves the reader covering the page all the same.
-    if (browserToo && stage.requestFullscreen && !document.fullscreenElement) stage.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
   } else {
-    stage.removeAttribute("data-full");
-    stage.removeAttribute("data-chrome");
-    stage.removeAttribute("role");
-    stage.removeAttribute("aria-modal");
-    stage.removeAttribute("aria-label");
+    for (const name of ["data-full", "data-chrome", "role", "aria-modal", "aria-label"]) stage.removeAttribute(name);
     document.documentElement.classList.remove("reading-full");
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   }
+}
 
-  try { localStorage.setItem(fullKey, on ? "1" : "0"); } catch { /* private */ }
-  // The page draws the bars' controls only while they can be seen.
-  net?.invokeMethodAsync("FullChanged", on);
-  // Laid out afresh for the new size, at the same place, once the browser has drawn it.
-  if (!drawn) return;
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  if (!rendition?.manager) return;
-  rendition.resize();
-  if (at) await rendition.display(at);
-  if (on) view?.querySelector("iframe")?.contentWindow?.focus();
+function setBrowserFull(on) {
+  if (!stage) return;
+  // Asked for in the tap itself, as browsers require; a refusal leaves the reader filling the window all the same.
+  if (on && stage.requestFullscreen && !document.fullscreenElement) stage.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+  else if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => {});
 }
 
 // The buttons marked data-full-toggle go in and out; handled here, in the tap, so the browser allows full screen.
@@ -148,21 +129,23 @@ function fullClick(event) {
   const button = event.target.closest?.("[data-full-toggle]");
   if (!button || !stage) return;
   event.preventDefault();
-  setFull(!isFull(), true);
+  setBrowserFull(!document.fullscreenElement);
 }
 
-// Leaving the browser's full screen (by Esc, which the page never sees) leaves the reader's as well; but not as the
-// page itself goes (a reload ends the browser's full screen too), so the reader opens full screen again after it.
-let unloading = false;
-addEventListener("beforeunload", () => { unloading = true; });
-addEventListener("pagehide", () => { unloading = true; });
-
-function fullChanged() {
-  if (!document.fullscreenElement && isFull() && !unloading) setFull(false, false);
+// In or out of the browser's full screen (by the button, F, or Esc, which the page never sees): the page says which,
+// and the book is laid out afresh for the new size, at the same place, once the browser has drawn it.
+async function fullChanged() {
+  net?.invokeMethodAsync("FullChanged", !!document.fullscreenElement);
+  if (!rendition?.manager) return;
+  const at = rendition.currentLocation()?.start?.cfi;
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  if (!rendition?.manager) return;
+  rendition.resize();
+  if (at) await rendition.display(at);
 }
 
-export function full(on) {
-  return setFull(on, false);
+export function chrome(shown) {
+  showChrome(shown);
 }
 
 // The text around a range, for finding a highlight again however the page is laid out.
@@ -321,13 +304,13 @@ function turn(step) {
   else rendition.prev();
 }
 
-// A tap at a place across the box showing the page: its sides turn it, and full screen, its middle shows the bars.
+// A tap at a place across the box showing the page: its sides turn it, and its middle shows or hides the bars.
 function tapAt(x) {
   const box = view?.getBoundingClientRect();
   if (!box) return;
   if (style.flow !== "scrolled" && x - box.left < box.width * 0.25) turn(-1);
   else if (style.flow !== "scrolled" && x - box.left > box.width * 0.75) turn(1);
-  else if (isFull()) showChrome(!stage.hasAttribute("data-chrome"));
+  else if (stage) showChrome(!stage.hasAttribute("data-chrome"));
 }
 
 // Beside the book's column (a wide screen leaves room either side), taps count as on the page.
@@ -363,15 +346,9 @@ function controls(contents) {
 
 function keys(event) {
   if (event.target?.closest?.("input, textarea, select, [contenteditable]") || event.altKey || event.ctrlKey || event.metaKey) return;
-  if (event.key === "Escape" && isFull()) {
-    event.preventDefault();
-    setFull(false, false);
-    return;
-  }
-
   if ((event.key === "f" || event.key === "F") && stage) {
     event.preventDefault();
-    setFull(!isFull(), true);
+    setBrowserFull(!document.fullscreenElement);
     return;
   }
 
@@ -417,13 +394,8 @@ export async function open(host, options, dotNet) {
   stage = host.closest(".epub-stage");
   document.addEventListener("click", fullClick);
   document.addEventListener("fullscreenchange", fullChanged);
-  // Full screen last time on this device: so again, before the book is laid out, at the size it will have (the
-  // browser's own full screen waits for a tap).
-  try {
-    if (localStorage.getItem(fullKey) === "1") await setFull(true, false);
-  } catch {
-    // Without storage, the reader opens as it sits on the page.
-  }
+  // The window filled before the book is laid out, at the size it will have.
+  cover(true);
 
   const column = document.createElement("div");
   column.className = "epub-column";
@@ -511,9 +483,10 @@ export async function open(host, options, dotNet) {
   }
 }
 
-export function next() { turn(1); }
+// From the bar's buttons, which stay where they are for the next tap.
+export function next() { rendition?.next(); }
 
-export function prev() { turn(-1); }
+export function prev() { rendition?.prev(); }
 
 export async function goTo(chapter) {
   const section = sectionFor(chapter);
@@ -578,7 +551,7 @@ export function close() {
   document.removeEventListener("keydown", keys);
   document.removeEventListener("click", fullClick);
   document.removeEventListener("fullscreenchange", fullChanged);
-  document.documentElement.classList.remove("reading-full");
+  cover(false);
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   stage = null;
   clearTimeout(pending);

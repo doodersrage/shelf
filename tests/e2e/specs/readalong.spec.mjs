@@ -56,6 +56,8 @@ test("a read-along marks the word being read as the audiobook plays, and turns t
 
   await page.goto(`/library/${book.id}/read?chapter=0`);
   await ready(page);
+  // Listen along is in the page-turning reader's panel, and opens the chapter-at-a-time reader.
+  await page.getByRole("button", { name: "More" }).click();
   await page.getByRole("button", { name: "Listen along" }).click();
   await expect.poll(() => page.evaluate(() => window.shelfPlayer.now().playing)).toBe(true);
 

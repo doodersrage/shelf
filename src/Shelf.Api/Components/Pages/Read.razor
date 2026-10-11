@@ -21,8 +21,11 @@
 }
 else if (book is not null)
 {
-    @* The book's own title is the way back; the settings fold into a menu so the page starts with the text. *@
+    @* The book's own title is the way back; the settings fold into a menu so the page starts with the text. The
+       page-turning reader has all of this in the bars over the book instead. *@
     <div class="reader" data-theme="@(type.Theme.Length > 0 ? type.Theme : null)">
+        @if (!UseEngine)
+        {
         <div class="reader-head">
             @if (borrowed)
             {
@@ -34,12 +37,10 @@ else if (book is not null)
             }
             @if (chapters is { Count: > 0 } && !IsPdf && !EbookStore.IsComic(book.EbookStoredName))
             {
-                @if (!full)
-                {
-                    @TextSettings
-                }
+                @TextSettings
             }
         </div>
+        }
         <h1 class="visually-hidden">@book.Title</h1>
         @if (string.IsNullOrWhiteSpace(book.EbookStoredName))
         {
@@ -116,17 +117,14 @@ else if (book is not null)
         {
             <p>@T("This EPUB has no chapters.")</p>
         }
+        else if (UseEngine)
+        {
+            @EngineReader
+        }
         else
         {
             <div class="reader-nav">
-                @if (UseEngine)
-                {
-                    <button type="button" @onclick="() => TurnPage(-1)" aria-label="@T("Previous page")">‹ @T("Previous")</button>
-                }
-                else
-                {
-                    <button type="button" @onclick="Previous" disabled="@(chapter == 0)">@T("Previous")</button>
-                }
+                <button type="button" @onclick="Previous" disabled="@(chapter == 0)">@T("Previous")</button>
                 <label>
                     @T("Chapter")
                     <select @bind="chapter" @bind:after="RememberChapter">
@@ -136,16 +134,7 @@ else if (book is not null)
                         }
                     </select>
                 </label>
-                @if (UseEngine)
-                {
-                    <button type="button" @onclick="() => TurnPage(1)" aria-label="@T("Next page")">@T("Next") ›</button>
-                    @* Handled in the browser, in the tap itself, so the browser allows its own full screen. *@
-                    <button type="button" class="quiet" data-full-toggle>@T("Full screen")</button>
-                }
-                else
-                {
-                    <button type="button" @onclick="Next" disabled="@(chapter >= chapters.Count - 1)">@T("Next")</button>
-                }
+                <button type="button" @onclick="Next" disabled="@(chapter >= chapters.Count - 1)">@T("Next")</button>
                 <span class="hint reader-where" aria-live="polite">@Where</span>
                 @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
                 {
@@ -167,60 +156,14 @@ else if (book is not null)
             }
             @ReadAloud
             @Passage
-            @if (UseEngine)
+            <iframe @key="@($"{chapter}:{markRevision}:{typeRevision}")" class="reader-frame@(type.Paged ? " paged" : "")" title="@chapters[chapter].Title" src="@FrameSrc" data-paged="@(type.Paged ? "true" : "false")"></iframe>
+            @if (type.Paged && pages > 0)
             {
-                @* The whole book in one view, a page at a time or scrolled; epub.js draws it and epub-reader.js drives it. *@
-                @* Full screen (epub-reader.js sets data-full), the page fills the screen and these bars come and go with a
-                   tap in its middle, as in Audiobookshelf's reader. *@
-                <div class="epub-stage" data-theme="@(type.Theme.Length > 0 ? type.Theme : null)">
-                    <div class="epub-bar epub-top">
-                        @if (full)
-                        {
-                            <button type="button" class="icon-button" data-full-toggle aria-label="@T("Leave full screen")">✕</button>
-                            <span class="epub-title">@book.Title</span>
-                            <label class="epub-chapter">
-                                <span class="visually-hidden">@T("Chapter")</span>
-                                <select @bind="chapter" @bind:after="RememberChapter">
-                                    @foreach (var item in chapters)
-                                    {
-                                        <option value="@item.Index">@item.Title</option>
-                                    }
-                                </select>
-                            </label>
-                            @TextSettings
-                        }
-                    </div>
-                    <div class="shelf-epub@(type.Paged ? " paged" : "")" @ref="epubHost" role="region" aria-label="@book.Title" data-theme="@(type.Theme.Length > 0 ? type.Theme : null)"></div>
-                    <div class="epub-bar epub-bottom">
-                        @if (full)
-                        {
-                            <span class="epub-where">@Where</span>
-                            <input type="range" min="0" max="1000" step="1" value="@((int)Math.Round((bookShare ?? 0) * 1000))" disabled="@(bookShare is null)"
-                                   aria-label="@T("Where in the book")" @onchange="JumpInBook" />
-                        }
-                    </div>
-                </div>
-                @if (engineFailed)
-                {
-                    <p class="validation-message" role="alert">@T("This EPUB could not be opened in the reader.") <a href="/library/@book.Id/read?classic=1">@T("Open it in the classic reader")</a></p>
-                }
-                <p class="hint reader-pages">
-                    @(type.Paged ? T("Tap the sides, swipe, or use the arrow keys to turn.") : T("Scroll to read; the arrow keys go on a screen at a time."))
-                    @T("F, or Full screen, fills the screen; tap the middle of the page there for the controls.")
-                    · <a href="/library/@book.Id/read?classic=1">@T("Classic reader")</a>
-                </p>
+                <p class="hint reader-pages" aria-live="polite">@T("Page {0} of {1} in this chapter", page, pages) · @T("Tap the sides, swipe, or use the arrow keys to turn.")</p>
             }
-            else
+            @if (Classic == "1")
             {
-                <iframe @key="@($"{chapter}:{markRevision}:{typeRevision}")" class="reader-frame@(type.Paged ? " paged" : "")" title="@chapters[chapter].Title" src="@FrameSrc" data-paged="@(type.Paged ? "true" : "false")"></iframe>
-                @if (type.Paged && pages > 0)
-                {
-                    <p class="hint reader-pages" aria-live="polite">@T("Page {0} of {1} in this chapter", page, pages) · @T("Tap the sides, swipe, or use the arrow keys to turn.")</p>
-                }
-                @if (Classic == "1")
-                {
-                    <p class="hint"><a href="/library/@book.Id/read">@T("Back to the page-turning reader")</a></p>
-                }
+                <p class="hint"><a href="/library/@book.Id/read">@T("Back to the page-turning reader")</a></p>
             }
             @MarkList(T("In this chapter"))
         }
@@ -228,6 +171,91 @@ else if (book is not null)
 }
 
 @code {
+    // The page-turning reader, as Audiobookshelf's: the book fills the window, and the bars over it come and go with a
+    // tap in the middle of the page (epub-reader.js sets data-full and data-chrome). The rarer things, read aloud, the
+    // recap, this chapter's highlights, and the way to the audiobook, are in a panel from the bar's ⋯; a selected
+    // passage brings up its own sheet over the page.
+    private RenderFragment EngineReader => @<div class="epub-stage" data-theme="@(type.Theme.Length > 0 ? type.Theme : null)">
+            <div class="epub-bar epub-top">
+                <a class="icon-button epub-back" href="@(borrowed ? "/loans" : $"/library/{book!.Id}")" aria-label="@(borrowed ? T("Loans") : T("Back to {0}", book!.Title))">‹</a>
+                <span class="epub-title">@book!.Title</span>
+                <label class="epub-chapter">
+                    <span class="visually-hidden">@T("Chapter")</span>
+                    <select @bind="chapter" @bind:after="RememberChapter">
+                        @foreach (var item in chapters!)
+                        {
+                            <option value="@item.Index">@item.Title</option>
+                        }
+                    </select>
+                </label>
+                @TextSettings
+                <button type="button" class="icon-button" aria-label="@T("More")" aria-controls="epub-panel" aria-expanded="@(panel ? "true" : "false")" @onclick="() => panel = !panel">⋯</button>
+            </div>
+            <div class="shelf-epub@(type.Paged ? " paged" : "")" @ref="epubHost" role="region" aria-label="@book!.Title" data-theme="@(type.Theme.Length > 0 ? type.Theme : null)"></div>
+            @if (engineFailed)
+            {
+                <p class="validation-message epub-failed" role="alert">@T("This EPUB could not be opened in the reader.") <a href="/library/@book!.Id/read?classic=1">@T("Open it in the classic reader")</a></p>
+            }
+            <div class="epub-bar epub-bottom">
+                <button type="button" class="icon-button" @onclick="() => TurnPage(-1)" aria-label="@T("Previous page")">‹</button>
+                <div class="epub-progress">
+                    <span class="reader-where" aria-live="polite">@Where</span>
+                    <input type="range" min="0" max="1000" step="1" value="@((int)Math.Round((bookShare ?? 0) * 1000))" disabled="@(bookShare is null)"
+                           aria-label="@T("Where in the book")" @onchange="JumpInBook" />
+                </div>
+                <button type="button" class="icon-button" @onclick="() => TurnPage(1)" aria-label="@T("Next page")">›</button>
+            </div>
+            @if (speechState != "idle" && !panel)
+            {
+                <div class="epub-speaking" role="status">
+                    @if (speechState == "speaking")
+                    {
+                        <button type="button" @onclick="PauseReading">@T("Pause")</button>
+                    }
+                    else
+                    {
+                        <button type="button" @onclick="ResumeReading">@T("Resume")</button>
+                    }
+                    <button type="button" class="quiet" @onclick="StopReading">@T("Stop")</button>
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(selectedText))
+            {
+                <div class="epub-sheet" role="region" aria-label="@T("Highlight")">
+                    @Passage
+                </div>
+            }
+            <aside id="epub-panel" class="epub-panel" hidden="@(!panel)" aria-label="@T("More")">
+                <div class="epub-panel-head">
+                    <h2>@book!.Title</h2>
+                    <button type="button" class="icon-button" aria-label="@T("Close")" @onclick="() => panel = false">✕</button>
+                </div>
+                <div class="epub-panel-actions">
+                    @if (!string.IsNullOrWhiteSpace(book!.AudioStoredName))
+                    {
+                        <button type="button" @onclick="ContinueInAudio">@T("Continue in the audiobook")</button>
+                    }
+                    @if (alongChapters.Length > 0)
+                    {
+                        <button type="button" class="quiet" @onclick="ToggleAlong">@T("Listen along")</button>
+                    }
+                    @* Handled in the browser, in the tap itself, so the browser allows its own full screen. *@
+                    <button type="button" class="quiet" data-full-toggle>@(full ? T("Leave full screen") : T("Full screen"))</button>
+                </div>
+                @ReadAloud
+                <RecapPanel BookId="book!.Id" Place="() => Task.FromResult(new RecapRequest(chapter, chapterAt))" />
+                @MarkList(T("In this chapter"))
+                <p class="hint">
+                    @(type.Paged ? T("Tap the sides, swipe, or use the arrow keys to turn.") : T("Scroll to read; the arrow keys go on a screen at a time."))
+                    @T("Tap the middle of the page for the bars; F fills the screen.")
+                    @T("Select a passage to highlight it and keep a note with it.")
+                    · <a href="/library/@book!.Id/read?classic=1">@T("Classic reader")</a>
+                </p>
+            </aside>
+        </div>;
+
+    private bool panel;
+
     // The type and page settings: under the title, and in the bar at the top of the full-screen reader.
     private RenderFragment TextSettings => @<details class="menu reader-menu">
             <summary class="button quiet"><span aria-hidden="true">Aa</span> <span class="reader-menu-label">@T("Text settings")</span></summary>
@@ -522,7 +550,7 @@ else if (book is not null)
 
     private bool full;
 
-    // Told by epub-reader.js when the reader goes full screen and back.
+    // Told by epub-reader.js when the browser's own full screen comes and goes.
     [JSInvokable]
     public void FullChanged(bool on)
     {
@@ -530,7 +558,7 @@ else if (book is not null)
         StateHasChanged();
     }
 
-    // The slider in the full-screen reader's bar: anywhere in the book, by how far through it.
+    // The slider in the reader's bottom bar: anywhere in the book, by how far through it.
     private async Task JumpInBook(ChangeEventArgs args)
     {
         if (epub is not null && double.TryParse(args.Value?.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value))
