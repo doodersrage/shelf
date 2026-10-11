@@ -172,6 +172,9 @@ builder.Services.AddHttpClient(LinkClient.ClientName, client =>
 builder.Services.AddSingleton<LinkClient>();
 builder.Services.AddSingleton<Federation>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<Federation>());
+// Audiobookshelf's phone apps, signing in to Shelf as to an Audiobookshelf server (AbsApi:Enabled).
+builder.Services.AddSingleton<AbsSocket>();
+builder.Services.AddSingleton<AbsApi>();
 builder.Services.AddSingleton<PodcastService>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<PodcastService>());
 builder.Services.AddSingleton<ReadAlongService>();
@@ -342,6 +345,7 @@ if (!app.Environment.IsDevelopment())
 // Passwords and device keys travel with every request, so plain HTTP is sent to HTTPS when the shelf has a port for it.
 app.UseHttpsRedirection();
 
+app.UseWebSockets();
 app.UseAuthentication();
 app.UseRequestLocalization(Regions.Configure);
 app.UseRateLimiter();
@@ -369,6 +373,11 @@ Feeds.Map(app);
 Kobo.Map(app);
 PodcastService.Map(app);
 app.Services.GetRequiredService<Federation>().Map(app);
+if (app.Services.GetRequiredService<AbsApi>() is { Enabled: true } absApi)
+{
+    absApi.Map(app);
+    app.Services.GetRequiredService<AbsSocket>().Map(app);
+}
 await app.RunAsync();
 return 0;
 

@@ -5,6 +5,9 @@
 @inject EbookStore Ebooks
 @inject AudioStore Audio
 @inject NavigationManager Navigation
+@inject AbsApi AbsApp
+@inject ShelfReader Reader
+@inject IConfiguration Configuration
 
 <PageTitle>@T("Devices") · Shelf</PageTitle>
 
@@ -97,6 +100,19 @@ else if (hasKey)
 }
 </section>
 
+@if (AbsApp.Enabled)
+{
+<section class="panel" id="audiobookshelf-app">
+<h2>@T("Audiobookshelf apps")</h2>
+<p>@T("Audiobookshelf's phone apps, for Android and iPhone, can sign in to Shelf as to an Audiobookshelf server: they list your audiobooks and e-books, play them or download them to listen offline, with Android Auto and CarPlay, and keep your place, bookmarks, and time listened in step with Shelf.")</p>
+<dl class="facts">
+    <dt>@T("Server address")</dt><dd><code>@Site</code></dd>
+    <dt>@T("User name")</dt><dd>@Reader.Name</dd>
+    <dt>@T("Password")</dt><dd>@T("Your Shelf password; with two-step sign-in on, an API token from Account in its place.")</dd>
+</dl>
+</section>
+}
+
 <section class="panel" id="kobo">
 <h2>Kobo</h2>
 <p>@T("A Kobo e-reader can take your EPUBs from Shelf as if from its own store: its sync downloads them over Wi-Fi, and where you stop on the Kobo comes back here.")</p>
@@ -165,6 +181,8 @@ else if (hasKobo)
 </section>
 
 @code {
+    private string Site => EmailRules.PublicAddress(Configuration, null) is { Length: > 0 } configured ? configured : Navigation.BaseUri.TrimEnd('/');
+
     private bool importingHighlights;
     private string? highlightNote;
     private bool highlightProblem;

@@ -139,6 +139,7 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 | `Comics:ComicVineKey` | none | An API key from [ComicVine](https://comicvine.gamespot.com/api/), for **Match on ComicVine** on comics' pages. Without one, the button isn't shown. |
 | `Ebooks:Convert` | `ebook-convert` | Calibre's converter, which turns Kindle files into EPUBs. Without it, Kindle files are refused with a note saying why. |
 | `FreeBooks:Enabled` | `true` | The Free books page, which reaches gutenberg.org, librivox.org, and archive.org. Turn it off for a shelf with no internet. |
+| `AbsApi:Enabled` | `true` | Let Audiobookshelf's phone apps sign in to Shelf. See [Audiobookshelf's phone apps](devices.md#audiobookshelfs-phone-apps). |
 | `Kobo:Kepub` | `true` | Send books to Kobo e-readers as KEPUBs, made from the EPUBs and kept beside them, for the Kobo's page numbers and statistics. `false` sends the EPUBs as they are. |
 | `Lookup:Dictionary` | `true` | **Look up** in the reader, which sends the chosen words to Wiktionary and Wikipedia. Set `false` to keep them on the shelf. |
 | `Lookup:GoogleBooks` | `true` | Ask Google Books when Open Library has no match or leaves fields blank. It sends the ISBN, or the title and author, to Google; set `false` to keep look-ups to Open Library alone. |

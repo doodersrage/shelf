@@ -23,6 +23,16 @@ Shelf has an OPDS catalog, the format many reading apps browse, such as KOReader
 
 The catalog lists your e-books by status, and the books lent to you, ready to download.
 
+## Audiobookshelf's phone apps
+
+[Audiobookshelf](https://www.audiobookshelf.org)'s own apps, for Android and iPhone, can sign in to Shelf as they would to an Audiobookshelf server. That gives Shelf phone apps: listening with the screen off and from the lock screen, downloads to listen offline, Android Auto and CarPlay, sleep timers, and the apps' own e-book reader.
+
+In the app, add a server with Shelf's address (as `Email:PublicAddress` gives it, or as you reach Shelf), then sign in with your Shelf name and password. With two-step sign-in on, use an [API token](api.md#api-tokens) from **Account** as the password instead. **Devices** shows what to enter.
+
+The app then sees one library, your shelf: every book of yours, or lent to you, with a recording or an EPUB, with its series, authors, narrators, and tags, and your collections. Playing a book streams its tracks from Shelf; where you stop, your bookmarks, and the time you listen come back to Shelf as you go, and books you finish in the app are finished on Shelf. Listening offline in the app catches up when it's back online.
+
+What the apps can't do with Shelf: change books, upload, or anything an Audiobookshelf admin does there; podcasts and playlists stay in Shelf's own pages. The apps are made for Audiobookshelf, and Shelf answers the calls they make as Audiobookshelf 2.37 does; a new version of the apps could ask for something Shelf doesn't answer yet. `AbsApi:Enabled` set to `false` turns it off.
+
 ## Kobo e-readers
 
 A Kobo can take your EPUBs from Shelf as if from its own store, as it does with Calibre-Web: its **Sync** downloads them over Wi-Fi, with their covers and series, and where you stop on the Kobo comes back to Shelf.

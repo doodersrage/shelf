@@ -157,6 +157,14 @@ public static class ApiTokens
         return AuthenticateResult.Success(new AuthenticationTicket(principal, SchemeName));
     }
 
+    // The reader a token belongs to, for an app that signs in with one in place of a password.
+    public static async Task<Reader?> ReaderOfAsync(ShelfDb db, string secret, CancellationToken cancellationToken = default)
+    {
+        var hash = Hash(secret.Trim());
+        var readerId = await db.ApiTokens.AsNoTracking().Where(item => item.Hash == hash).Select(item => (int?)item.ReaderId).FirstOrDefaultAsync(cancellationToken);
+        return readerId is int id ? await db.Readers.AsNoTracking().FirstOrDefaultAsync(reader => reader.Id == id, cancellationToken) : null;
+    }
+
     private static Task Refuse(HttpContext context, string detail) =>
         TypedResults.Problem(detail, statusCode: StatusCodes.Status403Forbidden).ExecuteAsync(context);
 

@@ -28,7 +28,7 @@ The screenshots show public-domain books, with covers drawn for the demo. `npm r
 Good self-hosted book apps already exist, and each is built around one kind of book:
 
 - **[Calibre-Web](https://github.com/janeczku/calibre-web)** is a web front end to a Calibre library. It is the better choice if Calibre is where you edit metadata and convert files. It keeps e-books only, in Calibre's database.
-- **[Audiobookshelf](https://www.audiobookshelf.org)** is an audiobook and podcast server with phone apps that download for offline listening. It is the better choice if you want native phone apps. E-books come second there, and paper books not at all.
+- **[Audiobookshelf](https://www.audiobookshelf.org)** is an audiobook and podcast server with phone apps that download for offline listening. It is the better choice if audiobooks are all you keep. E-books come second there, and paper books not at all; its phone apps can sign in to Shelf too.
 - **Goodreads and StoryGraph** keep a reading log and a yearly goal well, but on someone else's server, and they hold none of your files.
 
 Shelf is for a library that is all of these at once, kept on your own server:
@@ -38,7 +38,7 @@ Shelf is for a library that is all of these at once, kept on your own server:
 - **Readers lend to each other.** A borrower reads or listens with their own place and highlights, and the owner's notes stay private.
 - **Come as you are.** Shelf brings in Calibre libraries, Audiobookshelf servers, Goodreads and StoryGraph exports, folders of files, and free public-domain books. Your own data goes out as JSON, Markdown notes, or one zip with every file.
 
-What it does not have, yet, is phone apps: on a phone it is the website, added to the home screen, with offline reading for kept e-books.
+It has no phone apps of its own: on a phone it is the website, added to the home screen, with offline reading and listening for kept books. For listening, Audiobookshelf's apps sign in to Shelf as to their own server, with downloads, Android Auto, and CarPlay.
 
 ## What it does
 

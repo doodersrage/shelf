@@ -46,7 +46,7 @@ description: Shelf is a personal library you run yourself: your books, e-books, 
 
 ## Why Shelf
 
-[Calibre-Web](https://github.com/janeczku/calibre-web) is a fine front end to a Calibre library of e-books, and [Audiobookshelf](https://www.audiobookshelf.org) a fine audiobook and podcast server with phone apps. Each is built around one kind of book. Shelf is for a library of all of them at once: a paperback, its EPUB, and its audiobook are one book with one reading log, paper copies have places, conditions, and loans, and readers on the same server lend to each other. It brings in Calibre libraries and Audiobookshelf servers, so trying it costs nothing. What it lacks is phone apps: on a phone it is the website, with offline reading for kept e-books.
+[Calibre-Web](https://github.com/janeczku/calibre-web) is a fine front end to a Calibre library of e-books, and [Audiobookshelf](https://www.audiobookshelf.org) a fine audiobook and podcast server with phone apps. Each is built around one kind of book. Shelf is for a library of all of them at once: a paperback, its EPUB, and its audiobook are one book with one reading log, paper copies have places, conditions, and loans, and readers on the same server lend to each other. It brings in Calibre libraries and Audiobookshelf servers, so trying it costs nothing. It has no phone apps of its own: on a phone it is the website, with offline reading for kept books; for listening, [Audiobookshelf's apps sign in to Shelf](devices.md#audiobookshelfs-phone-apps) as to their own server.
 
 ## Start in a minute
 
