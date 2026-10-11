@@ -63,6 +63,30 @@ docker compose up -d
 
 Settings are environment variables, with `__` where the documentation writes `:`. [Configuration](configuration.md) lists them all.
 
+To keep the database in PostgreSQL rather than SQLite, add a database service and point Shelf at it; see [PostgreSQL](configuration.md#postgresql):
+
+```yaml
+services:
+  shelf:
+    # … as above, plus:
+    environment:
+      Database__Provider: Postgres
+      ConnectionStrings__Postgres: "Host=db;Database=shelf;Username=shelf;Password=change-me"
+    depends_on: [db]
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: shelf
+      POSTGRES_PASSWORD: change-me
+    volumes:
+      - shelf-db:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  shelf-data:
+  shelf-db:
+```
+
 > [!TIP]
 > Kindle files need Calibre to be turned into EPUBs, which adds several hundred megabytes, so the published image leaves it out. Build your own with it: `docker build --build-arg CALIBRE=true -t shelf .` The same goes for ffmpeg, which [read-along](audiobooks.md#read-along) needs only with a speech-to-text service that limits uploads, such as OpenAI's: `--build-arg FFMPEG=true`.
 

@@ -55,7 +55,20 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ShelfReader>();
 builder.Services.TryAddEnumerable(ServiceDescriptor.Scoped<CircuitHandler, ReaderCircuitHandler>());
-builder.Services.AddDbContextFactory<ShelfDb>(options => options.UseSqlite(sqlite.ConnectionString), ServiceLifetime.Scoped);
+// SQLite in a file beside the rest, as usual; or PostgreSQL (Database:Provider = Postgres, ConnectionStrings:Postgres),
+// with migrations of its own. The SQLite file's folder still holds the keys and backups either way.
+if (builder.Configuration["Database:Provider"] is { } provider && (provider.Equals("Postgres", StringComparison.OrdinalIgnoreCase) || provider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase)))
+{
+    var postgres = builder.Configuration.GetConnectionString("Postgres")
+        ?? throw new InvalidOperationException("Database:Provider is Postgres, but ConnectionStrings:Postgres is missing.");
+    builder.Services.AddDbContextFactory<PostgresShelfDb>(options => options.UseNpgsql(postgres), ServiceLifetime.Scoped);
+    builder.Services.AddScoped<IDbContextFactory<ShelfDb>, PostgresShelfDbFactory>();
+}
+else
+{
+    builder.Services.AddDbContextFactory<ShelfDb>(options => options.UseSqlite(sqlite.ConnectionString), ServiceLifetime.Scoped);
+}
+
 builder.Services.AddScoped(static services =>
     services.GetRequiredService<IDbContextFactory<ShelfDb>>().CreateDbContext());
 
@@ -261,6 +274,14 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 var app = builder.Build();
+
+// Run once with --move-to-postgres true, with Database:Provider set to Postgres, to bring the SQLite shelf across.
+if (app.Configuration["move-to-postgres"] is { Length: > 0 } && app.Configuration.GetConnectionString("Postgres") is { } target)
+{
+    var moved = await MoveToPostgres.RunAsync(sqlite.ConnectionString, target);
+    Console.WriteLine(moved.Problem ?? $"Moved {moved.Rows} rows in {moved.Tables} tables to PostgreSQL. Start Shelf with Database:Provider set to Postgres.");
+    return moved.Problem is null ? 0 : 1;
+}
 
 await using (var scope = app.Services.CreateAsyncScope())
 {

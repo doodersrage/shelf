@@ -28,6 +28,35 @@ jobs:
       - run: dotnet build --no-restore --configuration Release
       - run: dotnet test --no-build --configuration Release --logger "console;verbosity=normal"
 
+  # The same tests with PostgreSQL as the database, each shelf in a database of its own.
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: shelf
+          POSTGRES_PASSWORD: shelf
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U shelf"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - run: dotnet restore
+      - run: dotnet build --no-restore --configuration Release
+      - run: dotnet test --no-build --configuration Release
+        env:
+          SHELF_TEST_POSTGRES: "Host=localhost;Port=5432;Username=shelf;Password=shelf;Maximum Pool Size=10"
+
   browser:
     runs-on: ubuntu-latest
     steps:

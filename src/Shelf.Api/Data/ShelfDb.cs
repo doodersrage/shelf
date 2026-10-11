@@ -4,13 +4,19 @@ using Shelf.Api.Readers;
 
 namespace Shelf.Api.Data;
 
-public sealed class ShelfDb : DbContext
+public class ShelfDb : DbContext
 {
     private readonly ShelfReader? _reader;
     private readonly ShelfEvents? _events;
     private List<Func<ShelfEvent?>> _happening = [];
 
     public ShelfDb(DbContextOptions<ShelfDb> options, ShelfReader? reader = null, ShelfEvents? events = null)
+        : this((DbContextOptions)options, reader, events)
+    {
+    }
+
+    // For PostgresShelfDb, which keeps its own migrations.
+    protected ShelfDb(DbContextOptions options, ShelfReader? reader, ShelfEvents? events)
         : base(options)
     {
         _reader = reader;
@@ -26,6 +32,9 @@ public sealed class ShelfDb : DbContext
 
     // Every query sees only this reader's books. No reader means no books, never the unclaimed ones.
     public int ReaderId => _reader?.Id ?? 0;
+
+    // PostgreSQL rather than the usual SQLite: the few places that speak to the database directly ask.
+    public bool IsPostgres => Database.ProviderName?.Contains("Npgsql", StringComparison.Ordinal) == true;
 
     public DbSet<Reader> Readers => Set<Reader>();
     public DbSet<Book> Books => Set<Book>();

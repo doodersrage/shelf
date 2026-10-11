@@ -1601,6 +1601,9 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
 
     public StubRecapWriter Writer { get; } = new();
 
+    // Whether these tests run against PostgreSQL (SHELF_TEST_POSTGRES), where a few SQLite-only things are not.
+    public static bool OnPostgres => Environment.GetEnvironmentVariable("SHELF_TEST_POSTGRES") is { Length: > 0 };
+
     // This shelf's own address, and where calls to linked shelves go: set before the shelf starts.
     public string? PublicAddress { get; set; }
 
@@ -1655,6 +1658,15 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("ConnectionStrings:Shelf", $"Data Source={_databasePath}");
+
+        // SHELF_TEST_POSTGRES (a server's connection string, without a database) runs the tests against PostgreSQL,
+        // each shelf in a database of its own.
+        if (Environment.GetEnvironmentVariable("SHELF_TEST_POSTGRES") is { Length: > 0 } postgres)
+        {
+            builder.UseSetting("Database:Provider", "Postgres");
+            builder.UseSetting("ConnectionStrings:Postgres", $"{postgres};Database=shelf_{Path.GetFileNameWithoutExtension(_databasePath).Replace("-", "_", StringComparison.Ordinal)}");
+        }
+
         builder.UseSetting("EbookStore:Root", _ebookRoot);
         builder.UseSetting("AudioStore:Root", _audioRoot);
         builder.UseSetting("CoverStore:Root", _coverRoot);

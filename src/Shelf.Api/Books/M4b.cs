@@ -29,7 +29,8 @@ public sealed class M4bService(IServiceScopeFactory scopes, AudioStore audio, Co
 
     private string Tool => configuration["Audio:FFmpeg"] ?? configuration["ReadAlong:FFmpeg"] ?? "ffmpeg";
 
-    public bool Available => _available ??= Tools.RunAsync(Tool, ["-version"], TimeSpan.FromSeconds(10), CancellationToken.None).GetAwaiter().GetResult() is not null;
+    // Asked once, off the page's own thread: waiting there on the answer could keep it from ever coming.
+    public bool Available => _available ??= Task.Run(() => Tools.RunAsync(Tool, ["-version"], TimeSpan.FromSeconds(10), CancellationToken.None)).GetAwaiter().GetResult() is not null;
 
     private string Root => Path.Combine(audio.Root, "m4b");
 

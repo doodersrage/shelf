@@ -47,6 +47,28 @@ Off unless `Oidc:Authority` and `Oidc:ClientId` are set. See [Single sign-on](se
 | `CoverStore:Root` | `covers` beside the app | Cover pictures kept on the shelf. In Docker, `/data/covers`. |
 | `DataProtection:KeysPath` | `keys` beside the database | The keys that seal sign-in cookies and two-step secrets. Keep it private and keep it with backups, or everyone signs in again after a restore. |
 
+## PostgreSQL
+
+Shelf keeps its database in SQLite, one file beside everything else, which suits a shelf of any size a household has. To keep it in PostgreSQL instead (13 or newer), say for a server that runs one for everything:
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `Database:Provider` | `Sqlite` | `Postgres` to use PostgreSQL. |
+| `ConnectionStrings:Postgres` | none | The database, as `Host=db;Database=shelf;Username=shelf;Password=…`. Shelf makes its tables on the first start. |
+
+The keys, backups, and files stay in the folders above, so `/data` is still wanted in Docker. A few things differ:
+
+- **Search** finds a phrase anywhere, ignoring case, but doesn't rank the places it finds or overlook accents, as SQLite's full-text index does.
+- **Snapshots** hold `pg_dump`'s copy of the database when `pg_dump` is on the server (or at `Database__PgDump`), and otherwise the library as JSON, which **Restore** takes. Back the database up with PostgreSQL's own tools as well.
+
+**Moving an existing shelf.** With PostgreSQL set up and empty, run Shelf once with the move command; it copies every reader, book, note, and setting from the SQLite file, ids and all, then stops:
+
+```bash
+docker run --rm -v shelf-data:/data -e Database__Provider=Postgres -e ConnectionStrings__Postgres="Host=db;Database=shelf;Username=shelf;Password=…" ghcr.io/doodersrage/shelf:latest --move-to-postgres true
+```
+
+Then start Shelf with the same two settings. The SQLite file stays as it was, to go back to.
+
 ## Running behind a proxy
 
 | Setting | Default | What it does |

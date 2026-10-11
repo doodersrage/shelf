@@ -46,14 +46,15 @@ CI runs both on every push and pull request, along with a check that the vendore
 
 ## Changing the database
 
-After changing the model in `ShelfDb`, add a migration named for the change:
+After changing the model in `ShelfDb`, add a migration named for the change, once for SQLite and once for PostgreSQL, which keeps its own:
 
 ```bash
 dotnet tool restore
-dotnet ef migrations add AddSomething --project src/Shelf.Api
+dotnet ef migrations add AddSomething --project src/Shelf.Api --context ShelfDb
+dotnet ef migrations add AddSomething --project src/Shelf.Api --context PostgresShelfDb --output-dir Data/PostgresMigrations
 ```
 
-Shelf applies migrations when it starts. `dotnet ef database update --project src/Shelf.Api` applies them without starting it.
+Shelf applies migrations when it starts. To run the server tests against PostgreSQL, set `SHELF_TEST_POSTGRES` to a server's connection string without a database, such as `Host=localhost;Username=shelf;Password=shelf`; each test shelf gets a database of its own. CI runs them both ways. `dotnet ef database update --project src/Shelf.Api` applies them without starting it.
 
 ## The design system
 

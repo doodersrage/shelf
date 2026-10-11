@@ -44,16 +44,23 @@ public static partial class Search
 
         var match = "\"" + term.Replace("\"", "\"\"") + "\"*";
         List<RankedText> ranked;
-        try
+        if (db.IsPostgres)
         {
-            ranked = await db.Database
-                .SqlQuery<RankedText>($"SELECT rowid AS \"Id\", bm25(\"BookTextSearch\") AS \"Rank\" FROM \"BookTextSearch\" WHERE \"BookTextSearch\" MATCH {match} ORDER BY \"Rank\" LIMIT 2000")
-                .ToListAsync(cancellationToken);
+            ranked = await LikeAsync(db.BookTexts.Where(text => EF.Functions.ILike(text.Text, Pattern(term))).Select(text => text.Id), cancellationToken);
         }
-        catch (Microsoft.Data.Sqlite.SqliteException)
+        else
         {
-            // Words the index cannot read as a phrase, such as only punctuation, find nothing.
-            return [];
+            try
+            {
+                ranked = await db.Database
+                    .SqlQuery<RankedText>($"SELECT rowid AS \"Id\", bm25(\"BookTextSearch\") AS \"Rank\" FROM \"BookTextSearch\" WHERE \"BookTextSearch\" MATCH {match} ORDER BY \"Rank\" LIMIT 2000")
+                    .ToListAsync(cancellationToken);
+            }
+            catch (Microsoft.Data.Sqlite.SqliteException)
+            {
+                // Words the index cannot read as a phrase, such as only punctuation, find nothing.
+                return [];
+            }
         }
 
         var spoken = await SpokenAsync(db, match, term, cancellationToken);
@@ -106,15 +113,22 @@ public static partial class Search
     {
         var me = db.ReaderId;
         List<RankedText> ranked;
-        try
+        if (db.IsPostgres)
         {
-            ranked = await db.Database
-                .SqlQuery<RankedText>($"SELECT rowid AS \"Id\", bm25(\"SpokenTextSearch\") AS \"Rank\" FROM \"SpokenTextSearch\" WHERE \"SpokenTextSearch\" MATCH {match} ORDER BY \"Rank\" LIMIT 2000")
-                .ToListAsync(cancellationToken);
+            ranked = await LikeAsync(db.SpokenTexts.Where(text => EF.Functions.ILike(text.Text, Pattern(term))).Select(text => text.Id), cancellationToken);
         }
-        catch (Microsoft.Data.Sqlite.SqliteException)
+        else
         {
-            return [];
+            try
+            {
+                ranked = await db.Database
+                    .SqlQuery<RankedText>($"SELECT rowid AS \"Id\", bm25(\"SpokenTextSearch\") AS \"Rank\" FROM \"SpokenTextSearch\" WHERE \"SpokenTextSearch\" MATCH {match} ORDER BY \"Rank\" LIMIT 2000")
+                    .ToListAsync(cancellationToken);
+            }
+            catch (Microsoft.Data.Sqlite.SqliteException)
+            {
+                return [];
+            }
         }
 
         if (ranked.Count == 0)
@@ -173,6 +187,12 @@ public static partial class Search
         at = compare.IndexOf(text, first, loose, out length);
         return at >= 0 ? (at, length) : (0, 0);
     }
+
+    // In PostgreSQL, the phrase anywhere in the text, ignoring case; in the order the texts were kept.
+    private static async Task<List<RankedText>> LikeAsync(IQueryable<int> ids, CancellationToken cancellationToken) =>
+        (await ids.OrderBy(id => id).Take(2000).ToListAsync(cancellationToken)).Select(id => new RankedText { Id = id }).ToList();
+
+    private static string Pattern(string term) => "%" + term.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
 
     private sealed class RankedText
     {

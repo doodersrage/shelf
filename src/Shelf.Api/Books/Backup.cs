@@ -160,11 +160,27 @@ public static class Backup
         var database = Path.Combine(Path.GetTempPath(), $"shelf-snapshot-{Guid.NewGuid():N}.db");
         try
         {
-            // VACUUM INTO writes a consistent copy while the shelf keeps running.
-            await db.Database.ExecuteSqlAsync($"VACUUM INTO {database}", cancellationToken);
+            string entry;
+            if (db.IsPostgres)
+            {
+                // PostgreSQL's own dump, when pg_dump is here (or at Database__PgDump); else the library as JSON, which Restore takes.
+                entry = await PostgresDumpAsync(db, database, cancellationToken) ? "shelf.sql" : "library.json";
+                if (entry == "library.json")
+                {
+                    await using var json = File.Create(database);
+                    await JsonSerializer.SerializeAsync(json, (await ExportWithBooksAsync(db, cancellationToken)).Export, JsonOptions, cancellationToken);
+                }
+            }
+            else
+            {
+                // VACUUM INTO writes a consistent copy while the shelf keeps running.
+                await db.Database.ExecuteSqlAsync($"VACUUM INTO {database}", cancellationToken);
+                entry = "shelf.db";
+            }
+
             await using var output = File.Create(zipPath);
             using var zip = new ZipArchive(output, ZipArchiveMode.Create);
-            zip.CreateEntryFromFile(database, "shelf.db");
+            zip.CreateEntryFromFile(database, entry);
             if (includeFiles)
             {
                 AddFolder(zip, ebooks.Root, "ebooks");
@@ -181,6 +197,15 @@ public static class Backup
                 File.Delete(database);
             }
         }
+    }
+
+    private static async Task<bool> PostgresDumpAsync(ShelfDb db, string target, CancellationToken cancellationToken)
+    {
+        var connection = new Npgsql.NpgsqlConnectionStringBuilder(db.Database.GetConnectionString());
+        string Quote(string? value) => "'" + (value ?? "").Replace("\\", "\\\\").Replace("'", "\\'") + "'";
+        var info = $"host={Quote(connection.Host)} port={connection.Port} dbname={Quote(connection.Database)} user={Quote(connection.Username)}" + (connection.Password is { Length: > 0 } password ? $" password={Quote(password)}" : "");
+        var tool = Environment.GetEnvironmentVariable("Database__PgDump") ?? "pg_dump";
+        return await Tools.RunAsync(tool, ["--dbname", info, "--no-owner", "--file", target], TimeSpan.FromMinutes(30), cancellationToken) is not null && File.Exists(target);
     }
 
     private static async Task<(LibraryExport Export, List<Book> Books)> ExportWithBooksAsync(ShelfDb db, CancellationToken cancellationToken)

@@ -280,6 +280,12 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
     [Fact]
     public async Task A_snapshot_holds_the_database_and_every_file()
     {
+        // On PostgreSQL, the snapshot holds SQLite's file.
+        if (ShelfApiFactory.OnPostgres)
+        {
+            return;
+        }
+
         var book = await CreateAsync(_admin, new CreateBookRequest("In The Snapshot", "Someone", BookStatus.Want, null));
         using (var content = new MultipartFormDataContent())
         {

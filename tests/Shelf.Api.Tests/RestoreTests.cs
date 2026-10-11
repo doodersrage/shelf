@@ -31,6 +31,12 @@ public sealed class RestoreTests(ShelfApiFactory factory) : IClassFixture<ShelfA
     [Fact]
     public async Task A_snapshot_restored_into_an_empty_folder_brings_back_every_reader_book_file_and_note()
     {
+        // On PostgreSQL, the snapshot holds SQLite's file.
+        if (ShelfApiFactory.OnPostgres)
+        {
+            return;
+        }
+
         // The shelf as it was.
         var admin = factory.Client;
         var epub = ImportTests.Epub("Restored Book", "Someone", null, "en", cover: false);

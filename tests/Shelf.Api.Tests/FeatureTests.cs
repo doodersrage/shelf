@@ -426,6 +426,12 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
     [Fact]
     public async Task Nightly_backups_keep_the_last_few_and_an_admin_can_take_one()
     {
+        // On PostgreSQL, the snapshot holds SQLite's file.
+        if (ShelfApiFactory.OnPostgres)
+        {
+            return;
+        }
+
         var folder = Path.Combine(Path.GetTempPath(), $"shelf-backups-{Guid.NewGuid():N}");
         try
         {
@@ -477,6 +483,12 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
     [Fact]
     public async Task Search_ranks_places_and_overlooks_accents_and_partial_words()
     {
+        // On PostgreSQL, ranking and accents are SQLite's full-text index.
+        if (ShelfApiFactory.OnPostgres)
+        {
+            return;
+        }
+
         async Task<BookResponse> WithTextAsync(string title, string sentence)
         {
             var book = await CreateAsync(new CreateBookRequest(title, "Someone", BookStatus.Reading, null));
