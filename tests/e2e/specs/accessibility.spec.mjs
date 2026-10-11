@@ -6,6 +6,8 @@ import { createBook, signUp, unique, upload } from "../helpers.mjs";
 const axe = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
 
 test("every page passes an accessibility audit in both themes", async ({ browser }) => {
+  // Every page twice, in both themes: longer than one test is given, and longer in Firefox.
+  test.slow();
   const page = await signUp(browser, unique("Auditor"));
   const book = await createBook(page, { title: "Moby-Dick", author: "Herman Melville", status: "Reading", pages: 600, currentPage: 120, tags: ["sea"] });
   await upload(page, book.id, "ebook", "moby.epub", "application/epub+zip");
