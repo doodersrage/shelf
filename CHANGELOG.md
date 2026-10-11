@@ -4,6 +4,19 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Added
+
+- Audiobookshelf's phone apps sign in to Shelf as to an Audiobookshelf server: your audiobooks and e-books listed, streamed, or downloaded for offline listening, with Android Auto and CarPlay, and the place, bookmarks, and time listened kept in step. With two-step sign-in, an API token is the password.
+- Search inside audiobooks: a transcript, made by the read-along's speech-to-text with or without an EPUB, puts what a recording says in the search, and a hit opens the player at that moment.
+- Edit an audiobook's chapters by hand: names and start times, across one file or many tracks.
+- One M4B from many tracks, with chapters, details, and cover, made by ffmpeg: to download, or to keep in place of the tracks.
+- Kobos get Kobo's own kind of EPUB (KEPUB), made from yours, for page numbers, time left in the chapter, and reading statistics. `Kobo:Kepub` turns it off.
+- Better comics: CBR, CB7, and CBT files are repacked as CBZ, manga reads right to left (on by itself when its ComicInfo.xml says so), two pages at a time is a choice, and comics can be matched on ComicVine with a key an admin sets.
+- Previously in this book: a recap of what has happened up to your place, and nothing after, written by a model an admin chooses (`Recap:ApiKey`), for e-books and for audiobooks with a transcript.
+- A calendar of your loans' due dates to subscribe to, and a public page of what you're reading, with a widget for a website and a feed of books finished.
+- Storage for admins: the space each reader's files take, by kind, and a limit that refuses files past it.
+- PostgreSQL as the database, if wanted (`Database:Provider`), with `--move-to-postgres` to bring an existing shelf across.
+
 ## [1.8.0] - 2026-10-11
 
 ### Added
