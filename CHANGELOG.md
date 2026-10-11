@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-11
+
 ### Added
 
 - A new audiobook player. A book in many tracks plays as one recording, straight from one track into the next, with the time gone and left in the chapter, a bar for the whole book with a mark at each chapter, and the time left at your speed. Big play and skip buttons, skips you choose (5 to 60 seconds), speeds from 0.5× to 3× in steps of 0.05, a sleep timer of 5 to 90 minutes or the end of the chapter with 5 more minutes, volume, a list of chapters to jump to, and keyboard keys.
@@ -200,7 +202,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/doodersrage/shelf/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/doodersrage/shelf/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/doodersrage/shelf/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/doodersrage/shelf/compare/v1.3.1...v1.4.0
