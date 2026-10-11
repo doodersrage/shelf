@@ -20,7 +20,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0
 # Calibre turns Kindle files into EPUBs. It adds several hundred megabytes, so it is left out unless asked for:
 #   docker build --build-arg CALIBRE=true .
 # ffmpeg cuts long recordings into pieces for read-along's speech-to-text, which a service with an upload limit (such
-# as OpenAI's) needs; it is left out unless asked for too:
+# as OpenAI's) needs, and joins tracks into one M4B; it is left out unless asked for too:
 #   docker build --build-arg FFMPEG=true .
 ARG CALIBRE=false
 ARG FFMPEG=false

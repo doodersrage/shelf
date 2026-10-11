@@ -136,6 +136,9 @@ builder.Services.AddSingleton<IAudioCutter, FfmpegCutter>();
 builder.Services.AddHttpClient<IRecapWriter, AnthropicWriter>(client => client.Timeout = TimeSpan.FromMinutes(2)).RemoveAllResilienceHandlers();
 #pragma warning restore EXTEXP0001
 builder.Services.AddSingleton<Recaps>();
+// One M4B from many tracks, by ffmpeg.
+builder.Services.AddSingleton<M4bService>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<M4bService>());
 // Podcasts: feeds read every hour, and the newest episodes kept downloaded.
 builder.Services.AddHttpClient<IPodcastClient, PodcastClient>(client =>
 {

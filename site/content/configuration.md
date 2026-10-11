@@ -140,7 +140,8 @@ The text of the chapters a reader has read is sent to Anthropic to be summed up;
 | `ReadAlong:Url` | none | The transcriptions address of a speech-to-text service with OpenAI's API, such as `http://speaches:8000/v1/audio/transcriptions`. Without it, read-along is off. See [Read-along](audiobooks.md#read-along). |
 | `ReadAlong:Model` | `whisper-1` | The model the service should use. |
 | `ReadAlong:ApiKey` | none | Sent as a bearer token, for a service that asks for one. |
-| `ReadAlong:FFmpeg` | `ffmpeg` on the path | Where ffmpeg is, to cut recordings into ten-minute pieces. |
+| `ReadAlong:FFmpeg` | `ffmpeg` on the path | Where ffmpeg is, to cut recordings into ten-minute pieces. `Audio:FFmpeg` sets it for making M4Bs too. |
+| `Audio:M4bBitrate` | `64k` | The AAC bitrate of an M4B made from tracks. |
 | `ReadAlong:MaxUploadMegabytes` | `24` for OpenAI, else none | The largest file to send whole. A larger track needs ffmpeg. |
 
 ## Linked shelves

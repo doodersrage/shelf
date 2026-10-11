@@ -97,6 +97,7 @@ public static class BookEndpoints
         ReadAlongService.Map(books);
         ChapterEditing.Map(books);
         Recaps.Map(books);
+        M4bService.Map(books);
 
         // Another shelf reaches these with a device key; the rest of the API needs a signed-in reader.
         var sync = app.MapGroup("/books/sync").WithTags("Shelf").RequireAuthorization(SyncEndpoints.Policy);

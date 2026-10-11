@@ -109,6 +109,12 @@ public static class Covers
         book.CoverImage = await covers.SaveAsync(art.Bytes, cancellationToken);
     }
 
+    // The bytes of a book's own cover picture, kept on the shelf or inside its e-book; null for one linked from elsewhere.
+    public static byte[]? Picture(Book book, EbookStore store, CoverStore covers) =>
+        covers.OpenPath(book.CoverImage) is { } kept ? System.IO.File.ReadAllBytes(kept)
+        : store.OpenPath(book.EbookStoredName) is { } path && Picture(book.EbookStoredName, path) is { } inside ? inside.Bytes
+        : null;
+
     // An EPUB's cover picture, or a comic's first page.
     private static (byte[] Bytes, string ContentType)? Picture(string? storedName, string path) =>
         EbookStore.IsEpub(storedName) ? EpubFile.Cover(path)

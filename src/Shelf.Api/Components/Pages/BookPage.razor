@@ -573,6 +573,7 @@ else if (book is not null)
         <AudibleSearch BookId="book.Id" InitialTitle="@book.Title" InitialAuthor="@book.Author" HasChapters="book.AudioChapterNames is not null" Changed="() => LoadAsync()" />
     }
     <ReadAlongPanel BookId="book.Id" />
+    <M4bPanel BookId="book.Id" />
     <form action="/books/@book.Id/audio" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
         <label>
             @T("Audio or a zip of tracks, up to 1 GB")

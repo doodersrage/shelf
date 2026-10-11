@@ -1,0 +1,97 @@
+@* One M4B from a recording in many tracks: to download, or to keep in place of the tracks. *@
+@implements IDisposable
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject M4bService Service
+@inject NavigationManager Navigation
+
+@if (status is { CanMake: true } or { State: not M4bState.None })
+{
+    <div class="m4b" id="m4b">
+        <h3>@T("One M4B")</h3>
+        @switch (status.State)
+        {
+            case M4bState.Making:
+                <p role="status">@T("Making one M4B from the tracks, with their chapters and cover… A long book takes a while.")</p>
+                break;
+            case M4bState.Ready:
+                <p>@T("Ready: {0}.", Size(status.Size ?? 0))
+                    <a class="button" href="/books/@BookId/audio/m4b/file" download>@T("Download the M4B")</a>
+                    <button type="button" @onclick="Use">@T("Use it in place of the tracks")</button>
+                </p>
+                break;
+            case M4bState.Failed:
+                <p class="validation-message" role="alert">@status.Problem</p>
+                break;
+            default:
+                <p class="hint">@T("Join the tracks into one M4B file with chapters and the cover, for players that like one file, or to keep the shelf tidy.")</p>
+                break;
+        }
+        @if (status.CanMake && status.State is M4bState.None or M4bState.Failed)
+        {
+            <button type="button" @onclick="Make">@T("Make one M4B")</button>
+        }
+        @if (problem is not null)
+        {
+            <p class="validation-message" role="alert">@problem</p>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public int BookId { get; set; }
+
+    private M4bStatus? status;
+    private string? problem;
+    private Timer? timer;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        status = await Service.StatusAsync(db, BookId);
+        if (status?.State == M4bState.Making)
+        {
+            timer ??= new Timer(_ => InvokeAsync(async () =>
+            {
+                await LoadAsync();
+                StateHasChanged();
+            }), null, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4));
+        }
+        else
+        {
+            timer?.Dispose();
+            timer = null;
+        }
+    }
+
+    private async Task Make()
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            problem = await Service.StartAsync(db, BookId);
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task Use()
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            problem = await Service.UseAsync(db, BookId) ? null : T("The M4B could not be put in place of the tracks.");
+        }
+
+        if (problem is null)
+        {
+            Navigation.Refresh(forceReload: true);
+        }
+    }
+
+    private static string Size(long bytes) => bytes >= 1024L * 1024 * 1024
+        ? T("{0} GB", (bytes / (1024.0 * 1024 * 1024)).ToString("0.0", System.Globalization.CultureInfo.CurrentCulture))
+        : T("{0} MB", (bytes / (1024.0 * 1024)).ToString("0", System.Globalization.CultureInfo.CurrentCulture));
+
+    public void Dispose() => timer?.Dispose();
+}

@@ -17,6 +17,10 @@ If the files carry cover art (an `.m4b`'s cover, or an MP3's front-cover picture
 
 Under the list of chapters in the player, **Edit the chapters** lets you name each one and say where it starts (as `1:02:03`, `62:03`, or seconds), remove some, or **Add a chapter here** at the player's place. Saved chapters replace the file's own, or Audible's, across one file or many tracks. **Use the file's own chapters** goes back. The API takes them too: `PUT /books/{id}/audio/chapters` with a list of `{ "title", "start" }`.
 
+### One M4B from many tracks
+
+A recording in many tracks can be joined into one M4B, with the player's chapters (Audible's, your own, or one a track), the book's title, author, and narrator, and its cover. On the book's page, choose **Make one M4B**; Shelf makes it in the background with ffmpeg. Then **Download the M4B** for another player, or **Use it in place of the tracks** to keep it as the book's recording, with your place kept. It needs ffmpeg on the server (`--build-arg FFMPEG=true` for the Docker image); `Audio:M4bBitrate` sets its quality (64k by default, plenty for speech).
+
 ### Matching it on Audible
 
 Under the recording, **Match on Audible** searches Audible's catalogue by the book's title and author, or by an ASIN (the ten letters and digits in the book's address at Audible). Choose the Audible store whose edition you have; each country sells its own. For the match you choose, Shelf can take:
