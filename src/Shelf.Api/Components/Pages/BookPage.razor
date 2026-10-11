@@ -384,6 +384,42 @@ else if (book is not null)
         }
     </section>
 
+    <section class="panel" id="collections">
+        <h2>@T("Collections")</h2>
+        @if (bookCollections.Any(item => item.Holds))
+        {
+            <ul class="chips">
+                @foreach (var item in bookCollections.Where(item => item.Holds))
+                {
+                    <li class="chip-row">
+                        <a href="/collections/@item.Id">@item.Name</a>
+                        <button type="button" class="icon-button small" @onclick="() => LeaveCollection(item.Id)" aria-label="@T("Take this book out of {0}", item.Name)">×</button>
+                    </li>
+                }
+            </ul>
+        }
+        @if (bookCollections.Any(item => !item.Holds))
+        {
+            <div class="save-search">
+                <label>
+                    @T("Add to a collection")
+                    <select @bind="chosenCollection">
+                        <option value="0">—</option>
+                        @foreach (var item in bookCollections.Where(item => !item.Holds))
+                        {
+                            <option value="@item.Id">@item.Name</option>
+                        }
+                    </select>
+                </label>
+                <button type="button" @onclick="JoinCollection" disabled="@(chosenCollection == 0)">@T("Add")</button>
+            </div>
+        }
+        else if (bookCollections.Length == 0)
+        {
+            <p class="hint">@T("Collections are lists you make by hand.") <a href="/collections">@T("Make one")</a></p>
+        }
+    </section>
+
     <section class="panel" id="quotes">
     <h2>@T("Quotes")</h2>
     @if (book.Quotes.Count == 0)
@@ -870,6 +906,34 @@ else if (book is not null)
         Navigation.NavigateTo($"/library/{upload.BookId}");
     }
 
+    private (int Id, string Name, bool Holds)[] bookCollections = [];
+    private int chosenCollection;
+
+    private async Task JoinCollection()
+    {
+        if (book is null || chosenCollection == 0)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Collections.AddAsync(db, chosenCollection, book.Id);
+        chosenCollection = 0;
+        bookCollections = await Collections.ForBookAsync(db, book.Id);
+    }
+
+    private async Task LeaveCollection(int collectionId)
+    {
+        if (book is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Collections.RemoveAsync(db, collectionId, book.Id);
+        bookCollections = await Collections.ForBookAsync(db, book.Id);
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         saved = false;
@@ -883,6 +947,7 @@ else if (book is not null)
         await using var db = await DbFactory.CreateDbContextAsync();
         book = await db.Books.AsNoTracking().WithDetails().FirstOrDefaultAsync(existing => existing.Id == Id);
         missing = book is null;
+        bookCollections = book is null ? [] : await Collections.ForBookAsync(db, book.Id);
         others = book is null
             ? []
             : await db.Books.AsNoTracking()

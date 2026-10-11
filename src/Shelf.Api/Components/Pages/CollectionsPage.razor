@@ -1,0 +1,69 @@
+@page "/collections"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject NavigationManager Navigation
+
+<PageTitle>@T("Collections") · Shelf</PageTitle>
+
+<h1>@T("Collections")</h1>
+<p class="hint">@T("Lists you make by hand, in the order you choose: a book club's year, summer reading, books to lend a friend. Add a book from its page.")</p>
+
+<form class="save-search" @onsubmit="Make" @onsubmit:preventDefault>
+    <label>
+        @T("New collection")
+        <input @bind="name" maxlength="@Collection.MaxNameLength" placeholder="@T("Book club")" required />
+    </label>
+    <button type="submit" class="primary">@T("Make it")</button>
+</form>
+@if (problem is not null)
+{
+    <p class="validation-message" role="alert">@problem</p>
+}
+
+@if (collections.Length == 0)
+{
+    <EmptyState Title="@T("No collections yet")" Text="@T("Make one above, then add books to it from their pages.")" ActionHref="/" ActionLabel="@T("Open the library")" />
+}
+else
+{
+    <ul class="collection-grid">
+        @foreach (var collection in collections)
+        {
+            <li class="collection-card">
+                <span class="collection-covers" aria-hidden="true">
+                    @foreach (var cover in collection.Covers)
+                    {
+                        <img src="@cover" alt="" loading="lazy" />
+                    }
+                </span>
+                <span>
+                    <a class="title" href="/collections/@collection.Id">@collection.Name</a>
+                    <span class="hint">@Localization.Counts.Books(collection.Books)@(collection.Shared ? " · " + T("shared by link") : "")</span>
+                </span>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private CollectionSummary[] collections = [];
+    private string name = "";
+    private string? problem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        collections = await Collections.ListAsync(db);
+    }
+
+    private async Task Make()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var (made, trouble) = await Collections.CreateAsync(db, name, null);
+        problem = trouble;
+        if (made is not null)
+        {
+            Navigation.NavigateTo($"/collections/{made.Id}");
+        }
+    }
+}

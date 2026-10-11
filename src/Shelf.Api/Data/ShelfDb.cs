@@ -41,6 +41,8 @@ public sealed class ShelfDb : DbContext
     public DbSet<ApiToken> ApiTokens => Set<ApiToken>();
     public DbSet<SeriesAlert> SeriesAlerts => Set<SeriesAlert>();
     public DbSet<ListeningDay> ListeningDays => Set<ListeningDay>();
+    public DbSet<Collection> Collections => Set<Collection>();
+    public DbSet<CollectionBook> CollectionBooks => Set<CollectionBook>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -115,6 +117,26 @@ public sealed class ShelfDb : DbContext
             saved.HasIndex(s => s.ShareToken).IsUnique();
             saved.HasOne<Reader>().WithMany().HasForeignKey(s => s.OwnerId).OnDelete(DeleteBehavior.Cascade);
             saved.HasQueryFilter(s => s.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<Collection>(collection =>
+        {
+            collection.Property(item => item.Name).HasMaxLength(Collection.MaxNameLength).IsRequired();
+            collection.Property(item => item.Description).HasMaxLength(Collection.MaxDescriptionLength);
+            collection.Property(item => item.ShareToken).HasMaxLength(40);
+            collection.HasIndex(item => item.ShareToken).IsUnique();
+            collection.HasIndex(item => item.OwnerId);
+            collection.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            collection.HasMany(item => item.Books).WithOne(entry => entry.Collection).HasForeignKey(entry => entry.CollectionId).OnDelete(DeleteBehavior.Cascade);
+            collection.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<CollectionBook>(entry =>
+        {
+            entry.HasKey(item => new { item.CollectionId, item.BookId });
+            entry.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
+            entry.HasIndex(item => item.BookId);
+            entry.HasQueryFilter(item => item.Collection!.OwnerId == ReaderId);
         });
 
         // A listener's own time, on their own books and on books lent to them alike.

@@ -18,6 +18,10 @@ else
     </HeadContent>
     <h1>@list.Name</h1>
     <p class="hint">@T("A reading list from {0}'s shelf.", list.Reader) @Localization.Counts.Books(list.Books.Length)</p>
+    @if (list.Description is not null)
+    {
+        <p class="collection-description">@list.Description</p>
+    }
     @if (list.Books.Length == 0)
     {
         <p>@T("Nothing on this list just now.")</p>

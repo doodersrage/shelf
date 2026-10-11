@@ -1,0 +1,178 @@
+@page "/collections/{Id:int}"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject NavigationManager Navigation
+
+<PageTitle>@(collection?.Name ?? T("Collections")) · Shelf</PageTitle>
+
+@if (collection is null)
+{
+    <h1>@T("Not on the shelf")</h1>
+    <p>@T("That collection is not here.") <a href="/collections">@T("Collections")</a></p>
+}
+else
+{
+    <p class="hint"><a href="/collections">@T("Collections")</a></p>
+    @if (editing)
+    {
+        <form class="panel" @onsubmit="Save" @onsubmit:preventDefault>
+            <label>
+                @T("Name")
+                <input @bind="name" maxlength="@Collection.MaxNameLength" required />
+            </label>
+            <label>
+                @T("Description")
+                <textarea @bind="description" maxlength="@Collection.MaxDescriptionLength" rows="3"></textarea>
+            </label>
+            <button type="submit" class="primary">@T("Save")</button>
+            <button type="button" class="quiet" @onclick="() => editing = false">@T("Cancel")</button>
+            @if (problem is not null)
+            {
+                <p class="validation-message" role="alert">@problem</p>
+            }
+        </form>
+    }
+    else
+    {
+        <h1>@collection.Name</h1>
+        @if (collection.Description is not null)
+        {
+            <p class="collection-description">@collection.Description</p>
+        }
+        <p class="hint">@Localization.Counts.Books(collection.Books.Count)</p>
+        <div class="toolbar-actions">
+            <button type="button" class="quiet" @onclick="StartEditing">@T("Rename or describe")</button>
+            @if (collection.ShareToken is null)
+            {
+                <button type="button" class="quiet" @onclick="Share">@T("Share by link")</button>
+            }
+            else
+            {
+                <button type="button" class="quiet" @onclick="StopSharing">@T("Stop sharing")</button>
+            }
+            @if (confirmingDelete)
+            {
+                <button type="button" class="danger" @onclick="Delete">@T("Yes, delete the collection")</button>
+                <button type="button" class="quiet" @onclick="() => confirmingDelete = false">@T("Cancel")</button>
+            }
+            else
+            {
+                <button type="button" class="quiet" @onclick="() => confirmingDelete = true">@T("Delete the collection")</button>
+            }
+        </div>
+        @if (confirmingDelete)
+        {
+            <p class="hint">@T("The books stay on your shelf; only the list goes.")</p>
+        }
+        @if (collection.ShareToken is { } token)
+        {
+            <div class="share-link" id="share-link">
+                <label>
+                    @T("Anyone with this link sees the list as it stands: titles, authors, covers, and your stars. Never your notes, reviews, or loans.")
+                    <input type="url" readonly value="@Navigation.ToAbsoluteUri($"/shared/{token}")" />
+                </label>
+            </div>
+        }
+    }
+
+    @if (collection.Books.Count == 0)
+    {
+        <EmptyState Title="@T("Nothing in this collection yet")" Text="@T("Open a book and choose this collection under Collections to add it.")" ActionHref="/" ActionLabel="@T("Open the library")" />
+    }
+    else
+    {
+        <ol class="collection-books">
+            @foreach (var (entry, index) in collection.Books.Select((entry, index) => (entry, index)))
+            {
+                var book = entry.Book!;
+                <li class="strip-card">
+                    <BookCover Title="@book.Title" Url="@book.CoverShown" />
+                    <div>
+                        <p class="title"><a href="/library/@book.Id">@book.Title</a></p>
+                        <p class="by">@book.Author</p>
+                        <StatusBadge Status="book.Status" />
+                    </div>
+                    <div class="collection-moves">
+                        <button type="button" class="icon-button small" @onclick="() => Move(book.Id, -1)" disabled="@(index == 0)" aria-label="@T("Move {0} up", book.Title)">↑</button>
+                        <button type="button" class="icon-button small" @onclick="() => Move(book.Id, 1)" disabled="@(index == collection.Books.Count - 1)" aria-label="@T("Move {0} down", book.Title)">↓</button>
+                        <button type="button" class="icon-button small" @onclick="() => Remove(book.Id)" aria-label="@T("Take {0} out of the collection", book.Title)">×</button>
+                    </div>
+                </li>
+            }
+        </ol>
+    }
+}
+
+@code {
+    private Collection? collection;
+    private bool editing;
+    private bool confirmingDelete;
+    private string name = "";
+    private string description = "";
+    private string? problem;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        collection = await Collections.FindAsync(db, Id);
+    }
+
+    private void StartEditing()
+    {
+        name = collection!.Name;
+        description = collection.Description ?? "";
+        problem = null;
+        editing = true;
+    }
+
+    private async Task Save()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        problem = await Collections.UpdateAsync(db, Id, name, description);
+        if (problem is null)
+        {
+            editing = false;
+            await LoadAsync();
+        }
+    }
+
+    private async Task Move(int bookId, int direction)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Collections.MoveAsync(db, Id, bookId, direction);
+        await LoadAsync();
+    }
+
+    private async Task Remove(int bookId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Collections.RemoveAsync(db, Id, bookId);
+        await LoadAsync();
+    }
+
+    private async Task Share()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Collections.ShareAsync(db, Id);
+        await LoadAsync();
+    }
+
+    private async Task StopSharing()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Collections.StopSharingAsync(db, Id);
+        await LoadAsync();
+    }
+
+    private async Task Delete()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Collections.DeleteAsync(db, Id);
+        Navigation.NavigateTo("/collections");
+    }
+}

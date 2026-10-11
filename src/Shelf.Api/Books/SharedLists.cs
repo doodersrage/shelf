@@ -11,9 +11,9 @@ namespace Shelf.Api.Books;
 // reviews, quotes, loans, places, or files.
 public sealed record SharedBook(int Id, string Title, string Author, string? Subtitle, int? Year, string? Series, int? SeriesNumber, int? Rating, string? CoverUrl);
 
-public sealed record SharedList(string Name, string Reader, SharedBook[] Books);
+public sealed record SharedList(string Name, string Reader, SharedBook[] Books, string? Description = null);
 
-// A saved search a reader shares through a link of its own. The link is a long random token: whoever has it sees
+// A saved search or a collection a reader shares through a link of its own. The link is a long random token: whoever has it sees
 // the list as it stands, and stopping sharing (or forgetting the search) ends it. A new link replaces the old.
 public static class SharedLists
 {
@@ -51,10 +51,10 @@ public static class SharedLists
     public static async Task<SharedList?> FindAsync(ShelfDb db, string? token, CancellationToken cancellationToken = default)
     {
         var books = await BooksAsync(db, token, cancellationToken);
-        return books is null ? null : new SharedList(books.Value.Saved.Name, books.Value.Reader, books.Value.Books.Select(book => Show(book, token!)).ToArray());
+        return books is null ? null : new SharedList(books.Value.Name, books.Value.Reader, books.Value.Books.Select(book => Show(book, token!)).ToArray(), books.Value.Description);
     }
 
-    private static async Task<(SavedSearch Saved, string Reader, List<Book> Books)?> BooksAsync(ShelfDb db, string? token, CancellationToken cancellationToken)
+    private static async Task<(string Name, string? Description, string Reader, List<Book> Books)?> BooksAsync(ShelfDb db, string? token, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(token) || token.Length > 40)
         {
@@ -62,8 +62,13 @@ public static class SharedLists
         }
 
         var saved = await db.SavedSearches.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(item => item.ShareToken == token, cancellationToken);
-        var reader = saved is null ? null : await db.Readers.AsNoTracking().Where(item => item.Id == saved.OwnerId).Select(item => item.Name).FirstOrDefaultAsync(cancellationToken);
-        if (saved is null || reader is null)
+        if (saved is null)
+        {
+            return await CollectionAsync(db, token, cancellationToken);
+        }
+
+        var reader = await db.Readers.AsNoTracking().Where(item => item.Id == saved.OwnerId).Select(item => item.Name).FirstOrDefaultAsync(cancellationToken);
+        if (reader is null)
         {
             return null;
         }
@@ -104,7 +109,28 @@ public static class SharedLists
             kept = kept.Where(book => book.AudioStoredName is not null);
         }
 
-        return (saved, reader, BookRules.Sort(kept.ToList(), Text("sort")).Take(MaxBooks).ToList());
+        return (saved.Name, null, reader, BookRules.Sort(kept.ToList(), Text("sort")).Take(MaxBooks).ToList());
+    }
+
+    // A shared collection: its books in the order its reader put them, and its description.
+    private static async Task<(string Name, string? Description, string Reader, List<Book> Books)?> CollectionAsync(ShelfDb db, string token, CancellationToken cancellationToken)
+    {
+        var collection = await db.Collections.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(item => item.ShareToken == token, cancellationToken);
+        var reader = collection is null ? null : await db.Readers.AsNoTracking().Where(item => item.Id == collection.OwnerId).Select(item => item.Name).FirstOrDefaultAsync(cancellationToken);
+        if (collection is null || reader is null)
+        {
+            return null;
+        }
+
+        var order = await db.CollectionBooks.IgnoreQueryFilters().AsNoTracking()
+            .Where(entry => entry.CollectionId == collection.Id)
+            .OrderBy(entry => entry.Position)
+            .Select(entry => entry.BookId)
+            .ToListAsync(cancellationToken);
+        var books = await db.Books.IgnoreQueryFilters().AsNoTracking()
+            .Where(book => book.OwnerId == collection.OwnerId && order.Contains(book.Id))
+            .ToListAsync(cancellationToken);
+        return (collection.Name, collection.Description, reader, order.Select(id => books.FirstOrDefault(book => book.Id == id)).OfType<Book>().Take(MaxBooks).ToList());
     }
 
     private static SharedBook Show(Book book, string token) => new(

@@ -145,3 +145,39 @@ test("a filtered library is saved as a search, listed in the sidebar, and forgot
   await expect(page.getByRole("link", { name: "Loved and waiting" })).toHaveCount(0);
   noProblems(page);
 });
+
+test("a collection is made, filled from books' pages, put in order, and shared", async ({ browser }) => {
+  const page = await signUp(browser, unique("Curator"));
+  const first = await createBook(page, { title: unique("The Dispossessed"), author: "Ursula K. Le Guin" });
+  const second = await createBook(page, { title: unique("The Word for World Is Forest"), author: "Ursula K. Le Guin" });
+
+  await page.goto("/collections");
+  await ready(page);
+  await page.getByLabel("New collection").fill("Book club");
+  await Promise.all([page.waitForURL(/\/collections\/\d+$/), page.getByRole("button", { name: "Make it" }).click()]);
+  await ready(page);
+  await expect(page.locator("h1")).toHaveText("Book club");
+
+  for (const book of [first, second]) {
+    await page.goto(`/library/${book.id}`);
+    await ready(page);
+    await page.locator("#collections select").selectOption({ label: "Book club" });
+    await page.locator("#collections").getByRole("button", { name: "Add", exact: true }).click();
+    await expect(page.locator("#collections .chip-row")).toContainText("Book club");
+  }
+
+  await page.locator("#collections .chip-row a").click();
+  await page.waitForURL(/\/collections\/\d+$/);
+  await ready(page);
+  const titles = page.locator(".collection-books .title");
+  await expect(titles).toHaveText([first.title, second.title]);
+  await page.getByRole("button", { name: `Move ${second.title} up` }).click();
+  await expect(titles).toHaveText([second.title, first.title]);
+
+  await page.getByRole("button", { name: "Share by link" }).click();
+  const link = await page.locator("#share-link input").inputValue();
+  const stranger = await (await browser.newContext()).newPage();
+  await stranger.goto(link);
+  await expect(stranger.locator(".shared-list strong")).toHaveText([second.title, first.title]);
+  noProblems(page);
+});

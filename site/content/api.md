@@ -72,6 +72,8 @@ A reader with two-step sign-in is asked for a code next, at `/account/signin/cod
 | `POST /books/{id}/enrich` | Fill a book's empty fields from Open Library. |
 | `GET /books/pick` | One book from the want list. `?status=` picks from another. |
 | `GET /books/authors`, `/series`, `/places`, `/copies`, `/recommenders`, `/years` | The library gathered by author, series in reading order, place, condition, recommender, and year finished. |
+| `GET /books/collections` | Your collections, with how many books each holds. `POST {"name": "…", "description": "…"}` makes one; `GET`, `PUT`, and `DELETE /books/collections/{id}` read, rename, and delete one. |
+| `POST /books/collections/{id}/books` | `{"bookId": 12}` adds a book at the end; `DELETE /books/collections/{id}/books/{bookId}` takes it out; `PUT /books/collections/{id}/order` with `{"bookIds": [3, 1, 2]}` puts them in that order. |
 | `GET /books/series/alerts` | New books in your series that are not on your shelf. `POST /books/series/alerts/{id}/want` adds one to the want list; `DELETE /books/series/alerts/{id}` dismisses it; `POST /books/series/alerts/check` looks now. |
 | `GET /books/stats` | The year's goal, books finished each month, counts, and the streak. |
 | `GET /books/calendar` | The days with a reading session. `?year=&month=` picks another month. |

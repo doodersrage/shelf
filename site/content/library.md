@@ -45,9 +45,13 @@ Pages gathered from the catalog give other ways in: **Authors**, **Series** in r
 
 A view you come back to, such as *loved, want to read, newest first*, can be kept: set the filters and order, choose **Save this search**, and give it a name. It joins **Your library** in the sidebar, and opens with the same filters and order every time. **Forget this search**, on the open search, removes it. Saved searches are yours alone; every filtered view is also a plain address you can bookmark.
 
+### Collections
+
+A collection is a list you make by hand, in the order you choose: a book club's year, summer reading, books to lend a friend. Unlike a saved search, it holds exactly the books you put in it. Make one on **Collections** in the sidebar; then, on a book's page, choose it under **Collections** and **Add**. On the collection's page, **↑** and **↓** change the order and **×** takes a book out; **Rename or describe** gives it a name and a few words about it. Deleting a collection leaves its books on your shelf, and deleting a book takes it out of every collection.
+
 ### Sharing a reading list
 
-A saved search can be shared with anyone, signed in or not: open it and choose **Share by link**, then copy the address shown. The page behind it lists the books as the search finds them at that moment, with their covers, authors, years, series, and your stars; never your notes, reviews, quotes, loans, places, or files. Search engines are asked not to index it. **Stop sharing** ends the link at once, as does forgetting the search; sharing again makes a new link.
+A saved search or a collection can be shared with anyone, signed in or not: open it and choose **Share by link**, then copy the address shown. The page behind it lists the books as the search finds them at that moment, with their covers, authors, years, series, and your stars; never your notes, reviews, quotes, loans, places, or files. Search engines are asked not to index it. **Stop sharing** ends the link at once, as does forgetting the search; sharing again makes a new link.
 
 ### New books in your series
 
