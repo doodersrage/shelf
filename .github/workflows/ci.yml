@@ -41,8 +41,15 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install Tesseract, Poppler, and ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng poppler-utils ffmpeg
+      - name: Install Tesseract, Poppler, ffmpeg, and PulseAudio
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng poppler-utils ffmpeg pulseaudio
+
+      # Firefox plays nothing without a sound server, so the audiobook tests get a silent one.
+      - name: Start a silent sound server
+        run: |
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=silent
+          pactl set-default-sink silent
 
       - name: Build the app the tests start
         run: dotnet build src/Shelf.Api

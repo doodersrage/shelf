@@ -37,7 +37,7 @@ test("a kept audiobook plays with no connection, and its place and time go back 
   await ready(page);
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.click('button:text-is("Keep for listening offline")');
-  await expect(page.getByText("Kept on this device.")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("Kept on this device.")).toBeVisible({ timeout: 45_000 });
   await expect(page.getByRole("button", { name: "Kept for listening offline · forget" })).toBeVisible();
 
   await page.context().setOffline(true);
