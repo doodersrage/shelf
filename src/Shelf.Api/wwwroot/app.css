@@ -4461,3 +4461,8 @@ html.reading-full body {
         transition: none;
     }
 }
+
+.epub-lent {
+    font-weight: 400;
+    opacity: 0.75;
+}

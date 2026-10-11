@@ -178,7 +178,8 @@ else if (book is not null)
     private RenderFragment EngineReader => @<div class="epub-stage" data-theme="@(type.Theme.Length > 0 ? type.Theme : null)">
             <div class="epub-bar epub-top">
                 <a class="icon-button epub-back" href="@(borrowed ? "/loans" : $"/library/{book!.Id}")" aria-label="@(borrowed ? T("Loans") : T("Back to {0}", book!.Title))">‹</a>
-                <span class="epub-title">@book!.Title</span>
+                @* A borrowed book says so, as the classic reader and the player do. *@
+                <span class="epub-title">@book!.Title@if (borrowed) { <span class="epub-lent"> · @T("lent to you")</span> }</span>
                 <label class="epub-chapter">
                     <span class="visually-hidden">@T("Chapter")</span>
                     <select @bind="chapter" @bind:after="RememberChapter">

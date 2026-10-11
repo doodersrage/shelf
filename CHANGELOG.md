@@ -10,6 +10,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 - The page-turning reader always fills the browser window, as Audiobookshelf's does, with its bars over the book instead of the page's around it: back, the title, the chapters, **Aa**, and **⋯** at the top; the page buttons and where you are, with the slider, at the bottom. A tap in the middle of the page shows or hides them. **⋯** opens a panel with the audiobook, Listen along, read aloud, the recap, this chapter's highlights, and the browser's own full screen; a selected passage gets a sheet over the page.
 - **Full screen** and **F** now take only the browser's own full screen, since the reader already fills the window; Esc leaves it.
+- A borrowed book's title in the reader's bar says it is lent to you, as the classic reader and the player do.
 
 ## [2.5.0] - 2026-10-11
 
