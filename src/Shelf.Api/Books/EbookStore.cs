@@ -4,7 +4,16 @@ namespace Shelf.Api.Books;
 
 public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration configuration)
 {
-    public const long MaxBytes = 80L * 1024 * 1024;
+    // The most one e-book file may be: 80 MB unless Uploads:MaxEbookMegabytes says otherwise.
+    public static long MaxBytes { get; private set; } = 80L * 1024 * 1024;
+
+    public static void SetLimit(int? megabytes)
+    {
+        if (megabytes is > 0)
+        {
+            MaxBytes = Math.Min(megabytes.Value, 1024 * 1024) * 1024L * 1024;
+        }
+    }
 
     public string Root { get; } = configuration["EbookStore:Root"]
         ?? Path.Combine(environment.ContentRootPath, "ebooks");

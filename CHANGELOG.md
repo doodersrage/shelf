@@ -4,6 +4,12 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-10-11
+
+### Added
+
+- The largest audiobook and e-book can be set: `Uploads:MaxAudioMegabytes` (1024 unless set) and `Uploads:MaxEbookMegabytes` (80 unless set). The pages quote whatever is set.
+
 ## [2.1.0] - 2026-10-11
 
 ### Added
@@ -313,7 +319,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.1.1...HEAD
+[2.1.1]: https://github.com/doodersrage/shelf/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/doodersrage/shelf/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/doodersrage/shelf/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/doodersrage/shelf/compare/v1.9.0...v2.0.0

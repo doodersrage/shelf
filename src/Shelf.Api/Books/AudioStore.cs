@@ -5,7 +5,16 @@ namespace Shelf.Api.Books;
 
 public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration configuration)
 {
-    public const long MaxBytes = 1024L * 1024 * 1024;
+    // The most one recording may hold, all its tracks together: 1 GB unless Uploads:MaxAudioMegabytes says otherwise.
+    public static long MaxBytes { get; private set; } = 1024L * 1024 * 1024;
+
+    public static void SetLimit(int? megabytes)
+    {
+        if (megabytes is > 0)
+        {
+            MaxBytes = Math.Min(megabytes.Value, 1024 * 1024) * 1024L * 1024;
+        }
+    }
     private const int MaxTracks = 200;
 
     private static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase)

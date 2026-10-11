@@ -28,7 +28,7 @@ server {
     server_name shelf.example.org;
     # ssl_certificate and ssl_certificate_key, from Let's Encrypt, say
 
-    client_max_body_size 1100m;   # audiobooks can be up to 1 GB
+    client_max_body_size 1100m;   # audiobooks can be up to 1 GB; raise it with Uploads:MaxAudioMegabytes
 
     location / {
         proxy_pass http://127.0.0.1:8080;

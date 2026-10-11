@@ -44,6 +44,8 @@ Off unless `Oidc:Authority` and `Oidc:ClientId` are set. See [Single sign-on](se
 | `ConnectionStrings:Shelf` | `Data Source=shelf.db` | The SQLite database. In Docker, `/data/shelf.db`. |
 | `EbookStore:Root` | `ebooks` beside the app | E-book files. In Docker, `/data/ebooks`. |
 | `AudioStore:Root` | `audio` beside the app | Audiobooks. In Docker, `/data/audio`. |
+| `Uploads:MaxAudioMegabytes` | `1024` | The largest audiobook, all its tracks together, in megabytes; also the most an upload of many files at once may total. A reverse proxy has a limit of its own to raise to match (see [HTTPS and a reverse proxy](server.md#https-and-a-reverse-proxy)). |
+| `Uploads:MaxEbookMegabytes` | `80` | The largest e-book, PDF, or comic file, in megabytes. |
 | `CoverStore:Root` | `covers` beside the app | Cover pictures kept on the shelf. In Docker, `/data/covers`. |
 | `DataProtection:KeysPath` | `keys` beside the database | The keys that seal sign-in cookies and two-step secrets. Keep it private and keep it with backups, or everyone signs in again after a restore. |
 

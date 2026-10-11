@@ -231,6 +231,10 @@ builder.Services.AddSingleton<FolderImport>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<FolderImport>());
 builder.Services.AddSingleton<OcrService>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<OcrService>());
+// How large a file may be, in megabytes: an audiobook (1024 unless set) and an e-book (80 unless set). A reverse
+// proxy in front of Shelf has a limit of its own to raise too (client_max_body_size in nginx).
+AudioStore.SetLimit(builder.Configuration.GetValue<int?>("Uploads:MaxAudioMegabytes"));
+EbookStore.SetLimit(builder.Configuration.GetValue<int?>("Uploads:MaxEbookMegabytes"));
 var uploadLimit = Math.Max(EbookStore.MaxBytes, AudioStore.MaxBytes);
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
 {

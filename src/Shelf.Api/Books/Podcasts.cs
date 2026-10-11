@@ -381,7 +381,7 @@ public static partial class PodcastFeeds
 public sealed class PodcastService(IServiceScopeFactory scopes, IPodcastClient client, AudioStore audio, ILogger<PodcastService> logger) : BackgroundService
 {
     public const int MostPodcasts = 200;
-    public const long MostEpisodeBytes = AudioStore.MaxBytes;
+    public static long MostEpisodeBytes => AudioStore.MaxBytes;
 
     public string Root => Path.Combine(audio.Root, "podcasts");
 

@@ -50,7 +50,7 @@
         <p class="hint">@T("Choose e-books, audiobooks, or zips of tracks, as many as you like. Each becomes a book, named from what the file says; tracks that share an album become one audiobook.") <a href="/free">@T("Find free public-domain books")</a> · <a href="/import/audiobookshelf">@T("Bring books from Audiobookshelf")</a></p>
         <form action="/books/import/files" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
             <label>
-                @T("EPUB, PDF, comic, Kindle, audio, or zip, up to 1 GB at a time")
+                @T("EPUB, PDF, comic, Kindle, audio, or zip, up to {0} at a time", Localization.Counts.Size(Math.Max(EbookStore.MaxBytes, AudioStore.MaxBytes)))
                 <input type="file" name="file" multiple required
                        accept=".epub,.pdf,.cbz,.cbr,.cb7,.cbt,.mobi,.azw3,.azw,.mp3,.m4a,.m4b,.aac,.ogg,.opus,.wav,.flac,.zip,application/epub+zip,application/pdf,audio/*" />
             </label>
@@ -583,7 +583,7 @@ else if (visible.Count > 0)
 
             if (Failed is > 0)
             {
-                parts.Add(T("Could not be added: {0}. Shelf takes EPUB, PDF, comics, audio, and zips, up to 1 GB.", Localization.Counts.Files(Failed.Value)));
+                parts.Add(T("Could not be added: {0}. Shelf takes EPUB, PDF, comics, audio, and zips, e-books up to {1} and audiobooks up to {2}.", Localization.Counts.Files(Failed.Value), Localization.Counts.Size(EbookStore.MaxBytes), Localization.Counts.Size(AudioStore.MaxBytes)));
             }
 
             if (Kindle is > 0)

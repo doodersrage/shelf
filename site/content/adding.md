@@ -18,7 +18,7 @@ A new shelf opens on a welcome with a card for each way below, so the first step
 
 ## From files
 
-Under **Add a book**, **Or add from files** takes as many files as you like at once, up to 1 GB in total, and makes a book of each:
+Under **Add a book**, **Or add from files** takes as many files as you like at once, up to 1 GB in total (`Uploads:MaxAudioMegabytes` changes it), and makes a book of each:
 
 | File | Becomes a book named from |
 | --- | --- |
@@ -31,7 +31,7 @@ Under **Add a book**, **Or add from files** takes as many files as you like at o
 
 A file with nothing to say is named from its file name, with the author left for you to fill in. A file for a book you already typed in goes onto that book rather than making a second one.
 
-You can also add a file to one book from its page, under **Files**: an e-book up to 80 MB, or an audiobook up to 1 GB.
+You can also add a file to one book from its page, under **Files**: an e-book up to 80 MB, or an audiobook up to 1 GB, unless an admin has set other limits (`Uploads:MaxEbookMegabytes` and `Uploads:MaxAudioMegabytes`).
 
 ### Files you already have
 

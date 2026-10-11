@@ -9,7 +9,7 @@ A book with an audiobook gets **Listen** on its page, and plays in the browser o
 
 ## Adding an audiobook
 
-On a book's page, under **Files**, upload one audio file or a zip of tracks, up to 1 GB: mp3, m4a, m4b, aac, ogg, opus, wav, or flac. A zip's tracks play in name order. You can also make audiobooks from files in bulk, or bring them from Audiobookshelf or LibriVox; see [Bringing books in](adding.md).
+On a book's page, under **Files**, upload one audio file or a zip of tracks, up to 1 GB (or the limit set in `Uploads:MaxAudioMegabytes`): mp3, m4a, m4b, aac, ogg, opus, wav, or flac. A zip's tracks play in name order. You can also make audiobooks from files in bulk, or bring them from Audiobookshelf or LibriVox; see [Bringing books in](adding.md).
 
 If the files carry cover art (an `.m4b`'s cover, or an MP3's front-cover picture) and the book has no cover yet, the art becomes its cover.
 

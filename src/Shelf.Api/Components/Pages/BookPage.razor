@@ -316,7 +316,7 @@ else if (book is not null)
     }
     else if (EbookMessage == "large")
     {
-        <p class="validation-message" role="alert">@T("That file is larger than 80 MB.")</p>
+        <p class="validation-message" role="alert">@T("That file is larger than {0}.", Localization.Counts.Size(EbookStore.MaxBytes))</p>
     }
     else if (EbookMessage == "full" || AudioMessage == "full")
     {
@@ -344,7 +344,7 @@ else if (book is not null)
     }
     else if (AudioMessage == "large")
     {
-        <p class="validation-message" role="alert">@T("That audiobook is larger than 1 GB.")</p>
+        <p class="validation-message" role="alert">@T("That audiobook is larger than {0}.", Localization.Counts.Size(AudioStore.MaxBytes))</p>
     }
 
     @if (held is not null)
@@ -572,7 +572,7 @@ else if (book is not null)
     }
     <form action="/books/@book.Id/ebook" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
         <label>
-            @T("EPUB, PDF, comic (CBZ, CBR, or CB7), or Kindle file, up to 80 MB")
+            @T("EPUB, PDF, comic (CBZ, CBR, or CB7), or Kindle file, up to {0}", Localization.Counts.Size(EbookStore.MaxBytes))
             <input type="file" name="file" accept=".epub,.pdf,.cbz,.cbr,.cb7,.cbt,.mobi,.azw3,.azw,application/epub+zip,application/pdf" required />
         </label>
         <progress data-upload-progress max="100" hidden></progress>
@@ -599,7 +599,7 @@ else if (book is not null)
     <M4bPanel BookId="book.Id" />
     <form action="/books/@book.Id/audio" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
         <label>
-            @T("Audio or a zip of tracks, up to 1 GB")
+            @T("Audio or a zip of tracks, up to {0}", Localization.Counts.Size(AudioStore.MaxBytes))
             <input type="file" name="file" accept=".mp3,.m4a,.m4b,.aac,.ogg,.opus,.wav,.flac,.zip,audio/*" multiple required />
         </label>
         <progress data-upload-progress max="100" hidden></progress>
