@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-11
+
 ### Added
 
 - Collections: lists you make by hand, in the order you choose, for a book club, summer reading, or books to lend. Add a book from its page, reorder and describe a collection on its own page, and share it by link like a saved search.
@@ -219,7 +221,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/doodersrage/shelf/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/doodersrage/shelf/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/doodersrage/shelf/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/doodersrage/shelf/compare/v1.4.0...v1.4.1
