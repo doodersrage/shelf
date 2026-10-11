@@ -295,6 +295,40 @@ else if (pushState is not null)
 }
 </section>
 
+<section class="panel" id="feeds">
+<h2>@T("Calendar and public page")</h2>
+<h3>@T("Calendar")</h3>
+<p class="hint">@T("Subscribe to your loans' due dates in a calendar app, such as Google Calendar, Apple Calendar, or Outlook: books lent out, and books to give back.")</p>
+@if (calendarUrl is not null)
+{
+    <p role="status">@T("Your calendar's address, shown only now:") <code class="link-code">@calendarUrl</code></p>
+}
+<p>
+    <button type="button" @onclick="MakeCalendar">@(calendarOn ? T("Make a new address") : T("Make a calendar address"))</button>
+    @if (calendarOn)
+    {
+        <button type="button" class="quiet" @onclick="StopCalendar">@T("Stop the calendar")</button>
+    }
+</p>
+@if (!restricted)
+{
+    <h3>@T("Public page")</h3>
+    <p class="hint">@T("A page anyone with its address can see: the books you are reading, those you finished lately with their stars, and your year so far. Never notes, reviews, or loans. It comes with a widget for a website and a feed.")</p>
+    <label class="check">
+        <input type="checkbox" checked="@(publicToken is not null)" @onchange="ChangePublic" />
+        @T("Share a public page")
+    </label>
+    @if (publicToken is not null)
+    {
+        <dl class="facts">
+            <dt>@T("Page")</dt><dd><a href="/public/@publicToken" target="_blank" rel="noopener"><code>@Site/public/@publicToken</code></a></dd>
+            <dt>@T("Widget")</dt><dd><code class="link-code">&lt;iframe src="@Site/public/@publicToken/widget" width="300" height="320" style="border:0"&gt;&lt;/iframe&gt;</code></dd>
+            <dt>@T("Feed")</dt><dd><code>@Site/public/@publicToken/feed.xml</code></dd>
+        </dl>
+    }
+}
+</section>
+
 @if (WebhookSender.Enabled && !restricted)
 {
 <section class="panel" id="webhooks">
@@ -741,6 +775,8 @@ else
         await LoadNoticesAsync(db);
         webhooks = await Webhooks.ListAsync(db);
         restricted = me.Restricted;
+        calendarOn = me.CalendarTokenHash is not null;
+        publicToken = me.PublicToken;
         guardianName = me.GuardianId is int guardian ? await db.Readers.Where(item => item.Id == guardian).Select(item => item.Name).FirstOrDefaultAsync() : null;
         children = restricted ? [] : await Family.ChildrenAsync(db);
         currentSession = (await Authentication.GetAuthenticationStateAsync()).User.FindFirst(TwoFactor.SessionClaim)?.Value;
@@ -950,6 +986,32 @@ else
         {
             noticeBusy = false;
         }
+    }
+
+    private bool calendarOn;
+    private string? calendarUrl;
+    private string? publicToken;
+
+    private string Site => EmailRules.PublicAddress(Configuration, null) is { Length: > 0 } configured ? configured : Navigation.BaseUri.TrimEnd('/');
+
+    private async Task MakeCalendar()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        calendarUrl = $"{Site}/calendar/{await Feeds.MakeCalendarAsync(db)}.ics";
+        calendarOn = true;
+    }
+
+    private async Task StopCalendar()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Feeds.StopCalendarAsync(db);
+        (calendarOn, calendarUrl) = (false, null);
+    }
+
+    private async Task ChangePublic(ChangeEventArgs change)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        publicToken = await Feeds.SetPublicAsync(db, change.Value is true);
     }
 
     private bool restricted;

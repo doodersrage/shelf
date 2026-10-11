@@ -1,0 +1,79 @@
+@page "/public/{Token}"
+@attribute [AllowAnonymous]
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+@* A reader's public page: what they are reading, and what they finished lately. Plain HTML for anyone. *@
+@if (shelf is null)
+{
+    <PageTitle>@T("Not shared") · Shelf</PageTitle>
+    <h1>@T("This page is not shared")</h1>
+    <p>@T("The link may be mistyped, or its reader has turned the page off.")</p>
+}
+else
+{
+    <PageTitle>@T("{0} is reading", shelf.Reader) · Shelf</PageTitle>
+    <HeadContent>
+        <meta name="robots" content="noindex" />
+        <meta name="referrer" content="no-referrer" />
+        <link rel="alternate" type="application/atom+xml" href="/public/@Token/feed.xml" title="@T("Books {0} has finished", shelf.Reader)" />
+    </HeadContent>
+    <h1>@T("{0} is reading", shelf.Reader)</h1>
+    @if (shelf.Goal > 0)
+    {
+        <p class="hint">@T("{0} of {1} books this year.", shelf.FinishedThisYear, shelf.Goal)</p>
+    }
+    else
+    {
+        <p class="hint">@Localization.Counts.Books(shelf.FinishedThisYear) · @DateTime.UtcNow.Year</p>
+    }
+    @if (shelf.Reading.Length == 0)
+    {
+        <p>@T("Nothing just now.")</p>
+    }
+    else
+    {
+        <ul class="shared-list">
+            @foreach (var book in shelf.Reading)
+            {
+                <li>
+                    <BookCover Title="@book.Title" Url="@book.Cover" Width="4rem" />
+                    <div><strong>@book.Title</strong><span class="hint">@book.Author</span></div>
+                </li>
+            }
+        </ul>
+    }
+    @if (shelf.Finished.Length > 0)
+    {
+        <h2>@T("Finished lately")</h2>
+        <ul class="shared-list">
+            @foreach (var book in shelf.Finished)
+            {
+                <li id="book-@book.Id">
+                    <BookCover Title="@book.Title" Url="@book.Cover" Width="4rem" />
+                    <div>
+                        <strong>@book.Title</strong>
+                        <span class="hint">@book.Author · @book.FinishedOn?.Medium()</span>
+                        @if (book.Rating is int stars)
+                        {
+                            <span aria-label="@T("{0} of 5 stars", stars)">@(new string('★', stars))@(new string('☆', 5 - stars))</span>
+                        }
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+    <p class="hint"><a href="/public/@Token/feed.xml">@T("Follow as a feed")</a></p>
+}
+
+@code {
+    [Parameter]
+    public string Token { get; set; } = "";
+
+    private PublicShelf? shelf;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        shelf = await Feeds.PublicAsync(db, Token);
+    }
+}

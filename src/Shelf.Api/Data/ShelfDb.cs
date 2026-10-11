@@ -372,6 +372,9 @@ public sealed class ShelfDb : DbContext
             reader.Property(r => r.ReadwiseToken).HasMaxLength(1000);
             reader.Property(r => r.HardcoverToken).HasMaxLength(6000);
             reader.Property(r => r.NtfyUrl).HasMaxLength(500);
+            reader.Property(r => r.CalendarTokenHash).HasMaxLength(64);
+            reader.Property(r => r.PublicToken).HasMaxLength(40);
+            reader.HasIndex(r => r.PublicToken).IsUnique();
             reader.Property(r => r.NtfyToken).HasMaxLength(1000);
             reader.Property(r => r.GotifyUrl).HasMaxLength(500);
             reader.Property(r => r.GotifyToken).HasMaxLength(1000);

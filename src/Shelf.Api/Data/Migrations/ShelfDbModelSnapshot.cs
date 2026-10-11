@@ -1579,6 +1579,10 @@ namespace Shelf.Api.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("CalendarTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
@@ -1680,6 +1684,10 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<bool>("PasswordUnknown")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("PublicToken")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("ReadwiseAuto")
                         .HasColumnType("INTEGER");
 
@@ -1728,6 +1736,9 @@ namespace Shelf.Api.Data.Migrations
                         .IsUnique();
 
                     b.HasIndex("OidcSubject")
+                        .IsUnique();
+
+                    b.HasIndex("PublicToken")
                         .IsUnique();
 
                     b.ToTable("Readers");

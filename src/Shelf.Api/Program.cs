@@ -340,6 +340,7 @@ Kosync.Map(app);
 app.MapGet("/version", () => TypedResults.Ok(ShelfVersion.Response)).WithTags("Shelf").AllowAnonymous();
 app.MapBooks();
 SharedLists.Map(app);
+Feeds.Map(app);
 Kobo.Map(app);
 PodcastService.Map(app);
 app.Services.GetRequiredService<Federation>().Map(app);

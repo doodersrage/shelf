@@ -74,6 +74,16 @@ Box sets and collections are left out. Open Library knows the series of many boo
 
 The more you rate, love, and tag, the better they get.
 
+## A public page
+
+**Share a public page**, under **Account**, makes a page anyone with its address can see: the books you're reading, the ones you finished lately with their stars, and your count for the year. Notes, reviews, loans, and everything else stay private. It comes with:
+
+- a **widget** to put on a website or blog, as an `<iframe>` (the code is on the Account page), showing what you're reading now;
+- a **feed** of books you finish, for a feed reader;
+- the same as JSON, at `/public/<address>/shelf.json`.
+
+Turning it off ends the address; turning it on again makes a new one.
+
 ## Duplicates
 
 Under **Your copies**, **Duplicates** lists books that look like the same book: the same ISBN, or the same title and author (case and punctuation aside). Choose **Keep this one** on the entry to keep, and the others merge into it:

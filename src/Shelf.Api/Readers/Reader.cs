@@ -76,6 +76,10 @@ public sealed class Reader
     public string? GotifyToken { get; set; }
     public DateOnly? LastNoticeOn { get; set; }
 
+    // A hash of the token in this reader's calendar address, and the token in their public page's address, when on.
+    public string? CalendarTokenHash { get; set; }
+    public string? PublicToken { get; set; }
+
     // Two-step sign-in: the authenticator secret, sealed with the shelf's own keys.
     public bool TwoFactorEnabled { get; set; }
     public string? TwoFactorSecret { get; set; }

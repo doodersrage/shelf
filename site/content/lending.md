@@ -58,6 +58,10 @@ Shelf also points out open shelves where they help:
 
 Only shelves their owners opened are ever mentioned.
 
+## A calendar of due dates
+
+Under **Account**, **Calendar and public page**, **Make a calendar address** gives an address to subscribe to in a calendar app (Google Calendar, Apple Calendar, Outlook, Thunderbird): each loan's due date is a day in it, for books you've lent and books to give back. The address is shown once and works without signing in, so keep it to yourself; **Make a new address** replaces it, and **Stop the calendar** ends it.
+
 ## Linked shelves
 
 Two Shelf servers can be linked, say yours and a friend's, so the readers of each can see the other's open shelves and borrow from them.
