@@ -4,6 +4,25 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Added
+
+- Match an audiobook on Audible: search by title and author, or ASIN, in any Audible store, and take its narrator, series, publisher, year, and language, its cover, and its chapter names, which the player then shows across one file or many tracks.
+- Notifications: on your phone or computer by the browser's push, or by ntfy or Gotify, when someone lends you a book or asks to borrow one, a loan is due or overdue, your series have new books, or there's news in your book clubs. Choose the kinds under Account.
+- Webhooks: each reader's books added, started, finished, lent, and returned, asks to borrow, club posts, and new series books posted to addresses of their own, as signed JSON or a line for Discord or Slack.
+- Hardcover both ways: what you change on Hardcover comes back to books not changed here since, and books only on Hardcover can be added.
+- Readwise both ways: highlights made on a Kindle, Kobo, Apple Books, and elsewhere come from Readwise onto the books they're from, every hour if you like.
+- KOReader's reading statistics: bring statistics.sqlite3 in on Devices, and the time spent on each page counts as reading time by day, in Stats, the year in review, and the hours goal.
+- Children's accounts: a reader makes accounts for their children, who keep their own shelf and read the collections their guardian shares, but can't lend, share links, or connect services, and are kept out of other readers' lists.
+- What to read next: the next books in your series, your want-to-read list ranked by the authors and subjects you love, and books on open shelves you might borrow.
+- Read-along: a book with an EPUB and an audiobook can be matched word by word by a speech-to-text service of your choice (`ReadAlong:Url`). **Listen along** in the reader plays the audiobook and marks each word as it's read, and switching formats keeps the place to the word.
+- Podcasts: follow podcasts by search, feed, or OPML; the newest episodes are kept downloaded, and they play in the audiobook player with their place kept.
+- Linked shelves: two Shelf servers linked by their admins with a one-time code, whose readers see each other's open shelves and borrow from them. A book lent across goes as a copy while it is out.
+
+### Changed
+
+- Hardcover sends a book's reading dates as a new read only when they change, so a read isn't counted twice, and what was sent is kept in a way that no longer depends on the reader's language.
+- The Docker image takes `--build-arg FFMPEG=true`, for read-along with a speech-to-text service that limits uploads.
+
 ## [1.7.0] - 2026-10-11
 
 ### Added

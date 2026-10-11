@@ -28,7 +28,7 @@ The screenshots show public-domain books, with covers drawn for the demo. `npm r
 Good self-hosted book apps already exist, and each is built around one kind of book:
 
 - **[Calibre-Web](https://github.com/janeczku/calibre-web)** is a web front end to a Calibre library. It is the better choice if Calibre is where you edit metadata and convert files. It keeps e-books only, in Calibre's database.
-- **[Audiobookshelf](https://www.audiobookshelf.org)** is an audiobook and podcast server with phone apps that download for offline listening. It is the better choice if that is most of your reading. E-books come second there, and paper books not at all.
+- **[Audiobookshelf](https://www.audiobookshelf.org)** is an audiobook and podcast server with phone apps that download for offline listening. It is the better choice if you want native phone apps. E-books come second there, and paper books not at all.
 - **Goodreads and StoryGraph** keep a reading log and a yearly goal well, but on someone else's server, and they hold none of your files.
 
 Shelf is for a library that is all of these at once, kept on your own server:
@@ -42,12 +42,13 @@ What it does not have, yet, is phone apps: on a phone it is the website, added t
 
 ## What it does
 
-- **[A real catalog](https://doodersrage.github.io/shelf/library.html):** series, editions, translators, narrators, places, condition, ratings, reviews, and tags. Fill it from an ISBN, typed, scanned with a phone's camera, or shared from another app. Saved searches, hand-made collections, reading lists shared by link, new books in your series, and duplicates merged in a click.
+- **[A real catalog](https://doodersrage.github.io/shelf/library.html):** series, editions, translators, narrators, places, condition, ratings, reviews, and tags. Fill it from an ISBN, typed, scanned with a phone's camera, or shared from another app. Saved searches, hand-made collections, reading lists shared by link, new books in your series, suggestions of what to read next, and duplicates merged in a click.
 - **[Reading](https://doodersrage.github.io/shelf/reading.html):** EPUBs, PDFs, comics, and Kindle files in the browser, scrolled or turned page by page, with highlights, notes, a dictionary, read aloud, search inside every book, OCR for scanned PDFs, and offline reading.
-- **[Audiobooks](https://doodersrage.github.io/shelf/audiobooks.html):** one file or a folder of tracks played as one book, with chapters, bookmarks, speeds from 0.5× to 3×, a sleep timer, lock-screen controls, and a mini player that keeps going while you browse.
-- **[Readers and lending](https://doodersrage.github.io/shelf/lending.html):** a shelf for each reader, loans with due dates, open shelves to ask to borrow from, book clubs, and email reminders.
+- **[Audiobooks](https://doodersrage.github.io/shelf/audiobooks.html):** one file or a folder of tracks played as one book, with chapters, bookmarks, speeds from 0.5× to 3×, a sleep timer, lock-screen controls, and a mini player that keeps going while you browse. Narrator, series, cover, and chapter names from Audible; read-along, which marks each word of the e-book as the audiobook reads it; and podcasts in the same player.
+- **[Readers and lending](https://doodersrage.github.io/shelf/lending.html):** a shelf for each reader, children's accounts, loans with due dates, open shelves to ask to borrow from, linked shelves on a friend's server, book clubs, and reminders.
+- **[Notifications](https://doodersrage.github.io/shelf/notifications.html):** on your phone or computer, or by ntfy or Gotify, when a book is lent to you or asked for, a loan is due, a series has a new book, or your club talks; and webhooks for Home Assistant, Discord, and Slack.
 - **[Bringing books in](https://doodersrage.github.io/shelf/adding.html):** files, an import folder, Calibre, Audiobookshelf, Goodreads, StoryGraph, and Project Gutenberg and LibriVox.
-- **[Devices and services](https://doodersrage.github.io/shelf/devices.html):** Kobo e-readers sync with Shelf as with their own store; KOReader downloads from its catalog and keeps its place in step; Kindles get books by email and their highlights come across; highlights go to Readwise and reading status to Hardcover.
+- **[Devices and services](https://doodersrage.github.io/shelf/devices.html):** Kobo e-readers sync with Shelf as with their own store; KOReader downloads from its catalog and keeps its place in step; KOReader's reading statistics count too; Kindles get books by email and their highlights come across; highlights go to and come from Readwise, and reading status both ways with Hardcover.
 - **[Security](https://doodersrage.github.io/shelf/security.html):** passkeys, two-step sign-in, single sign-on through OpenID Connect, an activity log, and [API tokens](https://doodersrage.github.io/shelf/api.html#api-tokens) for scripts and Home Assistant.
 - **[Backups](https://doodersrage.github.io/shelf/backups.html):** nightly snapshots, copies to another folder or S3-compatible storage, and a restore drill in the tests.
 - **Your year:** goals for books, pages, and hours, time spent reading and listening, and a review of each year in books.

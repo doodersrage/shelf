@@ -137,3 +137,41 @@ test("a book club is started, a reader invited, and a book talked about", async 
   noProblems(host);
   noProblems(guest);
 });
+
+test("a parent makes a child's account and shares a collection, which the child reads", async ({ browser }) => {
+  const parent = await signUp(browser, unique("Parent"));
+  const childName = unique("Kid");
+  const book = await createBook(parent, { title: unique("The Hobbit"), author: "J. R. R. Tolkien", status: "Finished" });
+  const collection = await (await parent.request.post("/books/collections", { data: { name: "For the children" } })).json();
+  await parent.request.post(`/books/collections/${collection.id}/books`, { data: { bookId: book.id } });
+
+  await parent.goto("/account");
+  await ready(parent);
+  await parent.locator("#children summary").click();
+  await parent.getByLabel("Their name, to sign in with").fill(childName);
+  await parent.getByLabel(/A password for them/).fill(PASSWORD);
+  await parent.getByRole("button", { name: "Make it" }).click();
+  await expect(parent.locator("#children")).toContainText(`${childName} can sign in now.`);
+
+  await parent.goto(`/collections/${collection.id}`);
+  await ready(parent);
+  await parent.getByLabel(`Let ${childName} read the books in this collection`).check();
+  await expect(parent.getByLabel(`Let ${childName} read the books in this collection`)).toBeChecked();
+
+  const context = await browser.newContext();
+  const child = await context.newPage();
+  child.problems = [];
+  child.navigations = 0;
+  await child.goto("/signin");
+  await child.fill("input[name=name]", childName);
+  await child.fill("input[name=password]", PASSWORD);
+  await Promise.all([child.waitForURL("**/", { waitUntil: "domcontentloaded" }), child.click("button[type=submit]")]);
+  await ready(child);
+  await expect(child.locator(".family")).toContainText(book.title);
+  await child.goto("/account");
+  await ready(child);
+  await expect(child.getByRole("heading", { name: "A child's account" })).toBeVisible();
+  await expect(child.getByRole("heading", { name: "API tokens" })).toHaveCount(0);
+  await expect(child.locator("nav").getByRole("link", { name: "Shelves", exact: true })).toHaveCount(0);
+  noProblems(parent);
+});
