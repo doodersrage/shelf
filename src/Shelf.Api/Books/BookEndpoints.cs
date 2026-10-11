@@ -93,6 +93,7 @@ public static class BookEndpoints
         WordLookups.Map(books);
         Clubs.Map(books);
         Audible.Map(books);
+        NextReadsRules.Map(books);
 
         // Another shelf reaches these with a device key; the rest of the API needs a signed-in reader.
         var sync = app.MapGroup("/books/sync").WithTags("Shelf").RequireAuthorization(SyncEndpoints.Policy);

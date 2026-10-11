@@ -2915,3 +2915,33 @@ blockquote mark {
 .family-books a + a {
   margin-left: 0.75rem;
 }
+
+/* What to read next: a cover, the book, and why. */
+.next-reads {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 1rem;
+}
+
+.next-reads li {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.next-reads li > span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.next-why {
+  font-size: 0.9rem;
+}
+
+.next-reads a + a {
+  margin-left: 0.75rem;
+}

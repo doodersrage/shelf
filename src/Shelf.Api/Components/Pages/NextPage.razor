@@ -1,0 +1,124 @@
+@page "/next"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("What to read next") · Shelf</PageTitle>
+
+<h1>@T("What to read next")</h1>
+<p class="hint">@T("Suggestions from your own shelf: the next books in your series, your want-to-read list ranked by the authors and subjects of the books you loved or gave four or five stars, and books on open shelves you might borrow.")</p>
+
+@if (next is null)
+{
+    <p role="status">@T("Looking…")</p>
+}
+else if (next.Series.Length + next.Shelf.Length + next.Borrowable.Length + next.NewInSeries.Length == 0)
+{
+    <EmptyState Title="@T("Nothing to suggest yet")" Text="@T("Rate the books you finish, mark the ones you love, and tag them with their subjects, and suggestions will follow.")" />
+}
+else
+{
+    @if (next.Series.Length > 0)
+    {
+        <section class="panel" aria-labelledby="next-series">
+            <h2 id="next-series">@T("Next in your series")</h2>
+            <ul class="next-reads">
+                @foreach (var read in next.Series)
+                {
+                    <li>@Item(read)</li>
+                }
+            </ul>
+        </section>
+    }
+    @if (next.NewInSeries.Length > 0)
+    {
+        <section class="panel" aria-labelledby="next-new">
+            <h2 id="next-new">@T("New in your series, not on your shelf")</h2>
+            <ul class="tag-counts">
+                @foreach (var alert in next.NewInSeries.Take(NextReadsRules.MostShown))
+                {
+                    <li>
+                        <a href="@($"/?title={Uri.EscapeDataString(alert.Title)}&author={Uri.EscapeDataString(alert.Author)}#add")">@alert.Title</a>
+                        <span class="hint">@alert.Series@(alert.Year is int year ? $" · {year}" : "")</span>
+                    </li>
+                }
+            </ul>
+            <p class="hint"><a href="/series">@T("All of them, under Series")</a></p>
+        </section>
+    }
+    @if (next.Shelf.Length > 0)
+    {
+        <section class="panel" aria-labelledby="next-shelf">
+            <h2 id="next-shelf">@T("From your want-to-read list")</h2>
+            <ul class="next-reads">
+                @foreach (var read in next.Shelf)
+                {
+                    <li>@Item(read)</li>
+                }
+            </ul>
+        </section>
+    }
+    @if (next.Borrowable.Length > 0)
+    {
+        <section class="panel" aria-labelledby="next-borrow">
+            <h2 id="next-borrow">@T("On other readers' open shelves")</h2>
+            <ul class="next-reads">
+                @foreach (var read in next.Borrowable)
+                {
+                    <li>@Item(read)</li>
+                }
+            </ul>
+        </section>
+    }
+}
+
+@code {
+    private NextReads? next;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        next = await NextReadsRules.SuggestAsync(db);
+    }
+
+    private RenderFragment Item(NextRead read) => @<text>
+        <BookCover Title="@read.Title" Url="@read.Cover" Width="4.5rem" />
+        <span>
+            @if (read.Owner is null)
+            {
+                <a href="/library/@read.BookId"><strong>@read.Title</strong></a>
+            }
+            else
+            {
+                <a href="/shelves/@read.OwnerId"><strong>@read.Title</strong></a>
+            }
+            <span class="hint">@read.Author</span>
+            <span class="next-why">@Why(read)</span>
+            @if (read.Owner is not null)
+            {
+                <span class="hint">@T("On {0}'s shelf", read.Owner)</span>
+            }
+            else if (read.HasEbook || read.HasAudio)
+            {
+                <span>
+                    @if (read.HasEbook)
+                    {
+                        <a href="/library/@read.BookId/read">@T("Read")</a>
+                    }
+                    @if (read.HasAudio)
+                    {
+                        <a href="/library/@read.BookId/listen">@T("Listen")</a>
+                    }
+                </span>
+            }
+        </span>
+    </text>;
+
+    private static string Why(NextRead read) => read.Reason switch
+    {
+        NextReason.NextInSeries => T("Next after {0}", read.Because ?? ""),
+        NextReason.Queued => T("In your queue"),
+        NextReason.Author when read.Because is not null => T("You loved {0}, by the same author", read.Because),
+        NextReason.Subjects when read.Subjects.Length > 0 => T("Like the books you loved: {0}", string.Join(", ", read.Subjects)),
+        _ => "",
+    };
+}

@@ -63,6 +63,17 @@ On **Series**, tick **Tell me when a new book comes out in a series I am reading
 
 Box sets and collections are left out. Open Library knows the series of many books but not all, so a book it has not filed under the series is missed; the series name on your books should match Open Library's (with or without a leading *The*).
 
+## What to read next
+
+**What to read next**, under Discover & reflect, suggests books from what's already here, without sending anything anywhere:
+
+- **Next in your series:** for each series you're reading or have finished a book of, the next one on your want-to-read list. Later books wait their turn.
+- **New in your series:** books the daily look found (see above), to add.
+- **From your want-to-read list:** your queue first, then books by authors whose books you loved or gave four or five stars, then books whose tags (subjects) you share with those, each with why.
+- **On other readers' open shelves:** books you don't have, by authors and on subjects you love, to ask to borrow.
+
+The more you rate, love, and tag, the better they get.
+
 ## Duplicates
 
 Under **Your copies**, **Duplicates** lists books that look like the same book: the same ISBN, or the same title and author (case and punctuation aside). Choose **Keep this one** on the entry to keep, and the others merge into it:
