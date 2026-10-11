@@ -4085,3 +4085,93 @@ blockquote mark {
     gap: var(--space-2) var(--space-4);
     margin: var(--space-2) 0 var(--space-4);
 }
+
+/* Searching the indexers from a book's page: what is being fetched, then the releases, best first. */
+.fetch-search {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+.fetch-search label {
+    margin: 0;
+}
+
+.grab {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
+    margin: 0 0 var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-control);
+    background: var(--color-sunken);
+}
+
+.grab progress {
+    flex: 1 1 8rem;
+    max-width: 14rem;
+}
+
+.grab.failed {
+    background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
+}
+
+.releases {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-3);
+}
+
+.releases th,
+.releases td {
+    padding: var(--space-2);
+    border-top: 1px solid var(--color-rule);
+    text-align: left;
+    vertical-align: top;
+}
+
+.releases td:first-child {
+    overflow-wrap: anywhere;
+}
+
+.releases tr.unmatched td {
+    color: var(--color-muted);
+}
+
+@media (max-width: 40rem) {
+    .releases thead {
+        display: none;
+    }
+
+    .releases tr {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 0 var(--space-3);
+        padding: var(--space-2) 0;
+        border-top: 1px solid var(--color-rule);
+    }
+
+    .releases td {
+        border: 0;
+        padding: 2px 0;
+    }
+
+    .releases td:first-child {
+        grid-column: 1 / -1;
+    }
+}
+
+.wanted-list {
+    columns: 18rem;
+    column-gap: var(--space-6);
+    padding-left: 1.2rem;
+}
+
+.wanted-list li {
+    break-inside: avoid;
+    padding: 2px 0;
+}

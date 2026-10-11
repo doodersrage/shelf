@@ -1,0 +1,127 @@
+@page "/wanted"
+@rendermode InteractiveServer
+@implements IDisposable
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject Fetcher Fetcher
+@inject ShelfJobs Jobs
+
+<PageTitle>@T("Wanted") · Shelf</PageTitle>
+
+@* The want list as Sonarr keeps one: books with no file yet, what is being fetched for each, and a look for them all. *@
+<div class="page-head">
+    <h1>@T("Wanted")</h1>
+</div>
+
+@if (!ready)
+{
+    <EmptyState Title="@T("Finding books is not set up")" Text="@T("With Jackett or Prowlarr and a download client set up, Shelf can search for the books you want and fetch them. An admin sets it up under Downloads.")" ActionHref="/downloads" ActionLabel="@T("Downloads")" />
+}
+else
+{
+    <p class="hint">@T("Want-to-read books with no {0} yet. Search for one from its page, or look for them all now.", kind == FetchKind.Ebook ? T("e-book") : T("audiobook"))</p>
+    @if (job is { } running)
+    {
+        <ImportProgress Job="running" />
+    }
+    else
+    {
+        <p>
+            <button type="button" class="primary" disabled="@(books.Count == 0)" @onclick="LookForAll">@T("Look for all of them now")</button>
+            <span class="hint">@T("At most {0} at a time.", most)</span>
+        </p>
+    }
+
+    @if (books.Count == 0 && grabs.Count == 0)
+    {
+        <p class="hint">@T("Nothing is wanted: every book on your want list has its file.")</p>
+    }
+    else
+    {
+        <ul class="wanted-list">
+            @foreach (var book in books)
+            {
+                <li>
+                    <a href="/library/@book.Id#fetch-heading">@book.Title</a> <span class="hint">@book.Author</span>
+                </li>
+            }
+        </ul>
+    }
+
+    @if (grabs.Count > 0)
+    {
+        <section class="panel" aria-labelledby="grabs-heading">
+            <h2 id="grabs-heading">@T("Being fetched, and lately fetched")</h2>
+            <ul class="free-downloads">
+                @foreach (var (grab, title) in grabs)
+                {
+                    <li>
+                        <span><a href="/library/@grab.BookId">@title</a> <span class="hint">· @grab.Title</span></span>
+                        <span class="@(grab.State == GrabState.Failed ? "validation-message" : "hint")">@State(grab)</span>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+}
+
+@code {
+    private bool ready;
+    private FetchKind kind;
+    private int most;
+    private List<Book> books = [];
+    private List<(FetchGrab Grab, string Title)> grabs = [];
+    private WantedJob? job;
+    private int readerId;
+    private Timer? timer;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            timer = new Timer(_ => InvokeAsync(async () =>
+            {
+                if (job is { Finished: false } || grabs.Any(item => item.Grab.State is GrabState.Sent or GrabState.Downloading or GrabState.Importing))
+                {
+                    await LoadAsync();
+                    StateHasChanged();
+                }
+            }), null, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4));
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        readerId = db.ReaderId;
+        var settings = await FetchRules.SettingsAsync(db);
+        ready = Fetcher.Ready(settings) && !await Family.IsRestrictedAsync(db);
+        (kind, most) = (settings.WantedKind, Math.Clamp(settings.MostPerDay, 1, 200));
+        books = ready ? await Fetcher.WantedAsync(db, settings) : [];
+        grabs = [.. (await db.FetchGrabs.AsNoTracking().Where(grab => grab.ReaderId == readerId).OrderByDescending(grab => grab.Id).Take(30)
+                .Join(db.Books.AsNoTracking(), grab => grab.BookId, book => book.Id, (grab, book) => new { grab, book.Title }).ToListAsync())
+            .Select(item => (item.grab, item.Title))];
+        job = Jobs.Of(readerId).OfType<WantedJob>().FirstOrDefault(item => !item.Finished);
+    }
+
+    private async Task LookForAll()
+    {
+        if (await Fetcher.StartWantedAsync(readerId, CancellationToken.None) is { } started)
+        {
+            Fetcher.Run(started);
+            job = started;
+        }
+    }
+
+    private static string State(FetchGrab grab) => grab.State switch
+    {
+        GrabState.Sent => T("Sent to the download client"),
+        GrabState.Downloading => T("Downloading, {0}%", (int)(grab.Progress * 100)),
+        GrabState.Importing => T("Bringing it onto the book"),
+        GrabState.Done => grab.Problem ?? T("Fetched"),
+        _ => grab.Problem ?? T("Could not be fetched"),
+    };
+
+    public void Dispose() => timer?.Dispose();
+}

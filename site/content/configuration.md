@@ -145,6 +145,8 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 | `AbsSync:Enabled` | `true` | Look once a day at the Audiobookshelf libraries readers keep in step with. See [Keeping in step](adding.md#keeping-in-step). |
 | `AbsSync:LookSeconds` | `30` | How often Shelf checks whether a library is due its daily look, or was asked to look now. |
 | `Details:PauseMilliseconds` | `1200` | The pause between books when details or covers are filled in for many, so Open Library and Google Books are asked politely. |
+| `Fetch:PollSeconds` | `20` | How often Shelf asks the download client after the books it is fetching. The rest is set by an admin under Downloads; see [Finding and fetching books](adding.md#finding-and-fetching-books). |
+| `Fetch:PauseMilliseconds` | `3000` | The pause between books when looking for the whole want list, so the indexers are asked politely. |
 | `Kobo:Kepub` | `true` | Send books to Kobo e-readers as KEPUBs, made from the EPUBs and kept beside them, for the Kobo's page numbers and statistics. `false` sends the EPUBs as they are. |
 | `Lookup:Dictionary` | `true` | **Look up** in the reader, which sends the chosen words to Wiktionary and Wikipedia. Set `false` to keep them on the shelf. |
 | `Lookup:GoogleBooks` | `true` | Ask Google Books when Open Library has no match or leaves fields blank. It sends the ISBN, or the title and author, to Google; set `false` to keep look-ups to Open Library alone. |

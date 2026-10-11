@@ -93,7 +93,10 @@
             (book, scan) => new { book.Id, book.Title, scan.Done, scan.Pages }).ToListAsync();
         var making = M4b.Making.ToList();
         var merging = making.Count == 0 ? [] : await mine.Where(book => book.AudioStoredName != null && making.Contains(book.AudioStoredName)).Select(book => new { book.Id, book.Title }).ToListAsync();
+        var fetching = await db.FetchGrabs.AsNoTracking().Where(grab => grab.ReaderId == readerId && (grab.State == GrabState.Sent || grab.State == GrabState.Downloading || grab.State == GrabState.Importing))
+            .Join(mine, grab => grab.BookId, book => book.Id, (grab, book) => new { book.Id, book.Title, grab.State, grab.Progress }).ToListAsync();
         books = [
+            .. fetching.Select(item => (item.Id, item.Title, item.State == GrabState.Importing ? T("Bringing the download onto the book") : T("Downloading, {0}%", (int)(item.Progress * 100)))),
             .. reading.Select(item => (item.Id, item.Title, item.State == ReadAlongState.Waiting ? T("Read-along: waiting its turn") : T("Read-along: {0} of {1}", item.Done, item.Total))),
             .. scans.Select(item => (item.Id, item.Title, T("Reading the scanned pages: {0} of {1}", item.Done, item.Pages))),
             .. merging.Select(item => (item.Id, item.Title, T("Making one M4B"))),

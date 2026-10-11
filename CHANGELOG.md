@@ -4,6 +4,12 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-11
+
+### Added
+
+- Finding and fetching books, as Sonarr does for shows: search your indexers (Jackett or Prowlarr) from a book's page, send the release to Deluge, qBittorrent, or SABnzbd, and the finished file lands on the book. **Wanted** lists want-to-read books with no file and can look for them all, or every day. An admin sets it up under **Downloads**; it is off until then.
+
 ## [2.1.1] - 2026-10-11
 
 ### Added
@@ -319,7 +325,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.1.1...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/doodersrage/shelf/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/doodersrage/shelf/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/doodersrage/shelf/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/doodersrage/shelf/compare/v2.0.0...v2.0.1

@@ -1,0 +1,10 @@
+@* What a Test button found: a quiet word when it answers, the trouble in red when it does not. *@
+@if (Note is var (good, text))
+{
+    <span class="@(good ? "saved" : "validation-message")" role="status">@text</span>
+}
+
+@code {
+    [Parameter]
+    public (bool Good, string Text)? Note { get; set; }
+}

@@ -58,6 +58,8 @@ public class ShelfDb : DbContext
     public DbSet<SavedSearch> SavedSearches => Set<SavedSearch>();
     public DbSet<AbsLink> AbsLinks => Set<AbsLink>();
     public DbSet<AbsSyncSetting> AbsSyncs => Set<AbsSyncSetting>();
+    public DbSet<FetchSetting> FetchSettings => Set<FetchSetting>();
+    public DbSet<FetchGrab> FetchGrabs => Set<FetchGrab>();
     public DbSet<ApiToken> ApiTokens => Set<ApiToken>();
     public DbSet<SeriesAlert> SeriesAlerts => Set<SeriesAlert>();
     public DbSet<ListeningDay> ListeningDays => Set<ListeningDay>();
@@ -170,6 +172,39 @@ public class ShelfDb : DbContext
             link.HasIndex(item => new { item.ReaderId, item.Server, item.ItemId }).IsUnique();
             link.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
             link.HasOne<Book>().WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Finding and fetching books: the shelf's one setting, and each download, kept by reader id for the fetcher.
+        modelBuilder.Entity<FetchSetting>(fetch =>
+        {
+            foreach (var name in new[] { nameof(FetchSetting.IndexerUrl), nameof(FetchSetting.TorrentUrl), nameof(FetchSetting.SabUrl), nameof(FetchSetting.RemotePath), nameof(FetchSetting.LocalPath) })
+            {
+                fetch.Property(name).HasMaxLength(500);
+            }
+
+            foreach (var name in new[] { nameof(FetchSetting.SealedIndexerKey), nameof(FetchSetting.SealedTorrentPassword), nameof(FetchSetting.SealedSabKey) })
+            {
+                fetch.Property(name).HasMaxLength(4000);
+            }
+
+            fetch.Property(item => item.TorrentUser).HasMaxLength(200);
+            fetch.Property(item => item.Category).HasMaxLength(100);
+            fetch.Property(item => item.EbookFormats).HasMaxLength(200);
+            fetch.Property(item => item.AudioFormats).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<FetchGrab>(grab =>
+        {
+            grab.Property(item => item.Title).HasMaxLength(500);
+            grab.Property(item => item.Indexer).HasMaxLength(200);
+            grab.Property(item => item.Protocol).HasMaxLength(20);
+            grab.Property(item => item.DownloadId).HasMaxLength(200);
+            grab.Property(item => item.Path).HasMaxLength(2000);
+            grab.Property(item => item.Problem).HasMaxLength(500);
+            grab.HasIndex(item => new { item.ReaderId, item.BookId });
+            grab.HasIndex(item => item.State);
+            grab.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+            grab.HasOne<Book>().WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<AbsSyncSetting>(sync =>

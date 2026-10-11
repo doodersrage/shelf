@@ -104,6 +104,7 @@ else
     private Reminders? reminders;
     private List<SavedSearch> savedSearches = [];
     private int seriesAlerts;
+    private bool fetching;
     private ImportSummary? import;
     private string importDone = "";
 
@@ -172,6 +173,10 @@ else
                 <li><a href="/quotes" aria-current="@Current("/quotes")">@T("Quotes & highlights")</a></li>
                 <li><a href="/search" aria-current="@Current("/search")">@T("Search inside books")</a></li>
                 <li><a href="/next" aria-current="@Current("/next")">@T("What to read next")</a></li>
+                @if (fetching)
+                {
+                    <li><a href="/wanted" aria-current="@Current("/wanted")">@T("Wanted")</a></li>
+                }
                 <li><a href="/clubs" aria-current="@Current("/clubs")">@T("Book clubs")</a></li>
                 <li><a href="/free" aria-current="@Current("/free")">@T("Free books")</a></li>
                 <li><a href="/years" aria-current="@Current("/years")">@T("Years")</a></li>
@@ -202,6 +207,7 @@ else
                 @if (isAdmin)
                 {
                     <li><a href="/admin" aria-current="@Current("/admin")">@T("Readers")</a></li>
+                    <li><a href="/downloads" aria-current="@Current("/downloads")">@T("Downloads")</a></li>
                 }
             </ul>
         </details>
@@ -241,6 +247,7 @@ else
             isChild = await Family.IsRestrictedAsync(db);
             savedSearches = await db.SavedSearches.AsNoTracking().OrderBy(search => search.Name).ToListAsync();
             seriesAlerts = await SeriesWatch.CountAsync(db);
+            fetching = Fetcher.Ready(await FetchRules.SettingsAsync(db)) && !isChild;
             var job = ImportJobs.Running(Services, db.ReaderId);
             import = job is null ? null : ImportJobs.Summarize(job, DateTimeOffset.UtcNow);
             importDone = job?.Title(true) ?? "";
@@ -274,9 +281,9 @@ else
     private const string LoansIcon = "M7 7h11l-3-3M17 17H6l3 3";
     private const string InsightsIcon = "M5 19V11M12 19V5M19 19v-6";
 
-    private static readonly string[] BrowseLinks = ["/library?status=Want", "/library?status=Finished", "/collections", "/series", "/authors", "/podcasts", "/quotes", "/search", "/next", "/clubs", "/free", "/years"];
+    private static readonly string[] BrowseLinks = ["/library?status=Want", "/library?status=Finished", "/collections", "/series", "/authors", "/podcasts", "/quotes", "/search", "/next", "/wanted", "/clubs", "/free", "/years"];
     private static readonly string[] CopiesLinks = ["/shelves", "/places", "/copies", "/recommenders", "/duplicates", "/tidy"];
-    private static readonly string[] SettingsLinks = ["/account", "/activity", "/backup", "/sync", "/admin"];
+    private static readonly string[] SettingsLinks = ["/account", "/activity", "/backup", "/sync", "/admin", "/downloads"];
 
     // A group opens by itself when the page shown is one of its own.
     private bool Within(string[] links) => links.Any(link => Current(link) is not null);

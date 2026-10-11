@@ -94,6 +94,49 @@ An admin can bring in a [Calibre](https://calibre-ebook.com) library from the se
 
 Export your library as CSV from either service, then upload it on **Backup & restore**. Shelves become statuses and tags, ratings, reviews, and dates come along, and books already on your shelf are skipped.
 
+## Finding and fetching books
+
+Like Sonarr does for shows, Shelf can search your indexers for a book, send the release to your download client, and bring the finished file onto the book that wanted it. It works with:
+
+- **Indexers**: [Jackett](https://github.com/Jackett/Jackett) or [Prowlarr](https://prowlarr.com), searched in the book (7000) and audiobook (3030) categories;
+- **Torrents**: [Deluge](https://deluge-torrent.org) (its web interface) or [qBittorrent](https://www.qbittorrent.org);
+- **Usenet**, if your indexers give it: [SABnzbd](https://sabnzbd.org).
+
+What you download, and whether you may, is between you and your indexers.
+
+### Setting it up
+
+An admin sets it up once for the whole shelf, under **Settings**, **Downloads**:
+
+1. **Indexers**: choose Jackett or Prowlarr, give its address (such as `http://jackett:9117`) and API key (at the top of Jackett's dashboard; under Settings, General in Prowlarr), and press **Test**.
+2. **Torrents**: choose Deluge or qBittorrent, give the address of its web interface (such as `http://deluge:8112`) and its password (and qBittorrent's user name), and **Test**. Deluge's web interface needs to be connected to its daemon; Shelf connects it to the first one it knows if it isn't. With Deluge's Label plugin on, Shelf's downloads are labelled with the **Category** (`shelf` by default).
+3. **Usenet** (optional): SABnzbd's address and API key.
+4. **Where finished downloads are**: the folder the download client saves to, named as the client names it and as Shelf sees it. In Docker these usually differ: if Deluge saves to `/downloads` inside its container, and the same folder is mounted into Shelf at `/data/downloads`, give `/downloads` and `/data/downloads`. Shelf needs to be able to read that folder; it copies the file it wants, so torrents go on seeding.
+5. **What to fetch**: the e-book formats in the order you like them (`epub,azw3,mobi,pdf`), the audiobook formats (`m4b,mp3`), and the fewest seeders a torrent may have.
+6. Tick **Find and fetch books**, and **Save**. Passwords and keys are kept sealed with Shelf's own keys; leave a field empty to keep the one saved.
+
+```yaml
+# Shelf beside Deluge, sharing the downloads folder
+services:
+  shelf:
+    image: ghcr.io/doodersrage/shelf:latest
+    volumes:
+      - ./shelf:/data
+      - ./downloads:/data/downloads:ro
+  deluge:
+    image: lscr.io/linuxserver/deluge
+    volumes:
+      - ./downloads:/downloads
+```
+
+### Fetching a book
+
+On a book's page, **Search your indexers** looks for an e-book or an audiobook of it. The releases come best first: those that are this book (its title words and author's last name are in the release's name, and it is the kind of file asked for), in the format you like most, with the most seeders. Each that isn't a match says why. **Fetch** sends it to the download client; the page follows it there and, once it finishes, the file is on the book.
+
+**Wanted**, under **Browse**, lists your want-to-read books with no file yet, what is being fetched, and what was fetched lately. **Look for all of them now** searches for each and fetches the best match, a few seconds apart, up to the number set under Downloads; **Activity** shows it going. Ticking **Every day, look for want-to-read books** under Downloads does that once a day for every reader. A book already being fetched isn't searched again.
+
+Children's accounts can't search or fetch.
+
 ## From a Shelf backup
 
 A full backup from another shelf, or from this one, restores on **Backup & restore**, files and covers included. Books already on the shelf are skipped. See [Backups](backups.md).

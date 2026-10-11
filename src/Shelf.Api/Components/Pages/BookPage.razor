@@ -11,6 +11,7 @@
 @inject IJSRuntime Js
 @inject IEmailSender Email
 @inject IAvailability Availability
+@inject Fetcher Fetcher
 @inject FreeBooks Free
 @inject IConfiguration Configuration
 @implements IAsyncDisposable
@@ -297,6 +298,75 @@ else if (book is not null)
                 @if (!availability.Any)
                 {
                     <p class="hint">@T("No free copy turned up; it may still be in copyright.")</p>
+                }
+            }
+        </section>
+    }
+
+    @if (canFetch && book.VisitingLinkId is null)
+    {
+        @* Searching the indexers for this book, as Sonarr would: the releases, best first, and those being fetched. *@
+        <section class="panel fetch" aria-labelledby="fetch-heading">
+            <h2 id="fetch-heading">@T("Search your indexers")</h2>
+            @foreach (var grab in grabs)
+            {
+                <p class="grab @grab.State.ToString().ToLowerInvariant()" role="status">
+                    <strong>@GrabLabel(grab)</strong> · @grab.Title
+                    @if (grab.State == GrabState.Downloading)
+                    {
+                        <progress max="100" value="@((int)(grab.Progress * 100))" aria-label="@T("{0}% downloaded", (int)(grab.Progress * 100))"></progress>
+                    }
+                    @if (grab.Problem is { } problem)
+                    {
+                        <span class="hint"> · @problem</span>
+                    }
+                </p>
+            }
+            <div class="fetch-search">
+                <label>
+                    @T("Look for")
+                    <select @bind="fetchKind">
+                        <option value="@FetchKind.Ebook">@T("An e-book")</option>
+                        <option value="@FetchKind.Audiobook">@T("An audiobook")</option>
+                    </select>
+                </label>
+                <button type="button" @onclick="SearchIndexers" disabled="@searching">@(searching ? T("Searching…") : T("Search"))</button>
+            </div>
+            @if (fetchProblem is not null)
+            {
+                <p class="validation-message" role="alert">@fetchProblem</p>
+            }
+            @if (releases is { } found)
+            {
+                @if (found.Count == 0)
+                {
+                    <p class="hint">@T("The indexers found nothing.")</p>
+                }
+                else
+                {
+                    <table class="releases">
+                        <thead>
+                            <tr><th scope="col">@T("Release")</th><th scope="col">@T("Size")</th><th scope="col">@T("Seeders")</th><th scope="col"><span class="visually-hidden">@T("Fetch")</span></th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in found.Take(showAllReleases ? 100 : 15))
+                            {
+                                <tr class="@(item.Matches ? null : "unmatched")">
+                                    <td>
+                                        @item.Release.Title
+                                        <span class="hint">· @(item.Release.Indexer ?? item.Release.Protocol)@(item.Format is { } format ? $" · {format.ToUpperInvariant()}" : "")@(item.Matches ? "" : " · " + T("not this book? {0}", item.Why ?? ""))</span>
+                                    </td>
+                                    <td>@FetchRules.Size(item.Release.Size)</td>
+                                    <td>@(item.Release.Protocol == "usenet" ? "—" : (item.Release.Seeders?.ToString() ?? "?"))</td>
+                                    <td><button type="button" class="@(item == found[0] && item.Matches ? "primary" : "quiet")" @onclick="() => Grab(item.Release)">@T("Fetch")</button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    @if (!showAllReleases && found.Count > 15)
+                    {
+                        <button type="button" class="quiet" @onclick="() => showAllReleases = true">@T("Show all {0}", found.Count)</button>
+                    }
                 }
             }
         </section>
@@ -829,6 +899,11 @@ else if (book is not null)
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender && grabs.Any(grab => grab.State is GrabState.Sent or GrabState.Downloading or GrabState.Importing))
+        {
+            FollowGrabs();
+        }
+
         if (firstRender && WantsAvailability && availability is null && book is { } wanted)
         {
             using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(20));
@@ -934,6 +1009,11 @@ else if (book is not null)
 
     public async ValueTask DisposeAsync()
     {
+        if (fetchTimer is not null)
+        {
+            await fetchTimer.DisposeAsync();
+        }
+
         if (keepModule is not null)
         {
             try
@@ -957,6 +1037,98 @@ else if (book is not null)
         && Configuration.GetValue("Availability:Enabled", Configuration.GetValue("FreeBooks:Enabled", true));
 
     private BookAvailability? availability;
+
+    // Fetching: whether the shelf is set up for it, what has been found, and what is being fetched for this book.
+    private bool canFetch;
+    private FetchKind fetchKind;
+    private bool searching;
+    private bool showAllReleases;
+    private string? fetchProblem;
+    private IReadOnlyList<ScoredRelease>? releases;
+    private List<FetchGrab> grabs = [];
+
+    private async Task LoadFetchAsync(ShelfDb db)
+    {
+        var settings = await FetchRules.SettingsAsync(db);
+        canFetch = Fetcher.Ready(settings) && !await Family.IsRestrictedAsync(db);
+        grabs = canFetch ? await db.FetchGrabs.AsNoTracking().Where(grab => grab.BookId == Id && grab.ReaderId == db.ReaderId).OrderByDescending(grab => grab.Id).Take(5).ToListAsync() : [];
+        if (book is not null && !string.IsNullOrWhiteSpace(book.EbookStoredName) && string.IsNullOrWhiteSpace(book.AudioStoredName))
+        {
+            fetchKind = FetchKind.Audiobook;
+        }
+    }
+
+    // While something is being fetched, the panel follows it, and the page takes the file when it lands.
+    private System.Threading.Timer? fetchTimer;
+
+    private void FollowGrabs()
+    {
+        fetchTimer ??= new System.Threading.Timer(_ => InvokeAsync(async () =>
+        {
+            if (!grabs.Any(grab => grab.State is GrabState.Sent or GrabState.Downloading or GrabState.Importing))
+            {
+                return;
+            }
+
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var before = grabs.Select(grab => grab.State).ToList();
+            await LoadFetchAsync(db);
+            if (!before.SequenceEqual(grabs.Select(grab => grab.State)) && grabs.Any(grab => grab.State == GrabState.Done))
+            {
+                await LoadAsync(replaceDraft: false);
+            }
+
+            StateHasChanged();
+        }), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    private static string GrabLabel(FetchGrab grab) => grab.State switch
+    {
+        GrabState.Sent => T("Sent to the download client"),
+        GrabState.Downloading => T("Downloading"),
+        GrabState.Importing => T("Bringing it onto the book"),
+        GrabState.Done => T("Fetched"),
+        _ => T("Could not be fetched"),
+    };
+
+    private async Task SearchIndexers()
+    {
+        if (book is null)
+        {
+            return;
+        }
+
+        (searching, fetchProblem, releases, showAllReleases) = (true, null, null, false);
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+            releases = await Fetcher.SearchAsync(await FetchRules.SettingsAsync(db), book.Title, book.Author, fetchKind, limit.Token);
+        }
+        catch (Exception ex) when (ex is FetchProblem or HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            fetchProblem = ex is FetchProblem ? ex.Message : T("The indexers did not answer.");
+        }
+        finally
+        {
+            searching = false;
+        }
+    }
+
+    private async Task Grab(Release release)
+    {
+        if (book is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var current = await db.Books.AsNoTracking().FirstAsync(item => item.Id == Id);
+        await Fetcher.GrabAsync(db, await FetchRules.SettingsAsync(db), current, fetchKind, release, CancellationToken.None);
+        releases = null;
+        await LoadFetchAsync(db);
+        FollowGrabs();
+    }
     private readonly HashSet<string> fetching = [];
 
     private async Task Fetch(FreeBook free)
@@ -1189,6 +1361,7 @@ else if (book is not null)
         await using var db = await DbFactory.CreateDbContextAsync();
         book = await db.Books.AsNoTracking().WithDetails().FirstOrDefaultAsync(existing => existing.Id == Id);
         missing = book is null;
+        await LoadFetchAsync(db);
         bookCollections = book is null ? [] : await Collections.ForBookAsync(db, book.Id);
         others = book is null
             ? []

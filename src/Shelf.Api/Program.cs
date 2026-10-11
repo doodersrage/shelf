@@ -224,6 +224,11 @@ builder.Services.AddHostedService(static services => services.GetRequiredService
 builder.Services.AddSingleton<AbsKeeper>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<AbsKeeper>());
 builder.Services.AddSingleton<IAvailability, CatalogAvailability>();
+// Finding and fetching books: the indexers and the download clients are on the admin's own network, so redirects
+// to a magnet link come back to Shelf rather than being followed.
+builder.Services.AddHttpClient(ProwlarrClient.ClientName, client => client.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddSingleton<Fetcher>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<Fetcher>());
 builder.Services.AddSingleton<DetailsFiller>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<DetailsFiller>());
 // A folder to drop books into (Import:Folder); off unless it is set.

@@ -1,0 +1,272 @@
+@page "/downloads"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject Fetcher Fetcher
+@inject IHttpClientFactory Http
+
+<PageTitle>@T("Downloads") · Shelf</PageTitle>
+
+@* Finding and fetching books, set up once for the whole shelf by an admin: the indexers to search, the download
+   clients to send releases to, and where their finished files are. Off until it is turned on here. *@
+<h1>@T("Downloads")</h1>
+
+@if (!isAdmin)
+{
+    <p>@T("Only an admin of this shelf can set up downloads.")</p>
+}
+else
+{
+    <p class="hint">@T("Shelf can search your indexers for a book, send the release to your download client, and bring the finished file onto the book, as Sonarr does for shows. What you download, and whether you may, is between you and your indexers.")</p>
+
+    <EditForm Model="form" OnValidSubmit="Save">
+        <section class="panel" aria-labelledby="indexer-heading">
+            <h2 id="indexer-heading">@T("Indexers")</h2>
+            <label>
+                @T("Search with")
+                <InputSelect @bind-Value="form.IndexerKind">
+                    <option value="@IndexerKind.Jackett">Jackett</option>
+                    <option value="@IndexerKind.Prowlarr">Prowlarr</option>
+                </InputSelect>
+            </label>
+            <label>
+                @T("Address")
+                <InputText @bind-Value="form.IndexerUrl" placeholder="@(form.IndexerKind == IndexerKind.Jackett ? "http://jackett:9117" : "http://prowlarr:9696")" inputmode="url" />
+            </label>
+            <label>
+                @T("API key")
+                <InputText type="password" @bind-Value="form.IndexerKey" placeholder="@(hasIndexerKey ? T("Kept; type a new one to change it") : "")" autocomplete="off" />
+            </label>
+            <p class="hint">@(form.IndexerKind == IndexerKind.Jackett ? T("Jackett's API key is at the top of its dashboard.") : T("Prowlarr's API key is under Settings, General."))</p>
+            <button type="button" class="quiet" @onclick="TestIndexer">@T("Test")</button>
+            <TestNote Note="indexerNote" />
+        </section>
+
+        <section class="panel" aria-labelledby="torrent-heading">
+            <h2 id="torrent-heading">@T("Torrents")</h2>
+            <label>
+                @T("Download with")
+                <InputSelect @bind-Value="form.TorrentKind">
+                    <option value="@TorrentClientKind.Deluge">Deluge</option>
+                    <option value="@TorrentClientKind.QBittorrent">qBittorrent</option>
+                </InputSelect>
+            </label>
+            <label>
+                @T("Address of its web interface")
+                <InputText @bind-Value="form.TorrentUrl" placeholder="@(form.TorrentKind == TorrentClientKind.Deluge ? "http://deluge:8112" : "http://qbittorrent:8080")" inputmode="url" />
+            </label>
+            @if (form.TorrentKind == TorrentClientKind.QBittorrent)
+            {
+                <label>
+                    @T("User name")
+                    <InputText @bind-Value="form.TorrentUser" autocomplete="off" />
+                </label>
+            }
+            <label>
+                @T("Password")
+                <InputText type="password" @bind-Value="form.TorrentPassword" placeholder="@(hasTorrentPassword ? T("Kept; type a new one to change it") : "")" autocomplete="off" />
+            </label>
+            @if (form.TorrentKind == TorrentClientKind.Deluge)
+            {
+                <p class="hint">@T("Deluge's web interface password. With its Label plugin on, Shelf's downloads are labelled with the category below.")</p>
+            }
+            <button type="button" class="quiet" @onclick="TestTorrent">@T("Test")</button>
+            <TestNote Note="torrentNote" />
+        </section>
+
+        <section class="panel" aria-labelledby="usenet-heading">
+            <h2 id="usenet-heading">@T("Usenet")</h2>
+            <p class="hint">@T("If your indexers give Usenet releases too. Leave it empty to fetch torrents only.")</p>
+            <label>
+                @T("SABnzbd address")
+                <InputText @bind-Value="form.SabUrl" placeholder="http://sabnzbd:8080" inputmode="url" />
+            </label>
+            <label>
+                @T("API key")
+                <InputText type="password" @bind-Value="form.SabKey" placeholder="@(hasSabKey ? T("Kept; type a new one to change it") : "")" autocomplete="off" />
+            </label>
+            <button type="button" class="quiet" @onclick="TestSab" disabled="@string.IsNullOrWhiteSpace(form.SabUrl)">@T("Test")</button>
+            <TestNote Note="sabNote" />
+        </section>
+
+        <section class="panel" aria-labelledby="paths-heading">
+            <h2 id="paths-heading">@T("Where finished downloads are")</h2>
+            <p class="hint">@T("If the download client runs in another container or on another machine, the folder it saves to may have another name here. Give its name there and here, and Shelf reads one as the other.")</p>
+            <div class="pair">
+                <label>
+                    @T("As the download client names it")
+                    <InputText @bind-Value="form.RemotePath" placeholder="/downloads" />
+                </label>
+                <label>
+                    @T("As Shelf sees it")
+                    <InputText @bind-Value="form.LocalPath" placeholder="/data/downloads" />
+                </label>
+            </div>
+            <label>
+                @T("Category")
+                <InputText @bind-Value="form.Category" />
+            </label>
+        </section>
+
+        <section class="panel" aria-labelledby="prefer-heading">
+            <h2 id="prefer-heading">@T("What to fetch")</h2>
+            <label>
+                @T("E-book formats, best first")
+                <InputText @bind-Value="form.EbookFormats" />
+            </label>
+            <label>
+                @T("Audiobook formats, best first")
+                <InputText @bind-Value="form.AudioFormats" />
+            </label>
+            <label>
+                @T("Fewest seeders for a torrent")
+                <InputNumber @bind-Value="form.MinSeeders" min="0" max="1000" />
+            </label>
+            <label class="check">
+                <InputCheckbox @bind-Value="form.SearchWanted" />
+                @T("Every day, look for want-to-read books with no file, and fetch the best match for each")
+            </label>
+            @if (form.SearchWanted)
+            {
+                <div class="pair">
+                    <label>
+                        @T("Look for")
+                        <InputSelect @bind-Value="form.WantedKind">
+                            <option value="@FetchKind.Ebook">@T("E-books")</option>
+                            <option value="@FetchKind.Audiobook">@T("Audiobooks")</option>
+                        </InputSelect>
+                    </label>
+                    <label>
+                        @T("At most, each day, for each reader")
+                        <InputNumber @bind-Value="form.MostPerDay" min="1" max="200" />
+                    </label>
+                </div>
+            }
+        </section>
+
+        <section class="panel">
+            <label class="check">
+                <InputCheckbox @bind-Value="form.Enabled" />
+                <strong>@T("Find and fetch books")</strong>
+            </label>
+            <p class="hint">@T("On, each reader can search the indexers from a book's page, and the want list can be searched. Children's accounts cannot.")</p>
+            <button type="submit">@T("Save")</button>
+            @if (saved)
+            {
+                <span class="saved" role="status">@T("Saved.")</span>
+            }
+        </section>
+    </EditForm>
+}
+
+@code {
+    private bool isAdmin;
+    private readonly DownloadsForm form = new();
+    private bool hasIndexerKey;
+    private bool hasTorrentPassword;
+    private bool hasSabKey;
+    private bool saved;
+    private (bool Good, string Text)? indexerNote;
+    private (bool Good, string Text)? torrentNote;
+    private (bool Good, string Text)? sabNote;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        isAdmin = await ReaderRules.IsAdminAsync(db, db.ReaderId);
+        var settings = await FetchRules.SettingsAsync(db);
+        (form.Enabled, form.IndexerKind, form.IndexerUrl, form.TorrentKind, form.TorrentUrl, form.TorrentUser, form.SabUrl) =
+            (settings.Enabled, settings.IndexerKind, settings.IndexerUrl ?? "", settings.TorrentKind, settings.TorrentUrl ?? "", settings.TorrentUser ?? "", settings.SabUrl ?? "");
+        (form.RemotePath, form.LocalPath, form.Category, form.EbookFormats, form.AudioFormats, form.MinSeeders) =
+            (settings.RemotePath ?? "", settings.LocalPath ?? "", settings.Category, settings.EbookFormats, settings.AudioFormats, settings.MinSeeders);
+        (form.SearchWanted, form.WantedKind, form.MostPerDay) = (settings.SearchWanted, settings.WantedKind, settings.MostPerDay);
+        (hasIndexerKey, hasTorrentPassword, hasSabKey) = (settings.SealedIndexerKey is not null, settings.SealedTorrentPassword is not null, settings.SealedSabKey is not null);
+    }
+
+    private static string? Url(string text) => Uri.TryCreate(text.Trim(), UriKind.Absolute, out var url) && url.Scheme is "http" or "https" ? url.ToString().TrimEnd('/') : null;
+
+    private async Task<string?> KeptAsync(Func<FetchSetting, string?> sealedSecret)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        return Fetcher.Open(sealedSecret(await FetchRules.SettingsAsync(db)));
+    }
+
+    private async Task TestIndexer()
+    {
+        var key = form.IndexerKey.Length > 0 ? form.IndexerKey : await KeptAsync(item => item.SealedIndexerKey);
+        indexerNote = Url(form.IndexerUrl) is not { } url ? (false, T("Give the address you open it at, such as http://jackett:9117."))
+            : await Indexers.TestAsync(Http.CreateClient(ProwlarrClient.ClientName), form.IndexerKind, url, key ?? "", CancellationToken.None) is { } problem ? (false, problem)
+            : (true, T("It answers."));
+    }
+
+    private async Task TestTorrent()
+    {
+        var password = form.TorrentPassword.Length > 0 ? form.TorrentPassword : await KeptAsync(item => item.SealedTorrentPassword);
+        var http = Http.CreateClient(ProwlarrClient.ClientName);
+        torrentNote = Url(form.TorrentUrl) is not { } url ? (false, T("Give the address you open it at, such as http://deluge:8112."))
+            : (form.TorrentKind == TorrentClientKind.Deluge ? await DelugeClient.TestAsync(http, url, password, CancellationToken.None) : await QbitClient.TestAsync(http, url, form.TorrentUser, password, CancellationToken.None)) is { } problem ? (false, problem)
+            : (true, T("It answers."));
+    }
+
+    private async Task TestSab()
+    {
+        var key = form.SabKey.Length > 0 ? form.SabKey : await KeptAsync(item => item.SealedSabKey);
+        sabNote = Url(form.SabUrl) is not { } url ? (false, T("Give the address you open it at, such as http://sabnzbd:8080."))
+            : await SabClient.TestAsync(Http.CreateClient(ProwlarrClient.ClientName), url, key ?? "", CancellationToken.None) is { } problem ? (false, problem)
+            : (true, T("It answers."));
+    }
+
+    private async Task Save()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (!await ReaderRules.IsAdminAsync(db, db.ReaderId))
+        {
+            return;
+        }
+
+        var settings = await db.FetchSettings.FirstOrDefaultAsync();
+        if (settings is null)
+        {
+            settings = new FetchSetting();
+            db.FetchSettings.Add(settings);
+        }
+
+        (settings.Enabled, settings.IndexerKind, settings.IndexerUrl, settings.TorrentKind, settings.TorrentUrl) = (form.Enabled, form.IndexerKind, Url(form.IndexerUrl), form.TorrentKind, Url(form.TorrentUrl));
+        (settings.TorrentUser, settings.SabUrl, settings.RemotePath, settings.LocalPath) = (Blank(form.TorrentUser, 200), Url(form.SabUrl), Blank(form.RemotePath, 500), Blank(form.LocalPath, 500));
+        settings.Category = Blank(form.Category, 100) ?? "shelf";
+        settings.EbookFormats = Blank(form.EbookFormats, 200) ?? "epub,azw3,mobi,pdf";
+        settings.AudioFormats = Blank(form.AudioFormats, 200) ?? "m4b,mp3";
+        (settings.MinSeeders, settings.SearchWanted, settings.WantedKind, settings.MostPerDay) = (Math.Clamp(form.MinSeeders, 0, 1000), form.SearchWanted, form.WantedKind, Math.Clamp(form.MostPerDay, 1, 200));
+        if (form.IndexerKey.Length > 0) settings.SealedIndexerKey = Fetcher.Seal(form.IndexerKey);
+        if (form.TorrentPassword.Length > 0) settings.SealedTorrentPassword = Fetcher.Seal(form.TorrentPassword);
+        if (form.SabKey.Length > 0) settings.SealedSabKey = Fetcher.Seal(form.SabKey);
+        await db.SaveChangesAsync();
+        (form.IndexerKey, form.TorrentPassword, form.SabKey) = ("", "", "");
+        (hasIndexerKey, hasTorrentPassword, hasSabKey) = (settings.SealedIndexerKey is not null, settings.SealedTorrentPassword is not null, settings.SealedSabKey is not null);
+        saved = true;
+    }
+
+    private static string? Blank(string text, int most) => text.Trim() is { Length: > 0 } kept ? kept[..Math.Min(kept.Length, most)] : null;
+
+    private sealed class DownloadsForm
+    {
+        public bool Enabled { get; set; }
+        public IndexerKind IndexerKind { get; set; }
+        public string IndexerUrl { get; set; } = "";
+        public string IndexerKey { get; set; } = "";
+        public TorrentClientKind TorrentKind { get; set; }
+        public string TorrentUrl { get; set; } = "";
+        public string TorrentUser { get; set; } = "";
+        public string TorrentPassword { get; set; } = "";
+        public string SabUrl { get; set; } = "";
+        public string SabKey { get; set; } = "";
+        public string RemotePath { get; set; } = "";
+        public string LocalPath { get; set; } = "";
+        public string Category { get; set; } = "shelf";
+        public string EbookFormats { get; set; } = "";
+        public string AudioFormats { get; set; } = "";
+        public int MinSeeders { get; set; } = 1;
+        public bool SearchWanted { get; set; }
+        public FetchKind WantedKind { get; set; }
+        public int MostPerDay { get; set; } = 10;
+    }
+}

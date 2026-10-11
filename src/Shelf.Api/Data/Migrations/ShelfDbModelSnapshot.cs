@@ -581,6 +581,156 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("CollectionBooks");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.FetchGrab", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DownloadId")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Indexer")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Path")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Problem")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("Progress")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("Protocol")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("State")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("State");
+
+                    b.HasIndex("ReaderId", "BookId");
+
+                    b.ToTable("FetchGrabs");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.FetchSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AudioFormats")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EbookFormats")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("IndexerKind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("IndexerUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LocalPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("MinSeeders")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("MostPerDay")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RemotePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SabUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SealedIndexerKey")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SealedSabKey")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SealedTorrentPassword")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("SearchWanted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TorrentKind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TorrentUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TorrentUser")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("WantedKind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("WantedSearchedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("FetchSettings");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.Highlight", b =>
                 {
                     b.Property<int>("Id")
@@ -2109,6 +2259,21 @@ namespace Shelf.Api.Data.Migrations
                     b.Navigation("Book");
 
                     b.Navigation("Collection");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.FetchGrab", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", null)
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Highlight", b =>
