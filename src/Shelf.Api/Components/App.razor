@@ -19,10 +19,30 @@
 
 <body>
     <Routes />
+    @* The audiobook playing while the reader is elsewhere on the shelf. It stays as pages change (data-permanent),
+       and listen.js fills it in and shows it. *@
+    <div id="mini-player" class="mini-player" data-permanent hidden role="region" aria-label="@T("Now playing")">
+        <div class="mini-progress" aria-hidden="true"><div data-show="chapter-bar"></div></div>
+        <a class="mini-book" data-show="link" href="/">
+            <img data-show="cover" alt="" hidden />
+            <span class="mini-text">
+                <strong data-show="title"></strong>
+                <span data-show="chapter"></span>
+            </span>
+        </a>
+        <div class="mini-controls">
+            <button type="button" class="icon-button" data-player="back" aria-label="@T("Back")"><PlayerIcon Name="back" /></button>
+            <button type="button" class="icon-button play" data-player="toggle" data-label-play="@T("Play")" data-label-pause="@T("Pause")" aria-label="@T("Play")"><PlayerIcon Name="play" /><PlayerIcon Name="pause" /></button>
+            <button type="button" class="icon-button" data-player="forward" aria-label="@T("Forward")"><PlayerIcon Name="forward" /></button>
+            <span class="mini-time" data-show="remaining"></span>
+            <button type="button" class="icon-button" data-player="close" aria-label="@T("Close the player")"><PlayerIcon Name="close" /></button>
+        </div>
+    </div>
     <script src="@Assets["_framework/blazor.web.js"]" autostart="false"></script>
     <script src="@Assets["live.js"]"></script>
     <script src="@Assets["words.js"]"></script>
     <script src="@Assets["upload.js"]"></script>
+    <script src="@Assets["listen.js"]"></script>
     <script type="module" src="@Assets["passkey.js"]"></script>
     <script>
         // Keeps the offline reader, and the books kept for it, on this device.

@@ -1,7 +1,6 @@
 @page "/library/{Id:int}/listen"
 @rendermode InteractiveServer
 @using Microsoft.JSInterop
-@implements IAsyncDisposable
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject AudioStore Audio
 @inject IJSRuntime Js
@@ -18,145 +17,200 @@
 }
 else if (book is not null)
 {
-    <div class="player">
-        @if (borrowed)
-        {
-            <p class="hint"><a href="/loans">@T("Loans")</a> · @T("lent to you")</p>
-        }
-        else
-        {
+    @if (plan is null)
+    {
+        <div class="player">
             <p class="hint"><a href="/library/@book.Id">@book.Title</a></p>
-        }
-        <h1>@book.Title</h1>
-        @if (tracks.Count == 0)
-        {
+            <h1>@book.Title</h1>
             <p>@T("This book has no audiobook.")@if (!borrowed) { <text> <a href="/library/@book.Id">@T("Add one")</a></text> }</p>
-        }
-        else
-        {
-            @if (tracks.Count > 1)
-            {
-                <div class="reader-nav">
-                    <button type="button" @onclick="Previous" disabled="@(track == 0)">@T("Previous")</button>
-                    <label>
-                        @T("Track")
-                        <select @bind="track" @bind:after="ChooseTrack">
-                            @foreach (var item in tracks)
-                            {
-                                <option value="@item.Index">@item.Title</option>
-                            }
-                        </select>
-                    </label>
-                    <button type="button" @onclick="Next" disabled="@(track >= tracks.Count - 1)">@T("Next")</button>
-                </div>
-            }
-            else
-            {
-                <p class="hint">@tracks[0].Title</p>
-            }
-            <audio @key="track" @ref="player" controls preload="metadata" src="/books/@book.Id/audio/tracks/@track"></audio>
-            @if (EbookStore.IsEpub(book.EbookStoredName))
-            {
-                <p><button type="button" class="quiet" @onclick="ContinueInEbook">@T("Continue in the e-book")</button></p>
-            }
-            <div class="reader-settings">
-                <label>
-                    @T("Speed")
-                    <select @bind="speed" @bind:after="SaveSpeed">
-                        <option value="80">0.8×</option>
-                        <option value="100">1×</option>
-                        <option value="125">1.25×</option>
-                        <option value="150">1.5×</option>
-                        <option value="175">1.75×</option>
-                        <option value="200">2×</option>
-                    </select>
-                </label>
-                <label>
-                    @T("Sleep timer")
-                    <select @bind="sleep" @bind:after="SetSleep">
-                        <option value="">@T("Off")</option>
-                        <option value="15">@T("In 15 minutes")</option>
-                        <option value="30">@T("In 30 minutes")</option>
-                        <option value="45">@T("In 45 minutes")</option>
-                        <option value="60">@T("In an hour")</option>
-                        <option value="track">@T("At the end of this track")</option>
-                    </select>
-                </label>
+        </div>
+    }
+    else
+    {
+        @* Everything here is drawn once; listen.js keeps the times, bars, and buttons up to date as the book plays. *@
+        <div class="listen" data-player-view="full" data-book="@book.Id">
+            <div class="listen-cover">
+                <BookCover Title="@book.Title" Url="@book.CoverShown" Width="100%" />
             </div>
-            @if (sleepNote is not null)
-            {
-                <p class="hint" role="status">@sleepNote</p>
-            }
-            @if (chapters.Count > 1)
-            {
-                <div class="reader-nav">
-                    <button type="button" @onclick="() => GoToChapter(chapterIndex - 1)" disabled="@(chapterIndex <= 0)">@T("Previous chapter")</button>
-                    <label>
-                        @T("Chapter")
-                        <select value="@chapterIndex" @onchange="change => GoToChapter(int.Parse((string)change.Value!))">
-                            @foreach (var chapter in chapters)
-                            {
-                                <option value="@chapter.Index">@chapter.Title · @Clock(chapter.Start)</option>
-                            }
-                        </select>
-                    </label>
-                    <button type="button" @onclick="() => GoToChapter(chapterIndex + 1)" disabled="@(chapterIndex >= chapters.Count - 1)">@T("Next chapter")</button>
+            <div class="listen-main">
+                <p class="hint">
+                    @if (borrowed)
+                    {
+                        <a href="/loans">@T("Loans")</a> <text>·</text> @T("lent to you")
+                    }
+                    else
+                    {
+                        <a href="/library/@book.Id">@T("About this book")</a>
+                    }
+                </p>
+                <h1>@book.Title</h1>
+                <p class="listen-author">@book.Author</p>
+
+                <p class="listen-chapter" aria-live="polite"><span data-show="chapter">@plan.Chapters.FirstOrDefault()?.Title</span></p>
+                @if (plan.Chapters.Length > 1)
+                {
+                    <p class="hint" data-show="chapter-number" data-template="@T("Chapter {0} of {1}")"></p>
+                }
+
+                <div class="listen-scrub">
+                    <span class="time" data-show="elapsed">0:00</span>
+                    <input type="range" min="0" max="1000" value="0" step="1" data-player="scrub" aria-label="@T("Place in this chapter")" />
+                    <span class="time" data-show="remaining">-0:00</span>
                 </div>
-                <p class="hint" aria-live="polite">@T("Now in {0}", chapters[chapterIndex].Title)</p>
+
+                <div class="listen-controls">
+                    <button type="button" class="icon-button" data-player="prev" aria-label="@T("Previous chapter")" disabled="@(plan.Chapters.Length < 2)"><PlayerIcon Name="prev" /></button>
+                    <button type="button" class="icon-button jump" data-player="back" aria-label="@T("Back")"><PlayerIcon Name="back" /><span class="jump-by" data-show="back-by">15</span></button>
+                    <button type="button" class="icon-button play big" data-player="toggle" data-label-play="@T("Play")" data-label-pause="@T("Pause")" aria-label="@T("Play")"><PlayerIcon Name="play" /><PlayerIcon Name="pause" /></button>
+                    <button type="button" class="icon-button jump" data-player="forward" aria-label="@T("Forward")"><PlayerIcon Name="forward" /><span class="jump-by" data-show="forward-by">30</span></button>
+                    <button type="button" class="icon-button" data-player="next" aria-label="@T("Next chapter")" disabled="@(plan.Chapters.Length < 2)"><PlayerIcon Name="next" /></button>
+                </div>
+
+                <div class="listen-book">
+                    <div class="book-bar" aria-hidden="true"><div class="book-fill" data-show="book-bar"></div><div class="book-ticks" data-show="ticks"></div></div>
+                    <p class="hint">
+                        <span data-show="book-elapsed">0:00</span> / @Clock(Total) ·
+                        <span data-show="book-left" data-template="@T("{0} left")"></span> ·
+                        <span data-show="percent">0%</span>
+                    </p>
+                </div>
+
+                <div class="listen-options">
+                    <div class="speed" role="group" aria-label="@T("Speed")">
+                        <button type="button" class="icon-button small" data-player="slower" aria-label="@T("Slower")">−</button>
+                        <output data-show="rate" aria-live="polite">1×</output>
+                        <button type="button" class="icon-button small" data-player="faster" aria-label="@T("Faster")">+</button>
+                    </div>
+                    <details class="menu">
+                        <summary class="button">@T("Speed")</summary>
+                        <div class="menu-body chips">
+                            @foreach (var rate in new[] { 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0 })
+                            {
+                                <button type="button" class="chip" data-player="rate" data-rate="@rate.ToString(System.Globalization.CultureInfo.InvariantCulture)">@(rate.ToString("0.##", System.Globalization.CultureInfo.CurrentCulture))×</button>
+                            }
+                        </div>
+                    </details>
+                    <details class="menu">
+                        <summary class="button"><PlayerIcon Name="sleep" /> @T("Sleep timer") <span class="sleep-left" data-show="sleep" data-chapter-text="@T("end of chapter")" hidden></span></summary>
+                        <div class="menu-body chips">
+                            @foreach (var minutes in new[] { 5, 10, 15, 30, 45, 60, 90 })
+                            {
+                                <button type="button" class="chip" data-player="sleep" data-sleep="@minutes">@T("{0} min", minutes)</button>
+                            }
+                            <button type="button" class="chip" data-player="sleep" data-sleep="chapter">@T("End of chapter")</button>
+                            <button type="button" class="chip" data-player="sleep-more">@T("5 more minutes")</button>
+                            <button type="button" class="chip" data-player="sleep" data-sleep="off">@T("Off")</button>
+                        </div>
+                    </details>
+                    <label class="volume">
+                        <PlayerIcon Name="volume" />
+                        <span class="visually-hidden">@T("Volume")</span>
+                        <input type="range" min="0" max="100" value="100" data-player="volume" />
+                    </label>
+                </div>
+                <p class="hint" role="status" data-show="note" data-slept="@T("Paused by the sleep timer. Play to carry on from here.")" hidden></p>
+
+                @if (plan.HasEbook)
+                {
+                    <p><button type="button" class="quiet" @onclick="ContinueInEbook">@T("Continue in the e-book")</button></p>
+                }
+            </div>
+        </div>
+
+        <div class="listen-panels">
+            <section class="panel">
+                <h2>@T("Bookmarks")</h2>
+                <div class="reader-settings">
+                    <label>
+                        @T("Note, if you like")
+                        <input @bind="bookmarkNote" maxlength="500" />
+                    </label>
+                    <button type="button" class="primary" @onclick="AddBookmark">@T("Bookmark this moment")</button>
+                </div>
+                @if (bookmarks.Count == 0)
+                {
+                    <p class="hint">@T("No bookmarks yet. Bookmark a moment to come back to it.")</p>
+                }
+                else
+                {
+                    <ul class="quotes">
+                        @foreach (var mark in bookmarks)
+                        {
+                            <li>
+                                <strong>@Where(mark)</strong>
+                                @if (!string.IsNullOrWhiteSpace(mark.Note))
+                                {
+                                    <p>@mark.Note</p>
+                                }
+                                <button type="button" @onclick="() => GoToBookmark(mark)">@T("Go there")</button>
+                                <button type="button" @onclick="() => RemoveBookmark(mark.Id)">@T("Remove")</button>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+
+            @if (plan.Chapters.Length > 1)
+            {
+                <section class="panel">
+                    <h2>@(marks.Count > 1 ? T("Chapters") : T("Tracks"))</h2>
+                    <ol class="chapter-list">
+                        @foreach (var chapter in plan.Chapters)
+                        {
+                            <li>
+                                <button type="button" data-player="chapter" data-chapter="@chapter.Index">
+                                    <span>@chapter.Title</span>
+                                    @if (StartOf(chapter) is double start)
+                                    {
+                                        <span class="hint">@Clock(start)</span>
+                                    }
+                                </button>
+                            </li>
+                        }
+                    </ol>
+                </section>
             }
 
-            <h2>@T("Bookmarks")</h2>
-            <div class="reader-settings">
-                <label>
-                    @T("Note, if you like")
-                    <input @bind="bookmarkNote" maxlength="500" />
-                </label>
-                <button type="button" class="primary" @onclick="AddBookmark">@T("Bookmark this moment")</button>
-            </div>
-            @if (bookmarks.Count == 0)
-            {
-                <p class="hint">@T("No bookmarks yet. Bookmark a moment to come back to it.")</p>
-            }
-            else
-            {
-                <ul class="quotes">
-                    @foreach (var mark in bookmarks)
-                    {
-                        <li>
-                            <strong>@Where(mark)</strong>
-                            @if (!string.IsNullOrWhiteSpace(mark.Note))
+            <details class="panel">
+                <summary>@T("Player settings")</summary>
+                <div class="reader-settings">
+                    <label>
+                        @T("Back by")
+                        <select data-jump="back">
+                            @foreach (var seconds in Jumps)
                             {
-                                <p>@mark.Note</p>
+                                <option value="@seconds">@T("{0} seconds", seconds)</option>
                             }
-                            <button type="button" @onclick="() => GoToBookmark(mark)">@T("Go there")</button>
-                            <button type="button" @onclick="() => RemoveBookmark(mark.Id)">@T("Remove")</button>
-                        </li>
-                    }
-                </ul>
-            }
-        }
-    </div>
+                        </select>
+                    </label>
+                    <label>
+                        @T("Forward by")
+                        <select data-jump="forward">
+                            @foreach (var seconds in Jumps)
+                            {
+                                <option value="@seconds">@T("{0} seconds", seconds)</option>
+                            }
+                        </select>
+                    </label>
+                </div>
+                <p class="hint">@T("Keys: Space plays and pauses, the arrow keys go back and forward, Shift and an arrow key moves by chapter, [ and ] change the speed, and M mutes.")</p>
+            </details>
+        </div>
+    }
 }
 
 @code {
+    private static readonly int[] Jumps = [5, 10, 15, 30, 45, 60];
     private Book? book;
-    private IReadOnlyList<AudioChapter> chapters = [];
-    private int chapterIndex;
+    private AudioPlan? plan;
+    private IReadOnlyList<AudioChapter> marks = [];
     private List<AudioBookmark> bookmarks = [];
     private string bookmarkNote = "";
-    private int speed = BookRules.DefaultAudioSpeed;
-    private string sleep = "";
-    private string? sleepNote;
     private OpenBook? open;
     private bool borrowed;
     private bool missing;
-    private int track;
-    private int resumeSeconds;
-    private int boundTrack = -1;
-    private IReadOnlyList<AudioTrack> tracks = [];
-    private ElementReference player;
-    private IJSObjectReference? module;
-    private DotNetObjectReference<Listen>? self;
+    private int openedFor;
+    private object? arriving;
 
     [Parameter]
     public int Id { get; set; }
@@ -168,9 +222,16 @@ else if (book is not null)
     [SupplyParameterFromQuery(Name = "at")]
     public double? AtQuery { get; set; }
 
-    private (double From, double? To, double Fraction)? arriving;
+    public sealed record PlayerNow(int BookId, int Track, double Seconds, double TrackLength, int Chapter, double BookSeconds);
 
-    public sealed record PlayerWhere(double Seconds, double Duration);
+    private double Total => plan?.Tracks.Sum(track => track.Length ?? 0) ?? 0;
+
+    // Where a chapter starts in the whole recording, when every track before it has a known length.
+    private double? StartOf(AudioPlanChapter chapter)
+    {
+        var before = plan!.Tracks.Take(chapter.Track).ToList();
+        return before.Any(track => track.Length is null) ? null : before.Sum(track => track.Length!.Value) + chapter.Start;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -179,189 +240,111 @@ else if (book is not null)
         book = open?.Book;
         borrowed = open?.Borrowed == true;
         missing = book is null;
-        speed = await BookRules.GetAudioSpeedAsync(db);
-        tracks = [];
-        track = 0;
-        resumeSeconds = 0;
-        boundTrack = -1;
-        if (book is null || string.IsNullOrWhiteSpace(book.AudioStoredName))
-        {
-            return;
-        }
-
-        tracks = Audio.Tracks(book.AudioStoredName);
-        chapters = Audio.Chapters(book.AudioStoredName);
-        bookmarks = await Lending.Bookmarks(db, open!).AsNoTracking().OrderBy(mark => mark.Track).ThenBy(mark => mark.Seconds).ToListAsync();
-        if (tracks.Count == 0)
-        {
-            return;
-        }
-
-        var place = await Lending.PlaceAsync(db, open!);
-        var saved = place.AudioTrack ?? 0;
-        track = saved >= 0 && saved < tracks.Count ? saved : 0;
-        resumeSeconds = Math.Max(0, place.AudioSeconds ?? 0);
-        chapterIndex = chapters.Count > 1 ? ChapterAt(resumeSeconds) : 0;
+        plan = book is null ? null : await AudioPlayback.PlanAsync(db, Audio, Id);
+        marks = book is null ? [] : Audio.Chapters(book.AudioStoredName);
         arriving = null;
+        if (plan is null)
+        {
+            return;
+        }
+
+        bookmarks = await Lending.Bookmarks(db, open!).AsNoTracking().OrderBy(mark => mark.Track).ThenBy(mark => mark.Seconds).ToListAsync();
         if (PartQuery is int part && AtQuery is double within)
         {
-            if (chapters.Count > 1)
+            if (marks.Count > 1)
             {
-                var index = Math.Clamp(part, 0, chapters.Count - 1);
-                track = 0;
-                chapterIndex = index;
-                arriving = (chapters[index].Start, index + 1 < chapters.Count ? chapters[index + 1].Start : null, within);
+                var index = Math.Clamp(part, 0, marks.Count - 1);
+                arriving = new { track = 0, from = marks[index].Start, to = index + 1 < marks.Count ? marks[index + 1].Start : (double?)null, fraction = within };
             }
             else
             {
-                track = Math.Clamp(part, 0, tracks.Count - 1);
-                arriving = (0, null, within);
+                arriving = new { track = Math.Clamp(part, 0, plan.Tracks.Length - 1), from = 0.0, to = (double?)null, fraction = within };
             }
         }
+
+        openedFor = 0;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (tracks.Count == 0 || boundTrack == track)
+        if (plan is null || openedFor == plan.BookId)
         {
             return;
         }
 
-        if (module is null)
-        {
-            self = DotNetObjectReference.Create(this);
-            module = await Js.InvokeAsync<IJSObjectReference>("import", "./player.js");
-        }
-
-        boundTrack = track;
-        await module.InvokeVoidAsync("attach", player, self, speed / 100.0);
-        if (arriving is { } way)
-        {
-            arriving = null;
-            await module.InvokeVoidAsync("seekWithin", player, way.From, way.To, way.Fraction);
-        }
-        else if (resumeSeconds > 0)
-        {
-            await module.InvokeVoidAsync("seek", player, resumeSeconds);
-        }
-
-        await Describe();
-    }
-
-    // What the phone's lock screen and the headphones show: the chapter or track, the book, its author, and cover.
-    private async Task Describe()
-    {
-        if (module is null || book is null)
-        {
-            return;
-        }
-
-        var now = chapters.Count > 1 && chapterIndex < chapters.Count ? chapters[chapterIndex].Title
-            : tracks.Count > 1 && track < tracks.Count ? tracks[track].Title
-            : book.Title;
-        // The lock screen is a nicety: a browser that refuses it must not take the player down with it.
+        openedFor = plan.BookId;
         try
         {
-            await module.InvokeVoidAsync("describe", now, book.Author, book.Title, book.CoverShown);
+            await Js.InvokeVoidAsync("shelfPlayer.open", plan, new { arrive = arriving });
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
         {
         }
     }
 
-    // Previous or next from the lock screen or headphones: by chapter where the recording has them, else by track.
-    [JSInvokable]
-    public async Task Skip(int direction)
+    private async Task<PlayerNow?> NowAsync()
     {
-        direction = Math.Sign(direction);
-        if (chapters.Count > 1 && chapterIndex + direction >= 0 && chapterIndex + direction < chapters.Count)
+        try
         {
-            await GoToChapter(chapterIndex + direction);
+            var now = await Js.InvokeAsync<PlayerNow>("shelfPlayer.now");
+            return now.BookId == book?.Id ? now : null;
         }
-        else if (direction > 0)
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
         {
-            await Next();
-        }
-        else if (direction < 0)
-        {
-            await Previous();
-        }
-
-        await InvokeAsync(StateHasChanged);
-    }
-
-    [JSInvokable]
-    public async Task Progress(int seconds)
-    {
-        await Remember(track, Math.Max(0, seconds));
-        if (chapters.Count > 1)
-        {
-            var now = ChapterAt(seconds);
-            if (now != chapterIndex)
-            {
-                chapterIndex = now;
-                await Describe();
-                await InvokeAsync(StateHasChanged);
-            }
+            return null;
         }
     }
 
     // The same place in the e-book: by the chapters' titles where they agree, and how far through otherwise.
     private async Task ContinueInEbook()
     {
-        if (module is null || book is null || open is null || Crossover.EbookParts(Ebooks, book.EbookStoredName, Cache) is not { } text)
+        if (book is null || open is null || Crossover.EbookParts(Ebooks, book.EbookStoredName, Cache) is not { } text || await NowAsync() is not { } now)
         {
             return;
         }
 
-        var now = await module.InvokeAsync<PlayerWhere>("where");
         PartSpot heard;
-        if (chapters.Count > 1)
+        if (marks.Count > 1)
         {
-            var index = ChapterAt(now.Seconds);
-            var start = chapters[index].Start;
-            var end = index + 1 < chapters.Count ? chapters[index + 1].Start : now.Duration;
+            var index = marks.LastOrDefault(mark => mark.Start <= now.Seconds + 0.5)?.Index ?? 0;
+            var start = marks[index].Start;
+            var end = index + 1 < marks.Count ? marks[index + 1].Start : now.TrackLength;
             heard = new PartSpot(index, end > start ? (now.Seconds - start) / (end - start) : 0);
         }
         else
         {
-            heard = new PartSpot(track, now.Duration > 0 ? now.Seconds / now.Duration : 0);
+            heard = new PartSpot(now.Track, now.TrackLength > 0 ? now.Seconds / now.TrackLength : 0);
         }
 
         var spot = new Crossover(Crossover.AudioParts(Audio, book.AudioStoredName), text).ToEbook(heard);
-        await Remember(track, (int)now.Seconds);
         await using (var db = await DbFactory.CreateDbContextAsync())
         {
-            await Lending.KeepPlaceAsync(db, open, place => place.EbookChapter = spot.Part);
+            await Lending.KeepPlaceAsync(db, open, place =>
+            {
+                place.AudioTrack = now.Track;
+                place.AudioSeconds = (int)now.Seconds;
+                place.EbookChapter = spot.Part;
+            });
+        }
+
+        try
+        {
+            await Js.InvokeVoidAsync("shelfPlayer.pause");
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
+        {
         }
 
         Navigation.NavigateTo($"/library/{book.Id}/read?chapter={spot.Part}&at={spot.Within.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)}");
     }
 
-    private int ChapterAt(double seconds) => chapters.LastOrDefault(chapter => chapter.Start <= seconds + 0.5)?.Index ?? 0;
-
-    private async Task GoToChapter(int index)
-    {
-        if (index < 0 || index >= chapters.Count || module is null)
-        {
-            return;
-        }
-
-        chapterIndex = index;
-        var start = (int)Math.Floor(chapters[index].Start);
-        await module.InvokeVoidAsync("seek", player, start);
-        await Remember(track, start);
-        await Describe();
-    }
-
     private async Task AddBookmark()
     {
-        if (open is null || module is null)
+        if (open is null || await NowAsync() is not { } now)
         {
             return;
         }
 
-        var seconds = await module.InvokeAsync<int>("position");
         await using var db = await DbFactory.CreateDbContextAsync();
         if (open.Borrowed && !await db.Books.IgnoreQueryFilters().AnyAsync(item => item.Id == open.Book.Id && item.BorrowerId == db.ReaderId))
         {
@@ -372,8 +355,8 @@ else if (book is not null)
         {
             BookId = open.Book.Id,
             ReaderId = open.Borrowed ? db.ReaderId : null,
-            Track = track,
-            Seconds = Math.Max(0, seconds),
+            Track = now.Track,
+            Seconds = Math.Max(0, (int)now.Seconds),
             Note = string.IsNullOrWhiteSpace(bookmarkNote) ? null : bookmarkNote.Trim()[..Math.Min(500, bookmarkNote.Trim().Length)],
             CreatedAt = DateTimeOffset.UtcNow,
         });
@@ -384,19 +367,12 @@ else if (book is not null)
 
     private async Task GoToBookmark(AudioBookmark mark)
     {
-        if (mark.Track != track)
+        try
         {
-            track = mark.Track;
-            resumeSeconds = mark.Seconds;
-            boundTrack = -1;
-            await Remember(track, mark.Seconds);
-            return;
+            await Js.InvokeVoidAsync("shelfPlayer.seekTrack", mark.Track, mark.Seconds);
         }
-
-        if (module is not null)
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
         {
-            await module.InvokeVoidAsync("seek", player, mark.Seconds);
-            await Remember(track, mark.Seconds);
         }
     }
 
@@ -424,146 +400,17 @@ else if (book is not null)
     private string Where(AudioBookmark mark)
     {
         var place = Clock(mark.Seconds);
-        if (chapters.Count > 1)
+        if (marks.Count > 1)
         {
-            return $"{chapters[ChapterAt(mark.Seconds)].Title} · {place}";
+            return $"{marks.LastOrDefault(item => item.Start <= mark.Seconds + 0.5)?.Title ?? marks[0].Title} · {place}";
         }
 
-        return tracks.Count > 1 && mark.Track < tracks.Count ? $"{tracks[mark.Track].Title} · {place}" : place;
+        return plan is { Tracks.Length: > 1 } && mark.Track < plan.Tracks.Length ? $"{plan.Tracks[mark.Track].Title} · {place}" : place;
     }
 
     private static string Clock(double seconds)
     {
         var time = TimeSpan.FromSeconds(Math.Max(0, seconds));
-        return time.TotalHours >= 1 ? time.ToString(@"h\:mm\:ss") : time.ToString(@"m\:ss");
-    }
-
-    [JSInvokable]
-    public Task Slept()
-    {
-        sleep = "";
-        sleepNote = T("Paused by the sleep timer. Play to carry on from here.");
-        return InvokeAsync(StateHasChanged);
-    }
-
-    private async Task SaveSpeed()
-    {
-        await using var db = await DbFactory.CreateDbContextAsync();
-        await BookRules.SetAudioSpeedAsync(db, speed);
-        if (module is not null)
-        {
-            await module.InvokeVoidAsync("speed", speed / 100.0);
-        }
-    }
-
-    private async Task SetSleep()
-    {
-        sleepNote = null;
-        var minutes = int.TryParse(sleep, out var value) ? value : 0;
-        if (module is not null)
-        {
-            await module.InvokeVoidAsync("sleep", minutes);
-        }
-
-        sleepNote = sleep switch
-        {
-            "" => null,
-            "track" => T("Stops at the end of this track."),
-            _ => T("Stops in {0} minutes.", minutes),
-        };
-    }
-
-    [JSInvokable]
-    public async Task Ended()
-    {
-        if (sleep == "track")
-        {
-            // The sleep timer said this track was the last one tonight; the next one starts from its beginning.
-            sleep = "";
-            sleepNote = T("Stopped at the end of the track, as the sleep timer asked.");
-            if (track < tracks.Count - 1)
-            {
-                track++;
-                resumeSeconds = 0;
-                boundTrack = -1;
-            }
-
-            await Remember(track, 0);
-            await InvokeAsync(StateHasChanged);
-            return;
-        }
-
-        if (track >= tracks.Count - 1)
-        {
-            await Remember(track, 0);
-            return;
-        }
-
-        track++;
-        resumeSeconds = 0;
-        boundTrack = -1;
-        await Remember(track, 0);
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task Previous()
-    {
-        if (track == 0)
-        {
-            return;
-        }
-
-        track--;
-        await ChooseTrack();
-    }
-
-    private async Task Next()
-    {
-        if (track >= tracks.Count - 1)
-        {
-            return;
-        }
-
-        track++;
-        await ChooseTrack();
-    }
-
-    private async Task ChooseTrack()
-    {
-        resumeSeconds = 0;
-        boundTrack = -1;
-        await Remember(track, 0);
-    }
-
-    private async Task Remember(int index, int seconds)
-    {
-        if (open is null)
-        {
-            return;
-        }
-
-        await using var db = await DbFactory.CreateDbContextAsync();
-        await Lending.KeepPlaceAsync(db, open, place =>
-        {
-            place.AudioTrack = index;
-            place.AudioSeconds = seconds;
-        });
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (module is not null)
-        {
-            try
-            {
-                await module.InvokeVoidAsync("detach");
-                await module.DisposeAsync();
-            }
-            catch (JSDisconnectedException)
-            {
-            }
-        }
-
-        self?.Dispose();
+        return time.TotalHours >= 1 ? $"{(int)time.TotalHours}:{time:mm\\:ss}" : time.ToString(@"m\:ss");
     }
 }

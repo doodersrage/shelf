@@ -137,6 +137,7 @@ else if (book is not null)
                 @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
                 {
                     <a class="button" href="/library/@book.Id/listen">@T("Listen to this audiobook")</a>
+                    <button type="button" class="quiet play-here" data-play-book="@book.Id"><PlayerIcon Name="play" /> @T("Play while you browse")</button>
                 }
             </div>
             @if (!string.IsNullOrWhiteSpace(book.AudioStoredName) && ((book.AudioTrack ?? 0) > 0 || (book.AudioSeconds ?? 0) > 0))

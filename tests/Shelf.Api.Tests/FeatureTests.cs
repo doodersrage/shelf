@@ -88,8 +88,12 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
 
         var player = await _client.GetStringAsync($"/library/{book.Id}/listen");
         Assert.Contains("Sleep timer", player);
-        Assert.Contains("At the end of this track", player);
+        Assert.Contains("End of chapter", player);
         Assert.Contains("1.5×", player);
+
+        // The player changes the speed through the API.
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.PutAsJsonAsync("/books/audio/speed", new AudioSpeedRequest(175), JsonOptions)).StatusCode);
+        Assert.Equal(175, (await _client.GetFromJsonAsync<AudioPlan>($"/books/{book.Id}/audio/plan", JsonOptions))!.Speed);
     }
 
     [Fact]

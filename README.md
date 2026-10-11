@@ -13,7 +13,7 @@ A personal library you run yourself. Shelf keeps the books you own on paper, you
 | ![Every book on the shelf as a grid of covers, with status labels](docs/images/covers.png) | ![A book's page, led by its cover, status, and next step](docs/images/book.png) |
 | **The whole shelf** as covers or a compact list, with search, filters, and saved searches. | **A book's page** leads with the cover and one next step, then the reading log, lending, quotes, highlights, and files. |
 | ![The e-book reader with a highlighted passage, text settings, and a button to continue in the audiobook](docs/images/reader.png) | ![The audiobook player with chapters, a bookmark, and a button to continue in the e-book](docs/images/listen.png) |
-| **The reader** keeps your place, highlights, notes, and text settings, and reads aloud. | **The player** keeps chapters, bookmarks, your speed, and a sleep timer, and switches to the e-book at the same point. |
+| **The reader** keeps your place, highlights, notes, and text settings, and reads aloud. | **The player** plays many tracks as one book, with chapters, bookmarks, speed, and a sleep timer, and keeps playing in a mini player as you browse. |
 | ![Stats with the year's goal and books finished each month](docs/images/stats.png) | ![Loans, with a book lent out and another reader asking to borrow](docs/images/loans.png) |
 | **Stats** lead with the year's goal and a month-by-month chart. | **Loans** between readers, and asks to borrow from an open shelf. |
 | ![A reading list shared by link, as someone signed out sees it](docs/images/shared.png) | ![The library in dark mode](docs/images/dark.png) |
@@ -44,7 +44,7 @@ What it does not have, yet, is phone apps: on a phone it is the website, added t
 
 - **[A real catalog](https://doodersrage.github.io/shelf/library.html):** series, editions, translators, places, condition, ratings, reviews, and tags. Fill it from an ISBN, typed or scanned with a phone's camera. Saved searches, new books in your series, and reading lists shared by link.
 - **[Reading](https://doodersrage.github.io/shelf/reading.html):** EPUBs, PDFs, comics, and Kindle files in the browser, with highlights, notes, read aloud, search inside every book, OCR for scanned PDFs, and offline reading.
-- **[Audiobooks](https://doodersrage.github.io/shelf/audiobooks.html):** one file or a folder of tracks, with chapters, bookmarks, speed, a sleep timer, and lock-screen controls.
+- **[Audiobooks](https://doodersrage.github.io/shelf/audiobooks.html):** one file or a folder of tracks played as one book, with chapters, bookmarks, speeds from 0.5× to 3×, a sleep timer, lock-screen controls, and a mini player that keeps going while you browse.
 - **[Readers and lending](https://doodersrage.github.io/shelf/lending.html):** a shelf for each reader, loans with due dates, open shelves to ask to borrow from, and email reminders.
 - **[Bringing books in](https://doodersrage.github.io/shelf/adding.html):** files, an import folder, Calibre, Audiobookshelf, Goodreads, StoryGraph, and Project Gutenberg and LibriVox.
 - **[Devices](https://doodersrage.github.io/shelf/devices.html):** KOReader downloads from Shelf's catalog, keeps its place in step, and brings its highlights across; Kindles get books by email, and two shelves trade files.

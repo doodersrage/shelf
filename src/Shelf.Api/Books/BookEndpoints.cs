@@ -83,6 +83,7 @@ public static class BookEndpoints
         books.MapPost("/{id:int}/audio", AudioEndpoints.Upload).DisableAntiforgery();
         books.MapDelete("/{id:int}/audio", AudioEndpoints.Remove);
         books.MapGet("/{id:int}/audio/tracks/{index:int}", AudioEndpoints.Track);
+        AudioPlayback.Map(books);
 
         // Another shelf reaches these with a device key; the rest of the API needs a signed-in reader.
         var sync = app.MapGroup("/books/sync").WithTags("Shelf").RequireAuthorization(SyncEndpoints.Policy);

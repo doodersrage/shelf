@@ -4,6 +4,16 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Added
+
+- A new audiobook player. A book in many tracks plays as one recording, straight from one track into the next, with the time gone and left in the chapter, a bar for the whole book with a mark at each chapter, and the time left at your speed. Big play and skip buttons, skips you choose (5 to 60 seconds), speeds from 0.5× to 3× in steps of 0.05, a sleep timer of 5 to 90 minutes or the end of the chapter with 5 more minutes, volume, a list of chapters to jump to, and keyboard keys.
+- The mini player: leave the player and the book plays on in a bar at the foot of every page, and waits there, paused, after a reload. **Play while you browse** on a book's page, and a play button on books being read, start a book there without leaving the page.
+- Shelf reads how long each track runs from the file itself (MP3, M4B and M4A, Ogg and Opus, FLAC, WAV). `GET /books/{id}/audio/plan`, `PUT /books/{id}/audio/place`, and `PUT /books/audio/speed` are the player's own calls, open to scripts too.
+
+### Changed
+
+- The player keeps your place on the shelf as you listen, every 15 seconds and whenever you pause, seek, or leave, straight from the browser.
+
 ## [1.5.0] - 2026-10-10
 
 ### Added

@@ -114,6 +114,13 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
         return index >= 0 && index < files.Count ? files[index] : null;
     }
 
+    // How long each track runs, in seconds; null for one whose file does not say. Stored files never change, so the
+    // answer is kept for as long as the app runs.
+    public IReadOnlyList<double?> Lengths(string? storedName) =>
+        TrackFiles(storedName).Select(path => lengths.GetOrAdd(path, AudioLength.Read)).ToList();
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, double?> lengths = new(StringComparer.Ordinal);
+
     // The recording's size in bytes, all tracks together; 0 when there is none.
     public long Size(string? storedName) => TrackFiles(storedName).Sum(path => new FileInfo(path).Length);
 

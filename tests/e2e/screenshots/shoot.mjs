@@ -140,10 +140,13 @@ try {
     await page.waitForTimeout(400);
   });
   await shot(tenar, "listen", `/library/${moby}/listen`, async (page) => {
+    await page.evaluate(() => window.shelfPlayer.seek(6));
     await page.fill('input[maxlength="500"]', "Ishmael meets Queequeg");
     await page.click('button:text-is("Bookmark this moment")');
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(600);
   });
+  // Moving on from the player leaves the book in the mini player at the foot of the page.
+  await shot(tenar, "mini-player", "/stats");
   await shot(tenar, "stats", "/stats");
   await shot(tenar, "loans", "/loans");
 

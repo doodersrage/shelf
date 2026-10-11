@@ -9,9 +9,10 @@ test("every page passes an accessibility audit in both themes", async ({ browser
   const page = await signUp(browser, unique("Auditor"));
   const book = await createBook(page, { title: "Moby-Dick", author: "Herman Melville", status: "Reading", pages: 600, currentPage: 120, tags: ["sea"] });
   await upload(page, book.id, "ebook", "moby.epub", "application/epub+zip");
+  await upload(page, book.id, "audio", "chapters.m4b", "audio/mp4");
   await page.request.post(`/books/${book.id}/quotes`, { data: { text: "Call me Ishmael.", page: 1 } });
 
-  const pages = ["/", "/?view=list", "/?add=1", `/library/${book.id}`, `/library/${book.id}/read`, "/quotes", "/search?q=ishmael",
+  const pages = ["/", "/?view=list", "/?add=1", `/library/${book.id}`, `/library/${book.id}/read`, `/library/${book.id}/listen`, "/quotes", "/search?q=ishmael",
     "/free", "/import/audiobookshelf", "/import/calibre", "/authors", "/series", "/places", "/copies", "/recommenders", "/years", "/loans", "/shelves", "/stats", "/backup", "/sync", "/account", "/admin"];
   const failures = [];
   for (const scheme of ["light", "dark"]) {

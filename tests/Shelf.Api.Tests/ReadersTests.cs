@@ -265,7 +265,9 @@ public sealed class ReadersTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         var reading = await borrower.GetStringAsync($"/library/{book.Id}/read");
         Assert.Contains("lent to you", reading);
         Assert.Contains($"/books/{book.Id}/ebook/chapters/0", reading);
-        Assert.Contains($"/books/{book.Id}/audio/tracks/0", await borrower.GetStringAsync($"/library/{book.Id}/listen"));
+        Assert.Contains("lent to you", await borrower.GetStringAsync($"/library/{book.Id}/listen"));
+        Assert.Equal($"/books/{book.Id}/audio/tracks/0", (await borrower.GetFromJsonAsync<AudioPlan>($"/books/{book.Id}/audio/plan", JsonOptions))!.Tracks[0].Url);
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync($"/books/{book.Id}/audio/plan")).StatusCode);
         Assert.Contains($"/library/{book.Id}/read", await borrower.GetStringAsync("/loans"));
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync($"/books/{book.Id}/ebook/file")).StatusCode);
 

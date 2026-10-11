@@ -54,9 +54,11 @@ public sealed class AudioChapterTests(ShelfApiFactory factory) : IClassFixture<S
             }
 
             var player = await factory.Client.GetStringAsync($"/library/{created.Id}/listen");
-            Assert.Contains("The Middle Part · 0:04", player);
-            Assert.Contains("Now in Opening", player);
+            Assert.Matches("The Middle Part</span>\\s*<span class=\"hint\">0:04", player);
             Assert.Contains("Bookmark this moment", player);
+            var plan = await factory.Client.GetFromJsonAsync<AudioPlan>($"/books/{created.Id}/audio/plan", JsonOptions);
+            Assert.Equal([0.0, 4.0, 9.0], plan!.Chapters.Select(chapter => Math.Round(chapter.Start, 1)));
+            Assert.Equal(12, plan.Tracks.Single().Length!.Value, 1);
         }
         finally
         {

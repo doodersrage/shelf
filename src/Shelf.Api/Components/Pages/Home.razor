@@ -95,6 +95,10 @@
                             <p class="hint">@T("Page {0}", at)</p>
                         }
                     </div>
+                    @if (!string.IsNullOrWhiteSpace(open.AudioStoredName))
+                    {
+                        <button type="button" class="icon-button play strip-play" data-play-book="@open.Id" aria-label="@T("Play {0}", open.Title)"><PlayerIcon Name="play" /></button>
+                    }
                 </li>
             }
         </ul>
@@ -448,6 +452,7 @@ else if (visible.Count > 0)
                 @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
                 {
                     <a href="/library/@book.Id/listen">@T("Listen")</a>
+                    <button type="button" class="link" data-play-book="@book.Id" aria-label="@T("Play {0}", book.Title)">@T("Play")</button>
                 }
             </p>
             <p class="meta">

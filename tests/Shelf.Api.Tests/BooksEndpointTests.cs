@@ -1290,8 +1290,15 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         Assert.Equal("a quiet shore", await track.Content.ReadAsStringAsync());
 
         var player = await _client.GetStringAsync($"/library/{book.Id}/listen");
-        Assert.Contains($"/books/{book.Id}/audio/tracks/0", player);
-        Assert.Contains("shore.mp3", player);
+        Assert.Contains($"data-book=\"{book.Id}\"", player);
+        var plan = await _client.GetFromJsonAsync<AudioPlan>($"/books/{book.Id}/audio/plan", JsonOptions);
+        Assert.Equal($"/books/{book.Id}/audio/tracks/0", plan!.Tracks.Single().Url);
+
+        // The player keeps its place exactly, back as well as forward.
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 42), JsonOptions)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 7.6), JsonOptions)).StatusCode);
+        Assert.Equal(7, (await _client.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!.AudioSeconds);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(3, 0), JsonOptions)).StatusCode);
 
         Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/books/{book.Id}/audio")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/books/{book.Id}/audio/tracks/0")).StatusCode);

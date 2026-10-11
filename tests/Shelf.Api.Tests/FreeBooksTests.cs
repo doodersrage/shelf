@@ -57,7 +57,7 @@ public sealed class FreeBooksTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.Equal(DownloadState.Done, audio.State);
         var recording = await client.GetFromJsonAsync<BookResponse>($"/books/{audio.BookId}", JsonOptions);
         Assert.Equal(("Moby Dick, or the Whale", BookFormat.Audiobook, "Moby Dick, or the Whale.zip"), (recording!.Title, recording.Format, recording.AudioFileName));
-        Assert.Equal(2, (await client.GetStringAsync($"/library/{audio.BookId}/listen")).Split("mobydick_00").Length - 1);
+        Assert.Equal(2, (await client.GetFromJsonAsync<AudioPlan>($"/books/{audio.BookId}/audio/plan", JsonOptions))!.Tracks.Length);
         Assert.Contains("LibriVox", recording.Notes);
 
         Assert.Equal(DownloadState.Failed, missing.State);
