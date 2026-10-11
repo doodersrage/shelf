@@ -84,6 +84,14 @@ builder.Services.AddSingleton<SeriesWatch>();
 builder.Services.AddHttpClient<IReadwiseClient, ReadwiseClient>(client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddSingleton<ReadwiseSync>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<ReadwiseSync>());
+// Books' status, stars, and dates sent on to Hardcover, for readers who connect it.
+builder.Services.AddHttpClient<IHardcoverClient, HardcoverClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Shelf/1.0 (personal library; +https://github.com/doodersrage/shelf)");
+});
+builder.Services.AddSingleton<HardcoverSync>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<HardcoverSync>());
 // Words looked up in the reader, in Wiktionary and Wikipedia (Lookup:Dictionary).
 builder.Services.AddHttpClient<IWordLookup, WikimediaLookup>(client =>
 {

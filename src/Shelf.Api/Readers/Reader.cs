@@ -48,6 +48,10 @@ public sealed class Reader
     public bool ReadwiseAuto { get; set; }
     public DateTimeOffset? ReadwiseSentAt { get; set; }
 
+    // Hardcover: the API token, sealed with the shelf's keys, and whether changes go there on their own.
+    public string? HardcoverToken { get; set; }
+    public bool HardcoverAuto { get; set; }
+
     // Two-step sign-in: the authenticator secret, sealed with the shelf's own keys.
     public bool TwoFactorEnabled { get; set; }
     public string? TwoFactorSecret { get; set; }

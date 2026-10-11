@@ -68,6 +68,7 @@ public sealed class ShelfDb : DbContext
             book.Property(b => b.Location).HasMaxLength(80);
             book.Property(b => b.Translator).HasMaxLength(200);
             book.Property(b => b.Narrator).HasMaxLength(200);
+            book.Property(b => b.HardcoverState).HasMaxLength(100);
             book.Property(b => b.OriginalTitle).HasMaxLength(200);
             book.Property(b => b.Inscription).HasMaxLength(500);
             book.Property(b => b.RecommendedBy).HasMaxLength(120);
@@ -226,6 +227,7 @@ public sealed class ShelfDb : DbContext
             reader.Property(r => r.OidcSubject).HasMaxLength(600);
             reader.Property(r => r.KindleEmail).HasMaxLength(EmailRules.MaxAddressLength);
             reader.Property(r => r.ReadwiseToken).HasMaxLength(1000);
+            reader.Property(r => r.HardcoverToken).HasMaxLength(6000);
             reader.HasIndex(r => r.OidcSubject).IsUnique();
         });
 

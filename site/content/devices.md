@@ -71,6 +71,16 @@ Each clipping's book is found on your shelf by title and author (a Kindle writes
 
 Readwise keeps one copy of each highlight however often it is sent. Highlights you make on a book lent to you are yours and go too. **Disconnect** forgets the token.
 
+## Hardcover
+
+[Hardcover](https://hardcover.app) is a place to track and share your reading. On **Account**, under **Hardcover**, paste your API token from [hardcover.app/account/api](https://hardcover.app/account/api) and choose **Connect**. Then **Send changes now**, or **Send changes every hour**, sends each book's status (want to read, reading, read, or did not finish), your stars, and the dates you started and finished it.
+
+- A book is found on Hardcover by its ISBN, or else by its title and author. One Hardcover doesn't have is noted and not looked for again until it changes.
+- Only books whose status, stars, or dates changed since they last went are sent, forty at a time, as Hardcover asks to be called gently.
+- It goes one way: what you change on Hardcover doesn't come back to Shelf.
+
+Hardcover's API is young and still changing; if a send stops working after a change on their side, it will need a newer Shelf. **Disconnect** forgets the token.
+
 ## Trading with another shelf
 
 Two shelves, yours at home and one at a friend's, or yours on two servers, can trade e-books and audiobooks:

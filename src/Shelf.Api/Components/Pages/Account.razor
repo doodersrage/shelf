@@ -14,6 +14,7 @@
 @inject Microsoft.JSInterop.IJSRuntime Js
 @inject IConfiguration Configuration
 @inject ReadwiseSync Readwise
+@inject HardcoverSync Hardcover
 
 <PageTitle>@T("Account") · Shelf</PageTitle>
 
@@ -107,6 +108,35 @@ else
 @if (readwiseNote is not null)
 {
     <p class="@(readwiseProblem ? "validation-message" : "saved")" role="status">@readwiseNote</p>
+}
+</section>
+
+<section class="panel" id="hardcover">
+<h2>Hardcover</h2>
+@if (hardcoverConnected)
+{
+    <p>@T("Connected. Each book's status, stars, and reading dates go to your Hardcover account; what you change on Hardcover does not come back here.")</p>
+    <label class="check">
+        <input type="checkbox" checked="@hardcoverAuto" @onchange="ChangeHardcoverAuto" />
+        @T("Send changes every hour")
+    </label>
+    <p>
+        <button type="button" class="primary" @onclick="SendToHardcover" disabled="@hardcoverBusy">@(hardcoverBusy ? T("Sending…") : T("Send changes now"))</button>
+        <button type="button" class="quiet" @onclick="DisconnectHardcover">@T("Disconnect")</button>
+    </p>
+}
+else
+{
+    <p class="hint">@T("Hardcover is a place to track and share your reading. Copy your API token from hardcover.app/account/api and paste it here; Shelf keeps it sealed with its own keys.")</p>
+    <label>
+        @T("Hardcover API token")
+        <input type="password" @bind="hardcoverToken" autocomplete="off" maxlength="2000" />
+    </label>
+    <button type="button" class="primary" @onclick="ConnectHardcover" disabled="@hardcoverBusy">@T("Connect")</button>
+}
+@if (hardcoverNote is not null)
+{
+    <p class="@(hardcoverProblem ? "validation-message" : "saved")" role="status">@hardcoverNote</p>
 }
 </section>
 
@@ -475,6 +505,8 @@ else
         kindleAddress = me.KindleEmail ?? "";
         ssoConnected = me.OidcSubject is not null;
         readwiseConnected = me.ReadwiseToken is not null;
+        hardcoverConnected = me.HardcoverToken is not null;
+        hardcoverAuto = me.HardcoverAuto;
         readwiseAuto = me.ReadwiseAuto;
         currentSession = (await Authentication.GetAuthenticationStateAsync()).User.FindFirst(TwoFactor.SessionClaim)?.Value;
         sessions = await TwoFactor.SessionsAsync(db, db.ReaderId, currentSession);
@@ -558,6 +590,66 @@ else
         await ReadwiseSync.DisconnectAsync(db);
         (readwiseConnected, readwiseAuto, readwiseProblem) = (false, false, false);
         readwiseNote = T("Disconnected from Readwise.");
+    }
+
+    private bool hardcoverConnected;
+    private bool hardcoverAuto;
+    private bool hardcoverBusy;
+    private bool hardcoverProblem;
+    private string hardcoverToken = "";
+    private string? hardcoverNote;
+
+    private async Task ConnectHardcover()
+    {
+        hardcoverBusy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var name = await Hardcover.ConnectAsync(db, hardcoverToken);
+            hardcoverConnected = name is not null;
+            hardcoverProblem = name is null;
+            hardcoverNote = name is null ? T("Hardcover did not take that token. Copy it again from hardcover.app/account/api.") : T("Connected to Hardcover as {0}.", name);
+            hardcoverToken = "";
+        }
+        finally
+        {
+            hardcoverBusy = false;
+        }
+    }
+
+    private async Task SendToHardcover()
+    {
+        hardcoverBusy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var sent = await Hardcover.SendAsync(db);
+            hardcoverProblem = !sent.Done;
+            hardcoverNote = !sent.Done ? T("Hardcover no longer takes the token. Connect again.")
+                : T("Sent {0} books to Hardcover.", sent.Books) + (sent.NotFound > 0 ? " " + T("{0} could not be found there by ISBN or title.", sent.NotFound) : "")
+                    + (sent.Books + sent.NotFound >= HardcoverSync.MostAtOnce ? " " + T("More are waiting; send again, or let the hourly send take them.") : "");
+        }
+        finally
+        {
+            hardcoverBusy = false;
+        }
+    }
+
+    private async Task ChangeHardcoverAuto(ChangeEventArgs change)
+    {
+        hardcoverAuto = change.Value is true;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var me = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
+        me.HardcoverAuto = hardcoverAuto;
+        await db.SaveChangesAsync();
+    }
+
+    private async Task DisconnectHardcover()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await HardcoverSync.DisconnectAsync(db);
+        (hardcoverConnected, hardcoverAuto, hardcoverProblem) = (false, false, false);
+        hardcoverNote = T("Disconnected from Hardcover.");
     }
 
     private async Task ChangeShelfOpen(ChangeEventArgs change)

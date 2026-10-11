@@ -94,6 +94,11 @@ public sealed class Book
 
     // Who reads the audiobook aloud.
     public string? Narrator { get; set; }
+
+    // Hardcover: its id for the book and for the reader's copy there, and what was last sent, to send only changes.
+    public int? HardcoverBookId { get; set; }
+    public int? HardcoverUserBookId { get; set; }
+    public string? HardcoverState { get; set; }
     public string? OriginalTitle { get; set; }
     public string? Inscription { get; set; }
     public string? RecommendedBy { get; set; }

@@ -1587,6 +1587,8 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
 
     public StubReadwise Readwise { get; } = new();
 
+    public StubHardcover Hardcover { get; } = new();
+
     public async Task InitializeAsync()
     {
         _client = await SignUpAsync("Tenar");
@@ -1643,6 +1645,7 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
         builder.UseSetting("DataProtection:KeysPath", _keysRoot);
         builder.UseSetting("Backup:Enabled", "false");
         builder.UseSetting("SeriesAlerts:PauseMilliseconds", "0");
+        builder.UseSetting("Hardcover:PauseMilliseconds", "0");
         builder.UseSetting("Backup:Folder", Path.Combine(_keysRoot, "backups"));
         builder.UseEnvironment("Testing");
         builder.ConfigureTestServices(services =>
@@ -1651,6 +1654,7 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
             services.AddSingleton<ISeriesCatalog>(SeriesCatalog);
             services.AddSingleton<IWordLookup>(Words);
             services.AddSingleton<IReadwiseClient>(Readwise);
+            services.AddSingleton<IHardcoverClient>(Hardcover);
             services.AddSingleton<Shelf.Api.Readers.IEmailSender>(Mail);
         });
     }

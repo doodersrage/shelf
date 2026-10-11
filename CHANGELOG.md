@@ -18,6 +18,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - Pages and hours goals beside the books goal: pages to read and hours to spend reading and listening each year, with progress on Stats and in the year's review.
 - Book clubs: readers on the same shelf read together. Start a club and invite readers; members add books, pick the one being read, talk about each, and put one on their own shelf in a click.
 - Readwise: connect it on Account with your access token, then send your highlights and quotes there, all at once or every hour as you make them.
+- Hardcover: connect it on Account with your API token, and each book's status, stars, and reading dates go to your Hardcover account as they change.
 
 ## [1.6.0] - 2026-10-11
 
