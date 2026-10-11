@@ -1,6 +1,6 @@
 ---
 title: Readers and lending
-description: Accounts for everyone in your household, lending between readers, open shelves and asks to borrow, and reminders.
+description: Accounts for everyone in your household, children's accounts, lending between readers, open shelves and asks to borrow, and reminders.
 ---
 
 # Readers and lending
@@ -10,6 +10,17 @@ One Shelf serves everyone you share it with. Each reader signs in to a shelf of 
 ## Readers
 
 Each person makes an account with a name and a password of at least eight characters; the first account is the admin. Each reader's settings are their own: language, region for dates, text size, read-aloud voice, audiobook speed, and the yearly goal. See [Accounts and security](security.md) for passkeys, two-step sign-in, and what an admin can do.
+
+## Children's accounts
+
+A reader can make accounts for their children under **Account**, in **Children's accounts**: a name to sign in with and a password. A child signs in as themselves, keeps a shelf of their own, and reads the books you share with them:
+
+1. Put the books in a collection, under **Collections**.
+2. On the collection's page, tick **Let … read the books in this collection**.
+
+The books appear on the child's **Library** page, under **From …'s shelf**, to read or listen to with their own place, highlights, and bookmarks, as if you had lent them. You can also lend a child any book of yours as usual.
+
+A child's account can't lend books, open its shelf or borrow from other readers, share links, join clubs other than yours, make API tokens or webhooks, connect Readwise or Hardcover, delete itself, or be an admin. Other readers don't see it in their lists. From **Children's accounts** you can set a child's password or remove the account with its shelf. An admin can make it an ordinary account, under **Admin**, once the child is grown, or if you remove your own account.
 
 ## Languages
 

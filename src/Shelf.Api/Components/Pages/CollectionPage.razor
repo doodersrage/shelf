@@ -42,7 +42,7 @@ else
         <p class="hint">@Localization.Counts.Books(collection.Books.Count)</p>
         <div class="toolbar-actions">
             <button type="button" class="quiet" @onclick="StartEditing">@T("Rename or describe")</button>
-            @if (collection.ShareToken is null)
+            @if (collection.ShareToken is null && !isChild)
             {
                 <button type="button" class="quiet" @onclick="Share">@T("Share by link")</button>
             }
@@ -63,6 +63,13 @@ else
         @if (confirmingDelete)
         {
             <p class="hint">@T("The books stay on your shelf; only the list goes.")</p>
+        }
+        @if (childNames.Count > 0)
+        {
+            <label class="check">
+                <input type="checkbox" checked="@collection.ForChildren" @onchange="ChangeForChildren" />
+                @T("Let {0} read the books in this collection", string.Join(", ", childNames))
+            </label>
         }
         @if (collection.ShareToken is { } token)
         {
@@ -116,10 +123,22 @@ else
 
     protected override async Task OnParametersSetAsync() => await LoadAsync();
 
+    private List<string> childNames = [];
+    private bool isChild;
+
     private async Task LoadAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         collection = await Collections.FindAsync(db, Id);
+        childNames = (await Family.ChildrenAsync(db)).Select(child => child.Name).ToList();
+        isChild = await Family.IsRestrictedAsync(db);
+    }
+
+    private async Task ChangeForChildren(ChangeEventArgs change)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Family.SetSharedAsync(db, Id, change.Value is true);
+        await LoadAsync();
     }
 
     private void StartEditing()

@@ -259,6 +259,7 @@ public sealed class ShelfDb : DbContext
 
         modelBuilder.Entity<Reader>(reader =>
         {
+            reader.HasOne<Reader>().WithMany().HasForeignKey(r => r.GuardianId).OnDelete(DeleteBehavior.SetNull);
             reader.Property(r => r.Name).HasMaxLength(ReaderRules.MaxNameLength).IsRequired();
             reader.Property(r => r.NormalizedName).HasMaxLength(ReaderRules.MaxNameLength).IsRequired();
             reader.Property(r => r.PasswordHash).HasMaxLength(200).IsRequired();

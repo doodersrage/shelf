@@ -81,6 +81,8 @@ public static class ReaderRules
         AccountProblem.SsoUnknown => T("This shelf has no account for that sign-on, and it is not taking new accounts. Sign in with your password, then connect single sign-on on Account."),
         AccountProblem.SsoTaken => T("That sign-on account is already connected to another reader here."),
         AccountProblem.SsoLastWay => T("Set a password first, so you can still sign in without single sign-on."),
+        AccountProblem.NotAllowed => T("A child's account cannot do that. Ask the grown-up who made it."),
+        AccountProblem.TooManyChildren => T("You have {0} children's accounts, the most there can be.", Family.MaxChildren),
         _ => T("Something went wrong."),
     };
 
@@ -296,7 +298,7 @@ public static class ReaderRules
         var readers = await db.Readers.AsNoTracking().ToListAsync(cancellationToken);
         return readers
             .OrderBy(reader => reader.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(reader => new ReaderSummary(reader.Id, reader.Name, reader.IsAdmin, reader.CreatedAt, counts.GetValueOrDefault(reader.Id)))
+            .Select(reader => new ReaderSummary(reader.Id, reader.Name, reader.IsAdmin, reader.CreatedAt, counts.GetValueOrDefault(reader.Id), reader.Restricted))
             .ToArray();
     }
 
@@ -306,6 +308,11 @@ public static class ReaderRules
         if (reader is null)
         {
             return AccountProblem.NoSuchReader;
+        }
+
+        if (isAdmin && reader.Restricted)
+        {
+            return AccountProblem.NotAllowed;
         }
 
         if (!isAdmin && reader.IsAdmin && !await db.Readers.AnyAsync(other => other.IsAdmin && other.Id != readerId, cancellationToken))
@@ -334,6 +341,11 @@ public static class ReaderRules
         CancellationToken cancellationToken = default)
     {
         var reader = await db.Readers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == readerId, cancellationToken);
+        if (reader?.Restricted == true)
+        {
+            return AccountProblem.NotAllowed;
+        }
+
         if (reader is null || string.IsNullOrEmpty(password)
             || Hasher.VerifyHashedPassword(reader, reader.PasswordHash, password) == PasswordVerificationResult.Failed)
         {
@@ -452,8 +464,10 @@ public static class ReaderRules
 
     public static async Task<ReaderResponse[]> OthersAsync(ShelfDb db, int readerId, CancellationToken cancellationToken = default)
     {
+        // Children's accounts are known only to their guardian, and know only them.
+        var guardian = await db.Readers.AsNoTracking().Where(reader => reader.Id == readerId && reader.Restricted).Select(reader => (int?)(reader.GuardianId ?? 0)).FirstOrDefaultAsync(cancellationToken);
         var readers = await db.Readers.AsNoTracking()
-            .Where(reader => reader.Id != readerId)
+            .Where(reader => reader.Id != readerId && (guardian == null ? !reader.Restricted || reader.GuardianId == readerId : reader.Id == guardian))
             .Select(reader => new ReaderResponse(reader.Id, reader.Name))
             .ToListAsync(cancellationToken);
         return readers.OrderBy(reader => reader.Name, StringComparer.OrdinalIgnoreCase).ToArray();
@@ -507,4 +521,6 @@ public enum AccountProblem
     SsoUnknown,
     SsoTaken,
     SsoLastWay,
+    NotAllowed,
+    TooManyChildren,
 }

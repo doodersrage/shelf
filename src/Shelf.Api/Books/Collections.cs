@@ -22,6 +22,9 @@ public sealed class Collection
     public required string Name { get; set; }
     public string? Description { get; set; }
     public string? ShareToken { get; set; }
+
+    // Shared with the owner's children's accounts, who may read its books.
+    public bool ForChildren { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public List<CollectionBook> Books { get; set; } = [];
 }
@@ -222,7 +225,7 @@ public static class Collections
     public static async Task<string?> ShareAsync(ShelfDb db, int id, CancellationToken cancellationToken = default)
     {
         var collection = await db.Collections.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
-        if (collection is null)
+        if (collection is null || await Family.IsRestrictedAsync(db, cancellationToken: cancellationToken))
         {
             return null;
         }

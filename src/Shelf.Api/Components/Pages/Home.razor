@@ -17,6 +17,39 @@
     }
 </div>
 
+@if (family is { Books.Length: > 0 } shared)
+{
+    <section class="panel family" aria-labelledby="family-heading">
+        <h2 id="family-heading">@T("From {0}'s shelf", shared.Guardian)</h2>
+        <ul class="family-books">
+            @foreach (var book in shared.Books)
+            {
+                <li>
+                    <BookCover Title="@book.Title" Url="@book.Cover" Width="5rem" />
+                    <span>
+                        <strong>@book.Title</strong>
+                        <span class="hint">@book.Author</span>
+                        <span>
+                            @if (book.HasEbook)
+                            {
+                                <a href="/library/@book.Id/read">@T("Read")</a>
+                            }
+                            @if (book.HasAudio)
+                            {
+                                <a href="/library/@book.Id/listen">@T("Listen")</a>
+                            }
+                            @if (!book.HasEbook && !book.HasAudio)
+                            {
+                                <span class="hint">@T("On the shelf at home")</span>
+                            }
+                        </span>
+                    </span>
+                </li>
+            }
+        </ul>
+    </section>
+}
+
 @if (adding || books.Count == 0)
 {
     <section id="add" class="panel" aria-labelledby="add-heading">
@@ -767,7 +800,7 @@ else if (visible.Count > 0)
         }
 
         await using var db = await DbFactory.CreateDbContextAsync();
-        saved.ShareToken = await SharedLists.ShareAsync(db, saved.Id);
+        saved.ShareToken = await SharedLists.ShareAsync(db, saved.Id) ?? saved.ShareToken;
     }
 
     private async Task StopSharing()
@@ -782,8 +815,15 @@ else if (visible.Count > 0)
         saved.ShareToken = null;
     }
 
+    private (string Guardian, FamilyBook[] Books)? family;
+
     protected override async Task OnParametersSetAsync()
     {
+        await using (var familyDb = await DbFactory.CreateDbContextAsync())
+        {
+            family = await Family.SharedBooksAsync(familyDb);
+        }
+
         tagFilter = string.IsNullOrWhiteSpace(Tag) ? null : Tag.Trim();
         authorFilter = string.IsNullOrWhiteSpace(Author) ? null : Author.Trim();
         seriesFilter = string.IsNullOrWhiteSpace(Series) ? null : Series.Trim();

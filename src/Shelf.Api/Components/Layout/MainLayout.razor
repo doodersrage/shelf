@@ -86,6 +86,7 @@ else
 @code {
     private bool signedIn;
     private bool isAdmin;
+    private bool isChild;
     private string? readerName;
     private Reminders? reminders;
     private List<SavedSearch> savedSearches = [];
@@ -131,7 +132,10 @@ else
                     </a>
                 </li>
                 <li><a href="/collections" aria-current="@Current("/collections")">@T("Collections")</a></li>
-                <li><a href="/shelves" aria-current="@Current("/shelves")">@T("Shelves")</a></li>
+                @if (!isChild)
+                {
+                    <li><a href="/shelves" aria-current="@Current("/shelves")">@T("Shelves")</a></li>
+                }
                 <li><a href="/clubs" aria-current="@Current("/clubs")">@T("Book clubs")</a></li>
                 @foreach (var search in savedSearches)
                 {
@@ -214,6 +218,7 @@ else
             await using var db = await DbFactory.CreateDbContextAsync();
             reminders = await Asking.RemindersAsync(db);
             isAdmin = await ReaderRules.IsAdminAsync(db, db.ReaderId);
+            isChild = await Family.IsRestrictedAsync(db);
             savedSearches = await db.SavedSearches.AsNoTracking().OrderBy(search => search.Name).ToListAsync();
             seriesAlerts = await SeriesWatch.CountAsync(db);
         }

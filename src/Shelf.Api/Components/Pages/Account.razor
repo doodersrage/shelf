@@ -23,6 +23,15 @@
 <h1>@Reader.Name</h1>
 <p class="hint">@T("Your notes, reviews, quotes, and highlights are yours alone. Other readers see a book of yours only when it is lent to them, or by its title on an open shelf.")</p>
 
+@if (restricted)
+{
+<section class="panel">
+<h2>@T("A child's account")</h2>
+<p>@T("{0} made this account. You can read the books they share with you, keep a shelf of your own, and change your password. Some things, like lending books, are for grown-ups' accounts.", guardianName ?? "")</p>
+</section>
+}
+else
+{
 <section class="panel">
 <h2>@T("Your shelf")</h2>
 <label class="check">
@@ -32,6 +41,62 @@
 <p class="hint">@T("Asks to borrow wait under Loans until you lend the book or decline.") <a href="/loans">@T("Loans")</a></p>
 
 </section>
+
+<section class="panel" id="children">
+<h2>@T("Children's accounts")</h2>
+<p class="hint">@T("Make accounts for your children. They sign in as themselves, keep their own shelf, and read the books in the collections you share with them, each with their own place and highlights. They cannot lend, borrow from others, share links, or connect other services, and other readers do not see them.")</p>
+@if (children.Length > 0)
+{
+    <ul class="tag-counts">
+        @foreach (var child in children)
+        {
+            <li>
+                <span>@child.Name <span class="hint">@T("{0} books of their own", child.Books)</span></span>
+                <span>
+                    <button type="button" class="quiet" @onclick="() => StartChildPassword(child.Id)">@T("New password")</button>
+                    <button type="button" class="quiet" @onclick="() => confirmRemoveChild = child.Id">@T("Remove")</button>
+                </span>
+            </li>
+            @if (childPasswordFor == child.Id)
+            {
+                <li>
+                    <label>
+                        @T("A new password for {0}", child.Name)
+                        <input type="password" @bind="childPassword" @bind:event="oninput" autocomplete="new-password" />
+                    </label>
+                    <button type="button" @onclick="SaveChildPassword" disabled="@string.IsNullOrWhiteSpace(childPassword)">@T("Save")</button>
+                </li>
+            }
+            @if (confirmRemoveChild == child.Id)
+            {
+                <li>
+                    <span>@T("Remove {0}'s account, their shelf, and their files?", child.Name)</span>
+                    <button type="button" class="danger" @onclick="() => RemoveChild(child.Id)">@T("Remove it")</button>
+                    <button type="button" class="quiet" @onclick="() => confirmRemoveChild = null">@T("Keep it")</button>
+                </li>
+            }
+        }
+    </ul>
+    <p class="hint">@T("Share a collection with them from its page, under Collections.") <a href="/collections">@T("Collections")</a></p>
+}
+<details class="edit">
+    <summary>@T("Make a child's account")</summary>
+    <label>
+        @T("Their name, to sign in with")
+        <input type="text" @bind="childName" @bind:event="oninput" maxlength="@ReaderRules.MaxNameLength" autocomplete="off" />
+    </label>
+    <label>
+        @T("A password for them, at least {0} characters", ReaderRules.MinPasswordLength)
+        <input type="password" @bind="childNewPassword" @bind:event="oninput" autocomplete="new-password" />
+    </label>
+    <button type="button" class="primary" @onclick="MakeChild" disabled="@(string.IsNullOrWhiteSpace(childName) || string.IsNullOrWhiteSpace(childNewPassword))">@T("Make it")</button>
+</details>
+@if (childNote is not null)
+{
+    <p class="@(childProblem ? "validation-message" : "saved")" role="status">@childNote</p>
+}
+</section>
+}
 
 <section class="panel">
 <h2>@T("Email")</h2>
@@ -84,6 +149,8 @@ else if (emailNote is not null)
     </section>
 }
 
+@if (!restricted)
+{
 <section class="panel" id="readwise">
 <h2>Readwise</h2>
 @if (readwiseConnected)
@@ -152,6 +219,7 @@ else
     <p class="@(hardcoverProblem ? "validation-message" : "saved")" role="status">@hardcoverNote</p>
 }
 </section>
+}
 
 <section class="panel" id="notices">
 <h2>@T("Notifications")</h2>
@@ -227,7 +295,7 @@ else if (pushState is not null)
 }
 </section>
 
-@if (WebhookSender.Enabled)
+@if (WebhookSender.Enabled && !restricted)
 {
 <section class="panel" id="webhooks">
 <h2>@T("Webhooks")</h2>
@@ -483,6 +551,8 @@ else if (passkeyChecked)
 
 </section>
 
+@if (!restricted)
+{
 <section class="panel" id="tokens">
 <h2>@T("API tokens")</h2>
 <p class="hint">@T("A token lets a script or a home dashboard such as Home Assistant use your library through the API, without your password. It opens your books, never this account page.") <a href="https://doodersrage.github.io/shelf/api.html#api-tokens">@T("How to use one")</a></p>
@@ -519,12 +589,16 @@ else if (passkeyChecked)
 }
 </section>
 
+}
+
 <section class="panel">
 <h2>@T("Recent activity")</h2>
 <p class="hint">@T("Changes to this account, and sign-ins that failed. If something here was not you, change the password.")</p>
 <AuditList Lines="activity" />
 </section>
 
+@if (!restricted)
+{
 <section class="panel">
 <h2>@T("Delete the account")</h2>
 @if (!confirmingRemove)
@@ -546,6 +620,7 @@ else
     }
 }
 </section>
+}
 
 @code {
     private readonly PasswordForm form = new();
@@ -665,6 +740,9 @@ else
         readwiseAuto = me.ReadwiseAuto;
         await LoadNoticesAsync(db);
         webhooks = await Webhooks.ListAsync(db);
+        restricted = me.Restricted;
+        guardianName = me.GuardianId is int guardian ? await db.Readers.Where(item => item.Id == guardian).Select(item => item.Name).FirstOrDefaultAsync() : null;
+        children = restricted ? [] : await Family.ChildrenAsync(db);
         currentSession = (await Authentication.GetAuthenticationStateAsync()).User.FindFirst(TwoFactor.SessionClaim)?.Value;
         sessions = await TwoFactor.SessionsAsync(db, db.ReaderId, currentSession);
     }
@@ -872,6 +950,52 @@ else
         {
             noticeBusy = false;
         }
+    }
+
+    private bool restricted;
+    private string? guardianName;
+    private ChildAccount[] children = [];
+    private string childName = "";
+    private string childNewPassword = "";
+    private string childPassword = "";
+    private int? childPasswordFor;
+    private int? confirmRemoveChild;
+    private bool childProblem;
+    private string? childNote;
+
+    private async Task MakeChild()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var (child, problem) = await Family.CreateChildAsync(db, childName, childNewPassword);
+        (childProblem, childNote) = child is null ? (true, ReaderRules.Describe(problem!.Value)) : (false, T("{0} can sign in now.", child.Name));
+        if (child is not null)
+        {
+            (childName, childNewPassword) = ("", "");
+        }
+
+        children = await Family.ChildrenAsync(db);
+    }
+
+    private void StartChildPassword(int id) => (childPasswordFor, childPassword, confirmRemoveChild) = (childPasswordFor == id ? null : id, "", null);
+
+    private async Task SaveChildPassword()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var problem = await Family.SetChildPasswordAsync(db, childPasswordFor ?? 0, childPassword);
+        (childProblem, childNote) = problem is { } shown ? (true, ReaderRules.Describe(shown)) : (false, T("Saved. They sign in with the new password from now on."));
+        if (problem is null)
+        {
+            (childPasswordFor, childPassword) = (null, "");
+        }
+    }
+
+    private async Task RemoveChild(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var problem = await Family.RemoveChildAsync(db, Ebooks, Audio, Covers, id);
+        (childProblem, childNote) = problem is { } shown ? (true, ReaderRules.Describe(shown)) : (false, T("Removed."));
+        confirmRemoveChild = null;
+        children = await Family.ChildrenAsync(db);
     }
 
     private WebhookSummary[] webhooks = [];

@@ -427,6 +427,9 @@ namespace Shelf.Api.Data.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("ForChildren")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -1208,6 +1211,9 @@ namespace Shelf.Api.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("GuardianId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("HardcoverAddMissing")
                         .HasColumnType("INTEGER");
 
@@ -1300,6 +1306,9 @@ namespace Shelf.Api.Data.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("Restricted")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("ShelfOpen")
                         .HasColumnType("INTEGER");
 
@@ -1316,6 +1325,8 @@ namespace Shelf.Api.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GuardianId");
 
                     b.HasIndex("KeyHash")
                         .IsUnique();
@@ -1759,6 +1770,14 @@ namespace Shelf.Api.Data.Migrations
                         .HasForeignKey("ReaderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Readers.Reader", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("GuardianId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("Shelf.Api.Readers.ReaderPasskey", b =>

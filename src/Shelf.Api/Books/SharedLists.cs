@@ -25,8 +25,13 @@ public static class SharedLists
         app.MapGet("/shared/{token}/list.json", Json).AllowAnonymous().WithTags("Sharing");
     }
 
-    public static async Task<string> ShareAsync(ShelfDb db, int savedId, CancellationToken cancellationToken = default)
+    public static async Task<string?> ShareAsync(ShelfDb db, int savedId, CancellationToken cancellationToken = default)
     {
+        if (await Family.IsRestrictedAsync(db, cancellationToken: cancellationToken))
+        {
+            return null;
+        }
+
         var saved = await db.SavedSearches.FirstAsync(item => item.Id == savedId, cancellationToken);
         saved.ShareToken = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(18));
         await db.SaveChangesAsync(cancellationToken);

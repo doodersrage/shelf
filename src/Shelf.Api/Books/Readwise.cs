@@ -158,7 +158,7 @@ public sealed class ReadwiseSync(IServiceScopeFactory scopes, IReadwiseClient cl
     public async Task<bool> ConnectAsync(ShelfDb db, string? token, CancellationToken cancellationToken = default)
     {
         token = token?.Trim();
-        if (string.IsNullOrEmpty(token) || token.Length > 200 || !await client.CheckAsync(token, cancellationToken))
+        if (string.IsNullOrEmpty(token) || token.Length > 200 || await Family.IsRestrictedAsync(db, cancellationToken: cancellationToken) || !await client.CheckAsync(token, cancellationToken))
         {
             return false;
         }

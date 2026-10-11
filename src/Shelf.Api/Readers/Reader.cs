@@ -28,6 +28,10 @@ public sealed class Reader
     // An admin can reset passwords and remove readers. The first reader is one.
     public bool IsAdmin { get; set; }
 
+    // A child's account, made by their guardian (see Family): it reads what its guardian shares, and can do less.
+    public bool Restricted { get; set; }
+    public int? GuardianId { get; set; }
+
     // Other readers may see this shelf and ask to borrow from it.
     public bool ShelfOpen { get; set; }
 
@@ -92,7 +96,7 @@ public sealed record KindleSettingsRequest(string? Email);
 
 public sealed record ReaderResponse(int Id, string Name);
 
-public sealed record ReaderSummary(int Id, string Name, bool IsAdmin, DateTimeOffset CreatedAt, int Books);
+public sealed record ReaderSummary(int Id, string Name, bool IsAdmin, DateTimeOffset CreatedAt, int Books, bool Child = false);
 
 public sealed record AdminChange(bool IsAdmin);
 

@@ -183,6 +183,11 @@ public static class Clubs
             return (null, T("Give the club a name."));
         }
 
+        if (await Family.IsRestrictedAsync(db, cancellationToken: cancellationToken))
+        {
+            return (null, T("A child's account cannot do that. Ask the grown-up who made it."));
+        }
+
         var club = new Club { OwnerId = db.ReaderId, Name = name.Trim(), Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim()[..Math.Min(description.Trim().Length, Club.MaxDescriptionLength)], CreatedAt = DateTimeOffset.UtcNow };
         club.Members.Add(new ClubMember { ReaderId = db.ReaderId, JoinedAt = DateTimeOffset.UtcNow });
         db.Clubs.Add(club);
@@ -221,7 +226,8 @@ public static class Clubs
             return ClubProblem.NotOwner;
         }
 
-        if (!await db.Readers.AnyAsync(reader => reader.Id == readerId, cancellationToken))
+        // A child joins only the clubs their guardian makes.
+        if (!await db.Readers.AnyAsync(reader => reader.Id == readerId && (!reader.Restricted || reader.GuardianId == db.ReaderId), cancellationToken))
         {
             return ClubProblem.Invalid;
         }

@@ -223,7 +223,7 @@ public sealed class HardcoverSync(IServiceScopeFactory scopes, IHardcoverClient 
     public async Task<string?> ConnectAsync(ShelfDb db, string? token, CancellationToken cancellationToken = default)
     {
         token = token?.Trim();
-        if (string.IsNullOrEmpty(token) || token.Length > 2000 || await client.WhoAsync(token, cancellationToken) is not { } name)
+        if (string.IsNullOrEmpty(token) || token.Length > 2000 || await Family.IsRestrictedAsync(db, cancellationToken: cancellationToken) || await client.WhoAsync(token, cancellationToken) is not { } name)
         {
             return null;
         }

@@ -93,6 +93,11 @@ public sealed class Webhooks(IServiceScopeFactory scopes, IWebhookPoster poster,
 
     public async Task<(NewWebhook? Made, string? Problem)> AddAsync(ShelfDb db, string? url, WebhookFormat format, IEnumerable<string>? events, CancellationToken cancellationToken = default)
     {
+        if (await Family.IsRestrictedAsync(db, cancellationToken: cancellationToken))
+        {
+            return (null, T("A child's account cannot do that. Ask the grown-up who made it."));
+        }
+
         if (!Notices.IsWebAddress(url, out var address) || address.AbsoluteUri.Length > 1000)
         {
             return (null, T("Give the webhook's whole address, starting with https:// or http://."));

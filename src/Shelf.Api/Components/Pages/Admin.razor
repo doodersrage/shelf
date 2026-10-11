@@ -31,7 +31,7 @@ else
         {
             <li>
                 <strong>@reader.Name</strong>
-                <span class="hint"> · @Localization.Counts.Books(reader.Books) · @T("since {0}", reader.CreatedAt.Medium())@(reader.IsAdmin ? " · " + T("admin") : "")@(reader.Id == me ? " · " + T("you") : "")</span>
+                <span class="hint"> · @Localization.Counts.Books(reader.Books) · @T("since {0}", reader.CreatedAt.Medium())@(reader.IsAdmin ? " · " + T("admin") : "")@(reader.Child ? " · " + T("a child's account") : "")@(reader.Id == me ? " · " + T("you") : "")</span>
                 @if (passwords.TryGetValue(reader.Id, out var password))
                 {
                     <p>@T("New password:") <code class="key">@password</code></p>
@@ -42,7 +42,14 @@ else
                     {
                         <button type="button" @onclick="() => Reset(reader.Id)">@T("New password")</button>
                     }
-                    <button type="button" @onclick="() => SetAdmin(reader.Id, !reader.IsAdmin)">@(reader.IsAdmin ? T("No longer admin") : T("Make admin"))</button>
+                    @if (reader.Child)
+                    {
+                        <button type="button" @onclick="() => Release(reader.Id)">@T("Make it an ordinary account")</button>
+                    }
+                    else
+                    {
+                        <button type="button" @onclick="() => SetAdmin(reader.Id, !reader.IsAdmin)">@(reader.IsAdmin ? T("No longer admin") : T("Make admin"))</button>
+                    }
                     @if (reader.Id != me)
                     {
                         @if (removing == reader.Id)
@@ -217,6 +224,21 @@ else
             }
 
             problem = await ReaderRules.SetAdminAsync(db, id, isAdmin);
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task Release(int id)
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            if (!await StillAdminAsync(db))
+            {
+                return;
+            }
+
+            await Family.ReleaseAsync(db, id);
         }
 
         await LoadAsync();

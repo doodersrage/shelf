@@ -19,7 +19,7 @@ public static class Asking
     public static async Task SetShelfOpenAsync(ShelfDb db, bool open, CancellationToken cancellationToken = default)
     {
         var reader = await db.Readers.FirstAsync(item => item.Id == db.ReaderId, cancellationToken);
-        reader.ShelfOpen = open;
+        reader.ShelfOpen = open && !reader.Restricted;
         await db.SaveChangesAsync(cancellationToken);
     }
 
@@ -29,6 +29,11 @@ public static class Asking
     public static async Task<OpenShelf[]> OpenShelvesAsync(ShelfDb db, CancellationToken cancellationToken = default)
     {
         var me = db.ReaderId;
+        if (await Family.IsRestrictedAsync(db, me, cancellationToken))
+        {
+            return [];
+        }
+
         var readers = await db.Readers.AsNoTracking()
             .Where(reader => reader.ShelfOpen && reader.Id != me)
             .Select(reader => new { reader.Id, reader.Name })
@@ -48,6 +53,11 @@ public static class Asking
     public static async Task<(string Owner, ShelfBook[] Books)?> ShelfAsync(ShelfDb db, int ownerId, CancellationToken cancellationToken = default)
     {
         var me = db.ReaderId;
+        if (await Family.IsRestrictedAsync(db, me, cancellationToken))
+        {
+            return null;
+        }
+
         var owner = await db.Readers.AsNoTracking()
             .FirstOrDefaultAsync(reader => reader.Id == ownerId && reader.ShelfOpen && reader.Id != me, cancellationToken);
         if (owner is null || me == 0)
@@ -86,7 +96,7 @@ public static class Asking
     public static async Task<OpenCopy[]> OpenCopiesAsync(ShelfDb db, string? title = null, string? isbn = null, CancellationToken cancellationToken = default)
     {
         var me = db.ReaderId;
-        if (me == 0)
+        if (me == 0 || await Family.IsRestrictedAsync(db, me, cancellationToken))
         {
             return [];
         }
@@ -120,7 +130,7 @@ public static class Asking
             .Where(item => item.Id == bookId && item.OwnerId != me && item.Owner != null && item.Owner.ShelfOpen)
             .Select(item => new { item.Id, item.BorrowerId })
             .FirstOrDefaultAsync(cancellationToken);
-        if (book is null || me == 0)
+        if (book is null || me == 0 || await Family.IsRestrictedAsync(db, me, cancellationToken))
         {
             return AskResult.NoBook;
         }

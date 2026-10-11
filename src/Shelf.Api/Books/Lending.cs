@@ -12,6 +12,7 @@ public enum LendResult
     NoReader,
     ToSelf,
     AlreadyOut,
+    NotAllowed,
 }
 
 // Lending to another reader of this shelf: the book stays on the owner's shelf, and shows on the borrower's loans.
@@ -41,8 +42,14 @@ public static class Lending
             return LendResult.ToSelf;
         }
 
+        if (await Family.IsRestrictedAsync(db, cancellationToken: cancellationToken))
+        {
+            return LendResult.NotAllowed;
+        }
+
+        // A child's account borrows only from their guardian.
         var borrower = await db.Readers.AsNoTracking().FirstOrDefaultAsync(reader => reader.Id == readerId, cancellationToken);
-        if (borrower is null)
+        if (borrower is null || (borrower.Restricted && borrower.GuardianId != db.ReaderId))
         {
             return LendResult.NoReader;
         }
@@ -115,7 +122,13 @@ public static class Lending
         var lent = await db.Books.IgnoreQueryFilters()
             .AsNoTracking()
             .FirstOrDefaultAsync(book => readerId != 0 && book.Id == bookId && book.BorrowerId == readerId, cancellationToken);
-        return lent is null ? null : new OpenBook(lent, Borrowed: true);
+        if (lent is not null)
+        {
+            return new OpenBook(lent, Borrowed: true);
+        }
+
+        // A child reads the books their guardian shares with them as if lent, with a place and highlights of their own.
+        return await Family.SharedBookAsync(db, bookId, cancellationToken) is { } shared ? new OpenBook(shared, Borrowed: true) : null;
     }
 
     // The owner's marks, or the borrower's own marks on a book lent to them. Neither sees the other's.
@@ -263,6 +276,7 @@ public static class Lending
         LendResult.NoReader => Localization.Words.T("Choose a reader on this shelf."),
         LendResult.ToSelf => Localization.Words.T("The book is already yours."),
         LendResult.AlreadyOut => Localization.Words.T("The book is on loan. Mark it returned first."),
+        LendResult.NotAllowed => Localization.Words.T("A child's account cannot do that. Ask the grown-up who made it."),
         _ => "",
     };
 
