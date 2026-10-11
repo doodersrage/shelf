@@ -60,9 +60,9 @@ else
             @if (import is { } running && new Uri(Navigation.Uri).AbsolutePath != running.Page)
             {
                 @* An import in the background, on every page while it runs; imports.js keeps it moving. *@
-                <p class="notice import-notice" role="status" data-import-progress data-done="@T("Finished bringing books from {0}. See what came across.", running.Source)">
+                <p class="notice import-notice" role="status" data-import-progress data-done="@T("{0}. See how it went.", importDone)">
                     <a href="@running.Page">
-                        <span>@T("Bringing books from {0}", running.Source):</span>
+                        <span>@running.Title:</span>
                         <span data-import-text>@ImportJobs.Describe(running)</span>
                     </a>
                     <progress data-import-bar max="@Math.Max(1, running.Total)" value="@(running.Total - running.Left)" aria-hidden="true"></progress>
@@ -105,6 +105,7 @@ else
     private List<SavedSearch> savedSearches = [];
     private int seriesAlerts;
     private ImportSummary? import;
+    private string importDone = "";
 
     private string? SavedCurrent(int id) =>
         new Uri(Navigation.Uri) is { AbsolutePath: "/library" } here
@@ -187,12 +188,14 @@ else
                 <li><a href="/copies" aria-current="@Current("/copies")">@T("Condition")</a></li>
                 <li><a href="/recommenders" aria-current="@Current("/recommenders")">@T("Recommenders")</a></li>
                 <li><a href="/duplicates" aria-current="@Current("/duplicates")">@T("Duplicates")</a></li>
+                <li><a href="/tidy" aria-current="@Current("/tidy")">@T("Tidy up")</a></li>
             </ul>
         </details>
         <details class="nav-group" open="@Within(SettingsLinks)">
             <summary>@T("Settings")</summary>
             <ul>
                 <li><a href="/account" aria-current="@Current("/account")">@T("Account")</a></li>
+                <li><a href="/activity" aria-current="@Current("/activity")">@T("Activity")</a></li>
                 <li><a href="/backup" aria-current="@Current("/backup")">@T("Backup & restore")</a></li>
                 <li><a href="/sync" aria-current="@Current("/sync")">@T("Devices")</a></li>
                 <li><a href="/offline.html">@T("Offline reading")</a></li>
@@ -238,7 +241,9 @@ else
             isChild = await Family.IsRestrictedAsync(db);
             savedSearches = await db.SavedSearches.AsNoTracking().OrderBy(search => search.Name).ToListAsync();
             seriesAlerts = await SeriesWatch.CountAsync(db);
-            import = ImportJobs.Running(Services, db.ReaderId) is { } job ? ImportJobs.Summarize(job, DateTimeOffset.UtcNow) : null;
+            var job = ImportJobs.Running(Services, db.ReaderId);
+            import = job is null ? null : ImportJobs.Summarize(job, DateTimeOffset.UtcNow);
+            importDone = job?.Title(true) ?? "";
         }
     }
 
@@ -270,8 +275,8 @@ else
     private const string InsightsIcon = "M5 19V11M12 19V5M19 19v-6";
 
     private static readonly string[] BrowseLinks = ["/library?status=Want", "/library?status=Finished", "/collections", "/series", "/authors", "/podcasts", "/quotes", "/search", "/next", "/clubs", "/free", "/years"];
-    private static readonly string[] CopiesLinks = ["/shelves", "/places", "/copies", "/recommenders", "/duplicates"];
-    private static readonly string[] SettingsLinks = ["/account", "/backup", "/sync", "/admin"];
+    private static readonly string[] CopiesLinks = ["/shelves", "/places", "/copies", "/recommenders", "/duplicates", "/tidy"];
+    private static readonly string[] SettingsLinks = ["/account", "/activity", "/backup", "/sync", "/admin"];
 
     // A group opens by itself when the page shown is one of its own.
     private bool Within(string[] links) => links.Any(link => Current(link) is not null);

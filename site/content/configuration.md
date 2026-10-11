@@ -140,6 +140,9 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 | `Ebooks:Convert` | `ebook-convert` | Calibre's converter, which turns Kindle files into EPUBs. Without it, Kindle files are refused with a note saying why. |
 | `FreeBooks:Enabled` | `true` | The Free books page, which reaches gutenberg.org, librivox.org, and archive.org. Turn it off for a shelf with no internet. |
 | `AbsApi:Enabled` | `true` | Let Audiobookshelf's phone apps sign in to Shelf. See [Audiobookshelf's phone apps](devices.md#audiobookshelfs-phone-apps). |
+| `AbsSync:Enabled` | `true` | Look once a day at the Audiobookshelf libraries readers keep in step with. See [Keeping in step](adding.md#keeping-in-step). |
+| `AbsSync:LookSeconds` | `30` | How often Shelf checks whether a library is due its daily look, or was asked to look now. |
+| `Details:PauseMilliseconds` | `1200` | The pause between books when details or covers are filled in for many, so Open Library and Google Books are asked politely. |
 | `Kobo:Kepub` | `true` | Send books to Kobo e-readers as KEPUBs, made from the EPUBs and kept beside them, for the Kobo's page numbers and statistics. `false` sends the EPUBs as they are. |
 | `Lookup:Dictionary` | `true` | **Look up** in the reader, which sends the chosen words to Wiktionary and Wikipedia. Set `false` to keep them on the shelf. |
 | `Lookup:GoogleBooks` | `true` | Ask Google Books when Open Library has no match or leaves fields blank. It sends the ISBN, or the title and author, to Google; set `false` to keep look-ups to Open Library alone. |

@@ -56,6 +56,8 @@ public class ShelfDb : DbContext
     public DbSet<ReaderPasskey> ReaderPasskeys => Set<ReaderPasskey>();
     public DbSet<ShelfSetting> Settings => Set<ShelfSetting>();
     public DbSet<SavedSearch> SavedSearches => Set<SavedSearch>();
+    public DbSet<AbsLink> AbsLinks => Set<AbsLink>();
+    public DbSet<AbsSyncSetting> AbsSyncs => Set<AbsSyncSetting>();
     public DbSet<ApiToken> ApiTokens => Set<ApiToken>();
     public DbSet<SeriesAlert> SeriesAlerts => Set<SeriesAlert>();
     public DbSet<ListeningDay> ListeningDays => Set<ListeningDay>();
@@ -157,6 +159,28 @@ public class ShelfDb : DbContext
             saved.HasIndex(s => s.ShareToken).IsUnique();
             saved.HasOne<Reader>().WithMany().HasForeignKey(s => s.OwnerId).OnDelete(DeleteBehavior.Cascade);
             saved.HasQueryFilter(s => s.OwnerId == ReaderId);
+        });
+
+        // Audiobookshelf items brought across, and the library kept in step. Reached by reader id, not filtered, so
+        // the keeper can look at every reader's.
+        modelBuilder.Entity<AbsLink>(link =>
+        {
+            link.Property(item => item.Server).HasMaxLength(500);
+            link.Property(item => item.ItemId).HasMaxLength(100);
+            link.HasIndex(item => new { item.ReaderId, item.Server, item.ItemId }).IsUnique();
+            link.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+            link.HasOne<Book>().WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AbsSyncSetting>(sync =>
+        {
+            sync.Property(item => item.Server).HasMaxLength(500);
+            sync.Property(item => item.LibraryId).HasMaxLength(100);
+            sync.Property(item => item.LibraryName).HasMaxLength(200);
+            sync.Property(item => item.SealedKey).HasMaxLength(4000);
+            sync.Property(item => item.Problem).HasMaxLength(500);
+            sync.HasIndex(item => item.ReaderId).IsUnique();
+            sync.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<ReadingDay>(day =>

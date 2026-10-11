@@ -34,6 +34,9 @@ public sealed class M4bService(IServiceScopeFactory scopes, AudioStore audio, Co
 
     private string Root => Path.Combine(audio.Root, "m4b");
 
+    // The recordings being made into an M4B now, by their stored names, for the Activity page.
+    public IReadOnlyCollection<string> Making => [.. _making.Where(item => item.Value is null).Select(item => item.Key)];
+
     public string PathFor(string storedName) => Path.Combine(Root, storedName + ".m4b");
 
     public static void Map(RouteGroupBuilder books)

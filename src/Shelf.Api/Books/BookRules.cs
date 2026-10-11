@@ -1411,7 +1411,7 @@ public static class BookRules
     private static string? BlankToNull(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static bool IsCoverUrl(string value)
+    public static bool IsCoverUrl(string value)
     {
         var trimmed = value.Trim();
         return trimmed.Length <= 500

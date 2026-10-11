@@ -4,6 +4,7 @@
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject IHttpClientFactory Http
 @inject AbsImporter Importer
+@inject AbsKeeper Keeper
 @implements IDisposable
 
 <PageTitle>Audiobookshelf · Shelf</PageTitle>
@@ -11,6 +12,27 @@
 <p class="hint"><a href="/backup">@T("Backup & restore")</a></p>
 <h1>@T("Bring books from Audiobookshelf")</h1>
 <p class="hint">@T("Copies audiobooks and e-books from an Audiobookshelf server to your shelf: their files, covers, series, and genres, and where you stopped, if you like. Nothing on the Audiobookshelf server changes. Books already on your shelf are left alone.") <a href="https://www.audiobookshelf.org" rel="noopener">audiobookshelf.org</a></p>
+
+@if (kept is { } sync)
+{
+    @* A library kept in step: what was last found, and a way to look now or to stop. *@
+    <section class="panel" aria-labelledby="kept-heading">
+        <h2 id="kept-heading">@T("Kept in step")</h2>
+        <p>@T("Every day, books new to {0} on {1} come across to your shelf.", sync.LibraryName, sync.Server)</p>
+        <p class="hint" role="status">
+            @if (sync.Problem is { } trouble)
+            {
+                <span class="validation-message">@trouble</span>
+            }
+            else if (sync.CheckedAt is DateTimeOffset checkedAt)
+            {
+                @(sync.LastFound is int found ? T("Last looked {0}: {1} new.", checkedAt.Medium(), found) : T("Last looked {0}.", checkedAt.Medium()))
+            }
+        </p>
+        <button type="button" class="quiet" @onclick="CheckNow" disabled="@checkAsked">@(checkAsked ? T("Looking within a minute…") : T("Check now"))</button>
+        <button type="button" class="quiet" @onclick="StopKeeping">@T("Stop keeping in step")</button>
+    </section>
+}
 
 @if (job is not null)
 {
@@ -136,6 +158,18 @@ else
                 <input type="checkbox" @bind="bringProgress" />
                 @T("Bring where I stopped listening or reading, and which books I finished")
             </label>
+            @if (keptKey is not null)
+            {
+                <label class="check">
+                    <input type="checkbox" @bind="keepInStep" />
+                    @T("Keep in step: every day, bring books newly added to this library")
+                </label>
+                <p class="hint">@T("Shelf keeps the API key for this, sealed with its own keys, until you stop.")</p>
+            }
+            else
+            {
+                <p class="hint">@T("To keep in step with this library every day, connect with an API key rather than a password.")</p>
+            }
             <button type="button" class="primary" @onclick="Import" disabled="@(chosen.Count == 0 || !connection.CanDownload)">@T("Bring {0}", Localization.Counts.Books(chosen.Count))</button>
         }
         else if (items is not null)
@@ -173,6 +207,7 @@ else
         await using var db = await DbFactory.CreateDbContextAsync();
         readerId = db.ReaderId;
         job = Importer.Latest(readerId);
+        kept = await AbsKeeper.StateAsync(db);
     }
 
     // Drawn again every two seconds only while something is moving: the listing, or an import running.
@@ -232,6 +267,8 @@ else
         {
             using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             connection = await AbsClient.ConnectAsync(Http.CreateClient(AbsClient.ClientName), server, useKey ? apiKey : null, user, password, limit.Token);
+            // Held for this page only, in case the reader asks to keep in step; saved only then.
+            keptKey = useKey && apiKey.Length > 0 ? apiKey : null;
             apiKey = "";
             password = "";
             libraryId = connection.Libraries.FirstOrDefault()?.Id ?? "";
@@ -319,7 +356,7 @@ else
         }
     }
 
-    private void Import()
+    private async Task Import()
     {
         if (connection is null || items is null)
         {
@@ -327,6 +364,32 @@ else
         }
 
         job = Importer.Start(readerId, connection, bringProgress, items.Where(item => chosen.Contains(item.Id)).ToList());
+        if (keepInStep && keptKey is not null)
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var library = connection.Libraries.FirstOrDefault(item => item.Id == libraryId);
+            await Keeper.KeepAsync(db, connection.Server, keptKey, libraryId, library?.Name ?? libraryId, bringProgress);
+            kept = await AbsKeeper.StateAsync(db);
+        }
+    }
+
+    private bool keepInStep;
+    private string? keptKey;
+    private AbsSyncState? kept;
+    private bool checkAsked;
+
+    private async Task CheckNow()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await AbsKeeper.CheckSoonAsync(db);
+        checkAsked = true;
+    }
+
+    private async Task StopKeeping()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await AbsKeeper.StopAsync(db);
+        kept = null;
     }
 
     // Back to the list, which now marks what just came across.
@@ -343,6 +406,7 @@ else
 
     private void StartOver()
     {
+        keptKey = null;
         connection = null;
         items = null;
         chosen.Clear();

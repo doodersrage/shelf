@@ -183,7 +183,7 @@ public enum CalibreState
 
 public sealed record CalibreLine(int Id, string Title, CalibreState State, int? BookId, string? Note);
 
-public sealed class CalibreJob(Guid id, int readerId, string library, IReadOnlyList<CalibreBook> books) : IImportJob
+public sealed class CalibreJob(Guid id, int readerId, string library, IReadOnlyList<CalibreBook> books) : IShelfJob
 {
     public string Language { get; } = Words.Current;
 
@@ -199,7 +199,7 @@ public sealed class CalibreJob(Guid id, int readerId, string library, IReadOnlyL
     // The book being brought now.
     public int? Current { get; set; }
 
-    public string Source => "Calibre";
+    public string Title(bool finished) => finished ? T("Brought across from {0}", "Calibre") : T("Bringing books from {0}", "Calibre");
 
     public string Page => "/import/calibre";
 
@@ -217,7 +217,7 @@ public sealed class CalibreJob(Guid id, int readerId, string library, IReadOnlyL
 
 // Imports run in the background, a book at a time: its file, cover, series, tags, rating, and description. A book
 // with no file Shelf takes still comes in as a catalog entry.
-public sealed class CalibreImporter(IServiceScopeFactory scopes, ILogger<CalibreImporter> logger) : BackgroundService
+public sealed class CalibreImporter(IServiceScopeFactory scopes, ShelfJobs register, ILogger<CalibreImporter> logger) : BackgroundService
 {
     private readonly Channel<Guid> queue = Channel.CreateUnbounded<Guid>();
     private readonly ConcurrentDictionary<Guid, CalibreJob> jobs = new();
@@ -226,6 +226,7 @@ public sealed class CalibreImporter(IServiceScopeFactory scopes, ILogger<Calibre
     {
         var job = new CalibreJob(Guid.NewGuid(), readerId, library, books);
         jobs[job.Id] = job;
+        register.Add(job);
         queue.Writer.TryWrite(job.Id);
         return job;
     }

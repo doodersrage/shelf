@@ -1,0 +1,165 @@
+@page "/tidy"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject DetailsFiller Filler
+@inject ShelfJobs Jobs
+
+<PageTitle>@T("Tidy up") · Shelf</PageTitle>
+
+@* A shelf brought in from files and other servers, put in order: one spelling for each author, series taken out of
+   titles, and covers and details looked for in the background. Nothing changes until it is chosen here. *@
+<div class="page-head">
+    <h1>@T("Tidy up")</h1>
+</div>
+<p class="hint">@T("Books brought in from files and other servers often come with authors written several ways, series inside their titles, and no cover. Each change below is made only when you choose it.")</p>
+
+@if (note is not null)
+{
+    <p class="saved" role="status">@note</p>
+}
+
+<section class="panel" aria-labelledby="look-heading">
+    <h2 id="look-heading">@T("Covers and details")</h2>
+    @if (running is { } job)
+    {
+        <p><a href="/activity">@job.Title(false): @ImportJobs.Describe(ImportJobs.Summarize(job, DateTimeOffset.UtcNow))</a></p>
+    }
+    else
+    {
+        <p>@T("Without a cover: {0}. Missing a year, pages, publisher, language, or cover: {1}.", missingCovers.ToString("N0"), missingDetails.ToString("N0"))</p>
+        <p class="hint">@T("Shelf looks each book up in Open Library, and Google Books after it, a book at a time in the background. A shelf of thousands takes hours; the Activity page shows how far it has got.")</p>
+        <button type="button" disabled="@(missingCovers == 0)" @onclick="() => Look(DetailsKind.Covers)">@T("Find covers")</button>
+        <button type="button" class="quiet" disabled="@(missingDetails == 0)" @onclick="() => Look(DetailsKind.Everything)">@T("Fill in all missing details")</button>
+    }
+</section>
+
+<section class="panel" aria-labelledby="authors-heading">
+    <h2 id="authors-heading">@T("Authors written more than one way")</h2>
+    @if (authors.Count == 0)
+    {
+        <p class="hint">@T("Each author is written one way.")</p>
+    }
+    else
+    {
+        <p class="hint">@T("Choose the spelling to keep; every book under the others takes it.")</p>
+        <ul class="tidy-list">
+            @foreach (var group in authors.Take(shownAuthors))
+            {
+                var chosen = keep.GetValueOrDefault(group.Key, group.Usual);
+                <li>
+                    <fieldset>
+                        <legend class="visually-hidden">@T("Spellings of {0}", group.Usual)</legend>
+                        @foreach (var spelling in group.Spellings)
+                        {
+                            <label class="check">
+                                <input type="radio" name="@($"author-{group.Key}")" checked="@(spelling.Name == chosen)" @onchange="() => keep[group.Key] = spelling.Name" />
+                                @spelling.Name <span class="hint">@Localization.Counts.Books(spelling.Books)</span>
+                            </label>
+                        }
+                    </fieldset>
+                    <button type="button" class="quiet" @onclick="() => UseSpelling(group)">@T("Use “{0}”", chosen)</button>
+                </li>
+            }
+        </ul>
+        @if (authors.Count > shownAuthors)
+        {
+            <button type="button" class="quiet" @onclick="() => shownAuthors += 50">@T("Show {0} more", Math.Min(50, authors.Count - shownAuthors))</button>
+        }
+        <p><button type="button" @onclick="UseUsualSpellings">@T("Use the most common spelling for all {0}", authors.Count.ToString("N0"))</button></p>
+    }
+</section>
+
+<section class="panel" aria-labelledby="series-heading">
+    <h2 id="series-heading">@T("Series inside titles")</h2>
+    @if (series.Count == 0)
+    {
+        <p class="hint">@T("No title names a series that the book does not have already.")</p>
+    }
+    else
+    {
+        <p class="hint">@T("These titles name a series. Taking it out gives the book its title alone, and the series and number, so it shows with the rest of its series.")</p>
+        <table class="tidy-table">
+            <thead>
+                <tr><th scope="col">@T("Now")</th><th scope="col">@T("Title")</th><th scope="col">@T("Series")</th><th scope="col"><span class="visually-hidden">@T("Change")</span></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var item in series.Take(shownSeries))
+                {
+                    <tr>
+                        <td><a href="/library/@item.BookId">@item.Title</a></td>
+                        <td>@item.NewTitle</td>
+                        <td>@item.Series@(item.Number is int number ? $" #{number}" : "")</td>
+                        <td><button type="button" class="quiet" @onclick="() => ApplySeries([item])">@T("Take it out")</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (series.Count > shownSeries)
+        {
+            <button type="button" class="quiet" @onclick="() => shownSeries += 50">@T("Show {0} more", Math.Min(50, series.Count - shownSeries))</button>
+        }
+        <p><button type="button" @onclick="() => ApplySeries(series)">@T("Take the series out of all {0}", series.Count.ToString("N0"))</button></p>
+    }
+</section>
+
+@code {
+    private IReadOnlyList<AuthorGroup> authors = [];
+    private IReadOnlyList<SeriesInTitle> series = [];
+    private readonly Dictionary<string, string> keep = [];
+    private int shownAuthors = 50;
+    private int shownSeries = 50;
+    private int missingCovers;
+    private int missingDetails;
+    private string? note;
+    private int readerId;
+
+    private DetailsJob? running => Jobs.Of(readerId).OfType<DetailsJob>().FirstOrDefault(job => !job.Finished);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        readerId = db.ReaderId;
+        authors = await Tidy.AuthorGroupsAsync(db);
+        series = await Tidy.SeriesInTitlesAsync(db);
+        var books = await db.Books.AsNoTracking().ToListAsync();
+        missingCovers = books.Count(DetailsFiller.LacksCover);
+        missingDetails = books.Count(DetailsFiller.NeedsDetails);
+    }
+
+    private async Task Look(DetailsKind kind)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        note = await Filler.StartAsync(db, kind) is null ? T("Nothing to look for.") : null;
+    }
+
+    private async Task UseSpelling(AuthorGroup group)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var changed = await Tidy.UseSpellingAsync(db, [.. group.Spellings.Select(item => item.Name)], keep.GetValueOrDefault(group.Key, group.Usual));
+        note = T("Changed: {0}.", Localization.Counts.Books(changed));
+        await LoadAsync();
+    }
+
+    private async Task UseUsualSpellings()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var changed = 0;
+        foreach (var group in authors)
+        {
+            changed += await Tidy.UseSpellingAsync(db, [.. group.Spellings.Select(item => item.Name)], keep.GetValueOrDefault(group.Key, group.Usual));
+        }
+
+        note = T("Changed: {0}.", Localization.Counts.Books(changed));
+        await LoadAsync();
+    }
+
+    private async Task ApplySeries(IEnumerable<SeriesInTitle> items)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var changed = await Tidy.ApplySeriesAsync(db, items);
+        note = T("Changed: {0}.", Localization.Counts.Books(changed));
+        await LoadAsync();
+    }
+}

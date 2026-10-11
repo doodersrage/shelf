@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Shelf.Api.Books;
+using Shelf.Api.Readers;
 
 namespace Shelf.Api.Tests;
 
@@ -83,6 +84,30 @@ public sealed class AudiobookshelfTests(ShelfApiFactory factory) : IClassFixture
         }
 
         Assert.All(again.Books.Values, line => Assert.Equal(AbsState.Skipped, line.State));
+
+        // What came across is remembered, so keeping in step brings only what it has never brought: here the one
+        // that could not come across before.
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
+            var db = scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>();
+            Assert.Equal(["li-earthsea", "li-moby"], db.AbsLinks.Where(link => link.ReaderId == readerId).Select(link => link.ItemId).OrderBy(id => id).ToList());
+            var keeper = app.Services.GetRequiredService<AbsKeeper>();
+            await keeper.KeepAsync(db, server, "good-key", "lib-books", "Audiobooks", bringProgress: false);
+            Assert.DoesNotContain("good-key", db.AbsSyncs.Single(item => item.ReaderId == readerId).SealedKey);
+            Assert.Equal(1, await keeper.CheckAsync(db.AbsSyncs.Single(item => item.ReaderId == readerId).Id, CancellationToken.None));
+            var kept = await AbsKeeper.StateAsync(db);
+            Assert.Equal(("Audiobooks", 1, (string?)null), (kept!.LibraryName, kept.LastFound, kept.Problem));
+            var fetched = importer.Latest(readerId)!;
+            for (var attempt = 0; attempt < 200 && !fetched.Finished; attempt++)
+            {
+                await Task.Delay(50);
+            }
+
+            Assert.Equal(["li-locked"], fetched.Items.Select(item => item.Id));
+            await AbsKeeper.StopAsync(db);
+            Assert.Null(await AbsKeeper.StateAsync(db));
+        }
         Assert.Equal(3, AbsClient.SpineIndex("epubcfi(/6/8!/4/2/1:0)"));
         Assert.Null(AbsClient.SpineIndex("not a cfi"));
     }

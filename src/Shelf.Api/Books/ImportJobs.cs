@@ -16,11 +16,15 @@ public enum ImportLineState
 // One book of an import, however it came: its title, how it went, and where it landed.
 public sealed record ImportLine(string Title, ImportLineState State, string? Note, int? BookId, long Bytes);
 
-// An import of many books running in the background (from Audiobookshelf, from Calibre), as the pages and the
-// notice on every page show it.
-public interface IImportJob
+// Work on many books running in the background (an import from Audiobookshelf or Calibre, filling in details,
+// keeping in step with another server), as its page, the Activity page, and the notice on every page show it.
+public interface IShelfJob
 {
-    string Source { get; }
+    Guid Id { get; }
+
+    // "Bringing books from Audiobookshelf" while it runs, "Brought across from Audiobookshelf" once done.
+    string Title(bool finished);
+
     string Page { get; }
     int ReaderId { get; }
     DateTimeOffset Started { get; }
@@ -35,7 +39,8 @@ public interface IImportJob
 }
 
 public sealed record ImportSummary(
-    string Source,
+    Guid Id,
+    string Title,
     string Page,
     int Total,
     int Done,
@@ -54,7 +59,7 @@ public sealed record ImportSummary(
 public static class ImportJobs
 {
     // How far it has come, and how long the rest may take at the pace so far.
-    public static ImportSummary Summarize(IImportJob job, DateTimeOffset now)
+    public static ImportSummary Summarize(IShelfJob job, DateTimeOffset now)
     {
         var lines = job.Lines();
         var done = lines.Count(line => line.State == ImportLineState.Done);
@@ -67,16 +72,12 @@ public static class ImportJobs
             ? (int)Math.Ceiling(elapsed.TotalMinutes / handled * left)
             : null;
         var current = lines.FirstOrDefault(line => line.State == ImportLineState.Working)?.Title;
-        return new ImportSummary(job.Source, job.Page, lines.Count, done, skipped, failed, left, current, job.Finished, job.Stopping, minutes);
+        return new ImportSummary(job.Id, job.Title(job.Finished), job.Page, lines.Count, done, skipped, failed, left, current, job.Finished, job.Stopping, minutes);
     }
 
-    // The reader's import running now, from whichever importer, for the notice on every page.
-    public static IImportJob? Running(IServiceProvider services, int readerId) =>
-        new IImportJob?[] { services.GetService<AbsImporter>()?.Latest(readerId), services.GetService<CalibreImporter>()?.Latest(readerId) }
-            .OfType<IImportJob>()
-            .Where(job => !job.Finished)
-            .OrderByDescending(job => job.Started)
-            .FirstOrDefault();
+    // The reader's job running now, for the notice on every page.
+    public static IShelfJob? Running(IServiceProvider services, int readerId) =>
+        services.GetRequiredService<ShelfJobs>().Of(readerId).FirstOrDefault(job => !job.Finished);
 
     public static string Describe(ImportSummary summary)
     {
@@ -93,4 +94,27 @@ public static class ImportJobs
     public static void Map(RouteGroupBuilder books) =>
         books.MapGet("/imports/running", Results<Ok<ImportSummary>, NoContent> (HttpContext http, ShelfDb db) =>
             Running(http.RequestServices, db.ReaderId) is { } job ? TypedResults.Ok(Summarize(job, DateTimeOffset.UtcNow)) : TypedResults.NoContent());
+}
+
+// Every job of the shelf's, from whichever service runs it, kept while the server runs: the running ones and the
+// last few finished, for the Activity page and the notice.
+public sealed class ShelfJobs
+{
+    private const int KeptPerReader = 20;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, IShelfJob> _jobs = new();
+
+    public void Add(IShelfJob job)
+    {
+        _jobs[job.Id] = job;
+        foreach (var old in Of(job.ReaderId).Where(item => item.Finished).Skip(KeptPerReader))
+        {
+            _jobs.TryRemove(old.Id, out _);
+        }
+    }
+
+    // Newest first.
+    public IReadOnlyList<IShelfJob> Of(int readerId) =>
+        [.. _jobs.Values.Where(job => job.ReaderId == readerId).OrderByDescending(job => job.Started)];
+
+    public IShelfJob? Find(int readerId, Guid id) => _jobs.TryGetValue(id, out var job) && job.ReaderId == readerId ? job : null;
 }

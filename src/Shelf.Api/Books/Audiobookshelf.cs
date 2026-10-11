@@ -185,7 +185,7 @@ public enum AbsState
 
 public sealed record AbsImportLine(string ItemId, string Title, AbsState State, long Bytes, int? BookId, string? Note);
 
-public sealed class AbsImportJob(Guid id, int readerId, AbsConnection connection, bool progress, IReadOnlyList<AbsItem> items) : IImportJob
+public sealed class AbsImportJob(Guid id, int readerId, AbsConnection connection, bool progress, IReadOnlyList<AbsItem> items) : IShelfJob
 {
     public string Language { get; } = Words.Current;
 
@@ -199,7 +199,7 @@ public sealed class AbsImportJob(Guid id, int readerId, AbsConnection connection
     public bool Finished { get; set; }
     public bool Stopping { get; private set; }
 
-    public string Source => "Audiobookshelf";
+    public string Title(bool finished) => finished ? T("Brought across from {0}", "Audiobookshelf") : T("Bringing books from {0}", "Audiobookshelf");
 
     public string Page => "/import/audiobookshelf";
 
@@ -217,7 +217,7 @@ public sealed class AbsImportJob(Guid id, int readerId, AbsConnection connection
 
 // Imports run one at a time in the background, each book in turn: its tracks in order, its e-book, its cover, and,
 // when asked, where the reader stopped. The key or token is held only until the import ends.
-public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory clients, ILogger<AbsImporter> logger) : BackgroundService
+public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory clients, ShelfJobs register, ILogger<AbsImporter> logger) : BackgroundService
 {
     private readonly Channel<Guid> _queue = Channel.CreateUnbounded<Guid>();
     private readonly ConcurrentDictionary<Guid, AbsImportJob> _jobs = new();
@@ -226,6 +226,7 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
     {
         var job = new AbsImportJob(Guid.NewGuid(), readerId, connection, progress, items);
         _jobs[job.Id] = job;
+        register.Add(job);
         _queue.Writer.TryWrite(job.Id);
         return job;
     }
@@ -357,6 +358,12 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
             }
 
             var bookId = new[] { heard, read }.FirstOrDefault(result => result?.Outcome is ImportOutcome.Added or ImportOutcome.AddedToExisting)?.BookId;
+            var landed = bookId ?? new[] { heard, read }.FirstOrDefault(result => result?.Outcome == ImportOutcome.AlreadyOnShelf)?.SameAsId;
+            if (landed is int linked)
+            {
+                await LinkAsync(db, job, item.Id, linked, cancellationToken);
+            }
+
             if (bookId is null)
             {
                 var already = new[] { heard, read }.FirstOrDefault(result => result?.Outcome == ImportOutcome.AlreadyOnShelf);
@@ -393,6 +400,17 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
         finally
         {
             Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    // The item is known from now on, so keeping in step does not offer it again.
+    private static async Task LinkAsync(ShelfDb db, AbsImportJob job, string itemId, int bookId, CancellationToken cancellationToken)
+    {
+        var server = AbsKeeper.ServerKey(job.Connection.Server);
+        if (!await db.AbsLinks.AnyAsync(link => link.ReaderId == job.ReaderId && link.Server == server && link.ItemId == itemId, cancellationToken))
+        {
+            db.AbsLinks.Add(new AbsLink { ReaderId = job.ReaderId, Server = server, ItemId = itemId, BookId = bookId });
+            await db.SaveChangesAsync(cancellationToken);
         }
     }
 

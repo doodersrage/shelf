@@ -1,7 +1,8 @@
 @page "/library"
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
-@inject IBookLookup Lookup
+@inject DetailsFiller Filler
+@inject ShelfJobs Jobs
 @inject NavigationManager Navigation
 @inject EbookStore Ebooks
 @inject AudioStore Audio
@@ -133,9 +134,13 @@
                 </label>
             </div>
         </details>
-        @if (books.Any(NeedsCatalog))
+        @if (FillingJob is { } filling)
         {
-            <button type="button" class="quiet" @onclick="FillEmptyDetails" disabled="@filling">@(filling ? T("Looking…") : T("Fill empty details"))</button>
+            <a class="hint" href="/activity">@filling.Title(false): @ImportJobs.Describe(ImportJobs.Summarize(filling, DateTimeOffset.UtcNow))</a>
+        }
+        else if (books.Any(DetailsFiller.NeedsDetails))
+        {
+            <button type="button" class="quiet" @onclick="FillEmptyDetails">@T("Fill empty details")</button>
             @if (fillNote is not null)
             {
                 <span class="hint" role="status">@fillNote</span>
@@ -499,7 +504,7 @@ else if (visible.Count > 0)
     private bool fileOnly;
     private bool audioOnly;
     private Dictionary<string, string[]>? formErrors;
-    private bool filling;
+    private int readerId;
     private string? fillNote;
     // A large shelf draws a page of books at a time, so the library stays quick with thousands.
     private const int PageSize = 60;
@@ -977,6 +982,7 @@ else if (visible.Count > 0)
     private async Task LoadAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
+        readerId = db.ReaderId;
         // Only what the library shows: tags, and quotes for their count and for search.
         books = await db.Books.AsNoTracking().Include(book => book.Tags).Include(book => book.Quotes).AsSplitQuery().ToListAsync();
     }
@@ -1051,57 +1057,13 @@ else if (visible.Count > 0)
         await LoadAsync();
     }
 
-    private static bool NeedsCatalog(Book book) =>
-        book.Year is null
-        || book.Pages is null
-        || string.IsNullOrWhiteSpace(book.Publisher)
-        || string.IsNullOrWhiteSpace(book.Language)
-        || string.IsNullOrWhiteSpace(book.CoverUrl);
+    // Filled in the background, a book at a time; the Activity page shows how far it has got.
+    private DetailsJob? FillingJob => Jobs.Of(readerId).OfType<DetailsJob>().FirstOrDefault(job => !job.Finished);
 
     private async Task FillEmptyDetails()
     {
-        filling = true;
-        fillNote = null;
-        var filled = 0;
-        try
-        {
-            await using var db = await DbFactory.CreateDbContextAsync();
-            var pending = (await db.Books.WithDetails().ToListAsync()).Where(NeedsCatalog).ToList();
-            foreach (var book in pending)
-            {
-                var match = await Lookup.FindAsync(book.Isbn, book.Title, book.Author, CancellationToken.None);
-                if (match is null)
-                {
-                    continue;
-                }
-
-                var tags = book.Tags.Select(tag => tag.Name).ToList();
-                if (!BookRules.FillEmpty(book, match, tags))
-                {
-                    continue;
-                }
-
-                await BookRules.SyncTagsAsync(db, book, tags, CancellationToken.None);
-                filled++;
-            }
-
-            if (filled > 0)
-            {
-                await db.SaveChangesAsync();
-                await BookRules.RemoveUnusedTagsAsync(db, CancellationToken.None);
-            }
-        }
-        finally
-        {
-            filling = false;
-        }
-
-        fillNote = filled switch
-        {
-            0 => T("Nothing new turned up."),
-            _ => T("Filled: {0}.", Localization.Counts.Books(filled)),
-        };
-        await LoadAsync();
+        await using var db = await DbFactory.CreateDbContextAsync();
+        fillNote = await Filler.StartAsync(db, DetailsKind.Everything) is null ? T("Nothing to fill in.") : null;
     }
 
     private async Task ReturnLoan(int id)

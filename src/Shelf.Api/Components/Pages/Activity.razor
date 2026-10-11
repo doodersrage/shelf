@@ -1,0 +1,104 @@
+@page "/activity"
+@rendermode InteractiveServer
+@implements IDisposable
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject ShelfJobs Jobs
+@inject M4bService M4b
+
+<PageTitle>@T("Activity") · Shelf</PageTitle>
+
+@* Everything the shelf is doing for this reader in the background, in one place: imports, details being filled in,
+   keeping in step with another server, and the slower work on single books (read-along, scanned PDFs, M4Bs). *@
+<div class="page-head">
+    <h1>@T("Activity")</h1>
+</div>
+
+@if (jobs.Count == 0 && books.Count == 0)
+{
+    <EmptyState Title="@T("Nothing running")" Text="@T("Imports, details being filled in, and other work Shelf does in the background show here while they run, and for a while after.")" />
+}
+
+@foreach (var job in jobs.Where(job => !job.Finished))
+{
+    <ImportProgress Job="job" />
+}
+
+@if (books.Count > 0)
+{
+    <section class="panel" aria-labelledby="book-work-heading">
+        <h2 id="book-work-heading">@T("Work on single books")</h2>
+        <ul class="free-downloads">
+            @foreach (var (bookId, title, what) in books)
+            {
+                <li><a href="/library/@bookId">@title</a> <span class="hint">@what</span></li>
+            }
+        </ul>
+    </section>
+}
+
+@if (jobs.Any(job => job.Finished))
+{
+    <section aria-labelledby="done-heading">
+        <h2 id="done-heading">@T("Lately finished")</h2>
+        @foreach (var job in jobs.Where(job => job.Finished))
+        {
+            var summary = ImportJobs.Summarize(job, DateTimeOffset.UtcNow);
+            <details class="panel job-done">
+                <summary>
+                    <strong>@summary.Title</strong>
+                    <span class="hint">@job.Started.Medium() · @T("{0} brought", summary.Done.ToString("N0"))@(summary.Skipped > 0 ? " · " + T("{0} already here", summary.Skipped.ToString("N0")) : "")@(summary.Failed > 0 ? " · " + T("{0} could not be", summary.Failed.ToString("N0")) : "")</span>
+                </summary>
+                <ImportProgress Job="job" />
+            </details>
+        }
+    </section>
+}
+
+@code {
+    private List<IShelfJob> jobs = [];
+    private List<(int BookId, string Title, string What)> books = [];
+    private Timer? timer;
+    private int readerId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        readerId = db.ReaderId;
+        await LoadAsync();
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            timer = new Timer(_ => InvokeAsync(async () =>
+            {
+                if (jobs.Any(job => !job.Finished) || books.Count > 0 || Jobs.Of(readerId).Count != jobs.Count)
+                {
+                    await LoadAsync();
+                    StateHasChanged();
+                }
+            }), null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        jobs = [.. Jobs.Of(readerId)];
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var mine = db.Books.AsNoTracking();
+        var reading = await mine.Join(db.ReadAlongs.AsNoTracking().Where(row => row.State != ReadAlongState.Ready && row.State != ReadAlongState.Failed), book => book.Id, row => row.BookId,
+            (book, row) => new { book.Id, book.Title, row.State, row.Done, row.Total }).ToListAsync();
+        var scans = await mine.Join(db.OcrScans.AsNoTracking().Where(scan => !scan.Failed && scan.Done < scan.Pages), book => book.Id, scan => scan.BookId,
+            (book, scan) => new { book.Id, book.Title, scan.Done, scan.Pages }).ToListAsync();
+        var making = M4b.Making.ToList();
+        var merging = making.Count == 0 ? [] : await mine.Where(book => book.AudioStoredName != null && making.Contains(book.AudioStoredName)).Select(book => new { book.Id, book.Title }).ToListAsync();
+        books = [
+            .. reading.Select(item => (item.Id, item.Title, item.State == ReadAlongState.Waiting ? T("Read-along: waiting its turn") : T("Read-along: {0} of {1}", item.Done, item.Total))),
+            .. scans.Select(item => (item.Id, item.Title, T("Reading the scanned pages: {0} of {1}", item.Done, item.Pages))),
+            .. merging.Select(item => (item.Id, item.Title, T("Making one M4B"))),
+        ];
+    }
+
+    public void Dispose() => timer?.Dispose();
+}

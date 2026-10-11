@@ -32,6 +32,91 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("BookTags", (string)null);
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.AbsLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ItemId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Server")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("ReaderId", "Server", "ItemId")
+                        .IsUnique();
+
+                    b.ToTable("AbsLinks");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.AbsSyncSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("BringProgress")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("CheckSoon")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("CheckedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("LastFound")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("LibraryId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LibraryName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Problem")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SealedKey")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Server")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReaderId")
+                        .IsUnique();
+
+                    b.ToTable("AbsSyncs");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.AudioBookmark", b =>
                 {
                     b.Property<int>("Id")
@@ -1862,6 +1947,30 @@ namespace Shelf.Api.Data.Migrations
                     b.HasOne("Shelf.Api.Books.Tag", null)
                         .WithMany()
                         .HasForeignKey("TagsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.AbsLink", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", null)
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.AbsSyncSetting", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

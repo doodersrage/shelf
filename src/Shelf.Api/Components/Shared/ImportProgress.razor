@@ -8,7 +8,7 @@
     var problems = lines.Where(line => line.State == ImportLineState.Failed).ToList();
 }
 <section class="panel import-progress" aria-labelledby="import-progress-heading">
-    <h2 id="import-progress-heading">@(summary.Finished ? T("Brought across from {0}", summary.Source) : T("Bringing books from {0}", summary.Source))</h2>
+    <h2 id="import-progress-heading">@summary.Title</h2>
     <progress max="@Math.Max(1, summary.Total)" value="@handled" aria-label="@ImportJobs.Describe(summary)"></progress>
     <p role="status">
         <strong>@ImportJobs.Describe(summary)</strong>
@@ -74,5 +74,5 @@
 
 @code {
     [Parameter, EditorRequired]
-    public IImportJob Job { get; set; } = default!;
+    public IShelfJob Job { get; set; } = default!;
 }

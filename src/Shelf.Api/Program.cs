@@ -198,6 +198,7 @@ builder.Services.AddSingleton<FreeBooks>();
 // A large library takes a while to list.
 builder.Services.AddHttpClient(AbsClient.ClientName, client => client.Timeout = TimeSpan.FromMinutes(30))
     .Patient(attempt: TimeSpan.FromMinutes(2), total: TimeSpan.FromMinutes(5));
+builder.Services.AddSingleton<ShelfJobs>();
 builder.Services.AddSingleton<AbsImporter>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<AbsImporter>());
 builder.Services.AddHostedService(static services => services.GetRequiredService<FreeBooks>());
@@ -220,6 +221,10 @@ builder.Services.AddSingleton<BookImport>();
 // Calibre libraries, read from the server's disk by an admin.
 builder.Services.AddSingleton<CalibreImporter>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<CalibreImporter>());
+builder.Services.AddSingleton<AbsKeeper>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<AbsKeeper>());
+builder.Services.AddSingleton<DetailsFiller>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<DetailsFiller>());
 // A folder to drop books into (Import:Folder); off unless it is set.
 builder.Services.AddSingleton<FolderImport>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<FolderImport>());

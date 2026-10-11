@@ -70,6 +70,10 @@ A Calibre import, from **Bring a Calibre library**, shows its progress the same 
 
 Each book comes across with its audio tracks in Audiobookshelf's order, its e-book, cover, series and number, narrator, and genres as tags. Tick **Bring where I stopped** to bring your listening place, your place in the e-book, and which books you finished.
 
+### Keeping in step
+
+Connected with an API key, tick **Keep in step** before bringing books, and Shelf looks at that library once a day from then on, bringing across books added to it since. It knows each Audiobookshelf book it has brought, so none comes twice, and a book already on your shelf by title and author is left alone. The Audiobookshelf page shows when it last looked and what it found, with **Check now** and **Stop keeping in step**. Shelf keeps the API key for this, sealed with its own keys, until you stop; a password can't be used, since Audiobookshelf's sign-in by password doesn't last. One library is kept in step for each reader. `AbsSync:Enabled` set to `false` turns it off for the whole shelf.
+
 > [!TIP]
 > The Audiobookshelf user needs permission to download (**Can Download** in its Users settings). Nothing on the Audiobookshelf server changes. If it is served under a path, include it in the address, such as `https://example.org/audiobookshelf`.
 

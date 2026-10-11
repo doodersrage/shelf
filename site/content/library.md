@@ -33,7 +33,7 @@ A book's details hold as much or as little as you like:
 - **About your copy:** where it sits, its condition from fine to poor, how it arrived (bought, a gift, or found), the date, any inscription written in the front, and who recommended it.
 - **Your own words:** a rating, a review, notes, and tags.
 
-Give an ISBN, or a title and author, and **Look up** fills the empty fields from [Open Library](https://openlibrary.org), cover included, whether you are adding a book or editing one. When Open Library has no match, or leaves the pages, publisher, year, or cover blank, [Google Books](https://books.google.com) fills those in; it knows many newer and non-English books Open Library does not. Open Library's answer always comes first. In the library, **Fill empty details** looks up every book with gaps at once. Neither touches anything you wrote.
+Give an ISBN, or a title and author, and **Look up** fills the empty fields from [Open Library](https://openlibrary.org), cover included, whether you are adding a book or editing one. When Open Library has no match, or leaves the pages, publisher, year, or cover blank, [Google Books](https://books.google.com) fills those in; it knows many newer and non-English books Open Library does not. Open Library's answer always comes first. In the library, **Fill empty details** looks up every book with gaps, in the background, a book at a time with a pause between them so the catalogs are asked politely (`Details:PauseMilliseconds`, 1200 by default): leave the page and it carries on, and **Activity** shows how far it has got. Neither touches anything you wrote.
 
 Tags are kept in lowercase, and an ISBN can be typed with or without hyphens.
 
@@ -85,6 +85,18 @@ The more you rate, love, and tag, the better they get.
 - the same as JSON, at `/public/<address>/shelf.json`.
 
 Turning it off ends the address; turning it on again makes a new one.
+
+## Tidy up
+
+Under **Your copies**, **Tidy up** puts a shelf brought in from files and other servers in order. Nothing changes until you choose it:
+
+- **Covers and details**: how many books have no cover, and how many lack a year, pages, publisher, or language. **Find covers** looks up a cover for each book with none (and changes nothing else); **Fill in all missing details** fills every gap. Both run in the background, a book at a time.
+- **Authors written more than one way**: "Le Guin, Ursula K.", "Ursula K Le Guin", and "URSULA K. LE GUIN" are the same person. Each group lists its spellings with how many books use each; choose the one to keep, or use the most common spelling for every group at once.
+- **Series inside titles**: titles like *The Tombs of Atuan (Earthsea Cycle, #2)* or *Discworld 08 - Guards! Guards!* name their series. Taking it out leaves the title alone and sets the series and number, so the book shows with the rest of its series.
+
+## Activity
+
+**Activity**, under **Settings**, lists everything Shelf is doing for you in the background: imports, details being filled in, books brought by keeping in step, and the slower work on single books (read-along transcripts, reading scanned PDFs, making an M4B). Each running job shows its progress and can be stopped; finished ones stay listed for a while, folded to a line with what they did.
 
 ## Duplicates
 
