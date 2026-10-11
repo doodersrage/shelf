@@ -13,7 +13,10 @@ public sealed class ReadingDay
     public Book? Book { get; set; }
     public int ReaderId { get; set; }
     public DateOnly Day { get; set; }
+
+    // Time read in the browser, added up as it comes, and time read on KOReader, replaced each time its statistics come.
     public int Seconds { get; set; }
+    public int DeviceSeconds { get; set; }
 }
 
 public sealed record ReadingTimeRequest(DateOnly? Day, double Seconds);
@@ -35,7 +38,7 @@ public static class ReadingTime
         var me = db.ReaderId;
         var rows = await db.ReadingDays.IgnoreQueryFilters().AsNoTracking()
             .Where(item => item.ReaderId == me && me != 0)
-            .Select(item => new AudioPlayback.TimeRow(item.BookId, item.Day, item.Seconds, item.Book!.Title, item.Book.Author))
+            .Select(item => new AudioPlayback.TimeRow(item.BookId, item.Day, item.Seconds + item.DeviceSeconds, item.Book!.Title, item.Book.Author))
             .ToListAsync(cancellationToken);
         return AudioPlayback.Summarize(rows, today ?? DateOnly.FromDateTime(DateTime.UtcNow));
     }

@@ -75,6 +75,15 @@ Progress sync carries your place, not your highlights. To bring highlights made 
 
 Each book is matched by its title, or else by its file name, among the books on your shelf (or lent to you) that have an e-book. Each highlight goes to its chapter, or for a PDF its page, with its note and the time you made it. KOReader's position picks the chapter, and Shelf checks the words are there, so a highlight still lands right in a different edition. Highlights already on Shelf are not added twice, so exporting everything again later is fine.
 
+### Reading time from KOReader
+
+KOReader's statistics count the time you spend on each page. To have it count on Shelf too, in **Stats**, your year in review, and your hours goal:
+
+1. Connect the e-reader to a computer, and copy `statistics.sqlite3` from KOReader's settings folder (`koreader/settings`; on a Kobo, `.adds/koreader/settings`; on Android, `koreader/settings` in the device's storage).
+2. On **Devices**, under **Bring reading time from KOReader**, choose the file.
+
+Each book is matched by KOReader's fingerprint of the file, which is the same when it came from Shelf, or else by its title and author, among your books and the books lent to you. The time goes to each day it was read, in UTC as Shelf counts days, beside any time you read the same book in Shelf's own reader. Bringing the file again replaces what it brought before, so bring it as often as you like.
+
 ## Highlights from a Kindle
 
 A Kindle keeps every highlight and note you make in one file, **My Clippings.txt**, in its `documents` folder. Connect the Kindle to a computer by its cable, then on **Devices**, under **Bring highlights from a Kindle**, choose that file.

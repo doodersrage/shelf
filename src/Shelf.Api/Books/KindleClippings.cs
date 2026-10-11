@@ -176,7 +176,7 @@ public static partial class KindleClippings
         return null;
     }
 
-    private static bool SameTitle(string title, string? subtitle, string clipped)
+    internal static bool SameTitle(string title, string? subtitle, string clipped)
     {
         var mine = Simple(title);
         var theirs = Simple(clipped);
@@ -185,7 +185,7 @@ public static partial class KindleClippings
     }
 
     // "Le Guin, Ursula K." and "Ursula K. Le Guin" are the same author: the same words in any order.
-    private static bool SameAuthor(string author, string clipped)
+    internal static bool SameAuthor(string author, string clipped)
     {
         var mine = Words(author);
         var theirs = Words(clipped);

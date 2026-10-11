@@ -57,7 +57,7 @@ public static class YearReview
         var me = db.ReaderId;
         var start = new DateOnly(year, 1, 1);
         var end = new DateOnly(year, 12, 31);
-        var reading = await db.ReadingDays.IgnoreQueryFilters().Where(day => day.ReaderId == me && day.Day >= start && day.Day <= end).SumAsync(day => (int?)day.Seconds, cancellationToken) ?? 0;
+        var reading = await db.ReadingDays.IgnoreQueryFilters().Where(day => day.ReaderId == me && day.Day >= start && day.Day <= end).SumAsync(day => (int?)(day.Seconds + day.DeviceSeconds), cancellationToken) ?? 0;
         var listening = await db.ListeningDays.IgnoreQueryFilters().Where(day => day.ReaderId == me && day.Day >= start && day.Day <= end).SumAsync(day => (int?)day.Seconds, cancellationToken) ?? 0;
 
         var from = new DateTimeOffset(year, 1, 1, 0, 0, 0, TimeSpan.Zero);

@@ -776,6 +776,9 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<DateOnly>("Day")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("DeviceSeconds")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("ReaderId")
                         .HasColumnType("INTEGER");
 

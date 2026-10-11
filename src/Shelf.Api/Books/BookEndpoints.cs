@@ -61,6 +61,7 @@ public static class BookEndpoints
         books.MapPost("/{id:int}/kindle", Kindle.Send);
         books.MapPost("/highlights/koreader", KoreaderHighlights.Upload).DisableAntiforgery();
         books.MapPost("/highlights/kindle", KindleClippings.Upload).DisableAntiforgery();
+        books.MapPost("/reading-time/koreader", KoreaderStats.Upload).DisableAntiforgery();
         books.MapPost("/{id:int}/cover", Covers.Upload).DisableAntiforgery();
         books.MapDelete("/{id:int}/cover", Covers.Remove);
         books.MapGet("/{id:int}/notes.md", NotesExport.Book);

@@ -84,6 +84,17 @@ else if (hasKey)
 {
     <p class="@(clippingProblem ? "validation-message" : "saved")" role="status">@clippingNote</p>
 }
+
+<h3>@T("Bring reading time from KOReader")</h3>
+<p>@T("KOReader counts the time you spend on each page in a file called statistics.sqlite3, in its settings folder (koreader/settings on most e-readers). Choose it here, and the time goes to the books on your shelf, by day, for Stats, your year in review, and your hours goal. Bring it again whenever you like; it replaces what it brought before.")</p>
+<label>
+    @T("statistics.sqlite3")
+    <InputFile OnChange="ImportStats" accept=".sqlite3,.sqlite,.db,application/x-sqlite3,application/vnd.sqlite3" disabled="@importingStats" />
+</label>
+@if (statsNote is not null)
+{
+    <p class="@(statsProblem ? "validation-message" : "saved")" role="status">@statsNote</p>
+}
 </section>
 
 <section class="panel" id="kobo">
@@ -219,6 +230,35 @@ else if (hasKobo)
         finally
         {
             importingClippings = false;
+        }
+    }
+
+    private bool importingStats;
+    private string? statsNote;
+    private bool statsProblem;
+
+    private async Task ImportStats(InputFileChangeEventArgs change)
+    {
+        importingStats = true;
+        statsNote = null;
+        try
+        {
+            await using var stream = change.File.OpenReadStream(KoreaderStats.MaxBytes);
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var result = await KoreaderStats.ImportAsync(db, stream);
+            statsProblem = result is null;
+            statsNote = result is null ? T("That is not KOReader's statistics.sqlite3.")
+                : T("{0} of reading on {1} books, over {2} days.", TimePanel.Span(result.Seconds), result.Books, result.Days)
+                    + (result.NotFound.Count > 0 ? " " + T("Not on your shelf: {0}.", string.Join(", ", result.NotFound.Take(20))) : "");
+        }
+        catch (IOException)
+        {
+            statsProblem = true;
+            statsNote = T("Choose statistics.sqlite3 from KOReader's settings folder, of up to 100 MB.");
+        }
+        finally
+        {
+            importingStats = false;
         }
     }
 

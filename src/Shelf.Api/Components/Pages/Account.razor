@@ -1037,7 +1037,7 @@ else
             readwiseProblem = !brought.Done;
             readwiseNote = brought.Import is not { } import ? T("Readwise could not be reached, or no longer takes the token.")
                 : T("Brought {0} highlights and {1} quotes onto {2} books; {3} were here already.", import.Highlights, import.Quotes, import.Books, import.AlreadyHere)
-                    + (import.NotFound.Count > 0 ? " " + T("Not on this shelf: {0}.", string.Join(", ", import.NotFound.Take(10))) + (import.NotFound.Count > 10 ? " " + T("and {0} more", import.NotFound.Count - 10) : "") : "");
+                    + (import.NotFound.Count > 0 ? " " + T("Not on your shelf: {0}.", string.Join(", ", import.NotFound.Take(10))) + (import.NotFound.Count > 10 ? " " + T("and {0} more", import.NotFound.Count - 10) : "") : "");
         }
         finally
         {

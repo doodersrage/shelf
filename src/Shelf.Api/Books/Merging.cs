@@ -237,6 +237,7 @@ public static partial class Merging
             if (read.FirstOrDefault(day => day.BookId == keepId && day.ReaderId == row.ReaderId && day.Day == row.Day) is { } into)
             {
                 into.Seconds += row.Seconds;
+                into.DeviceSeconds = Math.Max(into.DeviceSeconds, row.DeviceSeconds);
                 db.ReadingDays.Remove(row);
             }
             else
