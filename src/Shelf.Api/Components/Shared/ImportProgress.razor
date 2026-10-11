@@ -1,0 +1,78 @@
+@* An import running in the background, however large: how far it has come and how long the rest may take, the
+   book in hand, the last few brought, and any that could not be. Thousands of books never become thousands of rows. *@
+@{
+    var summary = ImportJobs.Summarize(Job, DateTimeOffset.UtcNow);
+    var lines = Job.Lines();
+    var handled = summary.Total - summary.Left;
+    var recent = lines.Where(line => line.State is ImportLineState.Done or ImportLineState.Skipped).TakeLast(8).Reverse().ToList();
+    var problems = lines.Where(line => line.State == ImportLineState.Failed).ToList();
+}
+<section class="panel import-progress" aria-labelledby="import-progress-heading">
+    <h2 id="import-progress-heading">@(summary.Finished ? T("Brought across from {0}", summary.Source) : T("Bringing books from {0}", summary.Source))</h2>
+    <progress max="@Math.Max(1, summary.Total)" value="@handled" aria-label="@ImportJobs.Describe(summary)"></progress>
+    <p role="status">
+        <strong>@ImportJobs.Describe(summary)</strong>
+        <span class="hint"> · @T("{0} brought", summary.Done.ToString("N0"))@(summary.Skipped > 0 ? " · " + T("{0} already here", summary.Skipped.ToString("N0")) : "")@(summary.Failed > 0 ? " · " + T("{0} could not be", summary.Failed.ToString("N0")) : "")</span>
+    </p>
+    @if (!summary.Finished)
+    {
+        @if (summary.Current is { } current)
+        {
+            <p class="hint">@T("Now: {0}", current)@(lines.FirstOrDefault(line => line.State == ImportLineState.Working) is { Bytes: > 0 } working ? " · " + Localization.Counts.Size(working.Bytes) : "")</p>
+        }
+        <p class="hint">@T("It carries on in the background: leave this page, or close the browser, and it keeps going. Every page shows how far it has got.")</p>
+        @if (summary.Stopping)
+        {
+            <p class="hint">@T("Stopping after the book in hand…")</p>
+        }
+        else
+        {
+            <button type="button" class="quiet" @onclick="Job.Stop">@T("Stop after this book")</button>
+        }
+    }
+    else
+    {
+        <p><a href="/library?sort=added">@T("See them in your library, newest first")</a></p>
+    }
+
+    @if (recent.Count > 0)
+    {
+        <h3>@T("Lately")</h3>
+        <ul class="free-downloads">
+            @foreach (var line in recent)
+            {
+                <li>
+                    <span>@line.Title</span>
+                    @if (line.State == ImportLineState.Done && line.BookId is int id)
+                    {
+                        <a href="/library/@id">@T("On your shelf")</a>
+                    }
+                    else
+                    {
+                        <span class="hint">@line.Note</span>
+                    }
+                </li>
+            }
+        </ul>
+    }
+
+    @if (problems.Count > 0)
+    {
+        <h3>@T("Could not be brought")</h3>
+        <ul class="free-downloads">
+            @foreach (var line in problems.Take(200))
+            {
+                <li><span>@line.Title</span> <span class="validation-message">@line.Note</span></li>
+            }
+        </ul>
+        @if (problems.Count > 200)
+        {
+            <p class="hint">@T("And {0} more.", (problems.Count - 200).ToString("N0"))</p>
+        }
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public IImportJob Job { get; set; } = default!;
+}

@@ -52,7 +52,7 @@ public sealed class AudiobookshelfTests(ShelfApiFactory factory) : IClassFixture
         }
 
         Assert.True(job.Finished);
-        var lines = job.Lines;
+        var lines = job.Books;
         Assert.Equal(AbsState.Done, lines["li-earthsea"].State);
         Assert.Equal(AbsState.Done, lines["li-moby"].State);
         Assert.Equal(AbsState.Failed, lines["li-locked"].State);
@@ -82,7 +82,7 @@ public sealed class AudiobookshelfTests(ShelfApiFactory factory) : IClassFixture
             await Task.Delay(50);
         }
 
-        Assert.All(again.Lines.Values, line => Assert.Equal(AbsState.Skipped, line.State));
+        Assert.All(again.Books.Values, line => Assert.Equal(AbsState.Skipped, line.State));
         Assert.Equal(3, AbsClient.SpineIndex("epubcfi(/6/8!/4/2/1:0)"));
         Assert.Null(AbsClient.SpineIndex("not a cfi"));
     }

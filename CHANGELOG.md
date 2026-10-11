@@ -4,6 +4,15 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Fixed
+
+- A large Audiobookshelf library lists quickly, with a count as it comes in, where before a library of thousands showed nothing for minutes and could give up. Telling which books are already on the shelf no longer compares every book with every other.
+- The list of books to choose from draws only the rows in view, so thousands scroll easily, and it can be narrowed by title or author, or to what's new, audiobooks, or e-books.
+
+### Added
+
+- Imports from Audiobookshelf and Calibre show how far they have come: a progress bar, counts, the book in hand, about how long is left, the last few brought, and any that couldn't be. Every other page shows a line with the progress while one runs. **Stop after this book** ends one early.
+
 ## [2.0.0] - 2026-10-11
 
 Shelf 2.0 reorganizes what was there rather than adding more: a front page to pick up from, a library led by its covers, a book page with fewer buttons, a quieter reader, and insights that tell the year's story.

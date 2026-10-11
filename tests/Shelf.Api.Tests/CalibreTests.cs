@@ -23,6 +23,28 @@ public sealed class CalibreTests(ShelfApiFactory factory) : IClassFixture<ShelfA
     }
 
     [Fact]
+    public async Task An_import_says_how_far_it_has_come_and_stops_when_asked()
+    {
+        Build();
+        var books = CalibreLibrary.Read(library);
+        var client = await factory.SignUpAsync("Calibre Stopper");
+        var readerId = await factory.ReaderIdAsync("Calibre Stopper");
+        Assert.Equal(System.Net.HttpStatusCode.NoContent, (await client.GetAsync("/books/imports/running")).StatusCode);
+
+        var job = new CalibreJob(Guid.NewGuid(), readerId, library, books);
+        var waiting = ImportJobs.Summarize(job, DateTimeOffset.UtcNow);
+        Assert.Equal((3, 3, 0, false), (waiting.Total, waiting.Left, waiting.Done, waiting.Finished));
+        Assert.Equal("0 of 3 handled", waiting.Text);
+
+        job.Stop();
+        await factory.Services.GetRequiredService<CalibreImporter>().RunAsync(job, CancellationToken.None);
+        var stopped = ImportJobs.Summarize(job, DateTimeOffset.UtcNow);
+        Assert.Equal((0, 3, 0, true), (stopped.Left, stopped.Skipped, stopped.Done, stopped.Finished));
+        Assert.All(job.Lines(), line => Assert.Equal("Stopped before this one.", line.Note));
+        Assert.Empty((await client.GetFromJsonAsync<List<BookResponse>>("/books", JsonOptions))!);
+    }
+
+    [Fact]
     public async Task A_calibre_library_comes_across_with_its_files_covers_series_tags_and_ratings()
     {
         Build();
@@ -42,7 +64,7 @@ public sealed class CalibreTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         var job = new CalibreJob(Guid.NewGuid(), readerId, library, books);
         await importer.RunAsync(job, CancellationToken.None);
 
-        Assert.All(job.Lines.Values, line => Assert.Equal(CalibreState.Done, line.State));
+        Assert.All(job.Entries.Values, line => Assert.Equal(CalibreState.Done, line.State));
         var shelf = (await client.GetFromJsonAsync<List<BookResponse>>("/books", JsonOptions))!;
         var imported = shelf.Single(book => book.Title == "The Left Hand of Darkness");
         Assert.Equal(("Ursula K. Le Guin & Anonymous Editor", "Hainish Cycle", 4, 5, "9780441478125", 1969), (imported.Author, imported.Series, imported.SeriesNumber, imported.Rating, imported.Isbn, imported.Year));
@@ -62,7 +84,7 @@ public sealed class CalibreTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         // A second run brings nothing twice.
         var again = new CalibreJob(Guid.NewGuid(), readerId, library, CalibreLibrary.Read(library));
         await importer.RunAsync(again, CancellationToken.None);
-        Assert.All(again.Lines.Values, line => Assert.Equal(CalibreState.Skipped, line.State));
+        Assert.All(again.Entries.Values, line => Assert.Equal(CalibreState.Skipped, line.State));
         Assert.Equal(3, (await client.GetFromJsonAsync<List<BookResponse>>("/books", JsonOptions))!.Count);
     }
 

@@ -90,6 +90,7 @@ public static class BookEndpoints
         ReadingTime.Map(books);
         YearReview.Map(books);
         Merging.Map(books);
+        ImportJobs.Map(books);
         WordLookups.Map(books);
         Clubs.Map(books);
         Audible.Map(books);

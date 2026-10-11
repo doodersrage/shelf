@@ -63,8 +63,10 @@ Shelf can watch a folder and add whatever lands in it: books saved by a download
 From **Backup & restore**, **Connect to Audiobookshelf** copies books from an [Audiobookshelf](https://www.audiobookshelf.org) server (version 2):
 
 1. **Connect** with the address you open Audiobookshelf at, and either an API key or a user name and password. Make a key in Audiobookshelf under **Settings, API Keys**, and turn it on. The key or password is used for that import only and never saved.
-2. **Choose** a library and the books to bring. Books already on your shelf are marked and left unticked.
-3. **Bring** them. The import runs in the background, one book at a time, so you can leave the page.
+2. **Choose** a library and the books to bring. A large library is listed with a count as it comes in. Books already on your shelf are marked and left unticked. **Find in the list** and **Show** (new to your shelf, audiobooks, or e-books) narrow a long list, and **Choose these** or **Leave these out** apply to what is shown.
+3. **Bring** them. The import runs in the background, one book at a time, so you can leave the page or close the browser. The page shows how many are done, the book in hand, about how long the rest will take, the last few brought, and any that couldn't be. Every other page shows a line with how far it has got, until it finishes. **Stop after this book** ends it early; books already brought stay.
+
+A Calibre import, from **Bring a Calibre library**, shows its progress the same way.
 
 Each book comes across with its audio tracks in Audiobookshelf's order, its e-book, cover, series and number, narrator, and genres as tags. Tick **Bring where I stopped** to bring your listening place, your place in the e-book, and which books you finished.
 

@@ -3,6 +3,7 @@
 @inject IConfiguration Configuration
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject NavigationManager Navigation
+@inject IServiceProvider Services
 
 @if (!signedIn)
 {
@@ -56,6 +57,18 @@ else
                 </p>
             }
 
+            @if (import is { } running && new Uri(Navigation.Uri).AbsolutePath != running.Page)
+            {
+                @* An import in the background, on every page while it runs; imports.js keeps it moving. *@
+                <p class="notice import-notice" role="status" data-import-progress data-done="@T("Finished bringing books from {0}. See what came across.", running.Source)">
+                    <a href="@running.Page">
+                        <span>@T("Bringing books from {0}", running.Source):</span>
+                        <span data-import-text>@ImportJobs.Describe(running)</span>
+                    </a>
+                    <progress data-import-bar max="@Math.Max(1, running.Total)" value="@(running.Total - running.Left)" aria-hidden="true"></progress>
+                </p>
+            }
+
             <main id="main">
                 @Body
             </main>
@@ -91,6 +104,7 @@ else
     private Reminders? reminders;
     private List<SavedSearch> savedSearches = [];
     private int seriesAlerts;
+    private ImportSummary? import;
 
     private string? SavedCurrent(int id) =>
         new Uri(Navigation.Uri) is { AbsolutePath: "/library" } here
@@ -224,6 +238,7 @@ else
             isChild = await Family.IsRestrictedAsync(db);
             savedSearches = await db.SavedSearches.AsNoTracking().OrderBy(search => search.Name).ToListAsync();
             seriesAlerts = await SeriesWatch.CountAsync(db);
+            import = ImportJobs.Running(Services, db.ReaderId) is { } job ? ImportJobs.Summarize(job, DateTimeOffset.UtcNow) : null;
         }
     }
 

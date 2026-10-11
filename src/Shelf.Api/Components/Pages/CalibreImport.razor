@@ -17,41 +17,11 @@
 }
 else if (job is not null)
 {
-    <section class="panel" aria-labelledby="calibre-progress">
-        <h2 id="calibre-progress">@(job.Finished ? T("Brought across") : T("Bringing books across"))</h2>
-        <p class="hint" role="status">@T("Done: {0}. Already here: {1}. Not brought: {2}.", job.Lines.Values.Count(line => line.State == CalibreState.Done), job.Lines.Values.Count(line => line.State == CalibreState.Skipped), job.Lines.Values.Count(line => line.State == CalibreState.Failed))</p>
-        <ul class="free-downloads">
-            @foreach (var line in job.Books.Select(book => job.Lines[book.Id]))
-            {
-                <li>
-                    <span>@line.Title</span>
-                    @switch (line.State)
-                    {
-                        case CalibreState.Waiting:
-                            <span class="hint">@T("Waiting")</span>
-                            break;
-                        case CalibreState.Done:
-                            <a href="/library/@line.BookId">@T("On your shelf")</a>
-                            break;
-                        case CalibreState.Skipped:
-                            <span class="hint">@line.Note</span>
-                            break;
-                        default:
-                            <span class="validation-message">@line.Note</span>
-                            break;
-                    }
-                    @if (line.State == CalibreState.Done && line.Note is not null)
-                    {
-                        <span class="hint">@line.Note</span>
-                    }
-                </li>
-            }
-        </ul>
-        @if (job.Finished)
-        {
-            <button type="button" class="quiet" @onclick="StartOver">@T("Bring another library")</button>
-        }
-    </section>
+    <ImportProgress Job="job" />
+    @if (job.Finished)
+    {
+        <button type="button" class="quiet" @onclick="StartOver">@T("Bring another library")</button>
+    }
 }
 else if (books is null)
 {

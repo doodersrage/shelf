@@ -183,7 +183,7 @@ public enum CalibreState
 
 public sealed record CalibreLine(int Id, string Title, CalibreState State, int? BookId, string? Note);
 
-public sealed class CalibreJob(Guid id, int readerId, string library, IReadOnlyList<CalibreBook> books)
+public sealed class CalibreJob(Guid id, int readerId, string library, IReadOnlyList<CalibreBook> books) : IImportJob
 {
     public string Language { get; } = Words.Current;
 
@@ -192,8 +192,27 @@ public sealed class CalibreJob(Guid id, int readerId, string library, IReadOnlyL
     public string Library { get; } = library;
     public DateTimeOffset Started { get; } = DateTimeOffset.UtcNow;
     public IReadOnlyList<CalibreBook> Books { get; } = books;
-    public ConcurrentDictionary<int, CalibreLine> Lines { get; } = new(books.Select(book => KeyValuePair.Create(book.Id, new CalibreLine(book.Id, book.Title, CalibreState.Waiting, null, null))));
+    public ConcurrentDictionary<int, CalibreLine> Entries { get; } = new(books.Select(book => KeyValuePair.Create(book.Id, new CalibreLine(book.Id, book.Title, CalibreState.Waiting, null, null))));
     public bool Finished { get; set; }
+    public bool Stopping { get; private set; }
+
+    // The book being brought now.
+    public int? Current { get; set; }
+
+    public string Source => "Calibre";
+
+    public string Page => "/import/calibre";
+
+    public void Stop() => Stopping = true;
+
+    public IReadOnlyList<ImportLine> Lines() => [.. Books.Select(book => Entries[book.Id]).Select(line => new ImportLine(line.Title, line.State switch
+    {
+        CalibreState.Waiting when Current == line.Id => ImportLineState.Working,
+        CalibreState.Waiting => ImportLineState.Waiting,
+        CalibreState.Done => ImportLineState.Done,
+        CalibreState.Skipped => ImportLineState.Skipped,
+        _ => ImportLineState.Failed,
+    }, line.Note, line.BookId, 0))];
 }
 
 // Imports run in the background, a book at a time: its file, cover, series, tags, rating, and description. A book
@@ -220,9 +239,16 @@ public sealed class CalibreImporter(IServiceScopeFactory scopes, ILogger<Calibre
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(job.Language);
         foreach (var book in job.Books)
         {
+            if (job.Stopping)
+            {
+                job.Entries[book.Id] = job.Entries[book.Id] with { State = CalibreState.Skipped, Note = T("Stopped before this one.") };
+                continue;
+            }
+
+            job.Current = book.Id;
             try
             {
-                job.Lines[book.Id] = await ImportAsync(job, book, cancellationToken);
+                job.Entries[book.Id] = await ImportAsync(job, book, cancellationToken);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or DbUpdateException)
             {
@@ -232,14 +258,15 @@ public sealed class CalibreImporter(IServiceScopeFactory scopes, ILogger<Calibre
                 }
 
                 logger.LogInformation(ex, "Could not import {Title} from Calibre.", book.Title);
-                job.Lines[book.Id] = job.Lines[book.Id] with { State = CalibreState.Failed, Note = T("Shelf could not read its files.") };
+                job.Entries[book.Id] = job.Entries[book.Id] with { State = CalibreState.Failed, Note = T("Shelf could not read its files.") };
             }
         }
 
+        job.Current = null;
         job.Finished = true;
         using var scope = scopes.CreateScope();
         scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(job.ReaderId);
-        var done = job.Lines.Values.Count(line => line.State == CalibreState.Done);
+        var done = job.Entries.Values.Count(line => line.State == CalibreState.Done);
         await Audit.NoteAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), Say("Brought books from Calibre"), detail: Counts.Books(done), cancellationToken: cancellationToken);
     }
 
@@ -261,7 +288,7 @@ public sealed class CalibreImporter(IServiceScopeFactory scopes, ILogger<Calibre
         var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
         var import = scope.ServiceProvider.GetRequiredService<BookImport>();
         var covers = scope.ServiceProvider.GetRequiredService<CoverStore>();
-        var line = job.Lines[book.Id];
+        var line = job.Entries[book.Id];
         var known = new FileDetails(book.Title, book.Author, book.Isbn, book.Publisher, book.Year, book.Language);
 
         ImportedFile? result = null;

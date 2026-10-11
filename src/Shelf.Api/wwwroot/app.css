@@ -1359,6 +1359,44 @@ dialog.scanner p {
 .abs-items label.check > span {
     display: flex;
     flex-direction: column;
+    min-width: 0;
+}
+
+/* Rows of one height, as the list that draws only those in view needs. */
+.abs-item {
+    box-sizing: border-box;
+    height: 58px;
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-rule);
+    overflow: hidden;
+}
+
+.abs-item label.check {
+    margin: 0;
+}
+
+.abs-item strong,
+.abs-item .hint {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.abs-filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: var(--space-2) var(--space-4);
+    margin: var(--space-3) 0;
+}
+
+.abs-filter label {
+    margin: 0;
+}
+
+.import-progress progress {
+    width: 100%;
+    margin: var(--space-2) 0;
 }
 
 /* The activity log: a time, then what happened. */
@@ -3882,4 +3920,23 @@ blockquote mark {
     .chip {
         flex: none;
     }
+}
+
+/* An import running in the background, shown on every other page with how far it has got. */
+.import-notice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+}
+
+.import-notice a {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0 var(--space-1);
+}
+
+.import-notice progress {
+    flex: 1 1 8rem;
+    max-width: 16rem;
 }

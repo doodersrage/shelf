@@ -88,13 +88,13 @@ public static partial class AbsClient
         return new AbsConnection(server, token, Text(account, "username") ?? "", canDownload, books);
     }
 
-    // Every book in a library, two hundred at a time.
-    public static async Task<List<AbsItem>> ItemsAsync(HttpClient http, AbsConnection connection, string libraryId, CancellationToken cancellationToken)
+    // Every book in a library, five hundred at a time in the short form, saying how far it has got as it goes.
+    public static async Task<List<AbsItem>> ItemsAsync(HttpClient http, AbsConnection connection, string libraryId, CancellationToken cancellationToken, IProgress<(int Listed, int Total)>? progress = null)
     {
         var items = new List<AbsItem>();
-        for (var page = 0; page < 500; page++)
+        for (var page = 0; page < 1000; page++)
         {
-            var url = new Uri(connection.Server, $"api/libraries/{Uri.EscapeDataString(libraryId)}/items?limit=200&page={page}&sort=media.metadata.title");
+            var url = new Uri(connection.Server, $"api/libraries/{Uri.EscapeDataString(libraryId)}/items?limit=500&page={page}&minified=1&sort=media.metadata.title");
             using var response = await Send(http, HttpMethod.Get, url, connection.Token, null, cancellationToken);
             await Ensure(response);
             using var document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
@@ -113,6 +113,7 @@ public static partial class AbsClient
             }
 
             var total = document.RootElement.TryGetProperty("total", out var all) && all.ValueKind == JsonValueKind.Number ? all.GetInt32() : items.Count;
+            progress?.Report((items.Count, total));
             if (results.GetArrayLength() == 0 || items.Count >= total)
             {
                 break;
@@ -184,7 +185,7 @@ public enum AbsState
 
 public sealed record AbsImportLine(string ItemId, string Title, AbsState State, long Bytes, int? BookId, string? Note);
 
-public sealed class AbsImportJob(Guid id, int readerId, AbsConnection connection, bool progress, IReadOnlyList<AbsItem> items)
+public sealed class AbsImportJob(Guid id, int readerId, AbsConnection connection, bool progress, IReadOnlyList<AbsItem> items) : IImportJob
 {
     public string Language { get; } = Words.Current;
 
@@ -193,9 +194,25 @@ public sealed class AbsImportJob(Guid id, int readerId, AbsConnection connection
     public AbsConnection Connection { get; } = connection;
     public bool Progress { get; } = progress;
     public DateTimeOffset Started { get; } = DateTimeOffset.UtcNow;
-    public ConcurrentDictionary<string, AbsImportLine> Lines { get; } = new(items.Select(item => KeyValuePair.Create(item.Id, new AbsImportLine(item.Id, item.Title, AbsState.Waiting, 0, null, null))));
+    public ConcurrentDictionary<string, AbsImportLine> Books { get; } = new(items.Select(item => KeyValuePair.Create(item.Id, new AbsImportLine(item.Id, item.Title, AbsState.Waiting, 0, null, null))));
     public IReadOnlyList<AbsItem> Items { get; } = items;
     public bool Finished { get; set; }
+    public bool Stopping { get; private set; }
+
+    public string Source => "Audiobookshelf";
+
+    public string Page => "/import/audiobookshelf";
+
+    public void Stop() => Stopping = true;
+
+    public IReadOnlyList<ImportLine> Lines() => [.. Items.Select(item => Books[item.Id]).Select(line => new ImportLine(line.Title, line.State switch
+    {
+        AbsState.Waiting => ImportLineState.Waiting,
+        AbsState.Downloading => ImportLineState.Working,
+        AbsState.Done => ImportLineState.Done,
+        AbsState.Skipped => ImportLineState.Skipped,
+        _ => ImportLineState.Failed,
+    }, line.Note, line.BookId, line.Bytes))];
 }
 
 // Imports run one at a time in the background, each book in turn: its tracks in order, its e-book, its cover, and,
@@ -229,6 +246,12 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
 
             foreach (var item in job.Items)
             {
+                if (job.Stopping)
+                {
+                    Set(job, item.Id, line => line with { State = AbsState.Skipped, Note = T("Stopped before this one.") });
+                    continue;
+                }
+
                 try
                 {
                     await ImportAsync(job, item, stoppingToken);
@@ -251,7 +274,7 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
     }
 
     private static void Set(AbsImportJob job, string itemId, Func<AbsImportLine, AbsImportLine> change) =>
-        job.Lines.AddOrUpdate(itemId, _ => throw new KeyNotFoundException(), (_, line) => change(line));
+        job.Books.AddOrUpdate(itemId, _ => throw new KeyNotFoundException(), (_, line) => change(line));
 
     private async Task ImportAsync(AbsImportJob job, AbsItem item, CancellationToken cancellationToken)
     {
@@ -492,7 +515,7 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
         using var scope = scopes.CreateScope();
         scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(job.ReaderId);
         var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
-        var done = job.Lines.Values.Count(line => line.State == AbsState.Done);
+        var done = job.Books.Values.Count(line => line.State == AbsState.Done);
         await Audit.NoteAsync(db, Localization.Words.Say("Imported from Audiobookshelf"), detail: $"{done} of {job.Items.Count} books from {job.Connection.Server.GetLeftPart(UriPartial.Authority)}", cancellationToken: cancellationToken);
     }
 

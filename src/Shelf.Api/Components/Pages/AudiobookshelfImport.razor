@@ -1,5 +1,6 @@
 @page "/import/audiobookshelf"
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Web.Virtualization
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject IHttpClientFactory Http
 @inject AbsImporter Importer
@@ -13,40 +14,11 @@
 
 @if (job is not null)
 {
-    <section class="panel" aria-labelledby="progress-heading">
-        <h2 id="progress-heading">@(job.Finished ? T("Brought across") : T("Bringing books across"))</h2>
-        <p class="hint" role="status">@Summary(job)</p>
-        <ul class="free-downloads">
-            @foreach (var line in job.Items.Select(item => job.Lines[item.Id]))
-            {
-                <li>
-                    <span>@line.Title</span>
-                    @switch (line.State)
-                    {
-                        case AbsState.Waiting:
-                            <span class="hint">@T("Waiting")</span>
-                            break;
-                        case AbsState.Downloading:
-                            <span class="hint">@(line.Bytes > 0 ? T("Copying, {0}…", Localization.Counts.Size(line.Bytes)) : T("Copying…"))</span>
-                            break;
-                        case AbsState.Done:
-                            <a href="/library/@line.BookId">@T("On your shelf")</a>
-                            break;
-                        case AbsState.Skipped:
-                            <span class="hint">@line.Note @if (line.BookId is int same) { <a href="/library/@same">@T("See it")</a> }</span>
-                            break;
-                        default:
-                            <span class="validation-message">@line.Note</span>
-                            break;
-                    }
-                </li>
-            }
-        </ul>
-        @if (job.Finished)
-        {
-            <button type="button" @onclick="BringMore">@T("Bring more")</button>
-        }
-    </section>
+    <ImportProgress Job="job" />
+    @if (job.Finished)
+    {
+        <button type="button" @onclick="BringMore">@T("Bring more")</button>
+    }
 }
 else if (connection is null)
 {
@@ -111,28 +83,55 @@ else
                 </select>
             </label>
         }
-        @if (items is { Count: > 0 })
+        @if (listing is var (listed, total))
+        {
+            @* A large library takes a while to list; this says how far it has got. *@
+            <div role="status">
+                <progress max="@Math.Max(1, total)" value="@listed" aria-label="@T("Listing the library")"></progress>
+                <p class="hint">@(total > 0 ? T("Listing the library: {0} of {1} books…", listed.ToString("N0"), total.ToString("N0")) : T("Listing the library…"))</p>
+            </div>
+        }
+        else if (items is { Count: > 0 })
         {
             <div class="bulk-bar">
                 <button type="button" class="quiet" @onclick="() => { chosen = items.Where(item => !onShelf.Contains(item.Id)).Select(item => item.Id).ToHashSet(); }">@T("Choose all new")</button>
                 <button type="button" class="quiet" @onclick="() => chosen.Clear()">@T("Choose none")</button>
-                <span class="hint">@T("{0} of {1} chosen", chosen.Count, items.Count)</span>
+                <span class="hint">@T("{0} of {1} chosen", chosen.Count.ToString("N0"), items.Count.ToString("N0"))@(onShelf.Count > 0 ? " · " + T("{0} already on your shelf", onShelf.Count.ToString("N0")) : "")</span>
             </div>
-            <ul class="abs-items">
-                @foreach (var item in items)
+            <div class="abs-filter">
+                <label>
+                    @T("Find in the list")
+                    <input type="search" @bind="filter" @bind:event="oninput" placeholder="@T("Title or author")" />
+                </label>
+                <label>
+                    @T("Show")
+                    <select @bind="kind">
+                        <option value="">@T("Everything")</option>
+                        <option value="new">@T("Only what is new to your shelf")</option>
+                        <option value="audio">@T("Audiobooks")</option>
+                        <option value="ebook">@T("E-books")</option>
+                    </select>
+                </label>
+                @if (Shown.Count != items.Count)
                 {
-                    var here = onShelf.Contains(item.Id);
-                    <li>
+                    <button type="button" class="quiet" @onclick="() => chosen.UnionWith(Shown.Select(item => item.Id))">@T("Choose these {0}", Shown.Count.ToString("N0"))</button>
+                    <button type="button" class="quiet" @onclick="() => chosen.ExceptWith(Shown.Select(item => item.Id))">@T("Leave these out")</button>
+                }
+            </div>
+            @* Only the rows in view are drawn, so a library of ten thousand scrolls as easily as one of ten. *@
+            <div class="abs-items" tabindex="0" role="group" aria-label="@T("Books in the library")">
+                <Virtualize Items="Shown" ItemSize="58" OverscanCount="10" Context="item">
+                    <div class="abs-item">
                         <label class="check">
                             <input type="checkbox" checked="@chosen.Contains(item.Id)" @onchange="() => Toggle(item.Id)" aria-label="@T("Choose {0}", item.Title)" />
                             <span>
-                                <strong>@item.Title</strong> <span class="by">@item.Author</span>
-                                <span class="hint">@Describe(item)@(here ? " · " + T("already on your shelf") : "")</span>
+                                <strong>@item.Title</strong>
+                                <span class="hint">@item.Author · @Describe(item)@(onShelf.Contains(item.Id) ? " · " + T("already on your shelf") : "")</span>
                             </span>
                         </label>
-                    </li>
-                }
-            </ul>
+                    </div>
+                </Virtualize>
+            </div>
             <label class="check">
                 <input type="checkbox" @bind="bringProgress" />
                 @T("Bring where I stopped listening or reading, and which books I finished")
@@ -176,11 +175,46 @@ else
         job = Importer.Latest(readerId);
     }
 
+    // Drawn again every two seconds only while something is moving: the listing, or an import running.
     protected override void OnAfterRender(bool firstRender)
     {
         if (firstRender)
         {
-            timer = new Timer(_ => InvokeAsync(StateHasChanged), null, TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(1.5));
+            timer = new Timer(_ =>
+            {
+                if (listing is not null || job is { Finished: false } || (job is not null && !shownFinished))
+                {
+                    shownFinished = job?.Finished == true;
+                    InvokeAsync(StateHasChanged);
+                }
+            }, null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        }
+    }
+
+    private bool shownFinished;
+    private (int Listed, int Total)? listing;
+    private CancellationTokenSource? listingStop;
+    private string filter = "";
+    private string kind = "";
+
+    private List<AbsItem> Shown
+    {
+        get
+        {
+            IEnumerable<AbsItem> shown = items ?? [];
+            if (filter.Trim() is { Length: > 0 } words)
+            {
+                shown = shown.Where(item => item.Title.Contains(words, StringComparison.CurrentCultureIgnoreCase) || item.Author.Contains(words, StringComparison.CurrentCultureIgnoreCase));
+            }
+
+            shown = kind switch
+            {
+                "new" => shown.Where(item => !onShelf.Contains(item.Id)),
+                "audio" => shown.Where(item => item.AudioFiles > 0),
+                "ebook" => shown.Where(item => item.EbookFormat is not null),
+                _ => shown,
+            };
+            return shown.ToList();
         }
     }
 
@@ -230,29 +264,52 @@ else
 
         problem = null;
         items = null;
+        listingStop?.Cancel();
+        listingStop = new CancellationTokenSource(TimeSpan.FromMinutes(20));
+        listing = (0, 0);
         try
         {
-            using var limit = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-            items = await AbsClient.ItemsAsync(Http.CreateClient(AbsClient.ClientName), connection, libraryId, limit.Token);
+            // Told at once, not later through the page's queue, so a late word cannot bring the listing back after it ends.
+            var stop = listingStop;
+            var progress = new Told<(int Listed, int Total)>(step =>
+            {
+                if (listing is not null && !stop.IsCancellationRequested)
+                {
+                    listing = step;
+                }
+            });
+            items = await AbsClient.ItemsAsync(Http.CreateClient(AbsClient.ClientName), connection, libraryId, listingStop.Token, progress);
         }
-        catch (Exception ex) when (ex is AbsProblem or TaskCanceledException or System.Text.Json.JsonException or KeyNotFoundException)
+        catch (Exception ex) when (ex is AbsProblem or TaskCanceledException or OperationCanceledException or System.Text.Json.JsonException or KeyNotFoundException)
         {
             problem = ex is AbsProblem ? ex.Message : T("Audiobookshelf did not list that library.");
             return;
         }
+        finally
+        {
+            listing = null;
+        }
 
-        // On the shelf already: the same title and author, with the kinds of file this item has.
+        // On the shelf already: the same title and author, with the kinds of file this item has. Looked up by name,
+        // so thousands of books on each side take a moment, not millions of comparisons.
         await using var db = await DbFactory.CreateDbContextAsync();
-        var shelf = await db.Books.AsNoTracking()
-            .Select(book => new { book.Title, book.Author, book.Isbn, Audio = book.AudioStoredName != null, Ebook = book.EbookStoredName != null })
-            .ToListAsync();
+        var shelf = (await db.Books.AsNoTracking()
+            .Select(book => new { book.Title, book.Author, Audio = book.AudioStoredName != null, Ebook = book.EbookStoredName != null })
+            .ToListAsync())
+            .ToLookup(book => Key(book.Title, book.Author));
         onShelf = items
-            .Where(item => shelf.Any(book => BookRules.IsSameCopy(null, item.Title, item.Author, book.Isbn, book.Title, book.Author)
-                && (item.AudioFiles == 0 || book.Audio) && (item.EbookFormat is null || book.Ebook)))
+            .Where(item => shelf[Key(item.Title, item.Author)].Any(book => (item.AudioFiles == 0 || book.Audio) && (item.EbookFormat is null || book.Ebook)))
             .Select(item => item.Id)
             .ToHashSet();
         chosen = items.Where(item => !onShelf.Contains(item.Id)).Select(item => item.Id).ToHashSet();
     }
+
+    private sealed class Told<T>(Action<T> told) : IProgress<T>
+    {
+        public void Report(T value) => told(value);
+    }
+
+    private static string Key(string title, string author) => $"{title.Trim().ToUpperInvariant()}\u0001{author.Trim().ToUpperInvariant()}";
 
     private void Toggle(string id)
     {
@@ -310,17 +367,9 @@ else
         return parts.Count == 0 ? T("no files") : string.Join(T(" and "), parts);
     }
 
-    private static string Summary(AbsImportJob job)
+    public void Dispose()
     {
-        var lines = job.Lines.Values.ToList();
-        var done = lines.Count(line => line.State == AbsState.Done);
-        var skipped = lines.Count(line => line.State == AbsState.Skipped);
-        var failed = lines.Count(line => line.State == AbsState.Failed);
-        var text = T("{0} of {1} brought across", done, lines.Count);
-        if (skipped > 0) text += T(", {0} already here", skipped);
-        if (failed > 0) text += T(", {0} could not be", failed);
-        return job.Finished ? text + "." : text + T(" so far. You can leave this page; it carries on.");
+        timer?.Dispose();
+        listingStop?.Cancel();
     }
-
-    public void Dispose() => timer?.Dispose();
 }
