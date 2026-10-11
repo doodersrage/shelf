@@ -111,6 +111,7 @@ public static partial class Merging
         if (audioMoves)
         {
             (keep.AudioStoredName, keep.AudioFileName, keep.AudioTrack, keep.AudioSeconds) = (other.AudioStoredName, other.AudioFileName, other.AudioTrack, other.AudioSeconds);
+            (keep.AudioChapterNames, keep.Asin) = (other.AudioChapterNames, keep.Asin ?? other.Asin);
         }
         else
         {

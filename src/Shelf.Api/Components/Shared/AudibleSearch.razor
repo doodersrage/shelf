@@ -1,0 +1,165 @@
+@* Finds an audiobook at Audible and takes its narrator, series, chapter names, and cover onto the book. *@
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject IAudibleCatalog Catalog
+@inject CoverStore Covers
+
+<details class="edit" id="audible">
+    <summary>@T("Match on Audible")</summary>
+    <p class="hint">@T("Find this audiobook at Audible for its narrator, series, publisher, and cover, and its chapter names for the player. Search by title and author, or give its ASIN.")</p>
+    <form class="audible-search" @onsubmit="Search" @onsubmit:preventDefault>
+        <label>
+            @T("Title or ASIN")
+            <input type="search" @bind="title" @bind:event="oninput" maxlength="200" />
+        </label>
+        <label>
+            @T("Author")
+            <input type="text" @bind="author" maxlength="200" />
+        </label>
+        <label>
+            @T("Audible store")
+            <select @bind="region">
+                @foreach (var (store, domain) in AudibleCatalog.Regions)
+                {
+                    <option value="@store">audible@(domain)</option>
+                }
+            </select>
+        </label>
+        <button type="submit" disabled="@(busy || string.IsNullOrWhiteSpace(title))">@(busy ? T("Looking…") : T("Search Audible"))</button>
+    </form>
+    @if (HasChapters)
+    {
+        <p class="hint">@T("The player uses Audible's chapter names for this recording.") <button type="button" class="quiet" @onclick="ForgetChapters">@T("Use the file's own chapters")</button></p>
+    }
+    @if (matches is { Count: 0 })
+    {
+        <p class="hint" role="status">@T("Audible found nothing by that title. Try fewer words, another store, or the ASIN from the book's address at Audible.")</p>
+    }
+    else if (matches is not null)
+    {
+        <fieldset class="audible-take">
+            <legend>@T("Take from the match")</legend>
+            <label class="check"><input type="checkbox" @bind="takeDetails" /> @T("Narrator, series, publisher, year, and language")</label>
+            <label class="check"><input type="checkbox" @bind="takeChapters" /> @T("Chapter names")</label>
+            <label class="check"><input type="checkbox" @bind="takeCover" /> @T("Cover")</label>
+        </fieldset>
+        <ul class="audible-matches">
+            @foreach (var match in matches)
+            {
+                <li>
+                    @if (match.Cover is not null)
+                    {
+                        <img src="@match.Cover" alt="" loading="lazy" referrerpolicy="no-referrer" />
+                    }
+                    <div>
+                        <strong>@match.Title</strong>@(match.Subtitle is null ? "" : $": {match.Subtitle}")
+                        <span class="hint">@match.Author</span>
+                        @if (match.Narrator is not null)
+                        {
+                            <span class="hint">@T("Read by {0}", match.Narrator)</span>
+                        }
+                        <span class="hint">@Facts(match)</span>
+                    </div>
+                    <button type="button" @onclick="() => Take(match)" disabled="@(busy || !(takeDetails || takeChapters || takeCover))" aria-label="@T("Use {0}", match.Title)">@T("Use this")</button>
+                </li>
+            }
+        </ul>
+    }
+    @if (note is not null)
+    {
+        <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
+    }
+</details>
+
+@code {
+    [Parameter, EditorRequired]
+    public int BookId { get; set; }
+
+    [Parameter]
+    public string InitialTitle { get; set; } = "";
+
+    [Parameter]
+    public string InitialAuthor { get; set; } = "";
+
+    [Parameter]
+    public bool HasChapters { get; set; }
+
+    [Parameter]
+    public EventCallback Changed { get; set; }
+
+    private string title = "";
+    private string author = "";
+    private string region = "us";
+    private bool busy;
+    private bool problem;
+    private bool takeDetails = true;
+    private bool takeChapters = true;
+    private bool takeCover;
+    private string? note;
+    private IReadOnlyList<AudibleMatch>? matches;
+
+    protected override void OnInitialized()
+    {
+        title = InitialTitle;
+        author = InitialAuthor;
+        region = System.Globalization.CultureInfo.CurrentCulture.TwoLetterISOLanguageName switch
+        {
+            "de" => "de",
+            "fr" => "fr",
+            "es" => "es",
+            _ => "us",
+        };
+    }
+
+    private async Task Search()
+    {
+        (busy, note) = (true, null);
+        try
+        {
+            matches = await Audible.SearchAsync(Catalog, title, author, region);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task Take(AudibleMatch match)
+    {
+        busy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var applied = await Audible.ApplyAsync(db, Catalog, Covers, BookId, new AudibleApplyRequest(match.Asin, region, takeDetails, takeChapters, takeCover));
+            problem = applied is null;
+            note = applied is null ? T("Audible could not be reached. Try again in a while.")
+                : string.Join(" ", new[]
+                {
+                    applied.Details ? T("Took the details from Audible.") : null,
+                    takeChapters ? (applied.Chapters > 0 ? T("The player now names {0} chapters.", applied.Chapters) : T("Audible has no chapter names for this one.")) : null,
+                    takeCover ? (applied.Cover ? T("The cover is Audible's.") : T("The cover could not be fetched.")) : null,
+                }.OfType<string>());
+            matches = null;
+            await Changed.InvokeAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task ForgetChapters()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Audible.ForgetChaptersAsync(db, BookId);
+        (note, problem) = (T("The player uses the file's own chapters again."), false);
+        await Changed.InvokeAsync();
+    }
+
+    private static string Facts(AudibleMatch match) => string.Join(" · ", new[]
+    {
+        match.Series is null ? null : match.SeriesPosition is null ? match.Series : T("{0}, book {1}", match.Series, match.SeriesPosition),
+        match.Minutes is int minutes ? T("{0} h {1} min", minutes / 60, minutes % 60) : null,
+        match.Year?.ToString(System.Globalization.CultureInfo.CurrentCulture),
+        match.Asin,
+    }.OfType<string>());
+}

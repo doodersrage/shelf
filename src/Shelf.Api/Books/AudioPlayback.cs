@@ -79,9 +79,9 @@ public static class AudioPlayback
 
         var lengths = store.Lengths(book.AudioStoredName);
         var marks = store.Chapters(book.AudioStoredName);
-        var chapters = marks.Count > 1
+        var chapters = Audible.Place(book.AudioChapterNames, lengths) ?? (marks.Count > 1
             ? marks.Select(mark => new AudioPlanChapter(mark.Index, mark.Title, 0, mark.Start)).ToArray()
-            : tracks.Select(track => new AudioPlanChapter(track.Index, track.Title, track.Index, 0)).ToArray();
+            : tracks.Select(track => new AudioPlanChapter(track.Index, track.Title, track.Index, 0)).ToArray());
         var place = await Lending.PlaceAsync(db, open, cancellationToken);
         var at = place.AudioTrack is int saved && saved >= 0 && saved < tracks.Count ? saved : 0;
         return new AudioPlan(

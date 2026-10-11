@@ -97,6 +97,7 @@ public static class AudioEndpoints
 
         store.Delete(book.AudioStoredName);
         book.AudioStoredName = null;
+        book.AudioChapterNames = null;
         book.AudioFileName = null;
         book.AudioTrack = null;
         book.AudioSeconds = null;

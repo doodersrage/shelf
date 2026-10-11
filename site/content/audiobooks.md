@@ -13,6 +13,16 @@ On a book's page, under **Files**, upload one audio file or a zip of tracks, up 
 
 If the files carry cover art (an `.m4b`'s cover, or an MP3's front-cover picture) and the book has no cover yet, the art becomes its cover.
 
+### Matching it on Audible
+
+Under the recording, **Match on Audible** searches Audible's catalogue by the book's title and author, or by an ASIN (the ten letters and digits in the book's address at Audible). Choose the Audible store whose edition you have; each country sells its own. For the match you choose, Shelf can take:
+
+- **The details:** the narrator, the series and the book's number in it, the publisher, the year, and the language. The title and author stay as you have them.
+- **Chapter names,** from [Audnexus](https://audnex.us), which the player then shows instead of the file's own marks or track names. They're placed across the tracks by time, so they work for one long file or for many. If they run past the end of your recording (another edition, or an abridged one), the player keeps the file's chapters. **Use the file's own chapters** goes back to those.
+- **The cover,** at Audible's size.
+
+Matching asks Audible and Audnexus over the internet; nothing is sent about you but the title and author you search for.
+
 ## The player
 
 ![The audiobook player: the cover, the chapter, the controls, and the book's progress with a mark at each chapter](assets/images/listen.png)

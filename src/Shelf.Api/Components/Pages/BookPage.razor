@@ -555,6 +555,10 @@ else if (book is not null)
         <p>@book.AudioFileName</p>
         <button type="button" @onclick="RemoveAudio">@T("Remove the recording")</button>
     }
+    @if (!string.IsNullOrWhiteSpace(book.AudioStoredName) || book.Format == BookFormat.Audiobook)
+    {
+        <AudibleSearch BookId="book.Id" InitialTitle="@book.Title" InitialAuthor="@book.Author" HasChapters="book.AudioChapterNames is not null" Changed="() => LoadAsync()" />
+    }
     <form action="/books/@book.Id/audio" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
         <label>
             @T("Audio or a zip of tracks, up to 1 GB")
@@ -1133,6 +1137,7 @@ else if (book is not null)
 
         Audio.Delete(existing.AudioStoredName);
         existing.AudioStoredName = null;
+        existing.AudioChapterNames = null;
         existing.AudioFileName = null;
         existing.AudioTrack = null;
         existing.AudioSeconds = null;

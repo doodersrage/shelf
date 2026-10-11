@@ -69,6 +69,7 @@ public sealed class ShelfDb : DbContext
             book.Property(b => b.Location).HasMaxLength(80);
             book.Property(b => b.Translator).HasMaxLength(200);
             book.Property(b => b.Narrator).HasMaxLength(200);
+            book.Property(b => b.Asin).HasMaxLength(10);
             book.Property(b => b.HardcoverState).HasMaxLength(100);
             book.Property(b => b.OriginalTitle).HasMaxLength(200);
             book.Property(b => b.Inscription).HasMaxLength(500);

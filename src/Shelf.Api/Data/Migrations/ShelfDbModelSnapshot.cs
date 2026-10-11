@@ -82,6 +82,13 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<DateTimeOffset>("AddedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Asin")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AudioChapterNames")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("AudioFileName")
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");

@@ -95,6 +95,11 @@ public sealed class Book
     // Who reads the audiobook aloud.
     public string? Narrator { get; set; }
 
+    // The audiobook's id at Audible, once matched there, and the chapters Audible names for it, as JSON from the
+    // start of the whole recording; the player uses those over the file's own when they fit the recording.
+    public string? Asin { get; set; }
+    public string? AudioChapterNames { get; set; }
+
     // Hardcover: its id for the book and for the reader's copy there, and what was last sent, to send only changes.
     public int? HardcoverBookId { get; set; }
     public int? HardcoverUserBookId { get; set; }
