@@ -148,6 +148,7 @@ try {
   // Moving on from the player leaves the book in the mini player at the foot of the page.
   await shot(tenar, "mini-player", "/stats");
   await shot(tenar, "stats", "/stats");
+  await shot(tenar, "year", `/years/${year}`);
   await shot(tenar, "loans", "/loans");
 
   // A reading list shared by link, as someone who is not signed in sees it.

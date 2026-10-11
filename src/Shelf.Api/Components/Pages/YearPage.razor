@@ -1,0 +1,169 @@
+@page "/years/{Year:int}"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("{0} in books", Year) · Shelf</PageTitle>
+
+<p class="hint"><a href="/years">@T("Years")</a></p>
+<h1>@T("Your {0} in books", Year)</h1>
+
+@if (review is null)
+{
+}
+else if (review.Finished == 0 && review.ReadingSeconds == 0 && review.ListeningSeconds == 0)
+{
+    <EmptyState Title="@T("Nothing finished in {0}", Year)" Text="@T("Books you finish that year gather here, with how long you spent and what stood out.")" ActionHref="/?status=Reading" ActionLabel="@T("See what you are reading")" />
+}
+else
+{
+    <ul class="review-numbers">
+        <li><strong>@review.Finished</strong><span>@(review.Finished == 1 ? T("book finished") : T("books finished"))</span></li>
+        @if (review.Pages > 0)
+        {
+            <li><strong>@review.Pages.ToString("N0")</strong><span>@T("pages")</span></li>
+        }
+        @if (review.ReadingSeconds > 0)
+        {
+            <li><strong>@Hours(review.ReadingSeconds)</strong><span>@T("hours reading")</span></li>
+        }
+        @if (review.ListeningSeconds > 0)
+        {
+            <li><strong>@Hours(review.ListeningSeconds)</strong><span>@T("hours listening")</span></li>
+        }
+        @if (review.Authors > 0)
+        {
+            <li><strong>@review.Authors</strong><span>@(review.NewAuthors > 0 ? T("authors, {0} new to you", review.NewAuthors) : T("authors"))</span></li>
+        }
+    </ul>
+
+    @if (review.Goal > 0)
+    {
+        <p>@T("{0} of the {1} you set out to read this year.", review.Finished, review.Goal)</p>
+        <progress class="goal" max="@review.Goal" value="@Math.Min(review.Finished, review.Goal)" aria-label="@T("{0} of {1} books finished", review.Finished, review.Goal)"></progress>
+    }
+
+    @if (review.Books.Length > 0)
+    {
+        <ul class="review-covers" aria-label="@T("The books you finished, in the order you finished them")">
+            @foreach (var book in review.Books)
+            {
+                <li><a href="/library/@book.Id" aria-label="@book.Title"><BookCover Title="@book.Title" Url="@book.CoverUrl" /></a></li>
+            }
+        </ul>
+    }
+
+    <div class="review-panels">
+        @if (review.Finished > 0)
+        {
+            <section class="panel">
+                <h2>@T("Month by month")</h2>
+                <ul class="month-bars" aria-label="@T("Books finished each month")">
+                    @for (var month = 1; month <= 12; month++)
+                    {
+                        var count = review.ByMonth[month - 1];
+                        <li>
+                            <span class="label">@(new DateOnly(Year, month, 1).ToString("MMM"))</span>
+                            <span class="bar"><span style="width:@(review.ByMonth.Max() == 0 ? 0 : count * 100 / review.ByMonth.Max())%"></span></span>
+                            <span class="value">@count</span>
+                        </li>
+                    }
+                </ul>
+                @if (BusiestMonth is int busiest)
+                {
+                    <p class="hint">@T("Your busiest month was {0}.", new DateOnly(Year, busiest, 1).ToString("MMMM"))</p>
+                }
+            </section>
+
+            <section class="panel">
+                <h2>@T("What stood out")</h2>
+                <dl class="review-facts">
+                    @if (review.First is { } first)
+                    {
+                        <dt>@T("First finished")</dt>
+                        <dd><a href="/library/@first.Id">@first.Title</a> <span class="hint">@first.FinishedOn?.MonthDay()</span></dd>
+                    }
+                    @if (review.Last is { } last)
+                    {
+                        <dt>@T("Last finished")</dt>
+                        <dd><a href="/library/@last.Id">@last.Title</a> <span class="hint">@last.FinishedOn?.MonthDay()</span></dd>
+                    }
+                    @if (review.Longest is { } longest)
+                    {
+                        <dt>@T("Longest")</dt>
+                        <dd><a href="/library/@longest.Id">@longest.Title</a> <span class="hint">@T("{0} pages", longest.Pages ?? 0)</span></dd>
+                    }
+                    @if (review.Shortest is { } shortest)
+                    {
+                        <dt>@T("Shortest")</dt>
+                        <dd><a href="/library/@shortest.Id">@shortest.Title</a> <span class="hint">@T("{0} pages", shortest.Pages ?? 0)</span></dd>
+                    }
+                    @if (review.Formats.Length > 0)
+                    {
+                        <dt>@T("Formats")</dt>
+                        <dd>@string.Join(" · ", review.Formats.Select(format => $"{(Enum.TryParse<BookFormat>(format.Name, out var known) ? BookRules.FormatLabel(known) : format.Name)} {format.Count}"))</dd>
+                    }
+                    @if (review.Tags.Length > 0)
+                    {
+                        <dt>@T("Most read tags")</dt>
+                        <dd>@string.Join(" · ", review.Tags.Select(tag => $"{tag.Name} {tag.Count}"))</dd>
+                    }
+                </dl>
+            </section>
+        }
+
+        @if (review.Loved.Length > 0)
+        {
+            <section class="panel">
+                <h2>@T("Favourites")</h2>
+                <ul class="tag-counts">
+                    @foreach (var book in review.Loved)
+                    {
+                        <li><a href="/library/@book.Id">@book.Title</a> <span class="hint">@book.Author</span></li>
+                    }
+                </ul>
+            </section>
+        }
+
+        @if (review.Quotes > 0 || review.Highlights > 0)
+        {
+            <section class="panel">
+                <h2>@T("Words you kept")</h2>
+                <p>@T("{0} quotes and {1} highlights.", review.Quotes, review.Highlights)</p>
+                @if (review.FavouriteQuote is { } quote)
+                {
+                    <blockquote class="passage"><p>@quote</p></blockquote>
+                    <p class="hint">@review.FavouriteQuoteBook</p>
+                }
+            </section>
+        }
+    </div>
+
+    @if (years.Length > 1)
+    {
+        <nav class="review-years" aria-label="@T("Other years")">
+            @foreach (var other in years)
+            {
+                <a href="/years/@other" aria-current="@(other == Year ? "page" : null)">@other</a>
+            }
+        </nav>
+    }
+}
+
+@code {
+    private YearReviewResponse? review;
+    private int[] years = [];
+
+    [Parameter]
+    public int Year { get; set; }
+
+    private int? BusiestMonth => review is null || review.ByMonth.Max() < 2 ? null : Array.IndexOf(review.ByMonth, review.ByMonth.Max()) + 1;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        review = Year is < 1000 or > 2100 ? null : await YearReview.BuildAsync(db, Year);
+        years = await YearReview.YearsAsync(db);
+    }
+
+    private static string Hours(int seconds) => (seconds / 3600.0).ToString(seconds < 36000 ? "0.#" : "N0");
+}

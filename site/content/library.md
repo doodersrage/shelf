@@ -41,6 +41,10 @@ The library shows covers or a list, and remembers your choice. Search, status, a
 
 Pages gathered from the catalog give other ways in: **Authors**, **Series** in reading order, **Places** where books sit, **Condition**, **Recommenders**, and **Years** of finished books.
 
+### Your year in books
+
+Each year on **Years**, and the current one on **Stats**, links to a review of it: how many books you finished, their pages, the hours you spent reading and listening, how many authors (and how many were new to you), your goal, a wall of the covers in the order you finished them, a month-by-month chart with your busiest month, the first, last, longest, and shortest books, your formats and most read tags, the books you loved or gave five stars, and the quotes and highlights you kept, with one to remember the year by.
+
 ### Saved searches
 
 A view you come back to, such as *loved, want to read, newest first*, can be kept: set the filters and order, choose **Save this search**, and give it a name. It joins **Your library** in the sidebar, and opens with the same filters and order every time. **Forget this search**, on the open search, removes it. Saved searches are yours alone; every filtered view is also a plain address you can bookmark.

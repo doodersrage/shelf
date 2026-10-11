@@ -824,6 +824,77 @@ code.key {
     max-width: 40rem;
 }
 
+/* A year in books: big numbers, a wall of covers, then what stood out. */
+.review-numbers {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: var(--space-3);
+    margin: var(--space-4) 0;
+}
+
+.review-numbers li {
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-card);
+}
+
+.review-numbers strong {
+    font-family: var(--font-serif);
+    font-size: var(--text-2xl);
+    line-height: 1.1;
+}
+
+.review-numbers span {
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+}
+
+.review-covers {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
+    gap: var(--space-2);
+    margin: var(--space-6) 0;
+}
+
+.review-covers .cover-frame {
+    width: 100%;
+}
+
+.review-panels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: var(--space-6);
+    align-items: start;
+}
+
+.review-facts dt {
+    font-weight: 600;
+    margin-top: var(--space-2);
+}
+
+.review-facts dd {
+    margin: 0;
+}
+
+.review-years {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-top: var(--space-8);
+}
+
+.review-years a[aria-current="page"] {
+    font-weight: 700;
+    text-decoration: none;
+}
+
 /* Collections: a mosaic of the first covers, then the name. */
 .collection-grid {
     list-style: none;

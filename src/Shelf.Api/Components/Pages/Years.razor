@@ -15,6 +15,10 @@ else
     @foreach (var year in years)
     {
         <h2>@(year.Year?.ToString() ?? T("Undated"))</h2>
+        @if (year.Year is int dated)
+        {
+            <p class="hint"><a href="/years/@dated">@T("Your {0} in books", dated)</a></p>
+        }
         <ul class="tag-counts">
             @foreach (var book in year.Books)
             {

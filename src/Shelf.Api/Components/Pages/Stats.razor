@@ -18,6 +18,7 @@ else
 {
     <section class="panel" aria-labelledby="goal-heading">
         <h2 id="goal-heading">@Today.Year</h2>
+        <p class="hint"><a href="/years/@Today.Year">@T("Your {0} in books", Today.Year)</a></p>
         @if (stats.YearlyGoal > 0)
         {
             <p>@((MarkupString)T("<strong>{0}</strong> of {1} books finished this year", stats.FinishedThisYear, stats.YearlyGoal))</p>

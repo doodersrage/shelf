@@ -86,6 +86,7 @@ public static class BookEndpoints
         AudioPlayback.Map(books);
         Collections.Map(books);
         ReadingTime.Map(books);
+        YearReview.Map(books);
 
         // Another shelf reaches these with a device key; the rest of the API needs a signed-in reader.
         var sync = app.MapGroup("/books/sync").WithTags("Shelf").RequireAuthorization(SyncEndpoints.Policy);
