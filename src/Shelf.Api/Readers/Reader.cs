@@ -164,4 +164,5 @@ public sealed record BorrowedBook(
     DateOnly? LoanedOn,
     DateOnly? DueOn,
     bool HasEbook = false,
-    bool HasAudio = false);
+    bool HasAudio = false,
+    bool Linked = false);

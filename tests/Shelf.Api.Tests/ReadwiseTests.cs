@@ -106,7 +106,8 @@ public sealed class ReadwiseTests(ShelfApiFactory factory) : IClassFixture<Shelf
                 : """{"count":2,"nextPageCursor":"abc","results":[{"readable_title":"First","title":"first","author":"A","category":"books","source":"kindle","highlights":[{"text":"Words","note":"","location":12,"location_type":"page","highlighted_at":"2025-03-01T10:00:00Z","is_discard":false}]}]}""";
         });
         var books = await new ReadwiseClient(new HttpClient(handler)).ExportAsync("token", new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero), CancellationToken.None);
-        Assert.Equal(["First", "Second"], books!.Select(book => book.Title));
+        Assert.NotNull(books);
+        Assert.Equal(["First", "Second"], books.Select(book => book.Title));
         Assert.Equal(new ReadwiseExported("Words", null, 12, "page", new DateTimeOffset(2025, 3, 1, 10, 0, 0, TimeSpan.Zero), false), books[0].Highlights.Single());
         Assert.Contains("updatedAfter=2026-01-01T00%3A00%3A00.0000000Z", asked.First(), StringComparison.Ordinal);
         Assert.Contains("pageCursor=abc", asked.Last(), StringComparison.Ordinal);

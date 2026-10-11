@@ -1599,6 +1599,11 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
 
     public StubPodcastClient PodcastFeeds { get; } = new();
 
+    // This shelf's own address, and where calls to linked shelves go: set before the shelf starts.
+    public string? PublicAddress { get; set; }
+
+    public HttpMessageHandler? LinkHandler { get; set; }
+
     public async Task InitializeAsync()
     {
         _client = await SignUpAsync("Tenar");
@@ -1657,6 +1662,11 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
         builder.UseSetting("SeriesAlerts:PauseMilliseconds", "0");
         builder.UseSetting("Hardcover:PauseMilliseconds", "0");
         builder.UseSetting("Backup:Folder", Path.Combine(_keysRoot, "backups"));
+        if (PublicAddress is not null)
+        {
+            builder.UseSetting("Email:PublicAddress", PublicAddress);
+        }
+
         builder.UseEnvironment("Testing");
         builder.ConfigureTestServices(services =>
         {
@@ -1671,6 +1681,10 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
             services.AddSingleton<ITranscriber>(Transcriber);
             services.AddSingleton<IAudioCutter, StubCutter>();
             services.AddSingleton<IPodcastClient>(PodcastFeeds);
+            if (LinkHandler is not null)
+            {
+                services.AddHttpClient(LinkClient.ClientName).ConfigurePrimaryHttpMessageHandler(() => LinkHandler);
+            }
             services.AddSingleton<Shelf.Api.Readers.IEmailSender>(Mail);
         });
     }

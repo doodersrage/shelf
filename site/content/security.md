@@ -87,6 +87,10 @@ docker exec shelf dotnet Shelf.Api.dll --make-admin "Their Name"
 dotnet run --project src/Shelf.Api -- --reset-password "Their Name"
 ```
 
+## Linked shelves
+
+A shelf linked to another (see [Linked shelves](lending.md#linked-shelves)) answers that shelf's calls under `/federation`, each carrying the secret this shelf gave it, of which it keeps only a hash. Those calls see open shelves' titles, take asks to borrow, and fetch the files of books lent to that shelf's readers, while they are lent; nothing else. The one-time link code is good for a day. Unlinking stops the calls at once.
+
 ## Closing sign-up
 
 Once your readers have accounts, set `Accounts:AllowSignUp` to `false`. The sign-up page then says sign-up is closed, though the first account can always be made.

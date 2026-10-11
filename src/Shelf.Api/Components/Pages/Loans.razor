@@ -1,6 +1,7 @@
 @page "/loans"
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
+@inject Federation Federation
 
 <PageTitle>@T("Loans") · Shelf</PageTitle>
 
@@ -62,6 +63,30 @@ else
     }
 }
 
+@if (remoteAsks.Length > 0)
+{
+    <h2>@T("Asked of you from linked shelves")</h2>
+    <ul class="quotes">
+        @foreach (var ask in remoteAsks)
+        {
+            <li>
+                <strong>@ask.Title</strong>
+                <span class="hint"> · @ask.Author</span>
+                <p class="hint">@T("{0} on {1} asked on {2}", ask.Reader, ask.Server, ask.AskedAt.Medium())@(ask.OnLoan ? T(". It is on loan now.") : "")</p>
+                @if (!ask.OnLoan)
+                {
+                    <label class="inline-date">
+                        @T("Due back")
+                        <input type="date" @bind="remoteDue[ask.Id]" />
+                    </label>
+                    <button type="button" class="primary" @onclick="() => LendRemote(ask.Id)">@T("Lend it")</button>
+                }
+                <button type="button" @onclick="() => DropRemote(ask.Id)">@T("Decline")</button>
+            </li>
+        }
+    </ul>
+}
+
 <h2>@T("Borrowed")</h2>
 @if (borrowed.Count == 0)
 {
@@ -94,7 +119,22 @@ else
                 {
                     <a href="/library/@book.Id/listen">@T("Listen")</a>
                 }
-                <button type="button" @onclick="() => GiveBack(book.Id)">@T("Give it back")</button>
+                <button type="button" @onclick="() => GiveBack(book)">@T("Give it back")</button>
+            </li>
+        }
+    </ul>
+}
+
+@if (linkedAsks.Length > 0)
+{
+    <h2>@T("You asked on linked shelves")</h2>
+    <ul class="quotes">
+        @foreach (var ask in linkedAsks)
+        {
+            <li>
+                <strong>@ask.Title</strong>
+                <span class="hint"> · @T("from {0}, asked {1}", ask.Owner, ask.AskedAt.Medium())</span>
+                <button type="button" @onclick="() => Withdraw(ask.Id)">@T("Take it back")</button>
             </li>
         }
     </ul>
@@ -123,7 +163,12 @@ else
     private readonly Dictionary<int, DateOnly?> dueDates = [];
     private string? askProblem;
 
-    private bool Quiet => people.Count == 0 && borrowed.Count == 0 && asks.Incoming.Length == 0 && asks.Outgoing.Length == 0;
+    private bool Quiet => people.Count == 0 && borrowed.Count == 0 && asks.Incoming.Length == 0 && asks.Outgoing.Length == 0 && remoteAsks.Length == 0 && linkedAsks.Length == 0;
+
+    private RemoteAskRow[] remoteAsks = [];
+    private LinkedAskRow[] linkedAsks = [];
+    private readonly Dictionary<int, DateOnly?> remoteDue = [];
+    private bool synced;
 
     private List<LoanCount> people = [];
     private List<BorrowedBook> borrowed = [];
@@ -133,6 +178,20 @@ else
     private async Task LoadAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
+        // Loans from linked shelves are brought up to date when the page opens.
+        if (!synced)
+        {
+            synced = true;
+            await Federation.SyncAsync(db);
+        }
+
+        remoteAsks = await Federation.RemoteAsksAsync(db);
+        linkedAsks = await Federation.LinkedAsksAsync(db);
+        foreach (var ask in remoteAsks)
+        {
+            remoteDue.TryAdd(ask.Id, null);
+        }
+
         var loans = await db.Books.AsNoTracking()
             .Select(book => new { book.LoanedTo, book.DueOn })
             .ToListAsync();
@@ -169,11 +228,49 @@ else
         await LoadAsync();
     }
 
-    private async Task GiveBack(int id)
+    private async Task GiveBack(BorrowedBook book)
     {
         await using (var db = await DbFactory.CreateDbContextAsync())
         {
-            await Lending.GiveBackAsync(db, id);
+            if (book.Linked)
+            {
+                askProblem = await Federation.GiveBackAsync(db, book.Id) ? null : T("The shelf it came from could not be reached. Try again later.");
+            }
+            else
+            {
+                await Lending.GiveBackAsync(db, book.Id);
+            }
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LendRemote(int id)
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            var result = await Federation.LendRemoteAskAsync(db, id, remoteDue.GetValueOrDefault(id));
+            askProblem = result == LendResult.Lent ? null : Lending.Describe(result);
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task DropRemote(int id)
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            await Federation.DropRemoteAskAsync(db, id);
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task Withdraw(int id)
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            await Federation.WithdrawAsync(db, id);
         }
 
         await LoadAsync();

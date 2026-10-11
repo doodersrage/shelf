@@ -634,6 +634,7 @@ public static class BookRules
     public static void ReturnLoan(Book book)
     {
         book.BorrowerId = null;
+        book.RemoteBorrowerId = null;
         book.LoanedTo = null;
         book.LoanedOn = null;
         book.DueOn = null;

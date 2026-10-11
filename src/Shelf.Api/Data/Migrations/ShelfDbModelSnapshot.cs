@@ -220,6 +220,9 @@ namespace Shelf.Api.Data.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("RemoteBorrowerId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Review")
                         .HasMaxLength(4000)
                         .HasColumnType("TEXT");
@@ -252,6 +255,19 @@ namespace Shelf.Api.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("VisitingBookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly?>("VisitingDueOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("VisitingLinkId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("VisitingOwner")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.Property<int?>("Year")
                         .HasColumnType("INTEGER");
 
@@ -263,7 +279,11 @@ namespace Shelf.Api.Data.Migrations
 
                     b.HasIndex("OwnerId");
 
+                    b.HasIndex("RemoteBorrowerId");
+
                     b.HasIndex("Status");
+
+                    b.HasIndex("VisitingLinkId");
 
                     b.ToTable("Books");
                 });
@@ -596,6 +616,49 @@ namespace Shelf.Api.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("KosyncPlaces");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.LinkedAsk", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("AskedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Author")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("LinkId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Owner")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("RemoteBookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LinkId");
+
+                    b.HasIndex("ReaderId", "LinkId", "RemoteBookId")
+                        .IsUnique();
+
+                    b.ToTable("LinkedAsks");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.ListeningDay", b =>
@@ -986,6 +1049,56 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("Sessions");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.RemoteAsk", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("AskedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("RemoteReaderId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RemoteReaderId");
+
+                    b.HasIndex("BookId", "RemoteReaderId")
+                        .IsUnique();
+
+                    b.ToTable("RemoteAsks");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.RemoteReader", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("LinkId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("RemoteId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LinkId", "RemoteId")
+                        .IsUnique();
+
+                    b.ToTable("RemoteReaders");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.SavedSearch", b =>
                 {
                     b.Property<int>("Id")
@@ -1069,6 +1182,53 @@ namespace Shelf.Api.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("SeriesAlerts");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.ShelfLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("InviteExpires")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("InviteHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("LastSeenAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OurSecretHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TheirSecret")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OurSecretHash");
+
+                    b.ToTable("ShelfLinks");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.ShelfSetting", b =>
@@ -1637,9 +1797,21 @@ namespace Shelf.Api.Data.Migrations
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Cascade);
 
+                    b.HasOne("Shelf.Api.Books.RemoteReader", "RemoteBorrower")
+                        .WithMany()
+                        .HasForeignKey("RemoteBorrowerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Shelf.Api.Books.ShelfLink", null)
+                        .WithMany()
+                        .HasForeignKey("VisitingLinkId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Borrower");
 
                     b.Navigation("Owner");
+
+                    b.Navigation("RemoteBorrower");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.BookText", b =>
@@ -1763,6 +1935,21 @@ namespace Shelf.Api.Data.Migrations
                     b.HasOne("Shelf.Api.Books.Book", null)
                         .WithMany()
                         .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.LinkedAsk", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.ShelfLink", null)
+                        .WithMany()
+                        .HasForeignKey("LinkId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1904,6 +2091,32 @@ namespace Shelf.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Book");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.RemoteAsk", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", null)
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Books.RemoteReader", "Reader")
+                        .WithMany()
+                        .HasForeignKey("RemoteReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Reader");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.RemoteReader", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.ShelfLink", null)
+                        .WithMany()
+                        .HasForeignKey("LinkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.SavedSearch", b =>

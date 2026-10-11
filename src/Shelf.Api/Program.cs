@@ -134,6 +134,17 @@ builder.Services.AddHttpClient<IPodcastClient, PodcastClient>(client =>
 #pragma warning disable EXTEXP0001
 builder.Services.AddHttpClient(PodcastClient.StreamName, client => client.Timeout = Timeout.InfiniteTimeSpan).RemoveAllResilienceHandlers();
 #pragma warning restore EXTEXP0001
+// Linked shelves: other Shelf servers whose readers borrow from this one's, and lend to them.
+#pragma warning disable EXTEXP0001
+builder.Services.AddHttpClient(LinkClient.ClientName, client =>
+{
+    client.Timeout = TimeSpan.FromHours(1);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd($"Shelf/{ShelfVersion.Response.Version} (linked shelf)");
+}).RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
+builder.Services.AddSingleton<LinkClient>();
+builder.Services.AddSingleton<Federation>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<Federation>());
 builder.Services.AddSingleton<PodcastService>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<PodcastService>());
 builder.Services.AddSingleton<ReadAlongService>();
@@ -319,6 +330,7 @@ app.MapBooks();
 SharedLists.Map(app);
 Kobo.Map(app);
 PodcastService.Map(app);
+app.Services.GetRequiredService<Federation>().Map(app);
 await app.RunAsync();
 return 0;
 

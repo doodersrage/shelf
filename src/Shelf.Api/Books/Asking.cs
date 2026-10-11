@@ -248,6 +248,7 @@ public static class Asking
             .Where(book => book.BorrowerId == me && book.DueOn != null)
             .Select(book => book.DueOn!.Value)
             .ToListAsync(cancellationToken);
+        borrowedDue.AddRange(await db.Books.AsNoTracking().Where(book => book.VisitingDueOn != null).Select(book => book.VisitingDueOn!.Value).ToListAsync(cancellationToken));
         var asks = await (
                 from ask in db.LoanAsks
                 join book in db.Books on ask.BookId equals book.Id

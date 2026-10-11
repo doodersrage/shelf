@@ -62,6 +62,10 @@ public sealed class ShelfDb : DbContext
     public DbSet<Webhook> Webhooks => Set<Webhook>();
     public DbSet<ReadAlongRow> ReadAlongs => Set<ReadAlongRow>();
     public DbSet<Podcast> Podcasts => Set<Podcast>();
+    public DbSet<ShelfLink> ShelfLinks => Set<ShelfLink>();
+    public DbSet<RemoteReader> RemoteReaders => Set<RemoteReader>();
+    public DbSet<RemoteAsk> RemoteAsks => Set<RemoteAsk>();
+    public DbSet<LinkedAsk> LinkedAsks => Set<LinkedAsk>();
     public DbSet<PodcastEpisode> PodcastEpisodes => Set<PodcastEpisode>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -84,6 +88,9 @@ public sealed class ShelfDb : DbContext
             book.Property(b => b.Translator).HasMaxLength(200);
             book.Property(b => b.Narrator).HasMaxLength(200);
             book.Property(b => b.Asin).HasMaxLength(10);
+            book.Property(b => b.VisitingOwner).HasMaxLength(200);
+            book.HasOne(b => b.RemoteBorrower).WithMany().HasForeignKey(b => b.RemoteBorrowerId).OnDelete(DeleteBehavior.SetNull);
+            book.HasOne<ShelfLink>().WithMany().HasForeignKey(b => b.VisitingLinkId).OnDelete(DeleteBehavior.SetNull);
             book.Property(b => b.HardcoverState).HasMaxLength(100);
             book.Property(b => b.OriginalTitle).HasMaxLength(200);
             book.Property(b => b.Inscription).HasMaxLength(500);
@@ -179,6 +186,40 @@ public sealed class ShelfDb : DbContext
             push.HasIndex(item => item.Endpoint).IsUnique();
             push.HasIndex(item => item.ReaderId);
             push.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ShelfLink>(link =>
+        {
+            link.Property(item => item.Name).HasMaxLength(120);
+            link.Property(item => item.Address).HasMaxLength(500);
+            link.Property(item => item.TheirSecret).HasMaxLength(1000);
+            link.Property(item => item.OurSecretHash).HasMaxLength(64);
+            link.Property(item => item.InviteHash).HasMaxLength(64);
+            link.HasIndex(item => item.OurSecretHash);
+        });
+
+        modelBuilder.Entity<RemoteReader>(reader =>
+        {
+            reader.Property(item => item.Name).HasMaxLength(120);
+            reader.HasIndex(item => new { item.LinkId, item.RemoteId }).IsUnique();
+            reader.HasOne<ShelfLink>().WithMany().HasForeignKey(item => item.LinkId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RemoteAsk>(ask =>
+        {
+            ask.HasIndex(item => new { item.BookId, item.RemoteReaderId }).IsUnique();
+            ask.HasOne<Book>().WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
+            ask.HasOne(item => item.Reader).WithMany().HasForeignKey(item => item.RemoteReaderId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<LinkedAsk>(ask =>
+        {
+            ask.Property(item => item.Title).HasMaxLength(200);
+            ask.Property(item => item.Author).HasMaxLength(200);
+            ask.Property(item => item.Owner).HasMaxLength(250);
+            ask.HasIndex(item => new { item.ReaderId, item.LinkId, item.RemoteBookId }).IsUnique();
+            ask.HasOne<ShelfLink>().WithMany().HasForeignKey(item => item.LinkId).OnDelete(DeleteBehavior.Cascade);
+            ask.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Podcast>(podcast =>

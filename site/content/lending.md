@@ -58,6 +58,18 @@ Shelf also points out open shelves where they help:
 
 Only shelves their owners opened are ever mentioned.
 
+## Linked shelves
+
+Two Shelf servers can be linked, say yours and a friend's, so the readers of each can see the other's open shelves and borrow from them.
+
+**Linking.** Both shelves need their own address set, `Email:PublicAddress`, and must be able to reach each other over the internet. On one, an admin goes to **Admin**, **Linked shelves**, and chooses **Make a link code**. They send the code to the other shelf's admin, who enters it under **A code from another shelf** and chooses **Link**. A code works once, within a day. Each shelf then holds a secret of its own for calling the other; **Unlink** ends it from either side.
+
+**Borrowing.** Under **Shelves**, **On linked shelves** lists the open shelves there. Asking for a book works as it does here: the ask waits on the owner's **Loans** page, under **Asked of you from linked shelves**, until they lend it or decline. When they lend it, a copy comes to the borrower's shelf, with its e-book and audiobook, to read and listen to like any other, marked whose it is and when it's due. Copies arrive when the borrower opens **Loans**, or within the hour.
+
+**Giving back.** **Give it back** under Loans returns it, and the owner can mark it returned as with any loan. Either way the copy's files go from the borrower's shelf; the book itself stays there with their notes and highlights, marked finished. A copy can't be lent on.
+
+What a linked shelf sees is what an open shelf shows anyone here: titles, authors, and covers, never notes, reviews, or places. Files go only for a book lent to a reader there, while it is lent. Children's accounts don't take part.
+
 ## Reminders
 
 A notice under the header points to **Loans** when:

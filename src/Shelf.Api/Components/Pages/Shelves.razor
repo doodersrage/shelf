@@ -1,17 +1,18 @@
 @page "/shelves"
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
+@inject Federation Federation
 
 <PageTitle>@T("Shelves") · Shelf</PageTitle>
 
 <h1>@T("Shelves")</h1>
 <p class="hint">@T("Readers who have opened their shelf. Ask to borrow a book, and it shows on its owner's loans until they lend it or decline.") <a href="/account">@T("Open your shelf to them too.")</a></p>
 
-@if (shelves.Count == 0)
+@if (shelves.Count == 0 && linked.Length == 0)
 {
     <EmptyState Title="@T("No open shelves yet")" Text="@T("When another reader opens their shelf from their account, its titles appear here and you can ask to borrow one.")" ActionHref="/account" ActionLabel="@T("Open your own shelf")" />
 }
-else
+else if (shelves.Count > 0)
 {
     <ul class="tag-counts">
         @foreach (var shelf in shelves)
@@ -24,12 +25,32 @@ else
     </ul>
 }
 
+@if (linked.Length > 0)
+{
+    <h2>@T("On linked shelves")</h2>
+    @foreach (var server in linked.GroupBy(shelf => shelf.Server))
+    {
+        <h3>@server.Key</h3>
+        <ul class="tag-counts">
+            @foreach (var shelf in server)
+            {
+                <li>
+                    <a href="/shelves/linked/@shelf.LinkId/@shelf.OwnerId">@shelf.Name</a>
+                    <span class="hint">@Localization.Counts.Books(shelf.Books)</span>
+                </li>
+            }
+        </ul>
+    }
+}
+
 @code {
     private List<OpenShelf> shelves = [];
+    private LinkedShelf[] linked = [];
 
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         shelves = (await Asking.OpenShelvesAsync(db)).ToList();
+        linked = await Federation.ShelvesAsync(db);
     }
 }

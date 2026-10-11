@@ -30,6 +30,10 @@ else if (book is not null)
             {
                 <p class="hint">@book.Subtitle</p>
             }
+            @if (book.VisitingLinkId is not null)
+            {
+                <p class="hint">@T("Lent to you by {0}.", book.VisitingOwner ?? "")@(book.VisitingDueOn is DateOnly due ? " " + T("Due back {0}.", due.Medium()) : "") <a href="/loans">@T("Loans")</a></p>
+            }
             <p class="by">
                 <a href="@($"/?author={Uri.EscapeDataString(book.Author)}")">@book.Author</a>
                 @if (!string.IsNullOrWhiteSpace(book.Translator))

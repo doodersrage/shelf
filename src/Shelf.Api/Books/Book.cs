@@ -100,6 +100,16 @@ public sealed class Book
     public string? Asin { get; set; }
     public string? AudioChapterNames { get; set; }
 
+    // Lent to a reader on a linked shelf (see Federation), as this shelf knows them.
+    public int? RemoteBorrowerId { get; set; }
+    public RemoteReader? RemoteBorrower { get; set; }
+
+    // A copy lent to this reader from a linked shelf: which link, the book's id there, whose it is, and when it is due.
+    public int? VisitingLinkId { get; set; }
+    public int? VisitingBookId { get; set; }
+    public string? VisitingOwner { get; set; }
+    public DateOnly? VisitingDueOn { get; set; }
+
     // Hardcover: its id for the book and for the reader's copy there, and what was last sent, to send only changes.
     public int? HardcoverBookId { get; set; }
     public int? HardcoverUserBookId { get; set; }

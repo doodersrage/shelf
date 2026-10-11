@@ -42,7 +42,8 @@ public static class Lending
             return LendResult.ToSelf;
         }
 
-        if (await Family.IsRestrictedAsync(db, cancellationToken: cancellationToken))
+        // A child's account lends nothing, and a copy lent from a linked shelf is not this reader's to lend on.
+        if (book.VisitingLinkId is not null || await Family.IsRestrictedAsync(db, cancellationToken: cancellationToken))
         {
             return LendResult.NotAllowed;
         }
@@ -88,6 +89,11 @@ public static class Lending
                 book.EbookStoredName != null,
                 book.AudioStoredName != null))
             .ToListAsync(cancellationToken);
+
+        // Copies lent from linked shelves are on the reader's own shelf, marked whose they are.
+        var linked = await db.Books.AsNoTracking().Where(book => readerId != 0 && book.VisitingLinkId != null).ToListAsync(cancellationToken);
+        books.AddRange(linked.Select(book => new BorrowedBook(book.Id, book.Title, book.Author, book.CoverShown, book.VisitingOwner ?? "", DateOnly.FromDateTime(book.AddedAt.UtcDateTime),
+            book.VisitingDueOn, book.EbookStoredName != null, book.AudioStoredName != null, Linked: true)));
         return books
             .OrderBy(book => book.DueOn ?? DateOnly.MaxValue)
             .ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase)

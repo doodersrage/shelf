@@ -1,0 +1,98 @@
+@page "/shelves/linked/{LinkId:int}/{OwnerId:int}"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject Federation Federation
+
+<PageTitle>@(owner ?? "Shelf") · Shelf</PageTitle>
+
+@if (!loaded)
+{
+    <p role="status">@T("Looking…")</p>
+}
+else if (owner is null)
+{
+    <h1>@T("Not an open shelf")</h1>
+    <p>@T("That shelf could not be reached, or is no longer open.") <a href="/shelves">@T("Back to the shelves")</a></p>
+}
+else
+{
+    <p class="hint"><a href="/shelves">@T("Shelves")</a> · @server</p>
+    <h1>@T("{0}'s shelf", owner)</h1>
+    <p class="hint">@T("{0} is a reader on {1}, a shelf linked to this one. Ask for a book, and when they lend it, a copy comes to your shelf while it is out.", owner, server ?? "")</p>
+    @if (books.Length == 0)
+    {
+        <p class="hint">@T("Nothing on it yet.")</p>
+    }
+    else
+    {
+        <ul class="book-grid">
+            @foreach (var book in books)
+            {
+                <li class="book-card">
+                    <BookCover Title="@book.Title" Url="@book.CoverUrl" />
+                    <h2 class="title">@book.Title</h2>
+                    <p class="by">@book.Author@(book.Year is int year ? $" · {year}" : "")</p>
+                    <div class="badges">
+                        @if (book.OnLoan)
+                        {
+                            <span class="badge loan">@T("On loan")</span>
+                        }
+                        @if (book.HasEbook)
+                        {
+                            <span class="badge plain">@T("E-book")</span>
+                        }
+                        @if (book.HasAudio)
+                        {
+                            <span class="badge plain">@T("Audio")</span>
+                        }
+                    </div>
+                    @if (book.Asked)
+                    {
+                        <p class="saved">@T("Asked")</p>
+                    }
+                    else
+                    {
+                        <button type="button" @onclick="() => Ask(book.Id)" aria-label="@T("Ask to borrow {0}", book.Title)">@T("Ask to borrow")</button>
+                    }
+                </li>
+            }
+        </ul>
+    }
+    @if (message is not null)
+    {
+        <p class="hint" role="status">@message</p>
+    }
+}
+
+@code {
+    [Parameter]
+    public int LinkId { get; set; }
+
+    [Parameter]
+    public int OwnerId { get; set; }
+
+    private bool loaded;
+    private string? owner;
+    private string? server;
+    private LinkedBook[] books = [];
+    private string? message;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var shelf = await Federation.ShelfAsync(db, LinkId, OwnerId);
+        (owner, server, books, loaded) = shelf is { } found ? (found.Owner, found.Server, found.Books, true) : (null, null, [], true);
+    }
+
+    private async Task Ask(int bookId)
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            message = await Federation.AskAsync(db, LinkId, OwnerId, bookId) ? T("Asked. It shows under Loans until it is lent or declined.") : T("The other shelf could not take the ask just now.");
+        }
+
+        await LoadAsync();
+    }
+}

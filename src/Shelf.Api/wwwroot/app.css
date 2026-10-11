@@ -3017,3 +3017,10 @@ blockquote mark {
     gap: 0.5rem;
     align-items: center;
 }
+
+.link-code {
+    display: block;
+    overflow-wrap: anywhere;
+    margin-top: 0.25rem;
+    user-select: all;
+}

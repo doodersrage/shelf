@@ -7,6 +7,9 @@
 @inject BackupSchedule Schedule
 @inject FolderImport ImportFolder
 @inject OffsiteBackup Offsite
+@inject Federation Federation
+@inject IConfiguration Configuration
+@inject NavigationManager Navigation
 
 <PageTitle>@T("Readers") · Shelf</PageTitle>
 
@@ -135,6 +138,39 @@ else
     }
     </section>
 
+    <section class="panel" id="links">
+    <h2>@T("Linked shelves")</h2>
+    <p class="hint">@T("Link this shelf to a friend's Shelf, and the readers of each can see the other's open shelves and borrow from them. A book lent across goes as a copy while it is out. Make a code here and send it to the other shelf's admin, or enter the code they sent you.")</p>
+    @if (links.Length > 0)
+    {
+        <ul class="tag-counts">
+            @foreach (var link in links)
+            {
+                <li>
+                    <span>@link.Name <span class="hint">@(link.Active ? link.Address : T("waiting for the other shelf"))@(link.LastSeenAt is { } seen ? " · " + T("last heard from {0}", seen.Medium()) : "")</span></span>
+                    <button type="button" class="quiet" @onclick="() => Unlink(link.Id)" aria-label="@T("Unlink {0}", link.Name)">@T("Unlink")</button>
+                </li>
+            }
+        </ul>
+    }
+    <p>
+        <button type="button" @onclick="MakeLinkCode">@T("Make a link code")</button>
+    </p>
+    @if (linkCode is not null)
+    {
+        <p role="status">@T("Send this code to the other shelf's admin. It works once, for a day:") <code class="link-code">@linkCode</code></p>
+    }
+    <label>
+        @T("A code from another shelf")
+        <input type="text" @bind="joinCode" @bind:event="oninput" autocomplete="off" />
+    </label>
+    <button type="button" class="primary" @onclick="Join" disabled="@(string.IsNullOrWhiteSpace(joinCode) || joining)">@(joining ? T("Linking…") : T("Link"))</button>
+    @if (linkNote is not null)
+    {
+        <p class="@(linkProblem ? "validation-message" : "saved")" role="status">@linkNote</p>
+    }
+    </section>
+
     <section class="panel">
     <h2>@T("Activity")</h2>
     <p class="hint">@T("Sign-ups, failed sign-ins, passwords, admin rights, two-step sign-in, passkeys, devices signed out, keys, restores, and backups, newest first. The last {0} are kept.", Audit.Keep) <a href="/admin/audit">@T("The newest 500 as JSON")</a></p>
@@ -182,6 +218,61 @@ else
         readers = allowed ? (await ReaderRules.SummariesAsync(db)).ToList() : [];
         backups = allowed ? Schedule.List() : [];
         activity = allowed ? await Audit.RecentAsync(db, take: 100) : [];
+        links = allowed ? await Federation.ListAsync(db) : [];
+    }
+
+    private ShelfLinkSummary[] links = [];
+    private string? linkCode;
+    private string joinCode = "";
+    private bool joining;
+    private bool linkProblem;
+    private string? linkNote;
+
+    private string Address => EmailRules.PublicAddress(Configuration, null) is { Length: > 0 } configured ? configured : Navigation.BaseUri.TrimEnd('/');
+
+    private async Task MakeLinkCode()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (!await StillAdminAsync(db))
+        {
+            return;
+        }
+
+        var (code, problem) = await Federation.InviteAsync(db, Address);
+        (linkCode, linkProblem, linkNote) = (code, problem is not null, problem);
+        links = await Federation.ListAsync(db);
+    }
+
+    private async Task Join()
+    {
+        joining = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            if (!await StillAdminAsync(db))
+            {
+                return;
+            }
+
+            var (link, problem) = await Federation.JoinAsync(db, joinCode, Address);
+            (linkProblem, linkNote) = link is null ? (true, problem) : (false, T("Linked to {0}.", link.Name));
+            joinCode = link is null ? joinCode : "";
+            links = await Federation.ListAsync(db);
+        }
+        finally
+        {
+            joining = false;
+        }
+    }
+
+    private async Task Unlink(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await StillAdminAsync(db))
+        {
+            await Federation.RemoveAsync(db, id);
+            links = await Federation.ListAsync(db);
+        }
     }
 
     private IReadOnlyList<AuditLine> activity = [];

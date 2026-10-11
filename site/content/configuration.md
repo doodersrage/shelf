@@ -131,6 +131,14 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 | `ReadAlong:FFmpeg` | `ffmpeg` on the path | Where ffmpeg is, to cut recordings into ten-minute pieces. |
 | `ReadAlong:MaxUploadMegabytes` | `24` for OpenAI, else none | The largest file to send whole. A larger track needs ffmpeg. |
 
+## Linked shelves
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `Federation:Name` | `Shelf at` and the host of `Email:PublicAddress` | The name linked shelves know this one by. |
+
+Linking needs `Email:PublicAddress`, as the other shelf calls this one at that address. See [Linked shelves](lending.md#linked-shelves).
+
 ## Notifications and webhooks
 
 | Setting | Default | What it does |
