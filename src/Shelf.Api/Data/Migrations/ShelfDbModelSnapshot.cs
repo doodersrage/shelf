@@ -767,6 +767,51 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("Quotes");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.ReadAlongRow", b =>
+                {
+                    b.Property<int>("BookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AudioStoredName")
+                        .HasMaxLength(48)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Done")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("EbookStoredName")
+                        .HasMaxLength(48)
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("Matched")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("Problem")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Timings")
+                        .HasColumnType("BLOB");
+
+                    b.Property<int>("Total")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("Transcript")
+                        .HasColumnType("BLOB");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("BookId");
+
+                    b.ToTable("ReadAlongs", (string)null);
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.ReadingDay", b =>
                 {
                     b.Property<int>("Id")
@@ -1688,6 +1733,15 @@ namespace Shelf.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Book");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.ReadAlongRow", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", null)
+                        .WithOne()
+                        .HasForeignKey("Shelf.Api.Books.ReadAlongRow", "BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.ReadingDay", b =>

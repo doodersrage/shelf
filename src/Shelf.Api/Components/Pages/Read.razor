@@ -10,6 +10,7 @@
 @inject Microsoft.Extensions.Caching.Memory.IMemoryCache Cache
 @inject IWordLookup Dictionary
 @inject IConfiguration Configuration
+@inject ReadAlongService ReadAlongs
 
 <PageTitle>@(book?.Title ?? "Shelf")</PageTitle>
 
@@ -115,7 +116,19 @@ else if (book is not null)
                 {
                     <button type="button" class="quiet" @onclick="ContinueInAudio">@T("Continue in the audiobook")</button>
                 }
+                @if (alongChapters.Length > 0)
+                {
+                    <button type="button" class="@(alongOn ? "primary" : "quiet")" @onclick="ToggleAlong" aria-pressed="@(alongOn ? "true" : "false")">@(alongOn ? T("Stop listening along") : T("Listen along"))</button>
+                }
             </div>
+            @if (alongOn)
+            {
+                <p class="hint" role="status">@T("The audiobook plays from the first word on the screen, and the word being read is marked. Double-tap a word to go there.")</p>
+            }
+            @if (alongNote is not null)
+            {
+                <p class="validation-message" role="alert">@alongNote</p>
+            }
             <details>
                 <summary>@T("Text settings")</summary>
                 <div class="reader-settings">
@@ -344,8 +357,78 @@ else if (book is not null)
             var place = ChapterQuery ?? (await Lending.PlaceAsync(db, open!)).EbookChapter ?? 0;
             chapter = place >= 0 && place < chapters.Count ? place : 0;
             chapterAt = frameAt = ChapterQuery is not null && AtQuery is > 0 and <= 1 ? AtQuery.Value : 0;
+            alongChapters = (await ReadAlongs.StatusAsync(db, Id)).Chapters;
         }
     }
+
+    // Listening along: the audiobook plays and the word being read is marked, when the book has a read-along.
+    private ReadAlongChapter[] alongChapters = [];
+    private IJSObjectReference? along;
+    private bool alongOn;
+    private bool following;
+    private string? alongNote;
+
+    private async Task<int[]> AlongTimesAsync(int index)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        return (await ReadAlongService.TimesAsync(db, Id, index))?.Times ?? [];
+    }
+
+    private async Task ToggleAlong()
+    {
+        alongNote = null;
+        along ??= await Js.InvokeAsync<IJSObjectReference>("import", "./readalong.js");
+        if (alongOn)
+        {
+            await along.InvokeVoidAsync("stop");
+            alongOn = false;
+            return;
+        }
+
+        if (speechState != "idle")
+        {
+            await StopReading();
+        }
+
+        self ??= DotNetObjectReference.Create(this);
+        alongOn = await along.InvokeAsync<bool>("start", self, Id, chapter, await AlongTimesAsync(chapter), alongChapters);
+        alongNote = alongOn ? null : T("The audiobook could not be played here.");
+    }
+
+    // The recording moved on to another chapter: the page follows it.
+    [JSInvokable]
+    public Task AlongTo(int index) => InvokeAsync(async () =>
+    {
+        if (chapters is null || index < 0 || index >= chapters.Count || !alongOn)
+        {
+            return;
+        }
+
+        chapter = index;
+        following = true;
+        try
+        {
+            await RememberChapter();
+        }
+        finally
+        {
+            following = false;
+        }
+
+        if (along is not null)
+        {
+            await along.InvokeVoidAsync("chapter", index, await AlongTimesAsync(index));
+        }
+
+        StateHasChanged();
+    });
+
+    [JSInvokable]
+    public Task AlongStopped() => InvokeAsync(() =>
+    {
+        alongOn = false;
+        StateHasChanged();
+    });
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -654,6 +737,12 @@ else if (book is not null)
 
         await using var db = await DbFactory.CreateDbContextAsync();
         await Lending.KeepPlaceAsync(db, open, place => place.EbookChapter = chapter);
+
+        // Chosen by hand while listening along, the recording goes to the chapter's start.
+        if (alongOn && !following && along is not null && alongChapters.FirstOrDefault(item => item.Index == chapter) is { } range)
+        {
+            await along.InvokeVoidAsync("move", chapter, await AlongTimesAsync(chapter), range.Start);
+        }
     }
 
     [JSInvokable]
@@ -698,9 +787,20 @@ else if (book is not null)
         StateHasChanged();
     });
 
-    // The same place in the audiobook: by the chapters' titles where they agree, and how far through otherwise.
-    private void ContinueInAudio()
+    // The same place in the audiobook: to the word, with a read-along; else by the chapters' titles where they agree,
+    // and how far through otherwise.
+    private async Task ContinueInAudio()
     {
+        if (book is not null && alongChapters.Length > 0)
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            if (await ReadAlongService.SecondsAtAsync(db, book.Id, chapter, chapterAt) is double seconds)
+            {
+                Navigation.NavigateTo($"/library/{book.Id}/listen?t={seconds.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}");
+                return;
+            }
+        }
+
         if (book is null || Crossover.EbookParts(Ebooks, book.EbookStoredName, Cache) is not { } text || Crossover.AudioParts(Audio, book.AudioStoredName) is not { Count: > 0 } recording)
         {
             return;
@@ -863,6 +963,18 @@ else if (book is not null)
 
     public async ValueTask DisposeAsync()
     {
+        if (along is not null)
+        {
+            try
+            {
+                await along.InvokeVoidAsync("stop", false);
+                await along.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+
         if (pdf is not null)
         {
             try

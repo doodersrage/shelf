@@ -38,6 +38,7 @@ public static class ReaderMarks
         <style>
         mark.shelf-mark { background: #f0d78c; color: inherit; }
         mark.shelf-mark.shelf-current { background: #e2b657; }
+        ::highlight(shelf-say) { background: #b9dcf7; color: inherit; }
         </style>
         """;
 
@@ -119,7 +120,96 @@ public static class ReaderMarks
               });
             });
           }
+          // The chapter's words, counted in each text node as the shelf counts them, before highlights split any node:
+          // a word's number here is its number in the read-along's times.
+          const tokens = (() => {
+            const found = [];
+            const pattern = /[\p{L}\p{M}\p{N}]+(?:['’][\p{L}\p{M}\p{N}]+)*/gu;
+            for (const item of textMap(document.body).nodes) {
+              for (const match of item.node.nodeValue.matchAll(pattern)) found.push([item.start + match.index, item.start + match.index + match[0].length]);
+            }
+            return found;
+          })();
           paint();
+          let showPage = null;
+          let pageNow = () => 0;
+          function wordRange(index) {
+            const token = tokens[index];
+            if (!token) return null;
+            const map = textMap(document.body);
+            const start = point(map.nodes, token[0]);
+            const end = point(map.nodes, token[1]);
+            if (!start || !end) return null;
+            const range = document.createRange();
+            try {
+              range.setStart(start.node, start.offset);
+              range.setEnd(end.node, end.offset);
+            } catch (error) {
+              return null;
+            }
+            return range;
+          }
+          let along = false;
+          // The word being read aloud: marked, and kept in view.
+          function say(index) {
+            const range = wordRange(index);
+            if (!range) return;
+            if (window.CSS && CSS.highlights && window.Highlight) CSS.highlights.set("shelf-say", new Highlight(range));
+            const rect = range.getBoundingClientRect();
+            if (showPage) {
+              const view = document.scrollingElement || document.documentElement;
+              const wanted = Math.floor((view.scrollLeft + rect.left + 1) / window.innerWidth);
+              if (wanted !== pageNow()) showPage(wanted);
+            } else if (rect.top < 40 || rect.bottom > window.innerHeight - 40) {
+              window.scrollTo({ top: window.scrollY + rect.top - window.innerHeight * 0.3, behavior: "smooth" });
+            }
+          }
+          // The first word on the screen, where listening along starts.
+          function firstShown() {
+            let lo = 0, hi = tokens.length - 1, found = 0;
+            while (lo <= hi) {
+              const mid = (lo + hi) >> 1;
+              const range = wordRange(mid);
+              const rect = range ? range.getBoundingClientRect() : null;
+              const before = rect ? (showPage ? rect.left < -1 : rect.bottom < 0) : true;
+              if (before) lo = mid + 1; else { found = mid; hi = mid - 1; }
+            }
+            return found;
+          }
+          function wordAt(x, y) {
+            let node = null, offset = 0;
+            if (document.caretPositionFromPoint) {
+              const caret = document.caretPositionFromPoint(x, y);
+              if (caret) { node = caret.offsetNode; offset = caret.offset; }
+            } else if (document.caretRangeFromPoint) {
+              const caret = document.caretRangeFromPoint(x, y);
+              if (caret) { node = caret.startContainer; offset = caret.startOffset; }
+            }
+            const item = node && textMap(document.body).nodes.find((entry) => entry.node === node);
+            if (!item) return -1;
+            const at = item.start + offset;
+            let lo = 0, hi = tokens.length - 1, found = -1;
+            while (lo <= hi) {
+              const mid = (lo + hi) >> 1;
+              if (tokens[mid][0] <= at) { found = mid; lo = mid + 1; } else hi = mid - 1;
+            }
+            return found;
+          }
+          window.addEventListener("message", (event) => {
+            if (event.source !== parent || !event.data) return;
+            if (event.data.source === "shelf-along") {
+              along = !!event.data.on;
+              if (!along && window.CSS && CSS.highlights) CSS.highlights.delete("shelf-say");
+            }
+            if (event.data.source === "shelf-say") say(Number(event.data.word) || 0);
+            if (event.data.source === "shelf-where") parent.postMessage({ source: "shelf-here", word: firstShown(), words: tokens.length }, "*");
+          });
+          // Listening along, a double tap on a word moves the recording there.
+          document.addEventListener("dblclick", (event) => {
+            if (!along) return;
+            const word = wordAt(event.clientX, event.clientY);
+            if (word >= 0) parent.postMessage({ source: "shelf-word", word: word }, "*");
+          });
           // How far into the chapter the reader is, for carrying the place to the audiobook; and the way in from it.
           const paged = !!document.getElementById("shelf-pages");
           const room = () => Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
@@ -151,6 +241,8 @@ public static class ReaderMarks
               }
               show(next);
             };
+            showPage = show;
+            pageNow = () => page;
             const open = () => show(at > 0 ? Math.round(Math.min(1, at) * (count() - 1)) : 0);
             open();
             window.addEventListener("load", open, { once: true });
@@ -204,7 +296,9 @@ public static class ReaderMarks
             clearTimeout(told);
             told = setTimeout(() => parent.postMessage({ source: "shelf-place", at: Math.min(1, window.scrollY / room()) }, "*"), 300);
           }, { passive: true });
-          document.addEventListener("mouseup", () => {
+          document.addEventListener("mouseup", (event) => {
+            // A double tap while listening along moves the recording; it is not a highlight.
+            if (along && event.detail > 1) return;
             const sel = window.getSelection();
             if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
             const range = sel.getRangeAt(0);

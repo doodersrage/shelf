@@ -60,6 +60,24 @@ Playing to the end of the recording marks the book **Finished**, with today's da
 
 A borrower listening to a book lent to them has their own place, bookmarks, and listening time.
 
+## Read-along
+
+With a speech-to-text service set up (see below), a book that has both an EPUB and an audiobook can be matched word by word. On the book's page, under the recording, choose **Make the read-along**. Shelf sends the recording to the service a piece at a time (it shows how far it has got, and carries on after a restart), then matches every word heard to the words of the e-book. Then:
+
+- In the reader, **Listen along** plays the audiobook from the first word on the screen and marks each word as it's read, scrolling or turning the page to keep it in view, and going on into the next chapter. Double-tap a word to move the recording there. **Stop listening along** pauses it.
+- **Continue in the audiobook** and **Continue in the e-book** keep your place to the word, rather than by chapter.
+
+Text the recording doesn't read (a contents page, notes, an index) is left out, and so is narration the book doesn't have (Audible's opening and closing credits). The book's page shows how much of the text found its place; a low share usually means a different edition. A borrower, or a child the book is shared with, can listen along too. If either file changes, make the read-along again.
+
+### Setting up speech-to-text
+
+Shelf uses any service with OpenAI's transcription API and word times. Set `ReadAlong:Url` to its transcriptions address:
+
+- **At home, free:** [Speaches](https://speaches.ai) (faster-whisper) runs in Docker beside Shelf; `ReadAlong:Url` is `http://speaches:8000/v1/audio/transcriptions` and `ReadAlong:Model` a Whisper model such as `Systran/faster-whisper-small`. On a CPU, hearing a book takes a fraction of its length; with a GPU, much less.
+- **OpenAI:** `ReadAlong:Url` is `https://api.openai.com/v1/audio/transcriptions`, `ReadAlong:Model` is `whisper-1`, and `ReadAlong:ApiKey` your key. It is paid by the minute, and takes files of up to 25 MB, so Shelf needs ffmpeg to cut longer tracks: build the image with `--build-arg FFMPEG=true`.
+
+When ffmpeg is there, Shelf always cuts tracks into ten-minute pieces, which shows progress as it goes and loses less if something fails. The recording goes to the service you choose and nowhere else.
+
 ## Audiobooks and e-books together
 
 A book can have both an e-book and an audiobook. Each keeps its own place. Bringing a book from Audiobookshelf that has both brings both onto one book.

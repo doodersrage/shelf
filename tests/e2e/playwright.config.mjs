@@ -50,6 +50,8 @@ export default defineConfig({
       // Free books reaches gutenberg.org and librivox.org; the server tests cover it with stand-ins instead.
       FreeBooks__Enabled: "false",
       Accounts__SignInsPerMinute: "1000",
+      // Read-along's speech-to-text, played by the read-along spec itself.
+      ReadAlong__Url: `http://127.0.0.1:${process.env.SHELF_E2E_SPEECH_PORT ?? "5197"}/v1/audio/transcriptions`,
     },
   },
 });

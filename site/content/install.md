@@ -64,7 +64,7 @@ docker compose up -d
 Settings are environment variables, with `__` where the documentation writes `:`. [Configuration](configuration.md) lists them all.
 
 > [!TIP]
-> Kindle files need Calibre to be turned into EPUBs, which adds several hundred megabytes, so the published image leaves it out. Build your own with it: `docker build --build-arg CALIBRE=true -t shelf .`
+> Kindle files need Calibre to be turned into EPUBs, which adds several hundred megabytes, so the published image leaves it out. Build your own with it: `docker build --build-arg CALIBRE=true -t shelf .` The same goes for ffmpeg, which [read-along](audiobooks.md#read-along) needs only with a speech-to-text service that limits uploads, such as OpenAI's: `--build-arg FFMPEG=true`.
 
 ## On Unraid, TrueNAS, or CasaOS
 

@@ -226,6 +226,10 @@ else if (book is not null)
     [SupplyParameterFromQuery(Name = "at")]
     public double? AtQuery { get; set; }
 
+    // Seconds into the whole recording: the way in from a read-along.
+    [SupplyParameterFromQuery(Name = "t")]
+    public double? TimeQuery { get; set; }
+
     public sealed record PlayerNow(int BookId, int Track, double Seconds, double TrackLength, int Chapter, double BookSeconds);
 
     private double Total => plan?.Tracks.Sum(track => track.Length ?? 0) ?? 0;
@@ -253,7 +257,18 @@ else if (book is not null)
         }
 
         bookmarks = await Lending.Bookmarks(db, open!).AsNoTracking().OrderBy(mark => mark.Track).ThenBy(mark => mark.Seconds).ToListAsync();
-        if (PartQuery is int part && AtQuery is double within)
+        if (TimeQuery is double time && time >= 0)
+        {
+            var (track, before) = (0, 0.0);
+            while (track < plan.Tracks.Length - 1 && plan.Tracks[track].Length is double length && time >= before + length)
+            {
+                before += length;
+                track++;
+            }
+
+            arriving = new { track, from = time - before, to = (double?)(time - before), fraction = 0.0 };
+        }
+        else if (PartQuery is int part && AtQuery is double within)
         {
             if (marks.Count > 1)
             {
@@ -308,7 +323,17 @@ else if (book is not null)
         }
 
         PartSpot heard;
-        if (marks.Count > 1)
+        PartSpot? exact;
+        await using (var alongDb = await DbFactory.CreateDbContextAsync())
+        {
+            exact = await ReadAlongService.SpotAtAsync(alongDb, book.Id, now.BookSeconds);
+        }
+
+        if (exact is not null)
+        {
+            heard = exact;
+        }
+        else if (marks.Count > 1)
         {
             var index = marks.LastOrDefault(mark => mark.Start <= now.Seconds + 0.5)?.Index ?? 0;
             var start = marks[index].Start;
@@ -320,7 +345,7 @@ else if (book is not null)
             heard = new PartSpot(now.Track, now.TrackLength > 0 ? now.Seconds / now.TrackLength : 0);
         }
 
-        var spot = new Crossover(Crossover.AudioParts(Audio, book.AudioStoredName), text).ToEbook(heard);
+        var spot = exact ?? new Crossover(Crossover.AudioParts(Audio, book.AudioStoredName), text).ToEbook(heard);
         await using (var db = await DbFactory.CreateDbContextAsync())
         {
             await Lending.KeepPlaceAsync(db, open, place =>

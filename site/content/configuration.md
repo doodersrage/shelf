@@ -121,6 +121,16 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 | `Lookup:GoogleBooksKey` | none | A Google Books API key (free, from the Google Cloud console). Without one, look-ups share Google's allowance for anonymous callers everywhere, which often runs out for the day; Shelf then carries on with Open Library alone. |
 | `SeriesAlerts:Enabled` | `true` | The daily look at Open Library for new books in a series, for readers who turn it on under Series. Set `false` to stop it for everyone. |
 
+## Read-along
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `ReadAlong:Url` | none | The transcriptions address of a speech-to-text service with OpenAI's API, such as `http://speaches:8000/v1/audio/transcriptions`. Without it, read-along is off. See [Read-along](audiobooks.md#read-along). |
+| `ReadAlong:Model` | `whisper-1` | The model the service should use. |
+| `ReadAlong:ApiKey` | none | Sent as a bearer token, for a service that asks for one. |
+| `ReadAlong:FFmpeg` | `ffmpeg` on the path | Where ffmpeg is, to cut recordings into ten-minute pieces. |
+| `ReadAlong:MaxUploadMegabytes` | `24` for OpenAI, else none | The largest file to send whole. A larger track needs ffmpeg. |
+
 ## Notifications and webhooks
 
 | Setting | Default | What it does |

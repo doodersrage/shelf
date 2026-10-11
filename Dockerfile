@@ -19,10 +19,15 @@ RUN dotnet publish src/Shelf.Api/Shelf.Api.csproj -c Release -o /app ${VERSION:+
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 # Calibre turns Kindle files into EPUBs. It adds several hundred megabytes, so it is left out unless asked for:
 #   docker build --build-arg CALIBRE=true .
+# ffmpeg cuts long recordings into pieces for read-along's speech-to-text, which a service with an upload limit (such
+# as OpenAI's) needs; it is left out unless asked for too:
+#   docker build --build-arg FFMPEG=true .
 ARG CALIBRE=false
+ARG FFMPEG=false
 RUN apt-get update \
     && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng poppler-utils curl \
         $(if [ "$CALIBRE" = "true" ]; then echo calibre; fi) \
+        $(if [ "$FFMPEG" = "true" ]; then echo ffmpeg; fi) \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app .

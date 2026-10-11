@@ -2945,3 +2945,7 @@ blockquote mark {
 .next-reads a + a {
   margin-left: 0.75rem;
 }
+
+.read-along progress {
+  width: 100%;
+}

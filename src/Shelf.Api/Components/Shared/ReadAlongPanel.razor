@@ -1,0 +1,98 @@
+@* Making a read-along for a book with an EPUB and an audiobook, and how far it has got. *@
+@implements IDisposable
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject ReadAlongService ReadAlongs
+
+@if (status is not null && (status.CanMake || status.State is not null))
+{
+    <div class="read-along" id="read-along">
+        <h3>@T("Read-along")</h3>
+        @switch (status.State)
+        {
+            case ReadAlongState.Ready:
+                <p>@T("Ready. In the reader, Listen along plays the audiobook and marks each word as it is read; switching between the e-book and the audiobook keeps the place to the word.") <span class="hint">@T("{0} of the text found its place in the recording.", status.Matched.ToString("P0", System.Globalization.CultureInfo.CurrentCulture))</span></p>
+                break;
+            case ReadAlongState.Waiting:
+                <p role="status">@T("Waiting its turn…")</p>
+                break;
+            case ReadAlongState.Listening:
+                <p role="status">@T("Listening to the recording: {0} of {1} pieces.", status.Done, status.Total)</p>
+                <progress max="@Math.Max(1, status.Total)" value="@status.Done"></progress>
+                break;
+            case ReadAlongState.Matching:
+                <p role="status">@T("Matching what was heard to the text…")</p>
+                break;
+            case ReadAlongState.Failed:
+                <p class="validation-message" role="alert">@status.Problem</p>
+                break;
+            default:
+                <p class="hint">@T("Match the audiobook to the e-book word by word, so you can listen and read along together. A speech-to-text service hears the whole recording first, which can take a while.")</p>
+                break;
+        }
+        @if (status.CanMake && status.State is null or ReadAlongState.Ready or ReadAlongState.Failed)
+        {
+            <button type="button" @onclick="Make">@(status.State is null ? T("Make the read-along") : T("Make it again"))</button>
+        }
+        @if (status.State is ReadAlongState.Ready or ReadAlongState.Failed && status.CanMake)
+        {
+            <button type="button" class="quiet" @onclick="Remove">@T("Remove it")</button>
+        }
+        @if (problem is not null)
+        {
+            <p class="validation-message" role="alert">@problem</p>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public int BookId { get; set; }
+
+    private ReadAlongStatus? status;
+    private string? problem;
+    private Timer? timer;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        status = await ReadAlongs.StatusAsync(db, BookId);
+        // While it is being made, look again every few seconds.
+        if (status.State is ReadAlongState.Waiting or ReadAlongState.Listening or ReadAlongState.Matching)
+        {
+            timer ??= new Timer(_ => InvokeAsync(async () =>
+            {
+                await LoadAsync();
+                StateHasChanged();
+            }), null, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4));
+        }
+        else
+        {
+            timer?.Dispose();
+            timer = null;
+        }
+    }
+
+    private async Task Make()
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            problem = await ReadAlongs.StartAsync(db, BookId);
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task Remove()
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            await ReadAlongService.RemoveAsync(db, BookId);
+        }
+
+        await LoadAsync();
+    }
+
+    public void Dispose() => timer?.Dispose();
+}

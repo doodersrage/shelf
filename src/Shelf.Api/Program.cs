@@ -119,6 +119,14 @@ builder.Services.AddHostedService(static services => services.GetRequiredService
 builder.Services.AddHttpClient<IWebhookPoster, WebhookPoster>(client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddSingleton<Webhooks>();
 builder.Services.AddSingleton<IShelfEventHandler>(static services => services.GetRequiredService<Webhooks>());
+// Read-along: a recording heard by a speech-to-text service (ReadAlong:Url) and matched to its e-book, word by word.
+// Hearing a long track can take most of an hour, and an upload cannot simply be sent again, so it gets no retries.
+#pragma warning disable EXTEXP0001
+builder.Services.AddHttpClient<ITranscriber, OpenAiTranscriber>(client => client.Timeout = TimeSpan.FromHours(2)).RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
+builder.Services.AddSingleton<IAudioCutter, FfmpegCutter>();
+builder.Services.AddSingleton<ReadAlongService>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<ReadAlongService>());
 
 builder.Services.AddHttpClient("shelf-sync", client => client.Timeout = TimeSpan.FromMinutes(10));
 
