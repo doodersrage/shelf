@@ -61,6 +61,8 @@ public sealed class ShelfDb : DbContext
     public DbSet<PushSubscriptionRow> PushSubscriptions => Set<PushSubscriptionRow>();
     public DbSet<Webhook> Webhooks => Set<Webhook>();
     public DbSet<ReadAlongRow> ReadAlongs => Set<ReadAlongRow>();
+    public DbSet<Podcast> Podcasts => Set<Podcast>();
+    public DbSet<PodcastEpisode> PodcastEpisodes => Set<PodcastEpisode>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -177,6 +179,31 @@ public sealed class ShelfDb : DbContext
             push.HasIndex(item => item.Endpoint).IsUnique();
             push.HasIndex(item => item.ReaderId);
             push.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Podcast>(podcast =>
+        {
+            podcast.Property(item => item.FeedUrl).HasMaxLength(1000);
+            podcast.Property(item => item.Title).HasMaxLength(300);
+            podcast.Property(item => item.Author).HasMaxLength(200);
+            podcast.Property(item => item.Description).HasMaxLength(4000);
+            podcast.Property(item => item.ImageUrl).HasMaxLength(1000);
+            podcast.Property(item => item.Problem).HasMaxLength(500);
+            podcast.HasIndex(item => new { item.OwnerId, item.FeedUrl }).IsUnique();
+            podcast.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            podcast.HasQueryFilter(item => item.OwnerId == ReaderId);
+            podcast.HasMany(item => item.Episodes).WithOne(item => item.Podcast).HasForeignKey(item => item.PodcastId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PodcastEpisode>(episode =>
+        {
+            episode.Property(item => item.Guid).HasMaxLength(500);
+            episode.Property(item => item.Title).HasMaxLength(300);
+            episode.Property(item => item.Summary).HasMaxLength(4000);
+            episode.Property(item => item.AudioUrl).HasMaxLength(2000);
+            episode.Property(item => item.ContentType).HasMaxLength(100);
+            episode.Property(item => item.StoredName).HasMaxLength(100);
+            episode.HasIndex(item => new { item.PodcastId, item.Guid }).IsUnique();
         });
 
         modelBuilder.Entity<ReadAlongRow>(row =>

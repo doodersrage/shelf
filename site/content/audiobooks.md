@@ -1,6 +1,6 @@
 ---
 title: Audiobooks
-description: The audiobook player, chapters, bookmarks, speed, the sleep timer, and the files Shelf takes.
+description: The audiobook player, chapters, bookmarks, speed, the sleep timer, the files Shelf takes, read-along, and podcasts.
 ---
 
 # Audiobooks
@@ -77,6 +77,16 @@ Shelf uses any service with OpenAI's transcription API and word times. Set `Read
 - **OpenAI:** `ReadAlong:Url` is `https://api.openai.com/v1/audio/transcriptions`, `ReadAlong:Model` is `whisper-1`, and `ReadAlong:ApiKey` your key. It is paid by the minute, and takes files of up to 25 MB, so Shelf needs ffmpeg to cut longer tracks: build the image with `--build-arg FFMPEG=true`.
 
 When ffmpeg is there, Shelf always cuts tracks into ten-minute pieces, which shows progress as it goes and loses less if something fails. The recording goes to the service you choose and nowhere else.
+
+## Podcasts
+
+**Podcasts**, in the sidebar, follows podcasts by their feeds. Search by name (Apple's podcast directory finds most), or paste a feed's address. To bring the podcasts you follow in another app, export them from it as an OPML file and choose it under **Bring podcasts from another app**; **Save the podcasts you follow as OPML** takes them the other way.
+
+- Shelf reads each feed every hour. When you first follow a podcast, its newest three episodes wait to be heard and the older ones count as heard, so years of back episodes don't pile up; **Mark as new** brings any back.
+- **Keep downloaded** keeps the newest unplayed episodes on the shelf (three, by default), so they play even when the podcast's own server is slow. A played episode's file goes a day later. **Download** keeps any other episode.
+- **Play** plays an episode in the same player as audiobooks, in the mini player as you move around, with its speed, sleep timer, lock-screen controls, and place, which is kept on the shelf for any device. An episode heard to the end is marked played.
+
+Each reader follows their own podcasts. Podcasts aren't part of the library export or the time-spent statistics.
 
 ## Audiobooks and e-books together
 

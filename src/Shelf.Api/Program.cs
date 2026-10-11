@@ -125,6 +125,17 @@ builder.Services.AddSingleton<IShelfEventHandler>(static services => services.Ge
 builder.Services.AddHttpClient<ITranscriber, OpenAiTranscriber>(client => client.Timeout = TimeSpan.FromHours(2)).RemoveAllResilienceHandlers();
 #pragma warning restore EXTEXP0001
 builder.Services.AddSingleton<IAudioCutter, FfmpegCutter>();
+// Podcasts: feeds read every hour, and the newest episodes kept downloaded.
+builder.Services.AddHttpClient<IPodcastClient, PodcastClient>(client =>
+{
+    client.Timeout = TimeSpan.FromHours(1);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd($"Shelf/{ShelfVersion.Response.Version} (podcasts; +https://github.com/doodersrage/shelf)");
+}).Patient(attempt: TimeSpan.FromMinutes(30), total: TimeSpan.FromHours(1));
+#pragma warning disable EXTEXP0001
+builder.Services.AddHttpClient(PodcastClient.StreamName, client => client.Timeout = Timeout.InfiniteTimeSpan).RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
+builder.Services.AddSingleton<PodcastService>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<PodcastService>());
 builder.Services.AddSingleton<ReadAlongService>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<ReadAlongService>());
 
@@ -307,6 +318,7 @@ app.MapGet("/version", () => TypedResults.Ok(ShelfVersion.Response)).WithTags("S
 app.MapBooks();
 SharedLists.Map(app);
 Kobo.Map(app);
+PodcastService.Map(app);
 await app.RunAsync();
 return 0;
 

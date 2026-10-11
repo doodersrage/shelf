@@ -1,0 +1,188 @@
+@page "/podcasts/{Id:int}"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject PodcastService Podcasts
+@inject NavigationManager Navigation
+
+<PageTitle>@(podcast?.Title ?? T("Podcasts")) · Shelf</PageTitle>
+
+@if (podcast is null)
+{
+    <h1>@T("Not on the shelf")</h1>
+    <p>@T("That podcast is not here.") <a href="/podcasts">@T("Podcasts")</a></p>
+}
+else
+{
+    <p class="hint"><a href="/podcasts">@T("Podcasts")</a></p>
+    <div class="podcast-head">
+        <BookCover Title="@podcast.Title" Url="@podcast.ImageUrl" Width="8rem" />
+        <div>
+            <h1>@podcast.Title</h1>
+            @if (podcast.Author is not null)
+            {
+                <p class="hint">@podcast.Author</p>
+            }
+            @if (podcast.Description is not null)
+            {
+                <p class="collection-description">@podcast.Description</p>
+            }
+            @if (podcast.Problem is not null)
+            {
+                <p class="validation-message">@T(podcast.Problem)</p>
+            }
+        </div>
+    </div>
+    <div class="toolbar-actions">
+        <button type="button" class="quiet" @onclick="Refresh" disabled="@busy">@(busy ? T("Looking…") : T("Look for new episodes"))</button>
+        <label>
+            @T("Keep downloaded")
+            <select @bind="keep" @bind:after="SaveKeep">
+                @foreach (var count in new[] { 0, 1, 3, 5, 10, 20 })
+                {
+                    <option value="@count">@(count == 0 ? T("None") : T("The newest {0}", count))</option>
+                }
+            </select>
+        </label>
+        @if (confirming)
+        {
+            <button type="button" class="danger" @onclick="Unfollow">@T("Yes, stop following")</button>
+            <button type="button" class="quiet" @onclick="() => confirming = false">@T("Cancel")</button>
+        }
+        else
+        {
+            <button type="button" class="quiet" @onclick="() => confirming = true">@T("Stop following")</button>
+        }
+    </div>
+
+    <ul class="episodes">
+        @foreach (var episode in episodes)
+        {
+            <li class="@(episode.Played ? "played" : "")">
+                <div>
+                    <strong>@episode.Title</strong>
+                    <span class="hint">
+                        @(episode.PublishedAt?.Medium())@(episode.DurationSeconds is int length ? " · " + TimePanel.Span(length) : "")@(episode.Played ? " · " + T("played") : episode.Seconds > 0 ? " · " + T("{0} in", TimePanel.Span((int)episode.Seconds)) : "")@(episode.Downloaded ? " · " + T("downloaded") : "")
+                    </span>
+                    @if (episode.Summary is not null)
+                    {
+                        <details>
+                            <summary>@T("About this episode")</summary>
+                            <p>@episode.Summary</p>
+                        </details>
+                    }
+                </div>
+                <div class="episode-actions">
+                    <button type="button" class="primary" data-play-plan="/books/podcasts/episodes/@episode.Id/plan" aria-label="@T("Play {0}", episode.Title)">@T("Play")</button>
+                    <button type="button" class="quiet" @onclick="() => SetPlayed(episode.Id, !episode.Played)">@(episode.Played ? T("Mark as new") : T("Mark as played"))</button>
+                    @if (episode.Downloaded)
+                    {
+                        <button type="button" class="quiet" @onclick="() => Forget(episode.Id)">@T("Delete the download")</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="quiet" @onclick="() => Download(episode.Id)" disabled="@(downloading == episode.Id)">@(downloading == episode.Id ? T("Downloading…") : T("Download"))</button>
+                    }
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Podcast? podcast;
+    private EpisodeRow[] episodes = [];
+    private int keep;
+    private bool busy;
+    private bool confirming;
+    private int? downloading;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        podcast = await db.Podcasts.AsNoTracking().FirstOrDefaultAsync(item => item.Id == Id);
+        episodes = await PodcastService.EpisodesAsync(db, Id) ?? [];
+        keep = podcast?.KeepLatest ?? 0;
+    }
+
+    private async Task Refresh()
+    {
+        busy = true;
+        try
+        {
+            await using (var db = await DbFactory.CreateDbContextAsync())
+            {
+                await Podcasts.RefreshAsync(db, Id);
+            }
+
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task SaveKeep()
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            await PodcastService.SetKeepAsync(db, Id, keep);
+            await Podcasts.KeepDownloadedAsync(db, Id);
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task SetPlayed(int episode, bool played)
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            await PodcastService.SetPlayedAsync(db, episode, played);
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task Download(int episode)
+    {
+        downloading = episode;
+        try
+        {
+            await using (var db = await DbFactory.CreateDbContextAsync())
+            {
+                await Podcasts.DownloadAsync(db, episode);
+            }
+
+            await LoadAsync();
+        }
+        finally
+        {
+            downloading = null;
+        }
+    }
+
+    private async Task Forget(int episode)
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            await Podcasts.ForgetDownloadAsync(db, episode);
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task Unfollow()
+    {
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            await Podcasts.UnsubscribeAsync(db, Id);
+        }
+
+        Navigation.NavigateTo("/podcasts");
+    }
+}

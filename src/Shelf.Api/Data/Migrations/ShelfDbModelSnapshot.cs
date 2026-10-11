@@ -740,6 +740,120 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("OcrScans");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.Podcast", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Author")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("CheckedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FeedUrl")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("KeepLatest")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Problem")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId", "FeedUrl")
+                        .IsUnique();
+
+                    b.ToTable("Podcasts");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.PodcastEpisode", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AudioUrl")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DurationSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("FoundAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Guid")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Played")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("PlayedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PodcastId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("PublishedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("Seconds")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("StoredName")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PodcastId", "Guid")
+                        .IsUnique();
+
+                    b.ToTable("PodcastEpisodes");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.Quote", b =>
                 {
                     b.Property<int>("Id")
@@ -1724,6 +1838,26 @@ namespace Shelf.Api.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.Podcast", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.PodcastEpisode", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Podcast", "Podcast")
+                        .WithMany("Episodes")
+                        .HasForeignKey("PodcastId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Podcast");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.Quote", b =>
                 {
                     b.HasOne("Shelf.Api.Books.Book", "Book")
@@ -1885,6 +2019,11 @@ namespace Shelf.Api.Data.Migrations
             modelBuilder.Entity("Shelf.Api.Books.Collection", b =>
                 {
                     b.Navigation("Books");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.Podcast", b =>
+                {
+                    b.Navigation("Episodes");
                 });
 #pragma warning restore 612, 618
         }

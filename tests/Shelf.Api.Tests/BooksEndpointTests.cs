@@ -1597,6 +1597,8 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
 
     public StubTranscriber Transcriber { get; } = new();
 
+    public StubPodcastClient PodcastFeeds { get; } = new();
+
     public async Task InitializeAsync()
     {
         _client = await SignUpAsync("Tenar");
@@ -1668,6 +1670,7 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
             services.AddSingleton<IWebhookPoster>(Posts);
             services.AddSingleton<ITranscriber>(Transcriber);
             services.AddSingleton<IAudioCutter, StubCutter>();
+            services.AddSingleton<IPodcastClient>(PodcastFeeds);
             services.AddSingleton<Shelf.Api.Readers.IEmailSender>(Mail);
         });
     }

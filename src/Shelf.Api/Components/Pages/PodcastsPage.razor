@@ -1,0 +1,167 @@
+@page "/podcasts"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject PodcastService Podcasts
+
+<PageTitle>@T("Podcasts") · Shelf</PageTitle>
+
+<div class="page-head">
+    <h1>@T("Podcasts")</h1>
+</div>
+<p class="hint">@T("Follow podcasts by their feeds. Shelf looks for new episodes every hour, keeps the newest downloaded, and plays them in the same player as audiobooks, remembering where you stopped.")</p>
+
+@if (child)
+{
+    <p class="hint">@T("A child's account cannot do that. Ask the grown-up who made it.")</p>
+}
+else
+{
+<section class="panel" aria-labelledby="podcast-find">
+    <h2 id="podcast-find">@T("Find a podcast")</h2>
+    <form class="audible-search" @onsubmit="Search" @onsubmit:preventDefault>
+        <label>
+            @T("Name, or the address of its feed")
+            <input type="search" @bind="query" @bind:event="oninput" maxlength="1000" />
+        </label>
+        <button type="submit" class="primary" disabled="@(busy || string.IsNullOrWhiteSpace(query))">@(busy ? T("Looking…") : T("Find"))</button>
+    </form>
+    @if (found is { Count: 0 })
+    {
+        <p class="hint" role="status">@T("Nothing found by that name.")</p>
+    }
+    else if (found is not null)
+    {
+        <ul class="audible-matches">
+            @foreach (var podcast in found)
+            {
+                <li>
+                    @if (podcast.ImageUrl is not null)
+                    {
+                        <img src="@podcast.ImageUrl" alt="" loading="lazy" referrerpolicy="no-referrer" />
+                    }
+                    <div>
+                        <strong>@podcast.Title</strong>
+                        <span class="hint">@podcast.Author</span>
+                    </div>
+                    <button type="button" @onclick="() => Follow(podcast.FeedUrl)" disabled="@busy" aria-label="@T("Follow {0}", podcast.Title)">@T("Follow")</button>
+                </li>
+            }
+        </ul>
+    }
+    <details class="edit">
+        <summary>@T("Bring podcasts from another app")</summary>
+        <p class="hint">@T("Podcast apps can export the podcasts you follow as an OPML file. Choose it here to follow them all.")</p>
+        <label>
+            @T("OPML file")
+            <InputFile OnChange="ImportOpml" accept=".opml,.xml,text/xml,text/x-opml" disabled="@busy" />
+        </label>
+        <p><a href="/books/podcasts/opml" download>@T("Save the podcasts you follow as OPML")</a></p>
+    </details>
+    @if (note is not null)
+    {
+        <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
+    }
+</section>
+}
+
+@if (podcasts.Length == 0)
+{
+    <EmptyState Title="@T("No podcasts yet")" Text="@T("Find one above, by its name or its feed.")" />
+}
+else
+{
+    <ul class="podcast-list">
+        @foreach (var podcast in podcasts)
+        {
+            <li>
+                <a href="/podcasts/@podcast.Id">
+                    <BookCover Title="@podcast.Title" Url="@podcast.ImageUrl" Width="6rem" />
+                    <span>
+                        <strong>@podcast.Title</strong>
+                        <span class="hint">@podcast.Author</span>
+                        @if (podcast.Unplayed > 0)
+                        {
+                            <span class="badge plain">@T("{0} new", podcast.Unplayed)</span>
+                        }
+                    </span>
+                </a>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private PodcastSummary[] podcasts = [];
+    private IReadOnlyList<PodcastFound>? found;
+    private string query = "";
+    private bool busy;
+    private bool problem;
+    private bool child;
+    private string? note;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        podcasts = await PodcastService.ListAsync(db);
+        child = await Family.IsRestrictedAsync(db);
+    }
+
+    private async Task Search()
+    {
+        (busy, note) = (true, null);
+        try
+        {
+            // A feed's address is followed as it is; a name is looked for.
+            if (Notices.IsWebAddress(query, out _))
+            {
+                await Follow(query.Trim());
+                return;
+            }
+
+            found = await Podcasts.SearchAsync(query);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task Follow(string feedUrl)
+    {
+        busy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var (id, why) = await Podcasts.SubscribeAsync(db, feedUrl);
+            (problem, note) = id is null ? (true, why) : (false, T("Following it. New episodes come every hour."));
+            podcasts = await PodcastService.ListAsync(db);
+            found = id is null ? found : null;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task ImportOpml(InputFileChangeEventArgs change)
+    {
+        busy = true;
+        try
+        {
+            using var reader = new StreamReader(change.File.OpenReadStream(5 * 1024 * 1024));
+            var xml = await reader.ReadToEndAsync();
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var (followed, failed) = await Podcasts.ImportOpmlAsync(db, xml);
+            (problem, note) = (followed == 0, T("Following {0} podcasts.", followed) + (failed > 0 ? " " + T("{0} feeds could not be read.", failed) : ""));
+            podcasts = await PodcastService.ListAsync(db);
+        }
+        catch (IOException)
+        {
+            (problem, note) = (true, T("Choose an OPML file of up to 5 MB."));
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

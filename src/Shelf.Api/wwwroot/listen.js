@@ -179,13 +179,18 @@
     }
   });
 
+  // What is playing, as a name for this device's keeping: a book by its id, anything else (a podcast episode) by
+  // the key its plan gives. A plan that is not a book also gives where its place, its end, and its page go.
+  const keyOf = (some) => (some?.key ?? String(some?.bookId ?? ""));
+  const placeUrl = () => plan.placeUrl ?? `/books/${plan.bookId}/audio/place`;
+
   // The end of the book: it is marked finished on the shelf, and the player says so.
   function finished() {
-    const bookId = plan.bookId;
-    fetch(`/books/${bookId}/audio/finished`, { method: "POST", credentials: "same-origin" })
+    const key = keyOf(plan);
+    fetch(plan.finishedUrl ?? `/books/${plan.bookId}/audio/finished`, { method: "POST", credentials: "same-origin" })
       .then((response) => (response.ok ? response.json() : null))
       .then((answer) => {
-        if (plan?.bookId !== bookId) return;
+        if (keyOf(plan) !== key) return;
         note = answer?.marked ? "finished" : "ended";
         render();
       })
@@ -213,19 +218,20 @@
     if (!plan || track < 0) return Promise.resolve();
     lastSaved = performance.now();
     const bookId = plan.bookId;
+    const key = keyOf(plan);
     const seconds = pending ? pending.seconds : audio.currentTime || 0;
     const listened = Math.round(heard);
     heard -= listened;
     const day = shelfDay();
-    write(`shelf-audio-place-${bookId}`, { track, seconds, waiting: true });
+    write(`shelf-audio-place-${key}`, { track, seconds, waiting: true });
     const missed = () => {
-      if (listened < 1) return;
+      if (listened < 1 || !bookId) return;
       const owed = read("shelf-audio-heard", {});
       owed[bookId] = owed[bookId] || {};
       owed[bookId][day] = (owed[bookId][day] || 0) + listened;
       write("shelf-audio-heard", owed);
     };
-    return fetch(`/books/${bookId}/audio/place`, {
+    return fetch(placeUrl(), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ track, seconds, listened, day }),
@@ -233,8 +239,8 @@
       credentials: "same-origin",
     }).then((response) => {
       if (response.ok) {
-        const kept = read(`shelf-audio-place-${bookId}`, null);
-        if (kept && kept.track === track && kept.seconds === seconds) write(`shelf-audio-place-${bookId}`, { track, seconds, waiting: false });
+        const kept = read(`shelf-audio-place-${key}`, null);
+        if (kept && kept.track === track && kept.seconds === seconds) write(`shelf-audio-place-${key}`, { track, seconds, waiting: false });
       } else if (response.status !== 404) {
         missed();
       }
@@ -402,7 +408,7 @@
   }
 
   // The full player for this book is on the page: the mini player steps aside.
-  const fullView = () => (plan ? document.querySelector(`[data-player-view="full"][data-book="${plan.bookId}"]`) : null);
+  const fullView = () => (plan ? document.querySelector(`[data-player-view="full"][data-book="${keyOf(plan)}"]`) : null);
 
   let drawnTicks = null;
   function render() {
@@ -451,15 +457,15 @@
           if (plan.cover && element.getAttribute("src") !== plan.cover) element.setAttribute("src", plan.cover);
           element.hidden = !plan.cover;
           break;
-        case "link": element.setAttribute("href", `/library/${plan.bookId}/listen`); break;
+        case "link": element.setAttribute("href", plan.link ?? `/library/${plan.bookId}/listen`); break;
         case "ticks":
-          if (drawnTicks !== element || element.dataset.drawn !== String(plan.bookId)) {
+          if (drawnTicks !== element || element.dataset.drawn !== keyOf(plan)) {
             element.replaceChildren(...chapters.slice(1).map((item) => {
               const mark = document.createElement("span");
               mark.style.left = `${(item.start / Math.max(1, total)) * 100}%`;
               return mark;
             }));
-            element.dataset.drawn = String(plan.bookId);
+            element.dataset.drawn = keyOf(plan);
             drawnTicks = element;
           }
           break;
@@ -502,7 +508,7 @@
 
   // Opens a book: the one already playing carries on; another stops the first, keeping its place.
   async function open(next, options = {}) {
-    if (plan && plan.bookId === next.bookId && track >= 0) {
+    if (plan && keyOf(plan) === keyOf(next) && track >= 0) {
       plan = { ...plan, ...next, tracks: plan.tracks };
       if (options.arrive) arrive(options.arrive);
       render();
@@ -521,11 +527,11 @@
     note = "";
     sleep = { mode: "off", left: 0, until: 0 };
     rate = Math.min(3, Math.max(0.5, (next.speed || 100) / 100));
-    write(STORE, { bookId: next.bookId });
+    write(STORE, { bookId: next.bookId, planUrl: next.planUrl });
     await prepare(next);
     handle();
     // A place kept here that the shelf has not had yet is newer than the shelf's.
-    const local = read(`shelf-audio-place-${next.bookId}`, null);
+    const local = read(`shelf-audio-place-${keyOf(next)}`, null);
     const from = local?.waiting ? local : next;
     const start = Math.min(Math.max(0, from.track), lengths.length - 1);
     if (options.arrive) arrive(options.arrive);
@@ -556,6 +562,18 @@
   }
 
   // A Play button on a book's page or card: the book starts in the mini player, and the page stays.
+  async function playPlan(url) {
+    try {
+      const response = await fetch(url, { credentials: "same-origin" });
+      if (!response.ok) return;
+      const next = await response.json();
+      if (plan && keyOf(plan) === keyOf(next) && track >= 0) play();
+      else await open(next, { play: true });
+    } catch {
+      // The shelf is out of reach.
+    }
+  }
+
   async function playBook(bookId) {
     if (plan?.bookId === bookId && track >= 0) {
       play();
@@ -575,6 +593,14 @@
     if (starter) {
       event.preventDefault();
       playBook(Number(starter.dataset.playBook));
+      return;
+    }
+
+    // Anything else with a plan of its own, such as a podcast episode.
+    const other = event.target.closest?.("[data-play-plan]");
+    if (other) {
+      event.preventDefault();
+      playPlan(other.dataset.playPlan);
       return;
     }
 
@@ -654,9 +680,9 @@
   // After a reload, the book that was playing waits in the mini player, paused where it stopped.
   async function restore() {
     const kept = read(STORE, null);
-    if (!kept?.bookId || plan) return;
+    if (!(kept?.bookId || kept?.planUrl) || plan) return;
     try {
-      const response = await fetch(`/books/${kept.bookId}/audio/plan`, { credentials: "same-origin" });
+      const response = await fetch(kept.planUrl ?? `/books/${kept.bookId}/audio/plan`, { credentials: "same-origin" });
       if (!response.ok) {
         if (response.status === 401 || response.status === 404) write(STORE, null);
         return;
@@ -677,6 +703,7 @@
     // Where the player is, for a bookmark or for carrying the place to the e-book.
     now: () => ({
       bookId: plan?.bookId ?? 0,
+      key: plan ? keyOf(plan) : "",
       track: Math.max(0, track),
       seconds: pending ? pending.seconds : audio.currentTime || 0,
       trackLength: lengths[track] || 0,
