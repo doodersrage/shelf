@@ -31,6 +31,8 @@ public static class FormWords
     public static string Inscription => T("Inscription");
     public static string Translator => T("Translator");
     public static string Narrator => T("Narrator");
+    public static string PagesGoal => T("Pages to read this year");
+    public static string HoursGoal => T("Hours to spend reading and listening");
     public static string RecommendedBy => T("Recommended by");
     public static string FromPage => T("From page");
     public static string ToPage => T("To page");

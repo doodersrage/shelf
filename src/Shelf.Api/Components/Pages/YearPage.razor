@@ -41,6 +41,17 @@ else
         <p>@T("{0} of the {1} you set out to read this year.", review.Finished, review.Goal)</p>
         <progress class="goal" max="@review.Goal" value="@Math.Min(review.Finished, review.Goal)" aria-label="@T("{0} of {1} books finished", review.Finished, review.Goal)"></progress>
     }
+    @if (review.PagesGoal > 0)
+    {
+        <p>@T("{0} of the {1} pages you set out to read.", review.Pages.ToString("N0"), review.PagesGoal.ToString("N0"))</p>
+        <progress class="goal" max="@review.PagesGoal" value="@Math.Min(review.Pages, review.PagesGoal)" aria-label="@T("{0} of {1} pages read", review.Pages, review.PagesGoal)"></progress>
+    }
+    @if (review.HoursGoal > 0)
+    {
+        var hours = (review.ReadingSeconds + review.ListeningSeconds) / 3600;
+        <p>@T("{0} of the {1} hours you set out to spend with books.", hours, review.HoursGoal)</p>
+        <progress class="goal" max="@review.HoursGoal" value="@Math.Min(hours, review.HoursGoal)" aria-label="@T("{0} of {1} hours", hours, review.HoursGoal)"></progress>
+    }
 
     @if (review.Books.Length > 0)
     {

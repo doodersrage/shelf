@@ -30,7 +30,9 @@ public sealed record YearReviewResponse(
     int Quotes,
     int Highlights,
     string? FavouriteQuote,
-    string? FavouriteQuoteBook);
+    string? FavouriteQuoteBook,
+    int PagesGoal = 0,
+    int HoursGoal = 0);
 
 public static class YearReview
 {
@@ -74,12 +76,12 @@ public static class YearReview
         // The quote to remember the year by: the longest one that still fits in a breath.
         var favourite = quotes.Where(quote => quote.Text.Length <= 280).OrderByDescending(quote => quote.Text.Length).FirstOrDefault();
         var measured = finished.Where(book => book.Pages is > 0).ToList();
-        var goal = year == DateTime.UtcNow.Year ? await BookRules.GetGoalAsync(db, cancellationToken) : 0;
+        var goals = year == DateTime.UtcNow.Year ? await BookRules.GetGoalsAsync(db, cancellationToken) : new BookRules.Goals(0, 0, 0);
 
         return new YearReviewResponse(
             year,
             finished.Count,
-            goal,
+            goals.Books,
             finished.Sum(book => book.Pages ?? 0),
             reading,
             listening,
@@ -105,7 +107,9 @@ public static class YearReview
             quotes.Count,
             highlights,
             favourite?.Text,
-            favourite?.Title);
+            favourite?.Title,
+            goals.Pages,
+            goals.Hours);
     }
 
     // The years with something finished in them, newest first, for links to each review.

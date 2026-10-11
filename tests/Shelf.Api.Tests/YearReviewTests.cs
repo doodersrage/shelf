@@ -10,6 +10,31 @@ public sealed class YearReviewTests(ShelfApiFactory factory) : IClassFixture<She
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
     [Fact]
+    public async Task Pages_and_hours_goals_are_kept_and_shown_beside_the_books_goal()
+    {
+        var reader = await factory.SignUpAsync("Goal Setter");
+        var year = DateTime.UtcNow.Year;
+        var saved = await (await reader.PutAsJsonAsync("/settings", new UpdateSettingsRequest(12, 5000, 100), JsonOptions)).Content.ReadFromJsonAsync<ShelfSettingsResponse>(JsonOptions);
+        Assert.Equal(new ShelfSettingsResponse(12, 5000, 100), saved);
+        // A request that names only the books goal leaves the others.
+        await reader.PutAsJsonAsync("/settings", new UpdateSettingsRequest(10), JsonOptions);
+        Assert.Equal(new ShelfSettingsResponse(10, 5000, 100), await reader.GetFromJsonAsync<ShelfSettingsResponse>("/settings", JsonOptions));
+
+        var book = await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("A Long Book", "Someone", BookStatus.Finished, null, Pages: 1200, FinishedOn: DateOnly.FromDateTime(DateTime.UtcNow)), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions);
+        for (var i = 0; i < 12; i++)
+        {
+            await reader.PostAsJsonAsync($"/books/{book!.Id}/reading-time", new ReadingTimeRequest(null, 300), JsonOptions);
+        }
+
+        var stats = await reader.GetStringAsync("/stats");
+        Assert.Contains("<strong>1,200</strong> of 5,000 pages read this year", stats);
+        Assert.Contains("<strong>1</strong> of 100 hours reading and listening this year", stats);
+        var review = await reader.GetFromJsonAsync<YearReviewResponse>($"/books/years/{year}/review", JsonOptions);
+        Assert.Equal((10, 5000, 100), (review!.Goal, review.PagesGoal, review.HoursGoal));
+        Assert.Contains("1,200 of the 5,000 pages you set out to read.", await reader.GetStringAsync($"/years/{year}"));
+    }
+
+    [Fact]
     public async Task A_year_in_books_sums_up_what_was_finished_and_what_stood_out()
     {
         var reader = await factory.SignUpAsync("Reviewing Reader");

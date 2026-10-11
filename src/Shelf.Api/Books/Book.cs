@@ -141,6 +141,10 @@ public sealed class ShelfSetting
     public int? ReaderLineHeight { get; set; }
     public int? ReaderWidth { get; set; }
 
+    // The year's other goals, beside the number of books: pages read, and hours spent reading and listening.
+    public int PagesGoal { get; set; }
+    public int HoursGoal { get; set; }
+
     // The reader turns pages rather than scrolling.
     public bool ReaderPaged { get; set; }
     public bool LibraryAsList { get; set; }
@@ -618,9 +622,9 @@ public sealed record ShelfStatsResponse(
     int OnLoan,
     int YearlyGoal);
 
-public sealed record ShelfSettingsResponse(int YearlyGoal);
+public sealed record ShelfSettingsResponse(int YearlyGoal, int PagesGoal = 0, int HoursGoal = 0);
 
-public sealed record UpdateSettingsRequest([Range(0, 1000)] int YearlyGoal);
+public sealed record UpdateSettingsRequest([Range(0, 1000)] int YearlyGoal, [Range(0, 1_000_000)] int? PagesGoal = null, [Range(0, 10_000)] int? HoursGoal = null);
 
 public sealed record LibraryExport(int YearlyGoal, BookResponse[] Books);
 

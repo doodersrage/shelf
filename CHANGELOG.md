@@ -15,6 +15,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - Pages in the EPUB reader: under Text settings, Layout lays a chapter out a screen at a time, turned by tapping the sides, swiping, the arrow keys, or the wheel, and on into the next chapter.
 - Look up a word: select a word or short phrase in the reader for its definitions from Wiktionary and a summary from Wikipedia, in the book's language. `Lookup:Dictionary` turns it off.
 - Share into Shelf: with Shelf on an Android home screen, share a book from any app and the add form opens with its ISBN looked up, or its title and author.
+- Pages and hours goals beside the books goal: pages to read and hours to spend reading and listening each year, with progress on Stats and in the year's review.
 
 ## [1.6.0] - 2026-10-11
 

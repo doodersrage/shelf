@@ -305,6 +305,12 @@ public sealed class GoalFormModel
 {
     [Range(0, 1000, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.OutOfRange)), Display(Name = nameof(FormWords.YearlyGoal), ResourceType = typeof(FormWords))]
     public int YearlyGoal { get; set; }
+
+    [Range(0, 1_000_000, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.OutOfRange)), Display(Name = nameof(FormWords.PagesGoal), ResourceType = typeof(FormWords))]
+    public int PagesGoal { get; set; }
+
+    [Range(0, 10_000, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.OutOfRange)), Display(Name = nameof(FormWords.HoursGoal), ResourceType = typeof(FormWords))]
+    public int HoursGoal { get; set; }
 }
 
 public sealed class QuoteFormModel

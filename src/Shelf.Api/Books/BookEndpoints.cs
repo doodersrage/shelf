@@ -474,16 +474,20 @@ public static class BookEndpoints
         return TypedResults.NoContent();
     }
 
-    private static async Task<Ok<ShelfSettingsResponse>> GetSettings(ShelfDb db, CancellationToken cancellationToken) =>
-        TypedResults.Ok(new ShelfSettingsResponse(await BookRules.GetGoalAsync(db, cancellationToken)));
+    private static async Task<Ok<ShelfSettingsResponse>> GetSettings(ShelfDb db, CancellationToken cancellationToken)
+    {
+        var goals = await BookRules.GetGoalsAsync(db, cancellationToken);
+        return TypedResults.Ok(new ShelfSettingsResponse(goals.Books, goals.Pages, goals.Hours));
+    }
 
     private static async Task<Results<Ok<ShelfSettingsResponse>, ValidationProblem>> UpdateSettings(
         UpdateSettingsRequest request,
         ShelfDb db,
         CancellationToken cancellationToken)
     {
-        await BookRules.SetGoalAsync(db, request.YearlyGoal, cancellationToken);
-        return TypedResults.Ok(new ShelfSettingsResponse(request.YearlyGoal));
+        await BookRules.SetGoalsAsync(db, request.YearlyGoal, request.PagesGoal, request.HoursGoal, cancellationToken);
+        var goals = await BookRules.GetGoalsAsync(db, cancellationToken);
+        return TypedResults.Ok(new ShelfSettingsResponse(goals.Books, goals.Pages, goals.Hours));
     }
 
     private static async Task<Results<Ok<CatalogMatch>, NotFound>> LookupBook(

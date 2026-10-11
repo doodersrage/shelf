@@ -89,7 +89,9 @@ With none of these, the book shows a plain green spine with its title.
 
 ## The reading log
 
-Log a session from a book's page: the date, the pages you read from and to, and a note. Sessions feed **Stats**: the year's goal and how you are doing, books finished each month, counts, a reading streak, a calendar of reading days, and recent sessions.
+Log a session from a book's page: the date, the pages you read from and to, and a note. Sessions feed **Stats**: the year's goals and how you are doing, books finished each month, counts, a reading streak, a calendar of reading days, and recent sessions.
+
+The year can have up to three goals, set at the foot of the year's panel on **Stats**: books to finish, pages to read (counting the pages of the books you finish), and hours to spend reading and listening (from the reader's and the player's own count of your time). Leave one at 0 to go without it; each one set shows how far along you are, on **Stats** and in the year's review.
 
 ## Quotes
 

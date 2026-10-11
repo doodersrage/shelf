@@ -41,6 +41,17 @@ else
             <p class="hint">@T("You read today or yesterday.")</p>
         }
 
+        @if (goals.Pages > 0)
+        {
+            <p>@((MarkupString)T("<strong>{0}</strong> of {1} pages read this year", PagesThisYear.ToString("N0"), goals.Pages.ToString("N0")))</p>
+            <progress class="goal" max="@goals.Pages" value="@Math.Min(PagesThisYear, goals.Pages)" aria-label="@T("{0} of {1} pages read", PagesThisYear, goals.Pages)"></progress>
+        }
+        @if (goals.Hours > 0)
+        {
+            <p>@((MarkupString)T("<strong>{0}</strong> of {1} hours reading and listening this year", HoursThisYear, goals.Hours))</p>
+            <progress class="goal" max="@goals.Hours" value="@Math.Min(HoursThisYear, goals.Hours)" aria-label="@T("{0} of {1} hours", HoursThisYear, goals.Hours)"></progress>
+        }
+
         <h3>@T("Finished each month")</h3>
         <ul class="month-bars" aria-label="@T("Books finished each month this year")">
             @for (var month = 1; month <= 12; month++)
@@ -56,12 +67,25 @@ else
 
         <EditForm Model="goal" OnValidSubmit="SaveGoal">
             <DataAnnotationsValidator />
-            <label class="inline-date">
-                @T("Books to finish this year")
-                <InputNumber @bind-Value="goal.YearlyGoal" min="0" max="1000" />
-            </label>
-            <button type="submit">@T("Save goal")</button>
+            <div class="goal-fields">
+                <label class="inline-date">
+                    @T("Books to finish this year")
+                    <InputNumber @bind-Value="goal.YearlyGoal" min="0" max="1000" />
+                </label>
+                <label class="inline-date">
+                    @T("Pages to read this year")
+                    <InputNumber @bind-Value="goal.PagesGoal" min="0" max="1000000" />
+                </label>
+                <label class="inline-date">
+                    @T("Hours to spend reading and listening")
+                    <InputNumber @bind-Value="goal.HoursGoal" min="0" max="10000" />
+                </label>
+            </div>
+            <p class="hint">@T("Leave a goal at 0 to go without it.")</p>
+            <button type="submit">@T("Save goals")</button>
             <ValidationMessage For="() => goal.YearlyGoal" />
+            <ValidationMessage For="() => goal.PagesGoal" />
+            <ValidationMessage For="() => goal.HoursGoal" />
             @if (goalSaved)
             {
                 <span class="saved" role="status">@T("Saved.")</span>
@@ -243,6 +267,8 @@ else
         await using var db = await DbFactory.CreateDbContextAsync();
         stats = await BookRules.SummarizeAsync(db);
         goal.YearlyGoal = stats.YearlyGoal;
+        goals = await BookRules.GetGoalsAsync(db);
+        (goal.PagesGoal, goal.HoursGoal) = (goals.Pages, goals.Hours);
         shelf = await db.Books.AsNoTracking().Include(book => book.Sessions).ToListAsync();
         var year = DateOnly.FromDateTime(DateTime.UtcNow).Year;
         finished = BookRules.FinishedInYear(shelf, year).ToList();
@@ -321,10 +347,17 @@ else
         return most == 0 ? 0 : (int)Math.Round(100.0 * count / most);
     }
 
+    private BookRules.Goals goals = new(0, 0, 0);
+
+    // Pages of the books finished this year, and whole hours spent with books this year.
+    private int PagesThisYear => finished.Sum(book => shelf.FirstOrDefault(item => item.Id == book.Id)?.Pages ?? 0);
+
+    private int HoursThisYear => (int)(((reading?.YearSeconds ?? 0) + (listening?.YearSeconds ?? 0)) / 3600);
+
     private async Task SaveGoal()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        await BookRules.SetGoalAsync(db, goal.YearlyGoal);
+        await BookRules.SetGoalsAsync(db, goal.YearlyGoal, goal.PagesGoal, goal.HoursGoal);
         goalSaved = true;
         await LoadAsync();
     }

@@ -79,7 +79,7 @@ A reader with two-step sign-in is asked for a code next, at `/account/signin/cod
 | `GET /books/duplicates` | Books that look like the same book, by ISBN or by title and author. `POST /books/{id}/merge` with `{"otherId": 12}` merges book 12 into book `id`. |
 | `GET /books/stats` | The year's goal, books finished each month, counts, and the streak. |
 | `GET /books/calendar` | The days with a reading session. `?year=&month=` picks another month. |
-| `GET`, `PUT /settings` | The yearly goal. |
+| `GET`, `PUT /settings` | The year's goals: `{"yearlyGoal": 24, "pagesGoal": 8000, "hoursGoal": 200}`. A goal left out of a `PUT` stays as it was. |
 
 Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardcover`, `Paperback`, `Ebook`, and `Audiobook`.
 

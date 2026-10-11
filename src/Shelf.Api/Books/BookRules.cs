@@ -328,6 +328,24 @@ public static class BookRules
         return setting?.YearlyGoal ?? 0;
     }
 
+    public sealed record Goals(int Books, int Pages, int Hours);
+
+    public static async Task<Goals> GetGoalsAsync(ShelfDb db, CancellationToken cancellationToken = default)
+    {
+        var setting = await db.Settings.AsNoTracking().FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
+        return new Goals(setting?.YearlyGoal ?? 0, setting?.PagesGoal ?? 0, setting?.HoursGoal ?? 0);
+    }
+
+    // The year's goals: books, and pages and hours when given (null leaves one as it was).
+    public static async Task SetGoalsAsync(ShelfDb db, int books, int? pages, int? hours, CancellationToken cancellationToken = default)
+    {
+        await SetGoalAsync(db, books, cancellationToken);
+        var setting = await db.Settings.FirstAsync(item => item.Id == db.ReaderId, cancellationToken);
+        setting.PagesGoal = pages is int givenPages ? Math.Clamp(givenPages, 0, 1_000_000) : setting.PagesGoal;
+        setting.HoursGoal = hours is int givenHours ? Math.Clamp(givenHours, 0, 10_000) : setting.HoursGoal;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public static async Task SetGoalAsync(ShelfDb db, int goal, CancellationToken cancellationToken = default)
     {
         var setting = await db.Settings.FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);

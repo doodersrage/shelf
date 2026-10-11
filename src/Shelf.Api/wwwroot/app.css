@@ -895,6 +895,12 @@ code.key {
     text-decoration: none;
 }
 
+.goal-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+}
+
 /* A word looked up in the reader. */
 .look-up {
     max-width: 40rem;
