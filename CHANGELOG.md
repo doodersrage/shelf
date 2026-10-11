@@ -14,6 +14,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - Duplicates: books with the same ISBN, or the same title and author, are listed together, and keeping one merges the others into it: details, status, notes, quotes, highlights, reading log, time spent, collections, and the files it lacks.
 - Pages in the EPUB reader: under Text settings, Layout lays a chapter out a screen at a time, turned by tapping the sides, swiping, the arrow keys, or the wheel, and on into the next chapter.
 - Look up a word: select a word or short phrase in the reader for its definitions from Wiktionary and a summary from Wikipedia, in the book's language. `Lookup:Dictionary` turns it off.
+- Share into Shelf: with Shelf on an Android home screen, share a book from any app and the add form opens with its ISBN looked up, or its title and author.
 
 ## [1.6.0] - 2026-10-11
 

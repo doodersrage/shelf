@@ -222,6 +222,10 @@ else if (Borrowable.Length > 0)
     [Parameter]
     public bool Detailed { get; set; }
 
+    // Looks the book up as soon as the form is on the page: for a book shared in with an ISBN or a title.
+    [Parameter]
+    public bool LookUpNow { get; set; }
+
     [Parameter]
     public IReadOnlyList<Book>? Shelf { get; set; }
 
@@ -262,6 +266,12 @@ else if (Borrowable.Length > 0)
         if (!firstRender)
         {
             return;
+        }
+
+        if (LookUpNow && (!string.IsNullOrWhiteSpace(Model.Isbn) || (!string.IsNullOrWhiteSpace(Model.Title) && !string.IsNullOrWhiteSpace(Model.Author))))
+        {
+            await LookUp();
+            StateHasChanged();
         }
 
         try

@@ -1,0 +1,18 @@
+@page "/share"
+@inject NavigationManager Navigation
+
+@* Where a phone sends a book shared into Shelf (the manifest's share target): an ISBN found in what was shared, or
+   else its title, goes to the library's add form, which looks the rest up. Nothing is drawn; the reader goes on. *@
+
+@code {
+    [SupplyParameterFromQuery(Name = "title")]
+    public string? Title { get; set; }
+
+    [SupplyParameterFromQuery(Name = "text")]
+    public string? Text { get; set; }
+
+    [SupplyParameterFromQuery(Name = "url")]
+    public string? Url { get; set; }
+
+    protected override void OnInitialized() => Navigation.NavigateTo(ShareTarget.Target(Title, Text, Url));
+}

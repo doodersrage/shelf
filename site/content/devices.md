@@ -78,3 +78,7 @@ Books are matched by title and author or ISBN. The furthest place in each book i
 ## On a phone
 
 Every page works on a small screen, with a bottom bar for the library, reading, adding, loans, and stats. Add Shelf to the home screen from the browser's menu and it opens like an app. Books you keep for reading offline open even with no connection; see [Reading offline](reading.md#reading-offline).
+
+### Sharing a book into Shelf
+
+Once Shelf is on an Android phone's home screen, it appears in the phone's **Share** menu. Share a book from a bookshop, Goodreads, Open Library, or anywhere else, and Shelf opens the **Add a book** form: with the ISBN when the page or its link has one, looked up straight away, or else with the title (and the author, when the page names one), ready to look up. Opening `/?add=1&isbn=…` or `/?add=1&title=…&author=…` does the same from a bookmark or a script. (iPhones don't let web apps into the Share menu yet.)

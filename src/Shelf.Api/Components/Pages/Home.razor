@@ -37,7 +37,7 @@
                     }
                 </ul>
             }
-            <BookFields Model="draft" Shelf="books" />
+            <BookFields Model="draft" Shelf="books" LookUpNow="lookUpNow" />
             <button type="submit">@T("Add")</button>
             @if (books.Count > 0)
             {
@@ -594,6 +594,18 @@ else if (visible.Count > 0)
     [SupplyParameterFromQuery(Name = "add")]
     public string? Add { get; set; }
 
+    // A book shared into Shelf from another app, or linked to: the add form opens with these, and looks the rest up.
+    [SupplyParameterFromQuery(Name = "isbn")]
+    public string? IsbnQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "title")]
+    public string? TitleQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "author")]
+    public string? AuthorQuery { get; set; }
+
+    private bool lookUpNow;
+
     [SupplyParameterFromQuery(Name = "imported")]
     public int? Imported { get; set; }
 
@@ -788,6 +800,14 @@ else if (visible.Count > 0)
         audioOnly = WithAudio == "1";
         adding = Add == "1";
         naming = false;
+        lookUpNow = false;
+        if (adding && (!string.IsNullOrWhiteSpace(IsbnQuery) || !string.IsNullOrWhiteSpace(TitleQuery)))
+        {
+            draft.Isbn = IsbnQuery?.Trim() ?? draft.Isbn;
+            draft.Title = string.IsNullOrWhiteSpace(TitleQuery) ? draft.Title : TitleQuery.Trim();
+            draft.Author = string.IsNullOrWhiteSpace(AuthorQuery) ? draft.Author : AuthorQuery.Trim();
+            lookUpNow = true;
+        }
         if (Saved is int savedId)
         {
             await using var db = await DbFactory.CreateDbContextAsync();
