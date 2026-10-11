@@ -1564,6 +1564,7 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
     public const string Password = "a long enough password";
 
     private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"shelf-{Guid.NewGuid():N}.db");
+    private string? _postgres;
     private readonly string _ebookRoot = Path.Combine(Path.GetTempPath(), $"shelf-ebooks-{Guid.NewGuid():N}");
     private readonly string _audioRoot = Path.Combine(Path.GetTempPath(), $"shelf-audio-{Guid.NewGuid():N}");
     private readonly string _coverRoot = Path.Combine(Path.GetTempPath(), $"shelf-covers-{Guid.NewGuid():N}");
@@ -1664,7 +1665,8 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
         if (Environment.GetEnvironmentVariable("SHELF_TEST_POSTGRES") is { Length: > 0 } postgres)
         {
             builder.UseSetting("Database:Provider", "Postgres");
-            builder.UseSetting("ConnectionStrings:Postgres", $"{postgres};Database=shelf_{Path.GetFileNameWithoutExtension(_databasePath).Replace("-", "_", StringComparison.Ordinal)}");
+            _postgres = $"{postgres};Database=shelf_{Path.GetFileNameWithoutExtension(_databasePath).Replace("-", "_", StringComparison.Ordinal)}";
+            builder.UseSetting("ConnectionStrings:Postgres", _postgres);
         }
 
         builder.UseSetting("EbookStore:Root", _ebookRoot);
@@ -1708,6 +1710,14 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
     {
         _client?.Dispose();
         await base.DisposeAsync();
+
+        // A finished shelf's idle connections are let go, or the classes' pools add up past what the server allows.
+        if (_postgres is not null)
+        {
+            using var connection = new Npgsql.NpgsqlConnection(_postgres);
+            Npgsql.NpgsqlConnection.ClearPool(connection);
+        }
+
         TryDelete(_databasePath);
         TryDelete(_databasePath + "-wal");
         TryDelete(_databasePath + "-shm");

@@ -54,7 +54,7 @@ dotnet ef migrations add AddSomething --project src/Shelf.Api --context ShelfDb
 dotnet ef migrations add AddSomething --project src/Shelf.Api --context PostgresShelfDb --output-dir Data/PostgresMigrations
 ```
 
-Shelf applies migrations when it starts. To run the server tests against PostgreSQL, set `SHELF_TEST_POSTGRES` to a server's connection string without a database, such as `Host=localhost;Username=shelf;Password=shelf`; each test shelf gets a database of its own. CI runs them both ways. `dotnet ef database update --project src/Shelf.Api` applies them without starting it.
+Shelf applies migrations when it starts. To run the server tests against PostgreSQL, set `SHELF_TEST_POSTGRES` to a server's connection string without a database, such as `Host=localhost;Username=shelf;Password=shelf;Maximum Pool Size=4`; each test shelf gets a database of its own, and the small pool keeps the classes running side by side within PostgreSQL's 100 connections. CI runs them both ways. `dotnet ef database update --project src/Shelf.Api` applies them without starting it.
 
 ## The design system
 

@@ -55,7 +55,7 @@ jobs:
       - run: dotnet build --no-restore --configuration Release
       - run: dotnet test --no-build --configuration Release
         env:
-          SHELF_TEST_POSTGRES: "Host=localhost;Port=5432;Username=shelf;Password=shelf;Maximum Pool Size=10"
+          SHELF_TEST_POSTGRES: "Host=localhost;Port=5432;Username=shelf;Password=shelf;Maximum Pool Size=4"
 
   browser:
     runs-on: ubuntu-latest
