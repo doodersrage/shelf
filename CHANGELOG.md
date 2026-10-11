@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-11
+
 Shelf 2.0 reorganizes what was there rather than adding more: a front page to pick up from, a library led by its covers, a book page with fewer buttons, a quieter reader, and insights that tell the year's story.
 
 ### Changed
@@ -25,6 +27,11 @@ Shelf 2.0 reorganizes what was there rather than adding more: a front page to pi
 - Light or dark for all of Shelf, under **Look** on **Account**, in place of following the device.
 - On Insights: a year of the days you read and listened, the authors, kinds of book, and series you return to, and milestones such as your first finished book, the hundredth, and ten thousand pages.
 - A book looked up by ISBN shows the cover and details found, to check before adding it.
+
+### Fixed
+
+- A shelf moved from a Docker volume into a folder starts: the image takes over the files copied in, not only the folder, whoever copied them.
+- When Shelf can't open its database, it says why at start in place of SQLite's "unable to open database file": the folder is missing or can't be written to, or the files are one folder down in a copied volume's `_data`.
 
 ## [1.9.0] - 2026-10-11
 
@@ -279,7 +286,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/doodersrage/shelf/compare/v1.9.0...v2.0.0
 [1.9.0]: https://github.com/doodersrage/shelf/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/doodersrage/shelf/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/doodersrage/shelf/compare/v1.6.0...v1.7.0

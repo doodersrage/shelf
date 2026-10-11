@@ -14,7 +14,7 @@ docker run -d --name shelf -p 8080:8080 -v shelf-data:/data \
   --restart unless-stopped ghcr.io/doodersrage/shelf:latest
 ```
 
-Then open [http://localhost:8080](http://localhost:8080). Images are published for both amd64 and arm64 (a Raspberry Pi 4 or 5, most NAS boxes, Apple silicon). Every release is also published under its own version, such as `ghcr.io/doodersrage/shelf:1.9.0`, which is the better choice when you want to decide when to update.
+Then open [http://localhost:8080](http://localhost:8080). Images are published for both amd64 and arm64 (a Raspberry Pi 4 or 5, most NAS boxes, Apple silicon). Every release is also published under its own version, such as `ghcr.io/doodersrage/shelf:2.0.0`, which is the better choice when you want to decide when to update.
 
 Everything Shelf keeps is under `/data` in the container:
 
@@ -101,6 +101,12 @@ Ready-made templates are in the [`deploy`](https://github.com/doodersrage/shelf/
 ### Which user Shelf runs as
 
 The image starts as root only long enough to make `/data` belong to the user Shelf runs as, then switches to that user: `PUID` and `PGID`, 1654 (the image's own `app` user) unless you set them. So a folder from the host, which is often owned by someone else, works as `/data` without any `chown`. Give an import folder's owner as `PUID` and `PGID`, since Shelf never changes who owns your own files there. Started with `--user`, the image runs as that user and changes nothing.
+
+### Moving from a Docker volume to a folder
+
+Stop Shelf, then copy what is *inside* the volume to the folder: the volume's own files sit in a `_data` folder (`docker volume inspect shelf-data` gives its path), so copy `_data`'s contents, not `_data` itself. `shelf.db`, `keys`, `ebooks`, `audio`, and `covers` should be directly in the folder. Mount the folder as `/data` and start Shelf; it takes over the copied files whoever copied them.
+
+If Shelf can't use the folder, it says why when it starts: the files are one folder down in `_data`, or the folder can't be written to. A folder that stays unwritable is mounted read-only (`:ro`), needs `:z` on an SELinux host (Fedora, RHEL), or is a network share; keep the database on a local disk, since SQLite can't lock a file on most shares.
 
 ## The first account
 

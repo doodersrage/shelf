@@ -57,7 +57,8 @@ builder.Services.AddScoped<ShelfReader>();
 builder.Services.TryAddEnumerable(ServiceDescriptor.Scoped<CircuitHandler, ReaderCircuitHandler>());
 // SQLite in a file beside the rest, as usual; or PostgreSQL (Database:Provider = Postgres, ConnectionStrings:Postgres),
 // with migrations of its own. The SQLite file's folder still holds the keys and backups either way.
-if (builder.Configuration["Database:Provider"] is { } provider && (provider.Equals("Postgres", StringComparison.OrdinalIgnoreCase) || provider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase)))
+var onPostgres = builder.Configuration["Database:Provider"] is { } provider && (provider.Equals("Postgres", StringComparison.OrdinalIgnoreCase) || provider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase));
+if (onPostgres)
 {
     var postgres = builder.Configuration.GetConnectionString("Postgres")
         ?? throw new InvalidOperationException("Database:Provider is Postgres, but ConnectionStrings:Postgres is missing.");
@@ -284,6 +285,13 @@ if (app.Configuration["move-to-postgres"] is { Length: > 0 } && app.Configuratio
     var moved = await MoveToPostgres.RunAsync(sqlite.ConnectionString, target);
     Console.WriteLine(moved.Problem ?? $"Moved {moved.Rows} rows in {moved.Tables} tables to PostgreSQL. Start Shelf with Database:Provider set to Postgres.");
     return moved.Problem is null ? 0 : 1;
+}
+
+// A shelf moved to a folder Shelf cannot use says so plainly, rather than with SQLite's "unable to open database file".
+if (!onPostgres && DataFolder.Problem(sqlite.DataSource) is { } folderProblem)
+{
+    Console.Error.WriteLine($"Shelf cannot open its database. {folderProblem}");
+    return 1;
 }
 
 await using (var scope = app.Services.CreateAsyncScope())
