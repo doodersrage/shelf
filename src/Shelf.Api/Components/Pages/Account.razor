@@ -13,6 +13,7 @@
 @inject AuthenticationStateProvider Authentication
 @inject Microsoft.JSInterop.IJSRuntime Js
 @inject IConfiguration Configuration
+@inject ReadwiseSync Readwise
 
 <PageTitle>@T("Account") · Shelf</PageTitle>
 
@@ -79,6 +80,35 @@ else if (emailNote is not null)
     }
     </section>
 }
+
+<section class="panel" id="readwise">
+<h2>Readwise</h2>
+@if (readwiseConnected)
+{
+    <p>@T("Connected. Your highlights and quotes go to Readwise when you send them, with their book, note, and place.")</p>
+    <label class="check">
+        <input type="checkbox" checked="@readwiseAuto" @onchange="ChangeReadwiseAuto" />
+        @T("Send new highlights and quotes every hour")
+    </label>
+    <p>
+        <button type="button" class="primary" @onclick="SendToReadwise" disabled="@readwiseBusy">@(readwiseBusy ? T("Sending…") : T("Send everything now"))</button>
+        <button type="button" class="quiet" @onclick="DisconnectReadwise">@T("Disconnect")</button>
+    </p>
+}
+else
+{
+    <p class="hint">@T("Readwise gathers highlights from everywhere you read. Copy your access token from readwise.io/access_token and paste it here; Shelf keeps it sealed with its own keys.")</p>
+    <label>
+        @T("Readwise access token")
+        <input type="password" @bind="readwiseToken" autocomplete="off" maxlength="200" />
+    </label>
+    <button type="button" class="primary" @onclick="ConnectReadwise" disabled="@readwiseBusy">@T("Connect")</button>
+}
+@if (readwiseNote is not null)
+{
+    <p class="@(readwiseProblem ? "validation-message" : "saved")" role="status">@readwiseNote</p>
+}
+</section>
 
 <section class="panel">
 <h2>@T("Language and region")</h2>
@@ -444,6 +474,8 @@ else
         passwordUnknown = me.PasswordUnknown;
         kindleAddress = me.KindleEmail ?? "";
         ssoConnected = me.OidcSubject is not null;
+        readwiseConnected = me.ReadwiseToken is not null;
+        readwiseAuto = me.ReadwiseAuto;
         currentSession = (await Authentication.GetAuthenticationStateAsync()).User.FindFirst(TwoFactor.SessionClaim)?.Value;
         sessions = await TwoFactor.SessionsAsync(db, db.ReaderId, currentSession);
     }
@@ -469,6 +501,63 @@ else
         newToken = newToken?.Id == id ? null : newToken;
         tokens = await ApiTokens.ListAsync(db, db.ReaderId);
         activity = await Audit.RecentAsync(db, db.ReaderId, take: 20);
+    }
+
+    private bool readwiseConnected;
+    private bool readwiseAuto;
+    private bool readwiseBusy;
+    private bool readwiseProblem;
+    private string readwiseToken = "";
+    private string? readwiseNote;
+
+    private async Task ConnectReadwise()
+    {
+        readwiseBusy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            readwiseConnected = await Readwise.ConnectAsync(db, readwiseToken);
+            readwiseProblem = !readwiseConnected;
+            readwiseNote = readwiseConnected ? T("Connected to Readwise.") : T("Readwise did not take that token. Copy it again from readwise.io/access_token.");
+            readwiseToken = "";
+        }
+        finally
+        {
+            readwiseBusy = false;
+        }
+    }
+
+    private async Task SendToReadwise()
+    {
+        readwiseBusy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var sent = await Readwise.SendAsync(db, everything: true);
+            readwiseProblem = !sent.Done;
+            readwiseNote = sent.Done ? T("Sent {0} highlights and quotes to Readwise.", sent.Count) : T("Readwise could not be reached, or no longer takes the token.");
+        }
+        finally
+        {
+            readwiseBusy = false;
+        }
+    }
+
+    private async Task ChangeReadwiseAuto(ChangeEventArgs change)
+    {
+        readwiseAuto = change.Value is true;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var me = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
+        me.ReadwiseAuto = readwiseAuto;
+        await db.SaveChangesAsync();
+    }
+
+    private async Task DisconnectReadwise()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await ReadwiseSync.DisconnectAsync(db);
+        (readwiseConnected, readwiseAuto, readwiseProblem) = (false, false, false);
+        readwiseNote = T("Disconnected from Readwise.");
     }
 
     private async Task ChangeShelfOpen(ChangeEventArgs change)

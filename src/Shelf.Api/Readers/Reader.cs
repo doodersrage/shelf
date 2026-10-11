@@ -42,6 +42,12 @@ public sealed class Reader
     // Where Send to Kindle emails this reader's e-books: their Kindle's own address at Amazon.
     public string? KindleEmail { get; set; }
 
+    // Readwise: the access token, sealed with the shelf's keys; whether new highlights go there on their own; and
+    // when they last went.
+    public string? ReadwiseToken { get; set; }
+    public bool ReadwiseAuto { get; set; }
+    public DateTimeOffset? ReadwiseSentAt { get; set; }
+
     // Two-step sign-in: the authenticator secret, sealed with the shelf's own keys.
     public bool TwoFactorEnabled { get; set; }
     public string? TwoFactorSecret { get; set; }

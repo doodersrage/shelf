@@ -225,6 +225,7 @@ public sealed class ShelfDb : DbContext
             reader.HasIndex(r => r.KeyHash).IsUnique();
             reader.Property(r => r.OidcSubject).HasMaxLength(600);
             reader.Property(r => r.KindleEmail).HasMaxLength(EmailRules.MaxAddressLength);
+            reader.Property(r => r.ReadwiseToken).HasMaxLength(1000);
             reader.HasIndex(r => r.OidcSubject).IsUnique();
         });
 

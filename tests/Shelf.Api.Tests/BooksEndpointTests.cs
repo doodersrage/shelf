@@ -1585,6 +1585,8 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
 
     public StubWordLookup Words { get; } = new();
 
+    public StubReadwise Readwise { get; } = new();
+
     public async Task InitializeAsync()
     {
         _client = await SignUpAsync("Tenar");
@@ -1648,6 +1650,7 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
             services.AddSingleton<IBookLookup, StubBookLookup>();
             services.AddSingleton<ISeriesCatalog>(SeriesCatalog);
             services.AddSingleton<IWordLookup>(Words);
+            services.AddSingleton<IReadwiseClient>(Readwise);
             services.AddSingleton<Shelf.Api.Readers.IEmailSender>(Mail);
         });
     }

@@ -80,6 +80,10 @@ builder.Services.AddHttpClient<ISeriesCatalog, OpenLibrarySeries>(client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("Shelf/1.0 (personal library; +https://github.com/doodersrage/shelf)");
 });
 builder.Services.AddSingleton<SeriesWatch>();
+// Highlights sent on to Readwise, for readers who connect it.
+builder.Services.AddHttpClient<IReadwiseClient, ReadwiseClient>(client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddSingleton<ReadwiseSync>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<ReadwiseSync>());
 // Words looked up in the reader, in Wiktionary and Wikipedia (Lookup:Dictionary).
 builder.Services.AddHttpClient<IWordLookup, WikimediaLookup>(client =>
 {

@@ -62,6 +62,15 @@ A Kindle keeps every highlight and note you make in one file, **My Clippings.txt
 
 Each clipping's book is found on your shelf by title and author (a Kindle writes "Le Guin, Ursula K."; Shelf knows that is Ursula K. Le Guin, and leaves off a subtitle or series the Kindle adds to the title). On a book with an EPUB, a highlight goes to the chapter that has its words, with the note you made at the same place, and shows in the reader. On any other book, a paper copy say, it becomes a quote, with its page when the Kindle gave one. Bookmarks are left out, and a clipping already on your shelf is not added twice, so you can bring the same file again later. The file can be in any of the Kindle's languages.
 
+## Readwise
+
+[Readwise](https://readwise.io) gathers highlights from everywhere you read. On **Account**, under **Readwise**, paste your access token from [readwise.io/access_token](https://readwise.io/access_token) and choose **Connect**; Shelf checks it with Readwise and keeps it sealed with the shelf's own keys. Then:
+
+- **Send everything now** sends all your highlights and quotes, each with its book, author, note, and place (the chapter of an EPUB highlight, the page of a quote);
+- **Send new highlights and quotes every hour** sends those made since, on its own.
+
+Readwise keeps one copy of each highlight however often it is sent. Highlights you make on a book lent to you are yours and go too. **Disconnect** forgets the token.
+
 ## Trading with another shelf
 
 Two shelves, yours at home and one at a friend's, or yours on two servers, can trade e-books and audiobooks:
