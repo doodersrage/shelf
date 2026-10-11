@@ -31,6 +31,13 @@ public static partial class Tidy
             name = $"{name[(comma + 1)..]} {name[..comma]}";
         }
 
+        return Plain(name);
+    }
+
+    // Words alone: accents, case, and punctuation aside, for comparing titles and names.
+    public static string Plain(string text)
+    {
+        var name = text.Trim();
         var plain = new StringBuilder();
         foreach (var letter in name.Normalize(NormalizationForm.FormD))
         {

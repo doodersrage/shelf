@@ -8,6 +8,8 @@ description: Add books by hand, from files, from free public-domain catalogs, fr
 
 Books come in five ways, and Shelf keeps out what you already have.
 
+A new shelf opens on a welcome with a card for each way below, so the first step is bringing what you already have.
+
 ## By hand
 
 **Add a book** takes a title and author, or an ISBN that fills the rest from Open Library. If the same book is already on your shelf, the form says so. If another reader has it on an [open shelf](lending.md#open-shelves), the form says that too, with a button to ask to borrow it instead.

@@ -16,6 +16,12 @@ else if (review.Finished == 0 && review.ReadingSeconds == 0 && review.ListeningS
 }
 else
 {
+    @* The year as a picture to post or send; year-card.js makes it. *@
+    <div class="share-year">
+        <button type="button" class="primary" data-card="/books/years/@Year/card.svg" data-name="@($"my-{Year}-in-books.png")" data-title="@T("My {0} in books", Year)">@T("Share my year")</button>
+        <a href="/books/years/@Year/card.svg" target="_blank" rel="noopener">@T("See the picture")</a>
+        <span class="hint" role="status" data-card-status data-failed="@T("The picture could not be made in this browser. See the picture, and save it from there.")"></span>
+    </div>
     <ul class="review-numbers">
         <li><strong>@review.Finished</strong><span>@(review.Finished == 1 ? T("book finished") : T("books finished"))</span></li>
         @if (review.Pages > 0)

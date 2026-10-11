@@ -46,9 +46,50 @@
 
 @if (books.Count == 0)
 {
-    <EmptyState Title="@T("Your shelf is empty")" Text="@T("Start with a title and an author; an ISBN lets Shelf fill in the rest from Open Library. E-books and audiobooks can come in as files.")" ActionHref="/library?add=1" ActionLabel="@T("Add a book")">
-        <a class="button" href="/free">@T("Find free public-domain books")</a>
-    </EmptyState>
+    @* A new shelf: most people arrive with a library somewhere already, so the ways to bring it lead. *@
+    <section class="welcome" aria-labelledby="welcome-heading">
+        <h2 id="welcome-heading">@T("Welcome. Where are your books now?")</h2>
+        <p class="hint">@T("Bring them across from wherever they are; nothing there changes. You can do more than one, and Shelf skips books it already has.")</p>
+        <ul class="welcome-ways">
+            <li>
+                <a href="/import/audiobookshelf">
+                    <strong>Audiobookshelf</strong>
+                    <span>@T("Audiobooks and e-books from your server, with covers, series, and where you stopped. It can keep in step every day.")</span>
+                </a>
+            </li>
+            <li>
+                <a href="/import/calibre">
+                    <strong>Calibre</strong>
+                    <span>@T("A Calibre library on this server, with its files, covers, series, tags, and ratings.")</span>
+                </a>
+            </li>
+            <li>
+                <a href="/backup#csv">
+                    <strong>Goodreads · StoryGraph</strong>
+                    <span>@T("Your shelves, ratings, dates, and reviews from an exported CSV file.")</span>
+                </a>
+            </li>
+            <li>
+                <a href="/library?add=1#add">
+                    <strong>@T("Files")</strong>
+                    <span>@T("E-books, PDFs, comics, and audiobooks from your computer or phone, as many at once as you like.")</span>
+                </a>
+            </li>
+            <li>
+                <a href="/library?add=1">
+                    <strong>@T("By hand")</strong>
+                    <span>@T("A paper book: type its ISBN, or scan the barcode, and Shelf fills in the rest.")</span>
+                </a>
+            </li>
+            <li>
+                <a href="/free">
+                    <strong>@T("Free books")</strong>
+                    <span>@T("Public-domain e-books from Project Gutenberg and audiobooks from LibriVox, to start with something to read.")</span>
+                </a>
+            </li>
+        </ul>
+        <p class="hint">@T("Brought in a big library? Tidy up, under Your copies, finds covers and puts authors and series in order.")</p>
+    </section>
 }
 else
 {

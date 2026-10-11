@@ -69,6 +69,35 @@ public sealed class FreeBooksTests(ShelfApiFactory factory) : IClassFixture<Shel
     }
 
     [Fact]
+    public async Task A_free_copy_found_for_a_book_lands_on_that_book()
+    {
+        await using var app = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddHttpClient(FreeCatalog.ClientName).ConfigurePrimaryHttpMessageHandler(() => new FakeCatalogs())));
+        var client = app.CreateClient();
+        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Wanting Reader", ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
+        var readerId = await factory.ReaderIdAsync("Wanting Reader");
+        var wanted = (await (await client.PostAsJsonAsync("/books", new CreateBookRequest("Moby-Dick", "Herman Melville", BookStatus.Want, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+
+        var found = await app.Services.GetRequiredService<IAvailability>().FindAsync("Moby-Dick", "Herman Melville", CancellationToken.None);
+        Assert.Equal("2701", found.Gutenberg?.Id);
+        var downloads = app.Services.GetRequiredService<FreeBooks>();
+        var fetched = await FinishAsync(downloads, downloads.Enqueue(readerId, found.Gutenberg!, ("Moby-Dick", "Herman Melville")), readerId);
+
+        Assert.Equal((DownloadState.Done, wanted.Id), (fetched.State, fetched.BookId));
+        var book = (await client.GetFromJsonAsync<List<BookResponse>>("/books", JsonOptions))!;
+        Assert.Equal("Moby-Dick", Assert.Single(book).Title);
+        Assert.NotNull(book[0].EbookFileName);
+    }
+
+    [Theory]
+    [InlineData("Moby-Dick", "Herman Melville", "Moby Dick; Or, The Whale", "Herman Melville", true)]
+    [InlineData("Pride and Prejudice", "Austen, Jane", "Pride and Prejudice", "Jane Austen", true)]
+    [InlineData("Moby-Dick", "Herman Melville", "Moby-Dick", "Someone Else", false)]
+    [InlineData("Emma", "Jane Austen", "Emmanuel", "Jane Austen", false)]
+    public void A_free_copy_is_the_same_book_by_its_title_and_authors_last_name(string title, string author, string theirs, string theirAuthor, bool same) =>
+        Assert.Equal(same, CatalogAvailability.SameBook(title, author, new FreeBook(FreeSource.Gutenberg, "1", theirs, theirAuthor)));
+
+    [Fact]
     public async Task The_catalogs_can_be_browsed_and_a_book_looked_into()
     {
         await using var app = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>

@@ -47,6 +47,8 @@ Pages gathered from the catalog give other ways in: **Authors**, **Series** in r
 
 Each year on **Years**, and the current one on **Insights**, links to a review of it: how many books you finished, their pages, the hours you spent reading and listening, how many authors (and how many were new to you), your goal, a wall of the covers in the order you finished them, a month-by-month chart with your busiest month, the first, last, longest, and shortest books, your formats and most read tags, the books you loved or gave five stars, and the quotes and highlights you kept, with one to remember the year by.
 
+**Share my year** makes a picture of it, sized for a post: the year's numbers, the covers of what you finished, the longest book, and a favourite quote. On a phone it opens the share sheet; elsewhere it saves the picture. The picture is made in your browser from your own shelf; no other server sees it.
+
 ### Saved searches
 
 A view you come back to, such as *loved, want to read, newest first*, can be kept: set the filters and order, choose **Save this search**, and give it a name. It joins **Browse** in the sidebar, and opens with the same filters and order every time. **Forget this search**, on the open search, removes it. Saved searches are yours alone; every filtered view is also a plain address you can bookmark.
@@ -85,6 +87,16 @@ The more you rate, love, and tag, the better they get.
 - the same as JSON, at `/public/<address>/shelf.json`.
 
 Turning it off ends the address; turning it on again makes a new one.
+
+## Where to get it
+
+A book with no e-book has **Where to get it** on its page. Shelf asks Project Gutenberg, LibriVox, and Open Library for it (by title and author, nothing else):
+
+- a free e-book from Project Gutenberg, or a free audiobook from LibriVox, comes to that book with **Add it to this book**, as **Free books** would bring it;
+- Open Library's copy opens there, to read free or to borrow;
+- **Find a copy near you** searches WorldCat for libraries that have it, and **Borrow with Libby** searches OverDrive's catalog for the e-book or audiobook at your library.
+
+Answers are kept for a day. `Availability:Enabled` turns it off; it follows `FreeBooks:Enabled` unless set.
 
 ## Tidy up
 

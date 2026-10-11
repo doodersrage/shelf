@@ -91,6 +91,7 @@ public static class BookEndpoints
         YearReview.Map(books);
         Merging.Map(books);
         ImportJobs.Map(books);
+        YearCard.Map(books);
         WordLookups.Map(books);
         Clubs.Map(books);
         Audible.Map(books);

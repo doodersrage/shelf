@@ -10,6 +10,9 @@
 @using Microsoft.JSInterop
 @inject IJSRuntime Js
 @inject IEmailSender Email
+@inject IAvailability Availability
+@inject FreeBooks Free
+@inject IConfiguration Configuration
 @implements IAsyncDisposable
 
 <PageTitle>@(book?.Title ?? "Shelf")</PageTitle>
@@ -233,6 +236,69 @@ else if (book is not null)
                     </div>
                 }
             </div>
+        </section>
+    }
+
+    @if (WantsAvailability)
+    {
+        @* For a book with no e-book: where it can be had free, and where to borrow it. Looked up after the page shows. *@
+        <section class="panel where" aria-labelledby="where-heading">
+            <h2 id="where-heading">@T("Where to get it")</h2>
+            @if (availability is null)
+            {
+                <p class="hint" role="status">@T("Looking in the free catalogs…")</p>
+            }
+            else
+            {
+                <ul class="where-list">
+                    @if (availability.Gutenberg is { } gutenberg)
+                    {
+                        <li>
+                            <span><strong>@T("Free e-book")</strong> · Project Gutenberg</span>
+                            @if (fetching.Contains(gutenberg.Id))
+                            {
+                                <span class="saved" role="status">@T("Coming to this book. Free books shows how it is going.")</span>
+                            }
+                            else
+                            {
+                                <button type="button" class="primary" @onclick="() => Fetch(gutenberg)">@T("Add it to this book")</button>
+                            }
+                        </li>
+                    }
+                    @if (availability.LibriVox is { } librivox && string.IsNullOrWhiteSpace(book.AudioStoredName))
+                    {
+                        <li>
+                            <span><strong>@T("Free audiobook")</strong> · LibriVox</span>
+                            @if (fetching.Contains(librivox.Id))
+                            {
+                                <span class="saved" role="status">@T("Coming to this book. Free books shows how it is going.")</span>
+                            }
+                            else
+                            {
+                                <button type="button" @onclick="() => Fetch(librivox)">@T("Add it to this book")</button>
+                            }
+                        </li>
+                    }
+                    @if (availability.OpenLibraryUrl is { } lend)
+                    {
+                        <li>
+                            <span><strong>@(availability.OpenLibraryFree ? T("Read free") : T("Borrow the e-book")) </strong> · Open Library</span>
+                            <a href="@lend" rel="noopener" target="_blank">@T("Open it at Open Library")</a>
+                        </li>
+                    }
+                    <li>
+                        <span><strong>@T("At a library")</strong></span>
+                        <span>
+                            <a href="@CatalogAvailability.WorldCat(book.Title, book.Author)" rel="noopener" target="_blank">@T("Find a copy near you")</a> ·
+                            <a href="@CatalogAvailability.OverDrive(book.Title, book.Author)" rel="noopener" target="_blank">@T("Borrow with Libby")</a>
+                        </span>
+                    </li>
+                </ul>
+                @if (!availability.Any)
+                {
+                    <p class="hint">@T("No free copy turned up; it may still be in copyright.")</p>
+                }
+            }
         </section>
     }
 
@@ -763,6 +829,13 @@ else if (book is not null)
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender && WantsAvailability && availability is null && book is { } wanted)
+        {
+            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            availability = await Availability.FindAsync(wanted.Title, wanted.Author, limit.Token);
+            StateHasChanged();
+        }
+
         if (!firstRender || book is null || (string.IsNullOrWhiteSpace(book.EbookStoredName) && string.IsNullOrWhiteSpace(book.AudioStoredName)))
         {
             return;
@@ -879,6 +952,25 @@ else if (book is not null)
     private bool missing;
     private bool saved;
     private bool confirmingDelete;
+    // Where to get a book with no e-book: the free catalogs follow Free books' setting unless set on their own.
+    private bool WantsAvailability => book is not null && book.VisitingLinkId is null && string.IsNullOrWhiteSpace(book.EbookStoredName)
+        && Configuration.GetValue("Availability:Enabled", Configuration.GetValue("FreeBooks:Enabled", true));
+
+    private BookAvailability? availability;
+    private readonly HashSet<string> fetching = [];
+
+    private async Task Fetch(FreeBook free)
+    {
+        if (book is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        Free.Enqueue(db.ReaderId, free, (book.Title, book.Author));
+        fetching.Add(free.Id);
+    }
+
     // Edit opens the details form; closing it is the browser's own, which a render leaves alone.
     private bool editing;
 

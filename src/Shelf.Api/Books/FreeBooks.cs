@@ -30,7 +30,8 @@ public enum DownloadState
     Failed,
 }
 
-public sealed record FreeDownload(Guid Id, int ReaderId, FreeBook Book, DownloadState State, long Bytes, int? BookId, string? Problem, DateTimeOffset Started, string Language);
+// Onto: the title and author of a book already on the shelf the file is for, so it lands there rather than as a new one.
+public sealed record FreeDownload(Guid Id, int ReaderId, FreeBook Book, DownloadState State, long Bytes, int? BookId, string? Problem, DateTimeOffset Started, string Language, (string Title, string Author)? Onto = null);
 
 public static partial class FreeCatalog
 {
@@ -132,10 +133,10 @@ public sealed class FreeBooks(IServiceScopeFactory scopes, IHttpClientFactory cl
 
     public bool Enabled => configuration.GetValue("FreeBooks:Enabled", true);
 
-    public FreeDownload Enqueue(int readerId, FreeBook book)
+    public FreeDownload Enqueue(int readerId, FreeBook book, (string Title, string Author)? onto = null)
     {
         // Kept with the language of the page that asked, so its messages and notes come out in that language.
-        var download = new FreeDownload(Guid.NewGuid(), readerId, book, DownloadState.Waiting, 0, null, null, DateTimeOffset.UtcNow, Words.Current);
+        var download = new FreeDownload(Guid.NewGuid(), readerId, book, DownloadState.Waiting, 0, null, null, DateTimeOffset.UtcNow, Words.Current, onto);
         _downloads[download.Id] = download;
         _queue.Writer.TryWrite(download.Id);
         return download;
@@ -237,7 +238,7 @@ public sealed class FreeBooks(IServiceScopeFactory scopes, IHttpClientFactory cl
 
             // The catalog's title and author lead. Gutenberg's EPUB date is when it was put online, not written, so it is left out.
             var fromFile = audio ? null : EpubFile.Details(file);
-            var known = new FileDetails(download.Book.Title, download.Book.Author, fromFile?.Isbn, fromFile?.Publisher, null, fromFile?.Language ?? download.Book.Language);
+            var known = new FileDetails(download.Onto?.Title ?? download.Book.Title, download.Onto?.Author ?? download.Book.Author, fromFile?.Isbn, fromFile?.Publisher, null, fromFile?.Language ?? download.Book.Language);
             ImportedFile result;
             await using (var stream = File.OpenRead(file))
             {

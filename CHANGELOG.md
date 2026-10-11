@@ -11,9 +11,13 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - Keep in step with Audiobookshelf: connected with an API key, Shelf looks at a library once a day and brings across books added to it since, never the same one twice. **Check now** and **Stop keeping in step** are on the Audiobookshelf page.
 - **Tidy up**, under Your copies: authors written more than one way made one, series taken out of titles like *The Tombs of Atuan (Earthsea Cycle, #2)*, and covers and missing details looked for in the background.
 - **Activity**, under Settings: imports, details being filled in, and other background work in one place, with progress, a way to stop each job, and what finished lately.
+- A new shelf opens on a welcome that asks where your books are now, with a card for each way to bring them: Audiobookshelf, Calibre, Goodreads or StoryGraph, files, by hand, and free books.
+- **Where to get it**, on the page of a book with no e-book: a free e-book from Project Gutenberg or audiobook from LibriVox, added to that book in one step; reading or borrowing it from Open Library; and links to find it at a library near you (WorldCat) or borrow it with Libby. `Availability:Enabled` follows `FreeBooks:Enabled` unless set.
+- **Share my year**, on a year in books: a picture of the year, its numbers, its covers, the longest book, and a favourite quote, to post or send, or save where sharing is not offered.
 
 ### Changed
 
+- A scanned barcode's ISBN shows at once, while the catalogs are asked about the rest; before, it waited for their answer.
 - **Fill empty details** runs in the background, a book at a time with a polite pause, rather than in the open page, so a shelf of thousands can take its hours; its progress shows on Activity and on every page.
 
 ## [2.0.1] - 2026-10-11

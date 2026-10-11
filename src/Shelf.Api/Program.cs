@@ -223,6 +223,7 @@ builder.Services.AddSingleton<CalibreImporter>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<CalibreImporter>());
 builder.Services.AddSingleton<AbsKeeper>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<AbsKeeper>());
+builder.Services.AddSingleton<IAvailability, CatalogAvailability>();
 builder.Services.AddSingleton<DetailsFiller>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<DetailsFiller>());
 // A folder to drop books into (Import:Folder); off unless it is set.

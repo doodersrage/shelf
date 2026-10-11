@@ -307,7 +307,10 @@ else if (Borrowable.Length > 0)
     [JSInvokable]
     public async Task Scanned(string isbn)
     {
+        // The number shows at once; the catalogs can take their time over the rest.
         Model.Isbn = isbn;
+        looking = true;
+        StateHasChanged();
         await LookUp();
         StateHasChanged();
     }
