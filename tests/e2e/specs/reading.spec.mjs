@@ -156,3 +156,35 @@ test("time with a book open in the reader is counted while someone is reading", 
   await expect.poll(async () => (await (await page.request.get("/books/reading-time")).json()).totalSeconds, { timeout: 10_000 }).toBeGreaterThanOrEqual(10);
   noProblems(page);
 });
+
+test("an EPUB laid out as pages turns them, and turns into the next chapter and back", async ({ browser }) => {
+  const page = await signUp(browser, unique("Turner"));
+  const book = await createBook(page, { title: "Moby-Dick", author: "Herman Melville", status: "Reading" });
+  await upload(page, book.id, "ebook", "moby.epub", "application/epub+zip");
+  await page.setViewportSize({ width: 360, height: 640 });
+
+  await page.goto(`/library/${book.id}/read`);
+  await ready(page);
+  await page.click('summary:text("Text settings")');
+  await page.getByLabel("Layout").selectOption({ label: "Pages" });
+  const where = page.locator(".reader-pages");
+  await expect(where).toContainText(/Page 1 of [2-9]/);
+  const pages = Number((await where.textContent()).match(/of (\d+)/)[1]);
+
+  await page.keyboard.press("ArrowRight");
+  await expect(where).toContainText(`Page 2 of ${pages}`);
+  for (let i = 2; i <= pages; i++) await page.keyboard.press("ArrowRight");
+  await expect(page.getByLabel("Chapter")).toHaveValue("1");
+  await expect(where).toContainText("Page 1 of");
+
+  // Back from the first page of a chapter is the last page of the one before.
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByLabel("Chapter")).toHaveValue("0");
+  await expect(where).toContainText(`Page ${pages} of ${pages}`);
+
+  // The layout is kept for the reader.
+  await page.reload();
+  await ready(page);
+  await expect(where).toContainText(`of ${pages}`);
+  noProblems(page);
+});

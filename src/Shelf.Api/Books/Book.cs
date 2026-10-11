@@ -140,6 +140,9 @@ public sealed class ShelfSetting
     public int? ReaderTextSize { get; set; }
     public int? ReaderLineHeight { get; set; }
     public int? ReaderWidth { get; set; }
+
+    // The reader turns pages rather than scrolling.
+    public bool ReaderPaged { get; set; }
     public bool LibraryAsList { get; set; }
     public int? AudioSpeed { get; set; }
 
@@ -149,13 +152,13 @@ public sealed class ShelfSetting
 }
 
 // How a reader likes an e-book set: text size in percent, line height in hundredths, and line length in ems.
-public sealed record ReaderType(int Size = ReaderType.DefaultSize, int Leading = ReaderType.DefaultLeading, int Width = ReaderType.DefaultWidth)
+public sealed record ReaderType(int Size = ReaderType.DefaultSize, int Leading = ReaderType.DefaultLeading, int Width = ReaderType.DefaultWidth, bool Paged = false)
 {
     public const int DefaultSize = 100;
     public const int DefaultLeading = 160;
     public const int DefaultWidth = 38;
 
-    public ReaderType Clamped() => new(Math.Clamp(Size, 80, 200), Math.Clamp(Leading, 120, 220), Math.Clamp(Width, 24, 80));
+    public ReaderType Clamped() => new(Math.Clamp(Size, 80, 200), Math.Clamp(Leading, 120, 220), Math.Clamp(Width, 24, 80), Paged);
 
     public string Css()
     {
@@ -172,8 +175,23 @@ public sealed record ReaderType(int Size = ReaderType.DefaultSize, int Leading =
               a { color: #9fc0ad; }
             }
             </style>
-            """;
+            """ + (type.Paged ? Pages(type.Width) : "");
     }
+
+    // Pages: the chapter in columns one window wide, turned by scrolling sideways a window at a time. The margins
+    // keep the reading width; a picture never runs past a page.
+    private static string Pages(int width) => $$"""
+        <style id="shelf-pages">
+        :root { --shelf-side: max(1.25rem, calc((100vw - {{width}}rem) / 2)); }
+        html { height: 100%; overflow: hidden; }
+        body {
+          box-sizing: border-box; max-width: none; height: 100vh; margin: 0;
+          padding: 1.5rem var(--shelf-side);
+          column-width: calc(100vw - 2 * var(--shelf-side)); column-gap: calc(2 * var(--shelf-side)); column-fill: auto;
+        }
+        img, svg { max-height: calc(100vh - 3rem); object-fit: contain; break-inside: avoid; }
+        </style>
+        """;
 }
 
 public sealed class Tag

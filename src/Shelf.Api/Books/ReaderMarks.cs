@@ -120,13 +120,72 @@ public static class ReaderMarks
             });
           }
           paint();
-          // How far down the chapter the reader is, for carrying the place to the audiobook; and the way in from it.
+          // How far into the chapter the reader is, for carrying the place to the audiobook; and the way in from it.
+          const paged = !!document.getElementById("shelf-pages");
           const room = () => Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
           const at = Number(new URLSearchParams(location.search).get("at"));
-          if (at > 0 && at <= 1) {
+          if (!paged && at > 0 && at <= 1) {
             const go = () => window.scrollTo(0, at * room());
             go();
             window.addEventListener("load", go, { once: true });
+          }
+          // Pages: the chapter is laid out in columns a window wide, and turning moves a window at a time. Past the
+          // last page, or before the first, the page around it opens the next chapter or the one before.
+          if (paged) {
+            const view = () => document.scrollingElement || document.documentElement;
+            const width = () => window.innerWidth;
+            const count = () => Math.max(1, Math.round(view().scrollWidth / width()));
+            let page = 0;
+            const show = (wanted) => {
+              const pages = count();
+              page = Math.max(0, Math.min(pages - 1, wanted));
+              view().scrollLeft = page * width();
+              parent.postMessage({ source: "shelf-page", page: page + 1, pages: pages }, "*");
+              parent.postMessage({ source: "shelf-place", at: pages > 1 ? page / (pages - 1) : 0 }, "*");
+            };
+            const turn = (step) => {
+              const next = page + step;
+              if (next < 0 || next >= count()) {
+                parent.postMessage({ source: "shelf-turn", step: step }, "*");
+                return;
+              }
+              show(next);
+            };
+            const open = () => show(at > 0 ? Math.round(Math.min(1, at) * (count() - 1)) : 0);
+            open();
+            window.addEventListener("load", open, { once: true });
+            window.addEventListener("resize", () => show(page));
+            document.addEventListener("keydown", (event) => {
+              if (["ArrowRight", "PageDown", " "].includes(event.key)) { event.preventDefault(); turn(1); }
+              if (["ArrowLeft", "PageUp"].includes(event.key)) { event.preventDefault(); turn(-1); }
+            });
+            // A tap on the left or right of the page turns it, unless it is on a link or a highlight, or ends a selection.
+            document.addEventListener("click", (event) => {
+              const sel = window.getSelection();
+              if ((sel && !sel.isCollapsed) || event.target.closest("a, mark")) return;
+              if (event.clientX < width() * 0.3) turn(-1);
+              else if (event.clientX > width() * 0.7) turn(1);
+            });
+            let touch = null;
+            document.addEventListener("touchstart", (event) => { touch = event.touches[0]; }, { passive: true });
+            document.addEventListener("touchend", (event) => {
+              const end = event.changedTouches[0];
+              if (!touch || !end) return;
+              const dx = end.clientX - touch.clientX;
+              const dy = end.clientY - touch.clientY;
+              touch = null;
+              if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) turn(dx < 0 ? 1 : -1);
+            }, { passive: true });
+            let wheeled = 0;
+            document.addEventListener("wheel", (event) => {
+              event.preventDefault();
+              if (Date.now() - wheeled < 450) return;
+              wheeled = Date.now();
+              turn((event.deltaY || event.deltaX) > 0 ? 1 : -1);
+            }, { passive: false });
+            window.addEventListener("message", (event) => {
+              if (event.source === parent && event.data && event.data.source === "shelf-go") turn(event.data.step);
+            });
           }
           // Any touch, key, or wheel inside the chapter tells the page someone is reading.
           let nudged = 0;
@@ -138,6 +197,7 @@ public static class ReaderMarks
           for (const name of ["keydown", "pointerdown", "wheel", "touchstart"]) window.addEventListener(name, nudge, { passive: true });
           let told = 0;
           window.addEventListener("scroll", () => {
+            if (paged) return;
             clearTimeout(told);
             told = setTimeout(() => parent.postMessage({ source: "shelf-place", at: Math.min(1, window.scrollY / room()) }, "*"), 300);
           }, { passive: true });

@@ -136,6 +136,13 @@ else if (book is not null)
                         </select>
                     </label>
                     <label>
+                        @T("Layout")
+                        <select @bind="Layout" @bind:after="SaveType">
+                            <option value="scroll">@T("Scroll")</option>
+                            <option value="pages">@T("Pages")</option>
+                        </select>
+                    </label>
+                    <label>
                         @T("Reading width")
                         <select @bind="type.Width" @bind:after="SaveType">
                             <option value="30">@T("Narrow")</option>
@@ -147,7 +154,11 @@ else if (book is not null)
             </details>
             @ReadAloud
             @Passage
-            <iframe @key="@($"{chapter}:{markRevision}:{typeRevision}")" class="reader-frame" title="@chapters[chapter].Title" src="@FrameSrc"></iframe>
+            <iframe @key="@($"{chapter}:{markRevision}:{typeRevision}")" class="reader-frame@(type.Paged ? " paged" : "")" title="@chapters[chapter].Title" src="@FrameSrc" data-paged="@(type.Paged ? "true" : "false")"></iframe>
+            @if (type.Paged && pages > 0)
+            {
+                <p class="hint reader-pages" aria-live="polite">@T("Page {0} of {1} in this chapter", page, pages) · @T("Tap the sides, swipe, or use the arrow keys to turn.")</p>
+            }
             @MarkList(T("In this chapter"))
         }
     </div>
@@ -268,7 +279,7 @@ else if (book is not null)
         if (open is not null)
         {
             var saved = await BookRules.GetReaderTypeAsync(db);
-            type = new TypeForm { Size = saved.Size, Leading = saved.Leading, Width = saved.Width };
+            type = new TypeForm { Size = saved.Size, Leading = saved.Leading, Width = saved.Width, Paged = saved.Paged };
             pdfIndex = Math.Max(0, ChapterQuery ?? (await Lending.PlaceAsync(db, open)).EbookChapter ?? 0);
             marks = await Lending.Marks(db, open).AsNoTracking()
                 .OrderBy(item => item.Id)
@@ -608,6 +619,45 @@ else if (book is not null)
     [JSInvokable]
     public void Scrolled(double at) => chapterAt = Math.Clamp(at, 0, 1);
 
+    private int page;
+    private int pages;
+
+    private string Layout
+    {
+        get => type.Paged ? "pages" : "scroll";
+        set => type.Paged = value == "pages";
+    }
+
+    // In pages, which page of the chapter is showing.
+    [JSInvokable]
+    public Task Paged(int shown, int count)
+    {
+        (page, pages) = (shown, count);
+        return InvokeAsync(StateHasChanged);
+    }
+
+    // Turning past the last page opens the next chapter at its start; before the first, the one before at its end.
+    [JSInvokable]
+    public Task Turned(int step) => InvokeAsync(async () =>
+    {
+        if (chapters is null)
+        {
+            return;
+        }
+
+        if (step > 0 && chapter < chapters.Count - 1)
+        {
+            await Next();
+        }
+        else if (step < 0 && chapter > 0)
+        {
+            await Previous();
+            chapterAt = frameAt = 1;
+        }
+
+        StateHasChanged();
+    });
+
     // The same place in the audiobook: by the chapters' titles where they agree, and how far through otherwise.
     private void ContinueInAudio()
     {
@@ -801,7 +851,8 @@ else if (book is not null)
     private async Task SaveType()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        await BookRules.SetReaderTypeAsync(db, new ReaderType(type.Size, type.Leading, type.Width));
+        await BookRules.SetReaderTypeAsync(db, new ReaderType(type.Size, type.Leading, type.Width, type.Paged));
+        pages = 0;
         frameAt = chapterAt;
         typeRevision++;
         if (pdf is not null)
@@ -858,5 +909,6 @@ else if (book is not null)
         public int Size { get; set; } = ReaderType.DefaultSize;
         public int Leading { get; set; } = ReaderType.DefaultLeading;
         public int Width { get; set; } = ReaderType.DefaultWidth;
+        public bool Paged { get; set; }
     }
 }

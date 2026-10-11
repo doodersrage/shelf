@@ -13,7 +13,8 @@ An EPUB reads chapter by chapter, with **Previous**, **Next**, and a list of its
 
 - **Text size**, from smaller to largest;
 - **Line spacing**: snug, comfortable, or airy;
-- **Reading width**: narrow, medium, or wide.
+- **Reading width**: narrow, medium, or wide;
+- **Layout**: **Scroll**, a chapter as one long page, or **Pages**, a chapter laid out a screen at a time. In pages, tap the right or left of the page, swipe, use the arrow keys or Page Up and Page Down, or turn the mouse wheel to turn; the line under the page says which page of the chapter you're on. Turning past the last page opens the next chapter, and turning back from the first opens the previous one at its end. Selecting a passage and tapping a highlight work as in scroll.
 
 Your settings are kept for you, so every book opens the same way. A book's own styles are kept where they don't fight these, and anything active in a book (scripts, forms) is stripped, so an EPUB can never act on your shelf.
 

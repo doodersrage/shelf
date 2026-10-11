@@ -393,7 +393,8 @@ public static class BookRules
         return new ReaderType(
             setting?.ReaderTextSize ?? ReaderType.DefaultSize,
             setting?.ReaderLineHeight ?? ReaderType.DefaultLeading,
-            setting?.ReaderWidth ?? ReaderType.DefaultWidth).Clamped();
+            setting?.ReaderWidth ?? ReaderType.DefaultWidth,
+            setting?.ReaderPaged ?? false).Clamped();
     }
 
     public static async Task SetReaderTypeAsync(ShelfDb db, ReaderType type, CancellationToken cancellationToken = default)
@@ -409,6 +410,7 @@ public static class BookRules
         setting.ReaderTextSize = type.Size;
         setting.ReaderLineHeight = type.Leading;
         setting.ReaderWidth = type.Width;
+        setting.ReaderPaged = type.Paged;
         await db.SaveChangesAsync(cancellationToken);
     }
 
