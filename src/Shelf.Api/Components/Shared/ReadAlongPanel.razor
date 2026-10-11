@@ -6,11 +6,19 @@
 @if (status is not null && (status.CanMake || status.State is not null))
 {
     <div class="read-along" id="read-along">
-        <h3>@T("Read-along")</h3>
+        <h3>@(status.HasEbook ? T("Read-along and transcript") : T("Transcript"))</h3>
         @switch (status.State)
         {
-            case ReadAlongState.Ready:
+            case ReadAlongState.Ready when status.Chapters.Length > 0:
                 <p>@T("Ready. In the reader, Listen along plays the audiobook and marks each word as it is read; switching between the e-book and the audiobook keeps the place to the word.") <span class="hint">@T("{0} of the text found its place in the recording.", status.Matched.ToString("P0", System.Globalization.CultureInfo.CurrentCulture))</span></p>
+                <p class="hint">@T("Search finds words said in the recording too, and opens the player where they are said.")</p>
+                break;
+            case ReadAlongState.Ready:
+                <p>@T("Ready. Search finds words said in the recording, and opens the player where they are said.")</p>
+                @if (status.HasEbook)
+                {
+                    <p class="hint">@T("The book has an EPUB now: make it again to match the two for read-along.")</p>
+                }
                 break;
             case ReadAlongState.Waiting:
                 <p role="status">@T("Waiting its turn…")</p>
@@ -26,12 +34,19 @@
                 <p class="validation-message" role="alert">@status.Problem</p>
                 break;
             default:
-                <p class="hint">@T("Match the audiobook to the e-book word by word, so you can listen and read along together. A speech-to-text service hears the whole recording first, which can take a while.")</p>
+                @if (status.HasEbook)
+                {
+                    <p class="hint">@T("Match the audiobook to the e-book word by word, so you can listen and read along together, and search what is said in it. A speech-to-text service hears the whole recording first, which can take a while.")</p>
+                }
+                else
+                {
+                    <p class="hint">@T("Have the recording heard by a speech-to-text service, so search finds what is said in it and opens the player there. With an EPUB on the book too, it becomes a read-along.")</p>
+                }
                 break;
         }
         @if (status.CanMake && status.State is null or ReadAlongState.Ready or ReadAlongState.Failed)
         {
-            <button type="button" @onclick="Make">@(status.State is null ? T("Make the read-along") : T("Make it again"))</button>
+            <button type="button" @onclick="Make">@(status.State is not null ? T("Make it again") : status.HasEbook ? T("Make the read-along") : T("Make the transcript"))</button>
         }
         @if (status.State is ReadAlongState.Ready or ReadAlongState.Failed && status.CanMake)
         {

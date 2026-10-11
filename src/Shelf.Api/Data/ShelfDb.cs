@@ -61,6 +61,7 @@ public sealed class ShelfDb : DbContext
     public DbSet<PushSubscriptionRow> PushSubscriptions => Set<PushSubscriptionRow>();
     public DbSet<Webhook> Webhooks => Set<Webhook>();
     public DbSet<ReadAlongRow> ReadAlongs => Set<ReadAlongRow>();
+    public DbSet<SpokenText> SpokenTexts => Set<SpokenText>();
     public DbSet<Podcast> Podcasts => Set<Podcast>();
     public DbSet<ShelfLink> ShelfLinks => Set<ShelfLink>();
     public DbSet<RemoteReader> RemoteReaders => Set<RemoteReader>();
@@ -245,6 +246,13 @@ public sealed class ShelfDb : DbContext
             episode.Property(item => item.ContentType).HasMaxLength(100);
             episode.Property(item => item.StoredName).HasMaxLength(100);
             episode.HasIndex(item => new { item.PodcastId, item.Guid }).IsUnique();
+        });
+
+        modelBuilder.Entity<SpokenText>(text =>
+        {
+            text.Property(item => item.AudioStoredName).HasMaxLength(48);
+            text.HasIndex(item => item.BookId);
+            text.HasOne<Book>().WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<ReadAlongRow>(row =>

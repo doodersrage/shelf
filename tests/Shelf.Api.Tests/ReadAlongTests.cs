@@ -92,19 +92,12 @@ public sealed class ReadAlongTests(ShelfApiFactory factory) : IClassFixture<Shel
         var chapters = Enumerable.Range(0, EpubFile.Chapters(epub)!.Count).Select(index => ReadAlongText.Words(EpubFile.ChapterHtml(epub, index, "")!)).ToList();
         File.Delete(epub);
         var all = chapters.SelectMany(words => words).ToList();
-        factory.Transcriber.Words = all;
+        var heardBefore = factory.Transcriber.Heard.Count;
+        var status = await RunAsync(reader, book.Id, all);
 
-        var status = await (await reader.PostAsync($"/books/{book.Id}/read-along", null)).Content.ReadFromJsonAsync<ReadAlongStatus>(JsonOptions);
-        Assert.NotNull(status);
-        for (var i = 0; i < 100 && status!.State != ReadAlongState.Ready && status.State != ReadAlongState.Failed; i++)
-        {
-            await Task.Delay(100);
-            status = await reader.GetFromJsonAsync<ReadAlongStatus>($"/books/{book.Id}/read-along", JsonOptions);
-        }
-
-        Assert.Equal((ReadAlongState.Ready, 3, 3), (status!.State, status.Done, status.Total));
+        Assert.Equal((ReadAlongState.Ready, 3, 3, true), (status.State, status.Done, status.Total, status.Searchable));
         Assert.True(status.Matched > 0.9, $"Matched {status.Matched}.");
-        Assert.Equal(3, factory.Transcriber.Heard.Count);
+        Assert.Equal(3, factory.Transcriber.Heard.Count - heardBefore);
 
         var last = chapters.FindLastIndex(words => words.Count > 0);
         var times = await reader.GetFromJsonAsync<ReadAlongTimes>($"/books/{book.Id}/read-along/chapters/{last}", JsonOptions);
@@ -126,6 +119,47 @@ public sealed class ReadAlongTests(ShelfApiFactory factory) : IClassFixture<Shel
         var stranger = await factory.SignUpAsync("Read Along Stranger");
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.PostAsync($"/books/{book.Id}/read-along", null)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync($"/books/{book.Id}/read-along/chapters/{last}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_recording_alone_gets_a_transcript_and_search_finds_what_it_says()
+    {
+        var reader = await factory.SignUpAsync("Transcript Reader");
+        var book = (await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("Heard Only", "Someone", BookStatus.Reading, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        using (var content = new MultipartFormDataContent { { new StreamContent(File.OpenRead(Path.Combine(Fixtures, "three-tracks.zip"))), "file", "three-tracks.zip" } })
+        {
+            (await reader.PostAsync($"/books/{book.Id}/audio", content)).EnsureSuccessStatusCode();
+        }
+
+        var words = Enumerable.Range(0, 90).Select(i => i == 70 ? "albatross" : "word" + i.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToList();
+        var status = await RunAsync(reader, book.Id, words);
+        Assert.Equal((ReadAlongState.Ready, true, false), (status.State, status.Searchable, status.HasEbook));
+        Assert.Empty(status.Chapters);
+
+        // The third track hears words 60 to 89, spread over it: the albatross is the eleventh of them.
+        var hits = await reader.GetFromJsonAsync<SearchHit[]>("/books/search?q=albatross", JsonOptions);
+        var hit = Assert.Single(hits!);
+        Assert.Equal((book.Id, "albatross"), (hit.BookId, hit.Match));
+        Assert.StartsWith($"/library/{book.Id}/listen?t=", hit.Open, StringComparison.Ordinal);
+        Assert.StartsWith("Heard at 0:0", hit.Where, StringComparison.Ordinal);
+
+        // Another reader's search does not reach it.
+        var stranger = await factory.SignUpAsync("Transcript Stranger");
+        Assert.Empty((await stranger.GetFromJsonAsync<SearchHit[]>("/books/search?q=albatross", JsonOptions))!);
+    }
+
+    private async Task<ReadAlongStatus> RunAsync(HttpClient reader, int bookId, List<string> words)
+    {
+        factory.Transcriber.Words = words;
+        factory.Transcriber.Reset();
+        var status = await (await reader.PostAsync($"/books/{bookId}/read-along", null)).Content.ReadFromJsonAsync<ReadAlongStatus>(JsonOptions);
+        for (var i = 0; i < 100 && status!.State != ReadAlongState.Ready && status.State != ReadAlongState.Failed; i++)
+        {
+            await Task.Delay(100);
+            status = await reader.GetFromJsonAsync<ReadAlongStatus>($"/books/{bookId}/read-along", JsonOptions);
+        }
+
+        return status!;
     }
 
     [Fact]
@@ -154,9 +188,13 @@ public sealed class StubTranscriber : ITranscriber
 
     public ConcurrentQueue<string> Heard { get; } = new();
 
+    private int calls;
+
+    public void Reset() => calls = 0;
+
     public Task<IReadOnlyList<SpokenWord>?> TranscribeAsync(string path, string? language, CancellationToken cancellationToken)
     {
-        var part = Heard.Count;
+        var part = Interlocked.Increment(ref calls) - 1;
         Heard.Enqueue(path);
         var length = AudioLength.Read(path) ?? 3;
         var share = Words.Skip(part * Words.Count / 3).Take(((part + 1) * Words.Count / 3) - (part * Words.Count / 3)).ToList();

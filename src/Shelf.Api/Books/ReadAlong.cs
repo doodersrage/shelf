@@ -50,7 +50,20 @@ public sealed record SpokenWord(string Text, double Start, double End);
 
 public sealed record ReadAlongChapter(int Index, double Start, double End);
 
-public sealed record ReadAlongStatus(ReadAlongState? State, int Done, int Total, string? Problem, double Matched, ReadAlongChapter[] Chapters, bool CanMake);
+// Searchable is whether the recording's words are in the shelf's search; Chapters, the read-along's, with an e-book.
+public sealed record ReadAlongStatus(ReadAlongState? State, int Done, int Total, string? Problem, double Matched, ReadAlongChapter[] Chapters, bool CanMake, bool Searchable = false, bool HasEbook = false);
+
+// A passage of a recording, with when it starts, for the search to find words said aloud.
+public sealed class SpokenText
+{
+    public const int Words = 40;
+
+    public int Id { get; set; }
+    public int BookId { get; set; }
+    public required string AudioStoredName { get; set; }
+    public double Start { get; set; }
+    public required string Text { get; set; }
+}
 
 // The time each word of a chapter is read aloud, in hundredths of a second from the start of the recording; -1 for a
 // word the recording does not read.
@@ -472,20 +485,22 @@ public sealed class ReadAlongService(IServiceScopeFactory scopes, ITranscriber t
     {
         var open = await Lending.OpenAsync(db, id, cancellationToken);
         var row = open is null ? null : await db.ReadAlongs.AsNoTracking().FirstOrDefaultAsync(item => item.BookId == id, cancellationToken);
-        var canMake = Enabled && open is { Borrowed: false } && EbookStore.IsEpub(open.Book.EbookStoredName) && !string.IsNullOrWhiteSpace(open.Book.AudioStoredName);
+        var canMake = Enabled && open is { Borrowed: false } && !string.IsNullOrWhiteSpace(open.Book.AudioStoredName);
+        var hasEbook = open is not null && EbookStore.IsEpub(open.Book.EbookStoredName);
         if (row is null || open is null)
         {
-            return new ReadAlongStatus(null, 0, 0, null, 0, [], canMake);
+            return new ReadAlongStatus(null, 0, 0, null, 0, [], canMake, HasEbook: hasEbook);
         }
 
-        // Made from other files than the book has now: it no longer fits.
-        var current = row.AudioStoredName == open.Book.AudioStoredName && row.EbookStoredName == open.Book.EbookStoredName;
+        // Made from other files than the book has now: it no longer fits. A transcript alone still fits its recording.
+        var current = row.AudioStoredName == open.Book.AudioStoredName && (row.EbookStoredName == open.Book.EbookStoredName || row.EbookStoredName is null);
         var chapters = row.State == ReadAlongState.Ready && current && Unpack<int[][]>(row.Timings) is { } timings
             ? timings.Select((times, index) => (Index: index, Times: times.Where(time => time >= 0).ToArray()))
                 .Where(item => item.Times.Length > 0)
                 .Select(item => new ReadAlongChapter(item.Index, item.Times.Min() / 100.0, item.Times.Max() / 100.0)).ToArray()
             : [];
-        return new ReadAlongStatus(current ? row.State : null, row.Done, row.Total, row.Problem, row.Matched, chapters, canMake);
+        var searchable = await db.SpokenTexts.AnyAsync(text => text.BookId == id && text.AudioStoredName == open.Book.AudioStoredName, cancellationToken);
+        return new ReadAlongStatus(current ? row.State : null, row.Done, row.Total, row.Problem, row.Matched, row.EbookStoredName == open.Book.EbookStoredName ? chapters : [], canMake, searchable, hasEbook);
     }
 
     public static async Task<ReadAlongTimes?> TimesAsync(ShelfDb db, int id, int chapter, CancellationToken cancellationToken = default)
@@ -565,9 +580,9 @@ public sealed class ReadAlongService(IServiceScopeFactory scopes, ITranscriber t
             return T("This shelf has no speech-to-text service set up for read-along. An admin can add one in ReadAlong:Url.");
         }
 
-        if (!EbookStore.IsEpub(book.EbookStoredName) || string.IsNullOrWhiteSpace(book.AudioStoredName))
+        if (string.IsNullOrWhiteSpace(book.AudioStoredName))
         {
-            return T("Read-along needs both an EPUB and an audiobook on the book.");
+            return T("A transcript needs an audiobook on the book.");
         }
 
         var row = await db.ReadAlongs.FirstOrDefaultAsync(item => item.BookId == id, cancellationToken);
@@ -579,7 +594,7 @@ public sealed class ReadAlongService(IServiceScopeFactory scopes, ITranscriber t
 
         // The words heard can be kept when only the e-book changed; the recording must be heard again when it did.
         var sameRecording = row.AudioStoredName == book.AudioStoredName && row.Transcript is not null && row.Done >= row.Total && row.Total > 0;
-        (row.State, row.Problem, row.EbookStoredName, row.Timings, row.Matched, row.UpdatedAt) = (sameRecording ? ReadAlongState.Matching : ReadAlongState.Waiting, null, book.EbookStoredName, null, 0, DateTimeOffset.UtcNow);
+        (row.State, row.Problem, row.EbookStoredName, row.Timings, row.Matched, row.UpdatedAt) = (sameRecording ? ReadAlongState.Matching : ReadAlongState.Waiting, null, EbookStore.IsEpub(book.EbookStoredName) ? book.EbookStoredName : null, null, 0, DateTimeOffset.UtcNow);
         if (!sameRecording)
         {
             (row.AudioStoredName, row.Transcript, row.Done, row.Total) = (book.AudioStoredName, null, 0, 0);
@@ -598,6 +613,7 @@ public sealed class ReadAlongService(IServiceScopeFactory scopes, ITranscriber t
         }
 
         await db.ReadAlongs.Where(item => item.BookId == id).ExecuteDeleteAsync(cancellationToken);
+        await db.SpokenTexts.Where(item => item.BookId == id).ExecuteDeleteAsync(cancellationToken);
         return true;
     }
 
@@ -609,6 +625,12 @@ public sealed class ReadAlongService(IServiceScopeFactory scopes, ITranscriber t
             foreach (var id in await db.ReadAlongs.AsNoTracking().Where(item => item.State != ReadAlongState.Ready && item.State != ReadAlongState.Failed).Select(item => item.BookId).ToListAsync(stoppingToken))
             {
                 _queue.Writer.TryWrite(id);
+            }
+
+            // Read-alongs made before the search heard recordings: their words go into it now.
+            foreach (var row in await db.ReadAlongs.Where(item => item.State == ReadAlongState.Ready && item.AudioStoredName != null && !db.SpokenTexts.Any(text => text.BookId == item.BookId)).ToListAsync(stoppingToken))
+            {
+                await KeepSpokenAsync(db, row.BookId, row.AudioStoredName!, Unpack<List<SpokenWord>>(row.Transcript) ?? [], stoppingToken);
             }
         }
 
@@ -638,7 +660,8 @@ public sealed class ReadAlongService(IServiceScopeFactory scopes, ITranscriber t
             return;
         }
 
-        if (book.AudioStoredName != row.AudioStoredName || book.EbookStoredName != row.EbookStoredName || ebooks.OpenPath(book.EbookStoredName) is not { } epub)
+        var epub = row.EbookStoredName is null ? null : ebooks.OpenPath(book.EbookStoredName);
+        if (book.AudioStoredName != row.AudioStoredName || (row.EbookStoredName is not null && (book.EbookStoredName != row.EbookStoredName || epub is null)))
         {
             await FailAsync(id, T("The book's files changed while it was being made. Make it again."), cancellationToken);
             return;
@@ -691,6 +714,15 @@ public sealed class ReadAlongService(IServiceScopeFactory scopes, ITranscriber t
 
         row.State = ReadAlongState.Matching;
         await db.SaveChangesAsync(cancellationToken);
+        await KeepSpokenAsync(db, id, row.AudioStoredName!, heard, cancellationToken);
+
+        // With no e-book, the transcript is the whole of it.
+        if (epub is null)
+        {
+            (row.State, row.UpdatedAt) = (ReadAlongState.Ready, DateTimeOffset.UtcNow);
+            await db.SaveChangesAsync(cancellationToken);
+            return;
+        }
 
         var count = EpubFile.Chapters(epub)?.Count ?? 0;
         var chapters = Enumerable.Range(0, count).Select(index => EpubFile.ChapterHtml(epub, index, "") is { } html ? ReadAlongText.Words(html) : []).ToList();
@@ -708,6 +740,22 @@ public sealed class ReadAlongService(IServiceScopeFactory scopes, ITranscriber t
         if (row.Matched < 0.05)
         {
             (row.State, row.Problem) = (ReadAlongState.Failed, T("The recording and the e-book hardly match. Are they the same book, in the same language?"));
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    // The words heard, in passages of a few dozen, each with when it starts, for the shelf's search.
+    public static async Task KeepSpokenAsync(ShelfDb db, int bookId, string audioStoredName, IReadOnlyList<SpokenWord> heard, CancellationToken cancellationToken = default)
+    {
+        await db.SpokenTexts.Where(text => text.BookId == bookId).ExecuteDeleteAsync(cancellationToken);
+        foreach (var passage in heard.Chunk(SpokenText.Words))
+        {
+            var text = string.Join(' ', passage.Select(word => word.Text.Trim()).Where(word => word.Length > 0));
+            if (text.Length > 0)
+            {
+                db.SpokenTexts.Add(new SpokenText { BookId = bookId, AudioStoredName = audioStoredName, Start = Math.Round(passage[0].Start, 2), Text = text });
+            }
         }
 
         await db.SaveChangesAsync(cancellationToken);

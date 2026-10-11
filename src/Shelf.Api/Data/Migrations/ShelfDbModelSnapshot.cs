@@ -1282,6 +1282,34 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("Settings");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.SpokenText", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AudioStoredName")
+                        .IsRequired()
+                        .HasMaxLength(48)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double>("Start")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.ToTable("SpokenTexts");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.Tag", b =>
                 {
                     b.Property<int>("Id")
@@ -2133,6 +2161,15 @@ namespace Shelf.Api.Data.Migrations
                     b.HasOne("Shelf.Api.Readers.Reader", null)
                         .WithMany()
                         .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.SpokenText", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", null)
+                        .WithMany()
+                        .HasForeignKey("BookId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

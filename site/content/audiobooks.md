@@ -62,7 +62,9 @@ A borrower listening to a book lent to them has their own place, bookmarks, and 
 
 ## Read-along
 
-With a speech-to-text service set up (see below), a book that has both an EPUB and an audiobook can be matched word by word. On the book's page, under the recording, choose **Make the read-along**. Shelf sends the recording to the service a piece at a time (it shows how far it has got, and carries on after a restart), then matches every word heard to the words of the e-book. Then:
+With a speech-to-text service set up (see below), an audiobook can be transcribed: on the book's page, under the recording, choose **Make the transcript**. [Search](reading.md#search-inside-books) then finds what is said in it and opens the player at that moment.
+
+A book that has both an EPUB and an audiobook can go further and be matched word by word: choose **Make the read-along**. Shelf sends the recording to the service a piece at a time (it shows how far it has got, and carries on after a restart), then matches every word heard to the words of the e-book. Then:
 
 - In the reader, **Listen along** plays the audiobook from the first word on the screen and marks each word as it's read, scrolling or turning the page to keep it in view, and going on into the next chapter. Double-tap a word to move the recording there. **Stop listening along** pauses it.
 - **Continue in the audiobook** and **Continue in the e-book** keep your place to the word, rather than by chapter.

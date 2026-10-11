@@ -56,9 +56,10 @@ public static partial class Search
             return [];
         }
 
+        var spoken = await SpokenAsync(db, match, term, cancellationToken);
         if (ranked.Count == 0)
         {
-            return [];
+            return spoken;
         }
 
         var order = ranked.Select((row, index) => (row.Id, index)).ToDictionary(item => item.Id, item => item.index);
@@ -95,6 +96,63 @@ public static partial class Search
                     row.Text.Substring(at, length),
                     row.Text[(at + length)..end] + (end < row.Text.Length ? "…" : ""),
                     $"/library/{row.Id}/read?chapter={row.Part}");
+            })
+            .Concat(spoken)
+            .ToArray();
+    }
+
+    // Words said aloud in recordings with a transcript (see ReadAlong), each hit opening the player at its moment.
+    private static async Task<SearchHit[]> SpokenAsync(ShelfDb db, string match, string term, CancellationToken cancellationToken)
+    {
+        var me = db.ReaderId;
+        List<RankedText> ranked;
+        try
+        {
+            ranked = await db.Database
+                .SqlQuery<RankedText>($"SELECT rowid AS \"Id\", bm25(\"SpokenTextSearch\") AS \"Rank\" FROM \"SpokenTextSearch\" WHERE \"SpokenTextSearch\" MATCH {match} ORDER BY \"Rank\" LIMIT 2000")
+                .ToListAsync(cancellationToken);
+        }
+        catch (Microsoft.Data.Sqlite.SqliteException)
+        {
+            return [];
+        }
+
+        if (ranked.Count == 0)
+        {
+            return [];
+        }
+
+        var order = ranked.Select((row, index) => (row.Id, index)).ToDictionary(item => item.Id, item => item.index);
+        var ids = order.Keys.ToList();
+        var rows = await (
+                from text in db.SpokenTexts.AsNoTracking()
+                join book in db.Books.IgnoreQueryFilters().AsNoTracking() on text.BookId equals book.Id
+                where ids.Contains(text.Id) && (book.OwnerId == me || book.BorrowerId == me) && book.AudioStoredName == text.AudioStoredName
+                select new { TextId = text.Id, book.Id, book.Title, book.Author, CoverUrl = Covers.For(book.Id, book.CoverUrl, book.FileCover, book.CoverImage), text.Start, text.Text })
+            .ToListAsync(cancellationToken);
+        return rows
+            .OrderBy(row => order[row.TextId])
+            .GroupBy(row => row.Id)
+            .Take(50)
+            .SelectMany(group => group.Take(3))
+            .Select(row =>
+            {
+                var (at, length) = Locate(row.Text, term);
+                var start = Math.Max(0, at - Around);
+                var end = Math.Min(row.Text.Length, at + length + Around);
+                var seconds = (int)row.Start;
+                var clock = seconds >= 3600 ? $"{seconds / 3600}:{seconds / 60 % 60:00}:{seconds % 60:00}" : $"{seconds / 60}:{seconds % 60:00}";
+                return new SearchHit(
+                    row.Id,
+                    row.Title,
+                    row.Author,
+                    row.CoverUrl,
+                    -1,
+                    Localization.Words.T("Heard at {0}", clock),
+                    (start > 0 ? "…" : "") + row.Text[start..at],
+                    row.Text.Substring(at, length),
+                    row.Text[(at + length)..end] + (end < row.Text.Length ? "…" : ""),
+                    $"/library/{row.Id}/listen?t={row.Start.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}");
             })
             .ToArray();
     }

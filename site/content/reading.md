@@ -64,6 +64,8 @@ In an EPUB or a PDF, **Read aloud** speaks the chapter or page with your browser
 
 **Search inside books** finds a phrase in the words of your e-books and of books lent to you, scanned PDFs included once they have been read. Results come best match first, shown in context, and **Open here** takes you to that chapter or page. Case and accents don't matter (`cafe` finds `café`), and the last word can be partial.
 
+It finds words said in audiobooks too, for those with a transcript (see [Read-along](audiobooks.md#read-along)): each hit says when it's heard, and **Open here** starts the player at that moment.
+
 ## Reading offline
 
 On a book with an e-book, **Keep for reading offline** saves the file in that browser. When the shelf can't be reached, any page opens the offline reader instead, which lists your kept books and reads them: EPUBs chapter by chapter, PDFs page by page, at your text size.
