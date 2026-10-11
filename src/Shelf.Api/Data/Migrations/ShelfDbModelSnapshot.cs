@@ -1085,6 +1085,47 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("PasswordResets");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Readers.PushSubscriptionRow", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Auth")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Endpoint")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("P256dh")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Endpoint")
+                        .IsUnique();
+
+                    b.HasIndex("ReaderId");
+
+                    b.ToTable("PushSubscriptions", (string)null);
+                });
+
             modelBuilder.Entity("Shelf.Api.Readers.Reader", b =>
                 {
                     b.Property<int>("Id")
@@ -1104,6 +1145,14 @@ namespace Shelf.Api.Data.Migrations
 
                     b.Property<bool>("EmailReminders")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("GotifyToken")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("GotifyUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
 
                     b.Property<bool>("HardcoverAuto")
                         .HasColumnType("INTEGER");
@@ -1136,6 +1185,9 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<string>("Language")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateOnly?>("LastNoticeOn")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateOnly?>("LastReminderOn")
                         .HasColumnType("TEXT");
 
@@ -1147,6 +1199,17 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<string>("NormalizedName")
                         .IsRequired()
                         .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("NoticeKinds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("NtfyToken")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NtfyUrl")
+                        .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("OidcSubject")
@@ -1609,6 +1672,15 @@ namespace Shelf.Api.Data.Migrations
                 });
 
             modelBuilder.Entity("Shelf.Api.Readers.PasswordReset", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Readers.PushSubscriptionRow", b =>
                 {
                     b.HasOne("Shelf.Api.Readers.Reader", null)
                         .WithMany()

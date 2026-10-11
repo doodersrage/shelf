@@ -7,12 +7,21 @@ namespace Shelf.Api.Data;
 public sealed class ShelfDb : DbContext
 {
     private readonly ShelfReader? _reader;
+    private readonly ShelfEvents? _events;
+    private List<Func<ShelfEvent?>> _happening = [];
 
-    public ShelfDb(DbContextOptions<ShelfDb> options, ShelfReader? reader = null)
+    public ShelfDb(DbContextOptions<ShelfDb> options, ShelfReader? reader = null, ShelfEvents? events = null)
         : base(options)
     {
         _reader = reader;
-        SavingChanges += (_, _) => StampOwners();
+        _events = events;
+        SavingChanges += (_, _) =>
+        {
+            StampOwners();
+            NoteEvents();
+        };
+        SavedChanges += (_, _) => TellEvents();
+        SaveChangesFailed += (_, _) => _happening = [];
     }
 
     // Every query sees only this reader's books. No reader means no books, never the unclaimed ones.
@@ -49,6 +58,7 @@ public sealed class ShelfDb : DbContext
     public DbSet<ClubMember> ClubMembers => Set<ClubMember>();
     public DbSet<ClubBook> ClubBooks => Set<ClubBook>();
     public DbSet<ClubPost> ClubPosts => Set<ClubPost>();
+    public DbSet<PushSubscriptionRow> PushSubscriptions => Set<PushSubscriptionRow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -155,6 +165,18 @@ public sealed class ShelfDb : DbContext
             club.HasMany(item => item.Books).WithOne(book => book.Club).HasForeignKey(book => book.ClubId).OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<PushSubscriptionRow>(push =>
+        {
+            push.ToTable("PushSubscriptions");
+            push.Property(item => item.Endpoint).HasMaxLength(1000);
+            push.Property(item => item.P256dh).HasMaxLength(200);
+            push.Property(item => item.Auth).HasMaxLength(100);
+            push.Property(item => item.Label).HasMaxLength(120);
+            push.HasIndex(item => item.Endpoint).IsUnique();
+            push.HasIndex(item => item.ReaderId);
+            push.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<ClubMember>(member =>
         {
             member.HasKey(item => new { item.ClubId, item.ReaderId });
@@ -240,6 +262,10 @@ public sealed class ShelfDb : DbContext
             reader.Property(r => r.KindleEmail).HasMaxLength(EmailRules.MaxAddressLength);
             reader.Property(r => r.ReadwiseToken).HasMaxLength(1000);
             reader.Property(r => r.HardcoverToken).HasMaxLength(6000);
+            reader.Property(r => r.NtfyUrl).HasMaxLength(500);
+            reader.Property(r => r.NtfyToken).HasMaxLength(1000);
+            reader.Property(r => r.GotifyUrl).HasMaxLength(500);
+            reader.Property(r => r.GotifyToken).HasMaxLength(1000);
             reader.Property(r => r.KoboTokenHash).HasMaxLength(64);
             reader.HasIndex(r => r.KoboTokenHash).IsUnique();
             reader.HasIndex(r => r.OidcSubject).IsUnique();
@@ -415,6 +441,88 @@ public sealed class ShelfDb : DbContext
             if (entry.State == EntityState.Added && entry.Entity.OwnerId is null)
             {
                 entry.Entity.OwnerId = ReaderId;
+            }
+        }
+    }
+
+    // What this save will mean, read before it while the old values are known, and told once it has gone through,
+    // when new rows have their ids.
+    private void NoteEvents()
+    {
+        if (_events is null)
+        {
+            return;
+        }
+
+        var actor = ReaderId;
+        foreach (var entry in ChangeTracker.Entries<Book>())
+        {
+            var book = entry.Entity;
+            if (entry.State == EntityState.Added)
+            {
+                _happening.Add(() => new ShelfEvent(EventKinds.BookAdded, actor, book.Id));
+                continue;
+            }
+
+            if (entry.State != EntityState.Modified)
+            {
+                continue;
+            }
+
+            var status = entry.Property(item => item.Status);
+            if (status.IsModified && !Equals(status.OriginalValue, status.CurrentValue) && book.Status is BookStatus.Reading or BookStatus.Finished)
+            {
+                var kind = book.Status == BookStatus.Finished ? EventKinds.BookFinished : EventKinds.BookStarted;
+                _happening.Add(() => new ShelfEvent(kind, actor, book.Id));
+            }
+
+            var borrower = entry.Property(item => item.BorrowerId);
+            if (borrower.IsModified && borrower.OriginalValue != borrower.CurrentValue)
+            {
+                if (borrower.CurrentValue is int lentTo)
+                {
+                    _happening.Add(() => new ShelfEvent(EventKinds.BookLent, actor, book.Id, lentTo));
+                }
+
+                if (borrower.OriginalValue is int returnedBy)
+                {
+                    _happening.Add(() => new ShelfEvent(EventKinds.BookReturned, actor, book.Id, returnedBy));
+                }
+            }
+        }
+
+        foreach (var ask in ChangeTracker.Entries<LoanAskRow>().Where(entry => entry.State == EntityState.Added).Select(entry => entry.Entity))
+        {
+            _happening.Add(() => new ShelfEvent(EventKinds.LoanAsked, actor, ask.BookId, ask.ReaderId));
+        }
+
+        foreach (var post in ChangeTracker.Entries<ClubPost>().Where(entry => entry.State == EntityState.Added).Select(entry => entry.Entity))
+        {
+            _happening.Add(() => new ShelfEvent(EventKinds.ClubPosted, actor, ReaderId: post.ReaderId, PostId: post.Id));
+        }
+
+        foreach (var member in ChangeTracker.Entries<ClubMember>().Where(entry => entry.State == EntityState.Added).Select(entry => entry.Entity))
+        {
+            _happening.Add(() => new ShelfEvent(EventKinds.ClubJoined, actor, ReaderId: member.ReaderId, ClubId: member.ClubId));
+        }
+
+        // New books in series come many at once, so a save tells each reader once, with how many.
+        foreach (var found in ChangeTracker.Entries<SeriesAlert>().Where(entry => entry.State == EntityState.Added).GroupBy(entry => entry.Entity.OwnerId))
+        {
+            var (owner, count) = (found.Key, found.Count());
+            _happening.Add(() => new ShelfEvent(EventKinds.SeriesFound, owner, ReaderId: owner, Count: count));
+        }
+    }
+
+    private void TellEvents()
+    {
+        var happened = _happening;
+        _happening = [];
+        foreach (var make in happened)
+        {
+            if (make() is { } shelfEvent)
+            {
+                _events!.Publish(shelfEvent);
             }
         }
     }

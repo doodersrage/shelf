@@ -121,6 +121,15 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 | `Lookup:GoogleBooksKey` | none | A Google Books API key (free, from the Google Cloud console). Without one, look-ups share Google's allowance for anonymous callers everywhere, which often runs out for the day; Shelf then carries on with Open Library alone. |
 | `SeriesAlerts:Enabled` | `true` | The daily look at Open Library for new books in a series, for readers who turn it on under Series. Set `false` to stop it for everyone. |
 
+## Notifications and webhooks
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `Notices:Contact` | `Email:From`, or Shelf's project page | Who the push services can contact about this shelf's notifications, as `mailto:you@example.org` or a web address. Apple asks for one. |
+| `Notices:PushHosts` | none | More push services to allow, by host name and separated by commas, for a browser whose service Shelf doesn't know. Shelf sends browser notifications only to Google's, Mozilla's, Apple's, and Microsoft's. |
+
+Links in ntfy and Gotify notifications need the shelf's own address, `Email:PublicAddress`; without it, they come without a link.
+
 ## Logging
 
 Shelf logs with ASP.NET Core's usual settings, such as `Logging:LogLevel:Default`. In Docker, `docker logs shelf` shows them.

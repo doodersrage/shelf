@@ -1591,6 +1591,8 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
 
     public StubAudible Audible { get; } = new();
 
+    public StubNoticeChannels Channels { get; } = new();
+
     public async Task InitializeAsync()
     {
         _client = await SignUpAsync("Tenar");
@@ -1658,6 +1660,7 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
             services.AddSingleton<IReadwiseClient>(Readwise);
             services.AddSingleton<IHardcoverClient>(Hardcover);
             services.AddSingleton<IAudibleCatalog>(Audible);
+            services.AddSingleton<Shelf.Api.Readers.INoticeChannels>(Channels);
             services.AddSingleton<Shelf.Api.Readers.IEmailSender>(Mail);
         });
     }

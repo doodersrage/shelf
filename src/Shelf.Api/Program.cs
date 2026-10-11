@@ -106,6 +106,16 @@ builder.Services.AddHttpClient<IAudibleCatalog, AudibleCatalog>(client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("Shelf/1.0 (personal library; +https://github.com/doodersrage/shelf)");
 });
 
+// Things that happen, told in the background to notifications and webhooks.
+builder.Services.AddSingleton<ShelfEvents>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<ShelfEvents>());
+// Notifications by browser push, ntfy, or Gotify, for readers who set them up.
+builder.Services.AddSingleton(services => new WebPushKeys(keysPath, services.GetRequiredService<IDataProtectionProvider>()));
+builder.Services.AddHttpClient<INoticeChannels, NoticeChannels>(client => client.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddSingleton<Notices>();
+builder.Services.AddSingleton<IShelfEventHandler>(static services => services.GetRequiredService<Notices>());
+builder.Services.AddHostedService(static services => services.GetRequiredService<Notices>());
+
 builder.Services.AddHttpClient("shelf-sync", client => client.Timeout = TimeSpan.FromMinutes(10));
 
 // Free books keeps a book's details for a while, so opening them twice asks the catalog once.

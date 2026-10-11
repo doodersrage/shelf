@@ -56,6 +56,15 @@ public sealed class Reader
     public string? KoboTokenHash { get; set; }
     public int? KoboCollectionId { get; set; }
 
+    // Notifications: which kinds (see NoticeKinds), an ntfy topic and a Gotify server with their tokens sealed, and
+    // the day loans were last looked at for a reminder.
+    public int NoticeKinds { get; set; } = (int)Readers.NoticeKinds.All;
+    public string? NtfyUrl { get; set; }
+    public string? NtfyToken { get; set; }
+    public string? GotifyUrl { get; set; }
+    public string? GotifyToken { get; set; }
+    public DateOnly? LastNoticeOn { get; set; }
+
     // Two-step sign-in: the authenticator secret, sealed with the shelf's own keys.
     public bool TwoFactorEnabled { get; set; }
     public string? TwoFactorSecret { get; set; }

@@ -1,0 +1,278 @@
+using System.Buffers.Binary;
+using System.Collections.Concurrent;
+using System.Net;
+using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Shelf.Api.Books;
+using Shelf.Api.Data;
+using Shelf.Api.Readers;
+
+namespace Shelf.Api.Tests;
+
+public sealed class NoticeTests(ShelfApiFactory factory) : IClassFixture<ShelfApiFactory>
+{
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
+
+    [Fact]
+    public async Task Readers_hear_of_asks_loans_and_club_posts_by_the_ways_they_chose()
+    {
+        var owner = await factory.SignUpAsync("Notice Owner");
+        var friend = await factory.SignUpAsync("Notice Friend");
+        var ownerId = await factory.ReaderIdAsync("Notice Owner");
+        var friendId = await factory.ReaderIdAsync("Notice Friend");
+        var notices = factory.Services.GetRequiredService<Notices>();
+        await using (var scope = Scope(ownerId))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            Assert.False(await notices.SetNtfyAsync(db, "https://ntfy.sh/", null));
+            Assert.True(await notices.SetNtfyAsync(db, "https://ntfy.sh/owner-topic", "tk_secret"));
+        }
+
+        await using (var scope = Scope(friendId))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            Assert.False(await notices.SetGotifyAsync(db, "https://gotify.example.com", null));
+            Assert.True(await notices.SetGotifyAsync(db, "https://gotify.example.com", "app-token"));
+            await Notices.SetKindsAsync(db, NoticeKinds.All & ~NoticeKinds.Clubs);
+        }
+
+        // The friend asks to borrow; the owner hears of it by ntfy, with their token.
+        var book = (await (await owner.PostAsJsonAsync("/books", new CreateBookRequest("Middlemarch", "George Eliot", BookStatus.Finished, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        await owner.PutAsJsonAsync("/books/shelves/open", new ShelfOpenChange(true), JsonOptions);
+        (await friend.PostAsync($"/books/{book.Id}/ask", null)).EnsureSuccessStatusCode();
+        var asked = await factory.Channels.WaitAsync(sent => sent.Address == "https://ntfy.sh/owner-topic");
+        Assert.Equal(("https://ntfy.sh/owner-topic", "tk_secret", "Notice Friend asks to borrow a book", "Middlemarch", "/loans"), (asked.Address, asked.Token, asked.Notice.Title, asked.Notice.Body, asked.Notice.Url));
+
+        // Lent: the friend hears by Gotify.
+        await owner.PostAsJsonAsync($"/books/{book.Id}/lend", new LendRequest(friendId), JsonOptions);
+        var lent = await factory.Channels.WaitAsync(sent => sent.Address == "https://gotify.example.com/");
+        Assert.Equal(("app-token", "Notice Owner lent you a book"), (lent.Token, lent.Notice.Title));
+
+        // A club post reaches the owner, but not the friend, who turned clubs off, nor the one who wrote it.
+        var club = (await (await owner.PostAsJsonAsync("/books/clubs", new ClubRequest("Notice club", null), JsonOptions)).Content.ReadFromJsonAsync<ClubResponse>(JsonOptions))!;
+        await owner.PostAsJsonAsync($"/books/clubs/{club.Id}/members", new ClubInvite(friendId), JsonOptions);
+        await owner.PostAsJsonAsync($"/books/clubs/{club.Id}/books", new ClubBookRequest(BookId: book.Id), JsonOptions);
+        var clubBook = (await friend.GetFromJsonAsync<ClubResponse>($"/books/clubs/{club.Id}", JsonOptions))!.Books.Single();
+        await friend.PostAsJsonAsync($"/books/clubs/{club.Id}/books/{clubBook.Id}/posts", new ClubPostRequest("Dorothea!"), JsonOptions);
+        var posted = await factory.Channels.WaitAsync(sent => sent.Notice.Body.Contains("Dorothea", StringComparison.Ordinal));
+        Assert.Equal(("ntfy", "Notice Friend in Notice club", "Middlemarch: Dorothea!"), (posted.Way, posted.Notice.Title, posted.Notice.Body));
+        await WaitIdleAsync();
+        Assert.DoesNotContain(factory.Channels.Sent, sent => sent.Address == "https://gotify.example.com/" && sent.Notice.Url.StartsWith("/clubs", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_device_the_push_service_has_forgotten_is_forgotten_here_too()
+    {
+        await factory.SignUpAsync("Push Reader");
+        var readerId = await factory.ReaderIdAsync("Push Reader");
+        var notices = factory.Services.GetRequiredService<Notices>();
+        var (p256dh, auth) = BrowserKeys();
+        await using (var scope = Scope(readerId))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            Assert.False(await notices.AddDeviceAsync(db, "https://evil.example.com/push/1", p256dh, auth, "Chrome on Linux"));
+            Assert.True(await notices.AddDeviceAsync(db, "https://fcm.googleapis.com/fcm/send/gone", p256dh, auth, "Chrome on Linux"));
+            Assert.True(await notices.AddDeviceAsync(db, "https://updates.push.services.mozilla.com/wpush/v2/kept", p256dh, auth, "Firefox on Linux"));
+            Assert.Equal(2, (await Notices.SettingsAsync(db)).Devices.Length);
+        }
+
+        Assert.Equal(1, await notices.TestAsync(readerId));
+        await using (var scope = Scope(readerId))
+        {
+            var devices = (await Notices.SettingsAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>())).Devices;
+            Assert.Equal("Firefox on Linux", Assert.Single(devices).Label);
+        }
+    }
+
+    [Fact]
+    public void A_push_message_is_sealed_so_only_the_browser_can_open_it()
+    {
+        using var browser = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+        var q = browser.ExportParameters(false).Q;
+        byte[] browserKey = [0x04, .. q.X!, .. q.Y!];
+        var secret = RandomNumberGenerator.GetBytes(16);
+        var message = Encoding.UTF8.GetBytes("""{"title":"Prêté","body":"Middlemarch"}""");
+
+        var sealedMessage = WebPush.Seal(message, browserKey, secret);
+        Assert.Equal(message, Open(sealedMessage, browser, browserKey, secret));
+        Assert.Throws<AuthenticationTagMismatchException>(() => Open(sealedMessage, browser, browserKey, RandomNumberGenerator.GetBytes(16)));
+    }
+
+    [Fact]
+    public void The_shelfs_push_key_signs_its_tokens_and_is_kept_for_next_time()
+    {
+        var folder = Directory.CreateTempSubdirectory("shelf-push-").FullName;
+        try
+        {
+            var protection = DataProtectionProvider.Create(new DirectoryInfo(Path.Combine(folder, "keys")));
+            var keys = new WebPushKeys(folder, protection);
+            Assert.Equal(keys.PublicKey, new WebPushKeys(folder, protection).PublicKey);
+
+            var token = keys.Token("https://fcm.googleapis.com", "mailto:shelf@example.com", DateTimeOffset.UtcNow.AddHours(12)).Split('.');
+            var point = WebEncoders.Base64UrlDecode(keys.PublicKey);
+            using var check = ECDsa.Create(new ECParameters { Curve = ECCurve.NamedCurves.nistP256, Q = new ECPoint { X = point[1..33], Y = point[33..] } });
+            Assert.True(check.VerifyData(Encoding.ASCII.GetBytes($"{token[0]}.{token[1]}"), WebEncoders.Base64UrlDecode(token[2]), HashAlgorithmName.SHA256));
+            Assert.Contains("\"aud\":\"https://fcm.googleapis.com\"", Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token[1])), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task The_channels_send_ntfy_json_to_the_servers_root_and_gotify_its_message()
+    {
+        var asked = new ConcurrentQueue<(string Url, string Body, string Headers)>();
+        var handler = new Answers(async request =>
+        {
+            asked.Enqueue((request.RequestUri!.AbsoluteUri, await request.Content!.ReadAsStringAsync(), request.Headers.ToString()));
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        var folder = Directory.CreateTempSubdirectory("shelf-push-").FullName;
+        try
+        {
+            var channels = new NoticeChannels(new HttpClient(handler), new WebPushKeys(folder, DataProtectionProvider.Create("test")), new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
+            var notice = new Notice("Prêté", "Middlemarch", "/loans", "loan-1");
+            Assert.True(await channels.NtfyAsync("https://ntfy.example.com/my-topic", "tk_1", notice, "https://shelf.example.com/loans", CancellationToken.None));
+            Assert.True(await channels.GotifyAsync("https://gotify.example.com/", "app", notice, null, CancellationToken.None));
+            var (p256dh, auth) = BrowserKeys();
+            Assert.Equal(PushOutcome.Sent, await channels.PushAsync(new PushSubscriptionRow { Endpoint = "https://fcm.googleapis.com/fcm/send/abc", P256dh = p256dh, Auth = auth }, notice, CancellationToken.None));
+
+            var items = asked.ToArray();
+            Assert.Equal("https://ntfy.example.com/", items[0].Url);
+            Assert.Contains("\"topic\":\"my-topic\"", items[0].Body, StringComparison.Ordinal);
+            Assert.Contains("Bearer tk_1", items[0].Headers, StringComparison.Ordinal);
+            Assert.Equal("https://gotify.example.com/message", items[1].Url);
+            Assert.Contains("X-Gotify-Key: app", items[1].Headers, StringComparison.Ordinal);
+            Assert.Contains("vapid t=", items[2].Headers, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Overdue_loans_are_told_once_a_day()
+    {
+        var owner = await factory.SignUpAsync("Due Owner");
+        var ownerId = await factory.ReaderIdAsync("Due Owner");
+        var friendId = (await factory.SignUpAsync("Due Friend")) is not null ? await factory.ReaderIdAsync("Due Friend") : 0;
+        var notices = factory.Services.GetRequiredService<Notices>();
+        await using (var scope = Scope(ownerId))
+        {
+            await notices.SetNtfyAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), "https://ntfy.sh/due-owner", null);
+        }
+
+        var book = (await (await owner.PostAsJsonAsync("/books", new CreateBookRequest("Overdue", "Someone", BookStatus.Finished, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        await owner.PostAsJsonAsync($"/books/{book.Id}/lend", new LendRequest(friendId, DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-2)), JsonOptions);
+
+        Assert.True(await notices.RemindDueAsync(CancellationToken.None) >= 1);
+        var told = Assert.Single(factory.Channels.Sent, sent => sent.Address == "https://ntfy.sh/due-owner");
+        Assert.Equal(("Your loans on Shelf", "1 book you lent is overdue."), (told.Notice.Title, told.Notice.Body));
+        await notices.RemindDueAsync(CancellationToken.None);
+        Assert.Single(factory.Channels.Sent, sent => sent.Address == "https://ntfy.sh/due-owner");
+    }
+
+    private async Task WaitIdleAsync()
+    {
+        var events = factory.Services.GetRequiredService<ShelfEvents>();
+        for (var i = 0; i < 100 && !events.Idle; i++)
+        {
+            await Task.Delay(50);
+        }
+    }
+
+    private static (string P256dh, string Auth) BrowserKeys()
+    {
+        using var browser = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+        var q = browser.ExportParameters(false).Q;
+        return (WebEncoders.Base64UrlEncode([0x04, .. q.X!, .. q.Y!]), WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(16)));
+    }
+
+    // What the browser does with a push message (RFC 8291), to check the shelf sealed it right.
+    private static byte[] Open(byte[] message, ECDiffieHellman browser, byte[] browserKey, byte[] secret)
+    {
+        var salt = message[..16];
+        var recordSize = BinaryPrimitives.ReadUInt32BigEndian(message.AsSpan(16));
+        Assert.Equal(4096u, recordSize);
+        var serverKey = message[21..(21 + message[20])];
+        using var server = ECDiffieHellman.Create(new ECParameters { Curve = ECCurve.NamedCurves.nistP256, Q = new ECPoint { X = serverKey[1..33], Y = serverKey[33..65] } });
+        var shared = browser.DeriveRawSecretAgreement(server.PublicKey);
+        var ikm = HKDF.DeriveKey(HashAlgorithmName.SHA256, shared, 32, secret, [.. "WebPush: info\0"u8, .. browserKey, .. serverKey]);
+        var key = HKDF.DeriveKey(HashAlgorithmName.SHA256, ikm, 16, salt, "Content-Encoding: aes128gcm\0"u8.ToArray());
+        var nonce = HKDF.DeriveKey(HashAlgorithmName.SHA256, ikm, 12, salt, "Content-Encoding: nonce\0"u8.ToArray());
+        var body = message[(21 + message[20])..];
+        var plain = new byte[body.Length - 16];
+        using (var aes = new AesGcm(key, 16))
+        {
+            aes.Decrypt(nonce, body[..^16], body[^16..], plain);
+        }
+
+        Assert.Equal(0x02, plain[^1]);
+        return plain[..^1];
+    }
+
+    private AsyncServiceScope Scope(int readerId)
+    {
+        var scope = factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
+        return scope;
+    }
+
+    private sealed class Answers(Func<HttpRequestMessage, Task<HttpResponseMessage>> answer) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => answer(request);
+    }
+}
+
+public sealed class StubNoticeChannels : INoticeChannels
+{
+    public sealed record SentNotice(string Way, string Address, string? Token, Notice Notice);
+
+    public ConcurrentQueue<SentNotice> Sent { get; } = new();
+
+    public string PushKey => "BNotARealKeyButLongEnoughToLookLikeOne";
+
+    public Task<bool> NtfyAsync(string url, string? token, Notice notice, string? link, CancellationToken cancellationToken)
+    {
+        Sent.Enqueue(new SentNotice("ntfy", url, token, notice));
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> GotifyAsync(string url, string token, Notice notice, string? link, CancellationToken cancellationToken)
+    {
+        Sent.Enqueue(new SentNotice("gotify", url, token, notice));
+        return Task.FromResult(true);
+    }
+
+    // An endpoint ending in "gone" has been dropped by its push service.
+    public Task<PushOutcome> PushAsync(PushSubscriptionRow subscription, Notice notice, CancellationToken cancellationToken)
+    {
+        Sent.Enqueue(new SentNotice("push", subscription.Endpoint, null, notice));
+        return Task.FromResult(subscription.Endpoint.EndsWith("gone", StringComparison.Ordinal) ? PushOutcome.Gone : PushOutcome.Sent);
+    }
+
+    public async Task<SentNotice> WaitAsync(Func<SentNotice, bool> match)
+    {
+        for (var i = 0; i < 100; i++)
+        {
+            if (Sent.FirstOrDefault(match) is { } found)
+            {
+                return found;
+            }
+
+            await Task.Delay(50);
+        }
+
+        throw new TimeoutException("No such notification was sent.");
+    }
+}

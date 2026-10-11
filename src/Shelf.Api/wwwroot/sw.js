@@ -1,6 +1,7 @@
-// Shelf's service worker. It keeps the offline reader and the books a reader chose to keep, and shows
-// the offline reader when the shelf cannot be reached. Everything else goes to the network as usual.
-const SHELL = "shelf-shell-v6";
+// Shelf's service worker. It keeps the offline reader and the books a reader chose to keep, shows the offline
+// reader when the shelf cannot be reached, and shows notifications the shelf pushes. Everything else goes to the
+// network as usual.
+const SHELL = "shelf-shell-v7";
 const BOOKS = "shelf-books";
 const SHELL_FILES = [
   "/offline.html",
@@ -110,3 +111,35 @@ async function ranged(kept, request) {
     },
   });
 }
+
+// A notification from the shelf: its title and lines, and the page it opens. One with the same tag replaces the last.
+self.addEventListener("push", (event) => {
+  let message = {};
+  try {
+    message = event.data ? event.data.json() : {};
+  } catch {
+    message = { body: event.data ? event.data.text() : "" };
+  }
+
+  event.waitUntil(self.registration.showNotification(message.title || "Shelf", {
+    body: message.body || "",
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    tag: message.tag || undefined,
+    data: { url: message.url || "/" },
+  }));
+});
+
+// Opens the notification's page in a window of the shelf already open, or a new one.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.url || "/", self.location.origin);
+  if (target.origin !== self.location.origin) {
+    return;
+  }
+
+  event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+    const open = windows.find((client) => new URL(client.url).origin === target.origin);
+    return open ? open.navigate(target.href).then((client) => (client || open).focus()) : self.clients.openWindow(target.href);
+  }));
+});

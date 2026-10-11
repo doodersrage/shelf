@@ -15,6 +15,7 @@
 @inject IConfiguration Configuration
 @inject ReadwiseSync Readwise
 @inject HardcoverSync Hardcover
+@inject Notices Notices
 
 <PageTitle>@T("Account") · Shelf</PageTitle>
 
@@ -137,6 +138,80 @@ else
 @if (hardcoverNote is not null)
 {
     <p class="@(hardcoverProblem ? "validation-message" : "saved")" role="status">@hardcoverNote</p>
+}
+</section>
+
+<section class="panel" id="notices">
+<h2>@T("Notifications")</h2>
+<p class="hint">@T("Shelf can tell you when someone lends you a book or asks to borrow one, when a loan is due, about new books in your series, and about your book clubs: on this device, or by ntfy or Gotify.")</p>
+<fieldset class="audible-take">
+    <legend>@T("Tell me about")</legend>
+    @foreach (var (kind, label) in NoticeChoices)
+    {
+        <label class="check">
+            <input type="checkbox" checked="@noticeKinds.HasFlag(kind)" @onchange="change => ChangeNoticeKind(kind, change)" />
+            @T(label)
+        </label>
+    }
+</fieldset>
+
+<h3>@T("This device")</h3>
+@if (pushState == "unsupported")
+{
+    <p class="hint">@T("This browser cannot show notifications from Shelf. On an iPhone or iPad, add Shelf to the home screen first, and open it from there.")</p>
+}
+else if (pushState == "denied")
+{
+    <p class="hint">@T("This browser blocks notifications from Shelf. Allow them in its site settings, then come back.")</p>
+}
+else if (pushState == "on")
+{
+    <p>@T("Notifications come to this device.") <button type="button" class="quiet" @onclick="StopPush">@T("Stop on this device")</button></p>
+}
+else if (pushState is not null)
+{
+    <button type="button" class="primary" @onclick="StartPush" disabled="@noticeBusy">@T("Notify me on this device")</button>
+}
+@if (noticeSettings is { Devices.Length: > 0 })
+{
+    <ul class="tag-counts">
+        @foreach (var device in noticeSettings.Devices)
+        {
+            <li>
+                <span>@(device.Label ?? T("A browser")) <span class="hint">@T("since {0}", device.CreatedAt.Medium())</span></span>
+                <button type="button" class="quiet" @onclick="() => RemoveDevice(device.Id)" aria-label="@T("Stop notifications on {0}", device.Label ?? T("A browser"))">@T("Remove")</button>
+            </li>
+        }
+    </ul>
+}
+
+<h3>ntfy</h3>
+<label>
+    @T("Topic address")
+    <input type="url" @bind="ntfyUrl" placeholder="https://ntfy.sh/your-topic" maxlength="500" />
+</label>
+<label>
+    @T("Access token, for a protected topic")
+    <input type="password" @bind="ntfyToken" autocomplete="off" maxlength="200" placeholder="@(noticeSettings?.NtfyToken == true ? T("Kept; leave empty to keep it") : "")" />
+</label>
+<p class="hint">@T("Anyone who knows a topic on ntfy.sh can read it, so choose a name nobody would guess, or use your own ntfy server.")</p>
+<button type="button" @onclick="SaveNtfy">@T("Save")</button>
+
+<h3>Gotify</h3>
+<label>
+    @T("Server address")
+    <input type="url" @bind="gotifyUrl" placeholder="https://gotify.example.com" maxlength="500" />
+</label>
+<label>
+    @T("Application token")
+    <input type="password" @bind="gotifyToken" autocomplete="off" maxlength="200" placeholder="@(noticeSettings?.GotifyToken == true ? T("Kept; leave empty to keep it") : "")" />
+</label>
+<button type="button" @onclick="SaveGotify">@T("Save")</button>
+
+<p><button type="button" @onclick="TestNotice" disabled="@noticeBusy">@T("Send a test notification")</button></p>
+@if (noticeNote is not null)
+{
+    <p class="@(noticeProblem ? "validation-message" : "saved")" role="status">@noticeNote</p>
 }
 </section>
 
@@ -439,6 +514,7 @@ else
             await using var module = await Js.InvokeAsync<Microsoft.JSInterop.IJSObjectReference>("import", "./passkey.js");
             passkeySupported = await module.InvokeAsync<bool>("supported");
             passkeyChecked = true;
+            await ReadPushAsync();
             StateHasChanged();
         }
     }
@@ -508,6 +584,7 @@ else
         hardcoverConnected = me.HardcoverToken is not null;
         hardcoverAuto = me.HardcoverAuto;
         readwiseAuto = me.ReadwiseAuto;
+        await LoadNoticesAsync(db);
         currentSession = (await Authentication.GetAuthenticationStateAsync()).User.FindFirst(TwoFactor.SessionClaim)?.Value;
         sessions = await TwoFactor.SessionsAsync(db, db.ReaderId, currentSession);
     }
@@ -591,6 +668,133 @@ else
         (readwiseConnected, readwiseAuto, readwiseProblem) = (false, false, false);
         readwiseNote = T("Disconnected from Readwise.");
     }
+
+    private static readonly (NoticeKinds Kind, string Label)[] NoticeChoices =
+    [
+        (NoticeKinds.Loans, Say("Loans: lent to me, returned, due soon, or overdue")),
+        (NoticeKinds.Asks, Say("Asks to borrow my books")),
+        (NoticeKinds.Series, Say("New books in my series")),
+        (NoticeKinds.Clubs, Say("My book clubs: new posts, and being added to one")),
+    ];
+
+    private NoticeSettings? noticeSettings;
+    private NoticeKinds noticeKinds = NoticeKinds.All;
+    private string? pushState;
+    private string ntfyUrl = "";
+    private string ntfyToken = "";
+    private string gotifyUrl = "";
+    private string gotifyToken = "";
+    private bool noticeBusy;
+    private bool noticeProblem;
+    private string? noticeNote;
+
+    private async Task LoadNoticesAsync(ShelfDb db)
+    {
+        noticeSettings = await Notices.SettingsAsync(db);
+        noticeKinds = noticeSettings.Kinds;
+        ntfyUrl = noticeSettings.NtfyUrl ?? "";
+        gotifyUrl = noticeSettings.GotifyUrl ?? "";
+    }
+
+    // Whether this browser can show notifications, and whether it is one of this reader's devices.
+    private async Task ReadPushAsync()
+    {
+        try
+        {
+            await using var module = await Js.InvokeAsync<IJSObjectReference>("import", "./push.js");
+            var permission = await module.InvokeAsync<string>("permission");
+            var endpoint = permission == "granted" ? await module.InvokeAsync<string?>("current") : null;
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var mine = endpoint is not null && await db.PushSubscriptions.AnyAsync(item => item.ReaderId == db.ReaderId && item.Endpoint == endpoint);
+            pushState = permission is "unsupported" or "denied" ? permission : mine ? "on" : "off";
+        }
+        catch (JSException)
+        {
+            pushState = "unsupported";
+        }
+    }
+
+    private async Task ChangeNoticeKind(NoticeKinds kind, ChangeEventArgs change)
+    {
+        noticeKinds = change.Value is true ? noticeKinds | kind : noticeKinds & ~kind;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Notices.SetKindsAsync(db, noticeKinds);
+    }
+
+    private async Task StartPush()
+    {
+        noticeBusy = true;
+        try
+        {
+            await using var module = await Js.InvokeAsync<IJSObjectReference>("import", "./push.js");
+            var subscription = await module.InvokeAsync<PushSubscriptionJson?>("subscribe", Notices.PushKey);
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var added = subscription is not null && await Notices.AddDeviceAsync(db, subscription.Endpoint, subscription.P256dh, subscription.Auth, subscription.Label);
+            (noticeProblem, noticeNote) = added ? (false, T("Notifications come to this device.")) : (true, T("This browser did not allow notifications, or its push service is not one Shelf knows."));
+            await LoadNoticesAsync(db);
+            await ReadPushAsync();
+        }
+        catch (JSException)
+        {
+            (noticeProblem, noticeNote) = (true, T("This browser did not allow notifications, or its push service is not one Shelf knows."));
+        }
+        finally
+        {
+            noticeBusy = false;
+        }
+    }
+
+    private async Task StopPush()
+    {
+        await using var module = await Js.InvokeAsync<IJSObjectReference>("import", "./push.js");
+        var endpoint = await module.InvokeAsync<string?>("unsubscribe");
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Notices.RemoveDeviceAsync(db, null, endpoint);
+        await LoadNoticesAsync(db);
+        pushState = "off";
+    }
+
+    private async Task RemoveDevice(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Notices.RemoveDeviceAsync(db, id);
+        await LoadNoticesAsync(db);
+        await ReadPushAsync();
+    }
+
+    private async Task SaveNtfy()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var saved = await Notices.SetNtfyAsync(db, ntfyUrl, ntfyToken);
+        (noticeProblem, noticeNote) = saved ? (false, string.IsNullOrWhiteSpace(ntfyUrl) ? T("ntfy is off.") : T("Saved.")) : (true, T("Give a topic's whole address, such as https://ntfy.sh/your-topic."));
+        ntfyToken = "";
+        await LoadNoticesAsync(db);
+    }
+
+    private async Task SaveGotify()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var saved = await Notices.SetGotifyAsync(db, gotifyUrl, gotifyToken);
+        (noticeProblem, noticeNote) = saved ? (false, string.IsNullOrWhiteSpace(gotifyUrl) ? T("Gotify is off.") : T("Saved.")) : (true, T("Give the Gotify server's address and an application token made on it."));
+        gotifyToken = "";
+        await LoadNoticesAsync(db);
+    }
+
+    private async Task TestNotice()
+    {
+        noticeBusy = true;
+        try
+        {
+            var sent = await Notices.TestAsync(Reader.Id ?? 0);
+            (noticeProblem, noticeNote) = sent > 0 ? (false, T("Sent. It may take a moment to arrive.")) : (true, T("Nothing took it. Set up this device, ntfy, or Gotify above, then try again."));
+        }
+        finally
+        {
+            noticeBusy = false;
+        }
+    }
+
+    private sealed record PushSubscriptionJson(string Endpoint, string P256dh, string Auth, string? Label);
 
     private bool hardcoverConnected;
     private bool hardcoverAuto;
