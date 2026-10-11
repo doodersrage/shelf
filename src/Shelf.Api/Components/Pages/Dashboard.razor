@@ -1,0 +1,244 @@
+@page "/"
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject AudioStore Audio
+
+<PageTitle>@T("Home") · Shelf</PageTitle>
+
+@* Home: where a reader picks up again. The book they were last in, with a way straight back into it; what else is
+   open, what comes next, and the year so far. The whole library, with its filters, is on its own page. *@
+<div class="page-head">
+    <h1>@T("Home")</h1>
+    <a class="button primary add-action" href="/library?add=1">@T("Add a book")</a>
+</div>
+
+@if (family is { Books.Length: > 0 } shared)
+{
+    <section class="panel family" aria-labelledby="family-heading">
+        <h2 id="family-heading">@T("From {0}'s shelf", shared.Guardian)</h2>
+        <ul class="family-books">
+            @foreach (var book in shared.Books)
+            {
+                <li>
+                    <BookCover Title="@book.Title" Url="@book.Cover" Width="5rem" />
+                    <span>
+                        <strong>@book.Title</strong>
+                        <span class="hint">@book.Author</span>
+                        <span>
+                            @if (book.HasEbook)
+                            {
+                                <a href="/library/@book.Id/read">@T("Read")</a>
+                            }
+                            @if (book.HasAudio)
+                            {
+                                <a href="/library/@book.Id/listen">@T("Listen")</a>
+                            }
+                            @if (!book.HasEbook && !book.HasAudio)
+                            {
+                                <span class="hint">@T("On the shelf at home")</span>
+                            }
+                        </span>
+                    </span>
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+@if (books.Count == 0)
+{
+    <EmptyState Title="@T("Your shelf is empty")" Text="@T("Start with a title and an author; an ISBN lets Shelf fill in the rest from Open Library. E-books and audiobooks can come in as files.")" ActionHref="/library?add=1" ActionLabel="@T("Add a book")">
+        <a class="button" href="/free">@T("Find free public-domain books")</a>
+    </EmptyState>
+}
+else
+{
+    @if (current is { } book)
+    {
+        var fraction = BookProgress.Fraction(book, Audio);
+        <section class="continue" aria-labelledby="continue-heading">
+            <a class="continue-cover" href="/library/@book.Id" tabindex="-1" aria-hidden="true"><BookCover Title="@book.Title" Url="@book.CoverShown" /></a>
+            <div class="continue-body">
+                <p class="eyebrow" id="continue-heading">@T("Continue")</p>
+                <h2 class="continue-title"><a href="/library/@book.Id">@book.Title</a></h2>
+                <p class="by">@book.Author</p>
+                @if (fraction is double done)
+                {
+                    <progress max="1000" value="@((int)(done * 1000))" aria-label="@ProgressText(book)"></progress>
+                }
+                <p class="hint">@ProgressText(book)</p>
+                <div class="actions">
+                    @if (!string.IsNullOrWhiteSpace(book.EbookStoredName))
+                    {
+                        <a class="button primary" href="/library/@book.Id/read">@T("Resume reading")</a>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
+                    {
+                        <a class="button @(string.IsNullOrWhiteSpace(book.EbookStoredName) ? "primary" : null)" href="/library/@book.Id/listen">@T("Resume listening")</a>
+                        <button type="button" class="icon-button play" data-play-book="@book.Id" aria-label="@T("Play {0} while you browse", book.Title)"><PlayerIcon Name="play" /></button>
+                    }
+                    @if (string.IsNullOrWhiteSpace(book.EbookStoredName) && string.IsNullOrWhiteSpace(book.AudioStoredName))
+                    {
+                        <a class="button primary" href="/library/@book.Id#reading">@T("Update progress")</a>
+                    }
+                </div>
+            </div>
+        </section>
+    }
+
+    <ul class="tiles" aria-label="@T("Your shelf at a glance")">
+        <li><a href="/library?status=Reading"><strong>@reading.Count</strong> <span>@T("Reading")</span></a></li>
+        <li><a href="/library?status=Want"><strong>@books.Count(item => item.Status == BookStatus.Want)</strong> <span>@T("Want to read")</span></a></li>
+        <li>
+            <a href="/stats">
+                <strong>@finishedThisYear</strong>
+                <span>@(goal > 0 ? T("of {0} finished this year", goal) : T("Finished this year"))</span>
+                @if (goal > 0)
+                {
+                    <progress class="goal" max="@goal" value="@Math.Min(finishedThisYear, goal)" aria-label="@T("{0} of {1} books finished", finishedThisYear, goal)"></progress>
+                }
+            </a>
+        </li>
+        <li><a href="/loans"><strong>@books.Count(item => !string.IsNullOrWhiteSpace(item.LoanedTo))</strong> <span>@T("On loan")</span></a></li>
+    </ul>
+
+    @if (others.Count > 0)
+    {
+        <h2>@T("Also reading")</h2>
+        <ul class="shelf-strip">
+            @foreach (var open in others)
+            {
+                <li class="strip-card">
+                    <BookCover Title="@open.Title" Url="@open.CoverShown" />
+                    <div>
+                        <p class="title"><a href="/library/@open.Id">@open.Title</a></p>
+                        <p class="by">@open.Author</p>
+                        @if (BookProgress.Fraction(open, Audio) is double done)
+                        {
+                            <progress max="1000" value="@((int)(done * 1000))" aria-label="@ProgressText(open)"></progress>
+                        }
+                        <p class="hint">@ProgressText(open)</p>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(open.AudioStoredName))
+                    {
+                        <button type="button" class="icon-button play strip-play" data-play-book="@open.Id" aria-label="@T("Play {0}", open.Title)"><PlayerIcon Name="play" /></button>
+                    }
+                </li>
+            }
+        </ul>
+        @if (reading.Count > StripSize + 1)
+        {
+            <p class="hint"><a href="/library?status=Reading">@T("All {0} you are reading", reading.Count)</a></p>
+        }
+    }
+
+    @if (next.Count > 0)
+    {
+        <h2 class="read-next">@(queued ? T("Read next") : T("From the want list"))</h2>
+        <ul class="shelf-strip">
+            @foreach (var item in next)
+            {
+                <li class="strip-card">
+                    <BookCover Title="@item.Title" Url="@item.CoverShown" />
+                    <div>
+                        <p class="title"><a href="/library/@item.Id">@item.Title</a></p>
+                        <p class="by">@item.Author</p>
+                    </div>
+                </li>
+            }
+        </ul>
+        @if (queued && queuedCount > StripSize)
+        {
+            <p class="hint"><a href="/library?status=Want&amp;queued=1">@T("All {0} to read next", queuedCount)</a></p>
+        }
+    }
+
+    @if (added.Count > 0)
+    {
+        <h2>@T("Recently added")</h2>
+        <ul class="cover-row">
+            @foreach (var item in added)
+            {
+                <li>
+                    <a href="/library/@item.Id">
+                        <BookCover Title="@item.Title" Url="@item.CoverShown" />
+                        <span class="title">@item.Title</span>
+                        <span class="hint">@item.Author</span>
+                    </a>
+                </li>
+            }
+        </ul>
+        <p class="hint"><a href="/library?sort=added">@T("The whole library, newest first")</a></p>
+    }
+
+    @if (finished.Count > 0)
+    {
+        <h2>@T("Recently finished")</h2>
+        <ul class="shelf-strip">
+            @foreach (var done in finished)
+            {
+                <li class="strip-card">
+                    <BookCover Title="@done.Title" Url="@done.CoverShown" />
+                    <div>
+                        <p class="title"><a href="/library/@done.Id">@done.Title</a></p>
+                        <p class="by">@done.Author</p>
+                        <p class="hint">@done.FinishedOn?.Medium()@(done.Rating is int stars ? $" · {new string('★', stars)}" : "")</p>
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+}
+
+@code {
+    private const int StripSize = 6;
+    private List<Book> books = [];
+    private List<Book> reading = [];
+    private Book? current;
+    private List<Book> others = [];
+    private List<Book> next = [];
+    private bool queued;
+    private int queuedCount;
+    private List<Book> added = [];
+    private List<Book> finished = [];
+    private int finishedThisYear;
+    private int goal;
+    private (string Guardian, FamilyBook[] Books)? family;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        family = await Family.SharedBooksAsync(db);
+        books = await db.Books.AsNoTracking().ToListAsync();
+        goal = await BookRules.GetGoalAsync(db);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        finishedThisYear = books.Count(book => book.Status == BookStatus.Finished && book.FinishedOn?.Year == today.Year);
+
+        // The book last read or listened to leads.
+        reading = await BookProgress.LatestFirstAsync(db, books.Where(book => book.Status == BookStatus.Reading));
+        current = reading.FirstOrDefault();
+        others = reading.Skip(1).Take(StripSize).ToList();
+
+        var queue = books.Where(book => book.Status == BookStatus.Want && book.Queued).OrderBy(book => book.Title, StringComparer.CurrentCultureIgnoreCase).ToList();
+        queued = queue.Count > 0;
+        queuedCount = queue.Count;
+        next = queued ? queue.Take(StripSize).ToList() : BookRules.Pick(books, BookStatus.Want, today) is { } pick ? [pick] : [];
+        added = books.OrderByDescending(book => book.AddedAt).Take(8).ToList();
+        finished = books.Where(book => book.Status == BookStatus.Finished && book.FinishedOn is not null)
+            .OrderByDescending(book => book.FinishedOn).ThenBy(book => book.Title, StringComparer.CurrentCultureIgnoreCase).Take(3).ToList();
+    }
+
+    private string ProgressText(Book book)
+    {
+        if (BookProgress.ByRecording(book) && BookProgress.Listened(book, Audio) is var (heard, length))
+        {
+            return T("{0} left · {1}%", BookProgress.Span(length - heard), (int)Math.Round(heard * 100 / length));
+        }
+
+        return book switch
+        {
+            { Pages: int pages and > 0 } => T("{0} of {1} pages · {2}%", book.CurrentPage ?? 0, pages, (int)Math.Round((book.CurrentPage ?? 0) * 100.0 / pages)),
+            { CurrentPage: int at } => T("Page {0}", at),
+            _ => T("Not started"),
+        };
+    }
+}

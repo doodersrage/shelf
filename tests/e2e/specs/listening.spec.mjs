@@ -63,12 +63,12 @@ test("the book plays on in the mini player while the reader moves around the she
 
   await page.evaluate(() => { window.stillHere = true; });
   await page.getByRole("link", { name: "Library", exact: true }).first().click();
-  await page.waitForURL((url) => url.pathname === "/");
+  await page.waitForURL((url) => url.pathname === "/library");
   await ready(page);
   const mini = page.locator("#mini-player");
   await expect(mini).toBeVisible();
   await expect(mini).toContainText("A Walking Recording");
-  await page.getByRole("link", { name: "Stats" }).first().click();
+  await page.getByRole("link", { name: "Insights" }).first().click();
   await page.waitForURL("**/stats");
   expect(await page.evaluate(() => window.stillHere)).toBe(true);
   await expect.poll(async () => (await player(page)).playing).toBe(true);
@@ -124,7 +124,7 @@ test("the lock screen shows the chapter, the book, and its author, and its butto
 
   // The lock screen stays while the book is in the mini player, and goes with it.
   await page.getByRole("link", { name: "Library", exact: true }).first().click();
-  await page.waitForURL((url) => url.pathname === "/");
+  await page.waitForURL((url) => url.pathname === "/library");
   await expect.poll(metadata).toBe("Opening | Someone Reads | A Chaptered Recording");
   await page.locator("#mini-player").getByRole("button", { name: "Close the player" }).click();
   await expect.poll(metadata).toBeNull();
@@ -186,10 +186,10 @@ test("a book of several tracks plays as one recording, from one track into the n
   await expect(page.locator(".chapter-list .current")).toHaveCount(1);
   await page.locator(".listen [data-player=toggle]").click();
 
-  // The library shows how much is left; playing to the end finishes the book.
+  // Home shows how much is left; playing to the end finishes the book.
   await page.goto("/");
   await ready(page);
-  await expect(page.locator(".strip-card", { hasText: "Three Tracks" })).toContainText("min left");
+  await expect(page.locator(".continue", { hasText: "Three Tracks" })).toContainText("min left");
   await page.goto(`/library/${book.id}/listen`);
   await ready(page);
   await page.evaluate(() => window.shelfPlayer.seek(10.5));
@@ -215,6 +215,7 @@ test("Play on a book's page or its card starts it in the mini player, and the pa
 
   await page.goto(`/library/${book.id}`);
   await ready(page);
+  await page.locator(".menu > summary").click();
   await page.getByRole("button", { name: "Play while you browse" }).click();
   await expect.poll(async () => (await player(page)).playing).toBe(true);
   await mini.getByRole("button", { name: "Close the player" }).click();

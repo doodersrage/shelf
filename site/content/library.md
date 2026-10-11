@@ -6,7 +6,9 @@ description: The catalog, statuses, the library's views and filters, changing ma
 
 # Your library
 
-The library is the front page: what you are reading leads, then the book to read next and what you finished lately, then every book on your shelf as covers or a compact list.
+**Home** is the front page: the book you were last in leads, with a button straight back into it, then your shelf at a glance (reading, want to read, finished this year against your goal, on loan), the other books you're reading, what to read next, what you added lately, and what you finished. **Library** holds every book on your shelf, as covers or a compact list, with search, chips for each status and for books on loan, e-books, and audiobooks, and an order that's kept for next time. On a cover, the status is a menu: change it there without opening the book. **Reading** gathers the books you have open, each a tap from your place, with your reading log of the last weeks and what you noted on the way.
+
+When you mark a book finished, its page offers a rating, a quote to keep, and the next book from your read-next list. Take any of them, or dismiss it.
 
 ## Statuses
 
@@ -43,11 +45,11 @@ Pages gathered from the catalog give other ways in: **Authors**, **Series** in r
 
 ### Your year in books
 
-Each year on **Years**, and the current one on **Stats**, links to a review of it: how many books you finished, their pages, the hours you spent reading and listening, how many authors (and how many were new to you), your goal, a wall of the covers in the order you finished them, a month-by-month chart with your busiest month, the first, last, longest, and shortest books, your formats and most read tags, the books you loved or gave five stars, and the quotes and highlights you kept, with one to remember the year by.
+Each year on **Years**, and the current one on **Insights**, links to a review of it: how many books you finished, their pages, the hours you spent reading and listening, how many authors (and how many were new to you), your goal, a wall of the covers in the order you finished them, a month-by-month chart with your busiest month, the first, last, longest, and shortest books, your formats and most read tags, the books you loved or gave five stars, and the quotes and highlights you kept, with one to remember the year by.
 
 ### Saved searches
 
-A view you come back to, such as *loved, want to read, newest first*, can be kept: set the filters and order, choose **Save this search**, and give it a name. It joins **Your library** in the sidebar, and opens with the same filters and order every time. **Forget this search**, on the open search, removes it. Saved searches are yours alone; every filtered view is also a plain address you can bookmark.
+A view you come back to, such as *loved, want to read, newest first*, can be kept: set the filters and order, choose **Save this search**, and give it a name. It joins **Browse** in the sidebar, and opens with the same filters and order every time. **Forget this search**, on the open search, removes it. Saved searches are yours alone; every filtered view is also a plain address you can bookmark.
 
 ### Collections
 
@@ -110,9 +112,9 @@ With none of these, the book shows a plain green spine with its title.
 
 ## The reading log
 
-Log a session from a book's page: the date, the pages you read from and to, and a note. Sessions feed **Stats**: the year's goals and how you are doing, books finished each month, counts, a reading streak, a calendar of reading days, and recent sessions.
+Log a session from a book's page: the date, the pages you read from and to, and a note. Sessions feed **Insights**: the year's goals and how you are doing, books finished each month, a year of the days you read and listened, the authors, kinds of book, and series you return to, milestones (your first finished book, the tenth, ten thousand pages, the longest book, the year's goal reached), counts, a calendar of reading days, and recent sessions.
 
-The year can have up to three goals, set at the foot of the year's panel on **Stats**: books to finish, pages to read (counting the pages of the books you finish), and hours to spend reading and listening (from the reader's and the player's own count of your time). Leave one at 0 to go without it; each one set shows how far along you are, on **Stats** and in the year's review.
+The year can have up to three goals, set under **Set goals** in the year's panel on **Insights**: books to finish, pages to read (counting the pages of the books you finish), and hours to spend reading and listening (from the reader's and the player's own count of your time). Leave one at 0 to go without it; each one set shows how far along you are, on **Insights** and in the year's review.
 
 ## Quotes
 

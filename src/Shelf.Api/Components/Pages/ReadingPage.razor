@@ -1,0 +1,163 @@
+@page "/reading"
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject AudioStore Audio
+
+<PageTitle>@T("Reading") · Shelf</PageTitle>
+
+@* Reading as it goes: the books open now, each a step from where it was left; what comes next; the days lately
+   spent reading and listening; and what was noted on the way. *@
+<div class="page-head">
+    <h1>@T("Reading")</h1>
+</div>
+
+@if (open.Count == 0 && log.Count == 0 && noted.Count == 0)
+{
+    <EmptyState Title="@T("Nothing open just now")" Text="@T("Books you start reading or listening to gather here, with a way straight back to your place, your reading log, and what you noted.")" ActionHref="/library?status=Want" ActionLabel="@T("Choose from the want list")" />
+}
+else
+{
+    <section aria-labelledby="open-heading">
+        <h2 id="open-heading">@T("Open now")</h2>
+        @if (open.Count == 0)
+        {
+            <p class="hint">@T("No book is open. Start one from the want list, or pick up a finished one again.") <a href="/library?status=Want">@T("Want to read")</a></p>
+        }
+        else
+        {
+            <ul class="open-books">
+                @foreach (var book in open)
+                {
+                    <li class="strip-card">
+                        <BookCover Title="@book.Title" Url="@book.CoverShown" />
+                        <div>
+                            <p class="title"><a href="/library/@book.Id">@book.Title</a></p>
+                            <p class="by">@book.Author</p>
+                            @if (BookProgress.Fraction(book, Audio) is double done)
+                            {
+                                <progress max="1000" value="@((int)(done * 1000))" aria-label="@T("{0}% through", (int)Math.Round(done * 100))"></progress>
+                            }
+                            <p class="resume">
+                                @if (!string.IsNullOrWhiteSpace(book.EbookStoredName))
+                                {
+                                    <a href="/library/@book.Id/read">@T("Resume reading")</a>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
+                                {
+                                    <a href="/library/@book.Id/listen">@T("Resume listening")</a>
+                                }
+                                <a href="/library/@book.Id#reading">@T("Log pages")</a>
+                            </p>
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+
+    @if (queue.Count > 0)
+    {
+        <section aria-labelledby="next-heading">
+            <h2 id="next-heading">@T("Read next")</h2>
+            <ul class="cover-row">
+                @foreach (var book in queue)
+                {
+                    <li>
+                        <a href="/library/@book.Id">
+                            <BookCover Title="@book.Title" Url="@book.CoverShown" />
+                            <span class="title">@book.Title</span>
+                            <span class="hint">@book.Author</span>
+                        </a>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    <div class="reading-panels">
+        @if (log.Count > 0)
+        {
+            <section class="panel" aria-labelledby="log-heading">
+                <h2 id="log-heading">@T("Lately")</h2>
+                <ul class="reading-log">
+                    @foreach (var entry in log)
+                    {
+                        <li>
+                            <span class="hint">@entry.Day.Medium()</span>
+                            <a href="/library/@entry.BookId">@entry.Title</a>
+                            <span class="hint">@entry.What</span>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+
+        @if (noted.Count > 0)
+        {
+            <section class="panel" aria-labelledby="noted-heading">
+                <h2 id="noted-heading">@T("Noted on the way")</h2>
+                <ul class="quotes">
+                    @foreach (var note in noted)
+                    {
+                        <li>
+                            <blockquote>@note.Text</blockquote>
+                            <p class="hint">
+                                @if (note.ChapterIndex is int chapter)
+                                {
+                                    <a href="/library/@note.BookId/read?chapter=@chapter">@note.Title</a>
+                                }
+                                else
+                                {
+                                    <a href="/library/@note.BookId">@note.Title</a>
+                                }
+                                @if (note.Page is int page)
+                                {
+                                    <span> · @T("p. {0}", page)</span>
+                                }
+                            </p>
+                        </li>
+                    }
+                </ul>
+                <p class="hint"><a href="/quotes">@T("All quotes & highlights")</a></p>
+            </section>
+        }
+    </div>
+
+    <p class="hint">
+        <a href="/library?status=Finished">@T("Everything you've finished")</a> ·
+        <a href="/years">@T("Your years in books")</a> ·
+        <a href="/stats">@T("Insights")</a>
+    </p>
+}
+
+@code {
+    private List<Book> open = [];
+    private List<Book> queue = [];
+    private List<(DateOnly Day, int BookId, string Title, string What)> log = [];
+    private List<(int BookId, string Title, string Text, int? Page, int? ChapterIndex, DateTimeOffset At)> noted = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var books = await db.Books.AsNoTracking().Where(book => book.Status == BookStatus.Reading || (book.Status == BookStatus.Want && book.Queued)).ToListAsync();
+        open = await BookProgress.LatestFirstAsync(db, books.Where(book => book.Status == BookStatus.Reading));
+        queue = books.Where(book => book.Status == BookStatus.Want).OrderBy(book => book.Title, StringComparer.CurrentCultureIgnoreCase).Take(8).ToList();
+
+        var since = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-60);
+        var sessions = await db.Sessions.AsNoTracking().Where(session => session.Date >= since).OrderByDescending(session => session.Date).Take(20)
+            .Select(session => new { session.Date, session.BookId, session.Book!.Title, session.FromPage, session.ToPage }).ToListAsync();
+        var heard = await db.ListeningDays.AsNoTracking().Where(day => day.ReaderId == db.ReaderId && day.Day >= since).OrderByDescending(day => day.Day).Take(20)
+            .Select(day => new { day.Day, day.BookId, day.Book!.Title, day.Seconds }).ToListAsync();
+        log = [.. sessions.Select(session => (session.Date, session.BookId, session.Title,
+                    session.FromPage is int from && session.ToPage is int to ? T("pages {0}–{1}", from, to) : session.ToPage is int at ? T("to page {0}", at) : T("read")))
+            .Concat(heard.Select(day => (day.Day, day.BookId, day.Title, T("listened {0}", BookProgress.Span(day.Seconds)))))
+            .OrderByDescending(entry => entry.Item1).Take(12)];
+
+        var quotes = await db.Quotes.AsNoTracking().OrderByDescending(quote => quote.Id).Take(4)
+            .Select(quote => new { quote.BookId, quote.Book!.Title, quote.Text, quote.Page, quote.NotedAt }).ToListAsync();
+        var highlights = await db.Highlights.AsNoTracking().Where(mark => mark.ReaderId == null).OrderByDescending(mark => mark.Id).Take(4)
+            .Select(mark => new { mark.BookId, mark.Book!.Title, mark.Text, mark.ChapterIndex, mark.NotedAt }).ToListAsync();
+        noted = [.. quotes.Select(quote => (quote.BookId, quote.Title, quote.Text, quote.Page, (int?)null, quote.NotedAt))
+            .Concat(highlights.Select(mark => (mark.BookId, mark.Title, mark.Text, (int?)null, (int?)mark.ChapterIndex, mark.NotedAt)))
+            .OrderByDescending(note => note.NotedAt).Take(4)];
+    }
+}

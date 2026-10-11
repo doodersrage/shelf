@@ -17,20 +17,81 @@
 @if (missing)
 {
     <h1>@T("Not on the shelf")</h1>
-    <p>@T("That book is not here.") <a href="/">@T("Back to the library")</a></p>
+    <p>@T("That book is not here.") <a href="/library">@T("Back to the library")</a></p>
 }
 else if (book is not null)
 {
-    <div class="reader">
-        @if (borrowed)
-        {
-            <p class="hint"><a href="/loans">@T("Loans")</a> · @T("lent to you")</p>
-        }
-        else
-        {
-            <p class="hint"><a href="/library/@book.Id">@book.Title</a></p>
-        }
-        <h1>@book.Title</h1>
+    @* The book's own title is the way back; the settings fold into a menu so the page starts with the text. *@
+    <div class="reader" data-theme="@(type.Theme.Length > 0 ? type.Theme : null)">
+        <div class="reader-head">
+            @if (borrowed)
+            {
+                <p class="hint reader-back"><a href="/loans">@T("Loans")</a> · @T("lent to you")</p>
+            }
+            else
+            {
+                <p class="reader-back"><a href="/library/@book.Id">@book.Title</a></p>
+            }
+            @if (chapters is { Count: > 0 } && !IsPdf && !EbookStore.IsComic(book.EbookStoredName))
+            {
+                <details class="menu reader-menu">
+                    <summary class="button quiet"><span aria-hidden="true">Aa</span> @T("Text settings")</summary>
+                    <div class="menu-items reader-settings">
+                        <label>
+                            @T("Page")
+                            <select @bind="type.Theme" @bind:after="SaveType">
+                                <option value="">@T("As the device")</option>
+                                <option value="light">@T("Light")</option>
+                                <option value="sepia">@T("Sepia")</option>
+                                <option value="dark">@T("Dark")</option>
+                            </select>
+                        </label>
+                        <label>
+                            @T("Typeface")
+                            <select @bind="type.Font" @bind:after="SaveType">
+                                <option value="">@T("The book's own")</option>
+                                <option value="serif">@T("Serif")</option>
+                                <option value="sans">@T("Sans serif")</option>
+                            </select>
+                        </label>
+                        <label>
+                            @T("Text size")
+                            <select @bind="type.Size" @bind:after="SaveType">
+                                <option value="85">@T("Smaller")</option>
+                                <option value="100">@T("Default")</option>
+                                <option value="115">@T("Larger")</option>
+                                <option value="130">@T("Large")</option>
+                                <option value="150">@T("Largest")</option>
+                            </select>
+                        </label>
+                        <label>
+                            @T("Line spacing")
+                            <select @bind="type.Leading" @bind:after="SaveType">
+                                <option value="140">@T("Snug")</option>
+                                <option value="160">@T("Comfortable")</option>
+                                <option value="190">@T("Airy")</option>
+                            </select>
+                        </label>
+                        <label>
+                            @T("Layout")
+                            <select @bind="Layout" @bind:after="SaveType">
+                                <option value="scroll">@T("Scroll")</option>
+                                <option value="pages">@T("Pages")</option>
+                            </select>
+                        </label>
+                        <label>
+                            @T("Reading width")
+                            <select @bind="type.Width" @bind:after="SaveType">
+                                <option value="30">@T("Narrow")</option>
+                                <option value="38">@T("Medium")</option>
+                                <option value="50">@T("Wide")</option>
+                            </select>
+                        </label>
+                    </div>
+                </details>
+            }
+        </div>
+        <h1 class="visually-hidden">@book.Title</h1>
         @if (string.IsNullOrWhiteSpace(book.EbookStoredName))
         {
             <p>@T("This book has no e-book file.")@if (!borrowed) { <text> <a href="/library/@book.Id">@T("Add one")</a></text> }</p>
@@ -120,6 +181,7 @@ else if (book is not null)
                     </select>
                 </label>
                 <button type="button" @onclick="Next" disabled="@(chapter >= chapters.Count - 1)">@T("Next")</button>
+                <span class="hint reader-where" aria-live="polite">@T("Chapter {0} of {1}", chapter + 1, chapters.Count)</span>
                 @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
                 {
                     <button type="button" class="quiet" @onclick="ContinueInAudio">@T("Continue in the audiobook")</button>
@@ -138,44 +200,6 @@ else if (book is not null)
             {
                 <p class="validation-message" role="alert">@alongNote</p>
             }
-            <details>
-                <summary>@T("Text settings")</summary>
-                <div class="reader-settings">
-                    <label>
-                        @T("Text size")
-                        <select @bind="type.Size" @bind:after="SaveType">
-                            <option value="85">@T("Smaller")</option>
-                            <option value="100">@T("Default")</option>
-                            <option value="115">@T("Larger")</option>
-                            <option value="130">@T("Large")</option>
-                            <option value="150">@T("Largest")</option>
-                        </select>
-                    </label>
-                    <label>
-                        @T("Line spacing")
-                        <select @bind="type.Leading" @bind:after="SaveType">
-                            <option value="140">@T("Snug")</option>
-                            <option value="160">@T("Comfortable")</option>
-                            <option value="190">@T("Airy")</option>
-                        </select>
-                    </label>
-                    <label>
-                        @T("Layout")
-                        <select @bind="Layout" @bind:after="SaveType">
-                            <option value="scroll">@T("Scroll")</option>
-                            <option value="pages">@T("Pages")</option>
-                        </select>
-                    </label>
-                    <label>
-                        @T("Reading width")
-                        <select @bind="type.Width" @bind:after="SaveType">
-                            <option value="30">@T("Narrow")</option>
-                            <option value="38">@T("Medium")</option>
-                            <option value="50">@T("Wide")</option>
-                        </select>
-                    </label>
-                </div>
-            </details>
             @ReadAloud
             @Passage
             <iframe @key="@($"{chapter}:{markRevision}:{typeRevision}")" class="reader-frame@(type.Paged ? " paged" : "")" title="@chapters[chapter].Title" src="@FrameSrc" data-paged="@(type.Paged ? "true" : "false")"></iframe>
@@ -339,7 +363,7 @@ else if (book is not null)
         if (open is not null)
         {
             var saved = await BookRules.GetReaderTypeAsync(db);
-            type = new TypeForm { Size = saved.Size, Leading = saved.Leading, Width = saved.Width, Paged = saved.Paged };
+            type = new TypeForm { Size = saved.Size, Leading = saved.Leading, Width = saved.Width, Paged = saved.Paged, Theme = saved.Theme ?? "", Font = saved.Font ?? "" };
             pdfIndex = Math.Max(0, ChapterQuery ?? (await Lending.PlaceAsync(db, open)).EbookChapter ?? 0);
             marks = await Lending.Marks(db, open).AsNoTracking()
                 .OrderBy(item => item.Id)
@@ -1068,7 +1092,7 @@ else if (book is not null)
     private async Task SaveType()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        await BookRules.SetReaderTypeAsync(db, new ReaderType(type.Size, type.Leading, type.Width, type.Paged));
+        await BookRules.SetReaderTypeAsync(db, new ReaderType(type.Size, type.Leading, type.Width, type.Paged, type.Theme.Length > 0 ? type.Theme : null, type.Font.Length > 0 ? type.Font : null));
         pages = 0;
         frameAt = chapterAt;
         typeRevision++;
@@ -1127,5 +1151,7 @@ else if (book is not null)
         public int Leading { get; set; } = ReaderType.DefaultLeading;
         public int Width { get; set; } = ReaderType.DefaultWidth;
         public bool Paged { get; set; }
+        public string Theme { get; set; } = "";
+        public string Font { get; set; } = "";
     }
 }

@@ -405,6 +405,38 @@ public static class BookRules
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    public static async Task<string?> GetThemeAsync(ShelfDb db, CancellationToken cancellationToken = default) =>
+        await db.Settings.AsNoTracking().Where(item => item.Id == db.ReaderId).Select(item => item.Theme).FirstOrDefaultAsync(cancellationToken);
+
+    public static async Task SetThemeAsync(ShelfDb db, string? theme, CancellationToken cancellationToken = default)
+    {
+        var setting = await db.Settings.FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
+        if (setting is null)
+        {
+            setting = new ShelfSetting { Id = SettingId(db) };
+            db.Settings.Add(setting);
+        }
+
+        setting.Theme = theme is "light" or "dark" ? theme : null;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public static async Task<string?> GetLibrarySortAsync(ShelfDb db, CancellationToken cancellationToken = default) =>
+        await db.Settings.AsNoTracking().Where(item => item.Id == db.ReaderId).Select(item => item.LibrarySort).FirstOrDefaultAsync(cancellationToken);
+
+    public static async Task SetLibrarySortAsync(ShelfDb db, string sort, CancellationToken cancellationToken = default)
+    {
+        var setting = await db.Settings.FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
+        if (setting is null)
+        {
+            setting = new ShelfSetting { Id = SettingId(db) };
+            db.Settings.Add(setting);
+        }
+
+        setting.LibrarySort = sort == "title" ? null : sort;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public static async Task<ReaderType> GetReaderTypeAsync(ShelfDb db, CancellationToken cancellationToken = default)
     {
         var setting = await db.Settings.AsNoTracking().FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
@@ -412,7 +444,9 @@ public static class BookRules
             setting?.ReaderTextSize ?? ReaderType.DefaultSize,
             setting?.ReaderLineHeight ?? ReaderType.DefaultLeading,
             setting?.ReaderWidth ?? ReaderType.DefaultWidth,
-            setting?.ReaderPaged ?? false).Clamped();
+            setting?.ReaderPaged ?? false,
+            setting?.ReaderTheme,
+            setting?.ReaderFont).Clamped();
     }
 
     public static async Task<bool> GetComicSpreadAsync(ShelfDb db, CancellationToken cancellationToken = default) =>
@@ -445,6 +479,8 @@ public static class BookRules
         setting.ReaderLineHeight = type.Leading;
         setting.ReaderWidth = type.Width;
         setting.ReaderPaged = type.Paged;
+        setting.ReaderTheme = type.Theme;
+        setting.ReaderFont = type.Font;
         await db.SaveChangesAsync(cancellationToken);
     }
 

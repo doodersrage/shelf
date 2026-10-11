@@ -16,7 +16,7 @@ else
         @foreach (var place in places)
         {
             <li>
-                <a href="@($"/?place={Uri.EscapeDataString(place.Name)}")">@place.Name</a>
+                <a href="@($"/library?place={Uri.EscapeDataString(place.Name)}")">@place.Name</a>
                 <span class="hint">@Localization.Counts.Books(place.Count)</span>
             </li>
         }

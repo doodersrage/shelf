@@ -24,7 +24,7 @@ else
         @foreach (var person in people)
         {
             <li>
-                <a href="@($"/?loanedTo={Uri.EscapeDataString(person.Name)}")">@person.Name</a>
+                <a href="@($"/library?loanedTo={Uri.EscapeDataString(person.Name)}")">@person.Name</a>
                 <span class="hint">@Localization.Counts.Books(person.Count)</span>
                 @if (person.Overdue > 0)
                 {

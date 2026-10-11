@@ -394,6 +394,19 @@ else if (pushState is not null)
 </section>
 }
 
+<section class="panel" id="look">
+<h2>@T("Look")</h2>
+<label>
+    @T("Light or dark")
+    <select @bind="theme" @bind:after="SaveTheme">
+        <option value="">@T("As the device")</option>
+        <option value="light">@T("Light")</option>
+        <option value="dark">@T("Dark")</option>
+    </select>
+</label>
+<p class="hint">@T("The reader's own page, sepia among them, is set in the reader's Text settings.")</p>
+</section>
+
 <section class="panel">
 <h2>@T("Language and region")</h2>
 <label>
@@ -763,6 +776,7 @@ else
         twoFactorOn = me.TwoFactorEnabled;
         culture = me.Culture ?? "";
         language = me.Language ?? "";
+        theme = await BookRules.GetThemeAsync(db) ?? "";
         passwordUnknown = me.PasswordUnknown;
         kindleAddress = me.KindleEmail ?? "";
         ssoConnected = me.OidcSubject is not null;
@@ -1253,6 +1267,15 @@ else
         shelfOpen = change.Value is true;
         await using var db = await DbFactory.CreateDbContextAsync();
         await Asking.SetShelfOpenAsync(db, shelfOpen);
+    }
+
+    private string theme = "";
+
+    private async Task SaveTheme()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await BookRules.SetThemeAsync(db, theme);
+        Navigation.NavigateTo("/account#look", forceLoad: true);
     }
 
     private async Task SaveLanguage()

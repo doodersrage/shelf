@@ -9,7 +9,7 @@ One Shelf serves everyone you share it with. Each reader signs in to a shelf of 
 
 ## Readers
 
-Each person makes an account with a name and a password of at least eight characters; the first account is the admin. Each reader's settings are their own: language, region for dates, text size, read-aloud voice, audiobook speed, and the yearly goal. See [Accounts and security](security.md) for passkeys, two-step sign-in, and what an admin can do.
+Each person makes an account with a name and a password of at least eight characters; the first account is the admin. Each reader's settings are their own: language, region for dates, light or dark (under **Look** on **Account**; otherwise as the device is set), the reader's page and typeface, text size, read-aloud voice, audiobook speed, and the yearly goal. See [Accounts and security](security.md) for passkeys, two-step sign-in, and what an admin can do.
 
 ## Children's accounts
 

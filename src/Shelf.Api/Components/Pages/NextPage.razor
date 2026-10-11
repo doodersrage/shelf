@@ -37,7 +37,7 @@ else
                 @foreach (var alert in next.NewInSeries.Take(NextReadsRules.MostShown))
                 {
                     <li>
-                        <a href="@($"/?title={Uri.EscapeDataString(alert.Title)}&author={Uri.EscapeDataString(alert.Author)}#add")">@alert.Title</a>
+                        <a href="@($"/library?title={Uri.EscapeDataString(alert.Title)}&author={Uri.EscapeDataString(alert.Author)}#add")">@alert.Title</a>
                         <span class="hint">@alert.Series@(alert.Year is int year ? $" · {year}" : "")</span>
                     </li>
                 }

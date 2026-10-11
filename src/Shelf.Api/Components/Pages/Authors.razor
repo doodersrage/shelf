@@ -8,7 +8,7 @@
 
 @if (authors.Count == 0)
 {
-    <EmptyState Title="@T("No authors yet")" Text="@T("Each author on your shelf is listed here with how many of their books you have.")" ActionHref="/?add=1" ActionLabel="@T("Add a book")" />
+    <EmptyState Title="@T("No authors yet")" Text="@T("Each author on your shelf is listed here with how many of their books you have.")" ActionHref="/library?add=1" ActionLabel="@T("Add a book")" />
 }
 else
 {
@@ -16,7 +16,7 @@ else
         @foreach (var author in authors)
         {
             <li>
-                <a href="@($"/?author={Uri.EscapeDataString(author.Name)}")">@author.Name</a>
+                <a href="@($"/library?author={Uri.EscapeDataString(author.Name)}")">@author.Name</a>
                 <span class="hint">@Localization.Counts.Books(author.Count)</span>
             </li>
         }

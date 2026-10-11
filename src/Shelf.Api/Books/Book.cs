@@ -174,6 +174,16 @@ public sealed class ShelfSetting
     // Comics two pages at a time, as a printed book lies open.
     public bool ComicSpread { get; set; }
     public bool LibraryAsList { get; set; }
+
+    // The library's order when an address does not give one; null for by title.
+    public string? LibrarySort { get; set; }
+
+    // The reader's page: light, sepia, or dark (null follows the device), and the typeface (null keeps the book's).
+    public string? ReaderTheme { get; set; }
+    public string? ReaderFont { get; set; }
+
+    // Shelf's own look: light or dark, or null to follow the device.
+    public string? Theme { get; set; }
     public int? AudioSpeed { get; set; }
 
     // Series alerts: asked for, and when Open Library was last asked.
@@ -181,14 +191,27 @@ public sealed class ShelfSetting
     public DateTimeOffset? SeriesCheckedAt { get; set; }
 }
 
-// How a reader likes an e-book set: text size in percent, line height in hundredths, and line length in ems.
-public sealed record ReaderType(int Size = ReaderType.DefaultSize, int Leading = ReaderType.DefaultLeading, int Width = ReaderType.DefaultWidth, bool Paged = false)
+// How a reader likes an e-book set: text size in percent, line height in hundredths, and line length in ems; the
+// page's colors (light, sepia, or dark; null follows the device) and the typeface (serif or sans; null keeps the book's).
+public sealed record ReaderType(int Size = ReaderType.DefaultSize, int Leading = ReaderType.DefaultLeading, int Width = ReaderType.DefaultWidth, bool Paged = false, string? Theme = null, string? Font = null)
 {
     public const int DefaultSize = 100;
     public const int DefaultLeading = 160;
     public const int DefaultWidth = 38;
+    public static readonly string[] Themes = ["light", "sepia", "dark"];
+    public static readonly string[] Fonts = ["serif", "sans"];
 
-    public ReaderType Clamped() => new(Math.Clamp(Size, 80, 200), Math.Clamp(Leading, 120, 220), Math.Clamp(Width, 24, 80), Paged);
+    public ReaderType Clamped() => new(Math.Clamp(Size, 80, 200), Math.Clamp(Leading, 120, 220), Math.Clamp(Width, 24, 80), Paged,
+        Themes.Contains(Theme) ? Theme : null, Fonts.Contains(Font) ? Font : null);
+
+    // The page's paper, ink, and links for each theme; the device's light or dark when none is chosen.
+    public static (string Paper, string Ink, string Link)? Colors(string? theme) => theme switch
+    {
+        "light" => ("#fffdf9", "#252a28", "#263e38"),
+        "sepia" => ("#f4ecd8", "#3d3225", "#6b4f2a"),
+        "dark" => ("#1d2420", "#e8e3d8", "#9fc0ad"),
+        _ => null,
+    };
 
     public string Css()
     {
@@ -200,12 +223,23 @@ public sealed record ReaderType(int Size = ReaderType.DefaultSize, int Leading =
             body { max-width: {{type.Width}}em; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
             body, p, li, dd, blockquote { line-height: {{leading}} !important; }
             img, svg { max-width: 100%; height: auto; }
-            @media (prefers-color-scheme: dark) {
-              html { background: #202824; color: #f1ede4; }
-              a { color: #9fc0ad; }
-            }
+            {{Look(type)}}
             </style>
             """ + (type.Paged ? Pages(type.Width) : "");
+    }
+
+    private static string Look(ReaderType type)
+    {
+        var colors = Colors(type.Theme) is var (paper, ink, link)
+            ? $"html, body {{ background: {paper} !important; color: {ink} !important; }} a {{ color: {link} !important; }}"
+            : "@media (prefers-color-scheme: dark) { html { background: #202824; color: #f1ede4; } a { color: #9fc0ad; } }";
+        var face = type.Font switch
+        {
+            "serif" => "body, p, li, dd, blockquote, div, span { font-family: \"Iowan Old Style\", \"Palatino Linotype\", Georgia, serif !important; }",
+            "sans" => "body, p, li, dd, blockquote, div, span { font-family: system-ui, -apple-system, \"Segoe UI\", sans-serif !important; }",
+            _ => "",
+        };
+        return colors + "\n" + face;
     }
 
     // Pages: the chapter in columns one window wide, turned by scrolling sideways a window at a time. The margins

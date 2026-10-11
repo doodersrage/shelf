@@ -45,7 +45,7 @@ else
                 <p class="hint">
                     <span class="badge plain">@(passage.Highlight ? T("Highlight") : T("Quote"))</span>
                     <a href="/library/@passage.BookId">@passage.Title</a>
-                    · <a href="@($"/?author={Uri.EscapeDataString(passage.Author)}")">@passage.Author</a>
+                    · <a href="@($"/library?author={Uri.EscapeDataString(passage.Author)}")">@passage.Author</a>
                     @if (passage.Open is string open)
                     {
                         <span> · <a href="@open">@T("Open in the reader")</a></span>

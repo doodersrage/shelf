@@ -19,7 +19,7 @@ test("many books change at once, the list view is remembered, and search finds w
   const second = await createBook(page, { title: unique("Beta"), author: "Someone" });
   await upload(page, first.id, "ebook", "moby.epub", "application/epub+zip");
 
-  await page.goto("/?view=list");
+  await page.goto("/library?view=list");
   await ready(page);
   await page.check(`input[aria-label="Choose ${first.title}"]`);
   await page.check(`input[aria-label="Choose ${second.title}"]`);
@@ -29,10 +29,10 @@ test("many books change at once, the list view is remembered, and search finds w
   const books = await (await page.request.get(`/books?tag=${encodeURIComponent(tag)}`)).json();
   expect(books.map((book) => book.id).sort()).toEqual([first.id, second.id].sort());
 
-  await page.goto("/");
+  await page.goto("/library");
   await ready(page);
   await page.click('button:text-is("List")');
-  await page.goto("/");
+  await page.goto("/library");
   await expect(page.locator(".book-list")).toBeVisible();
   await ready(page);
   await page.click('button:text-is("Covers")');
@@ -75,7 +75,7 @@ test("the same file on a second book asks first, then keeps both or lets it go",
 
 test("files added together become books, each named from what it says", async ({ browser }) => {
   const page = await signUp(browser, unique("Importer"));
-  await page.goto("/?add=1");
+  await page.goto("/library?add=1");
   await ready(page);
   await page.locator('form[action="/books/import/files"] input[name=file]').setInputFiles([fixture("moby.epub"), fixture("chapters.m4b"), fixture("comic.cbz")]);
   await Promise.all([page.waitForURL(/imported=/), page.locator('form[action="/books/import/files"] button[type=submit]').click()]);
@@ -85,7 +85,7 @@ test("files added together become books, each named from what it says", async ({
   expect(books.some((book) => book.title === "A Comic" && book.author === "Someone")).toBe(true);
 
   // The same files again are already on the shelf.
-  await page.goto("/?add=1");
+  await page.goto("/library?add=1");
   await ready(page);
   await page.locator('form[action="/books/import/files"] input[name=file]').setInputFiles([fixture("moby.epub")]);
   await Promise.all([page.waitForURL(/imported=/), page.locator('form[action="/books/import/files"] button[type=submit]').click()]);
@@ -99,7 +99,7 @@ test("a filtered library is saved as a search, listed in the sidebar, and forgot
   await createBook(page, { title: unique("Plain Book"), author: "Someone", status: "Want" });
   await page.request.post("/books/bulk", { data: { ids: [loved.id], loved: true } });
 
-  await page.goto("/?status=Want");
+  await page.goto("/library?status=Want");
   await ready(page);
   await page.locator("summary", { hasText: "More filters" }).click();
   await page.getByLabel("Loved", { exact: true }).check();

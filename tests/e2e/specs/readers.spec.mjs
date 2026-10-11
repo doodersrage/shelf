@@ -63,7 +63,7 @@ test("adding a book another reader has on an open shelf offers to borrow it", as
   await lender.request.put("/books/shelves/open", { data: { open: true } });
 
   const reader = await signUp(browser, unique("Tenar"));
-  await reader.goto("/?add=1");
+  await reader.goto("/library?add=1");
   await ready(reader);
   await reader.getByLabel("Title", { exact: true }).fill(title);
   await reader.getByLabel("Author", { exact: true }).fill("Ursula K. Le Guin");

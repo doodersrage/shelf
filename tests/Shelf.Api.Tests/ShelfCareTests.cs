@@ -308,7 +308,7 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
     {
         var reader = await factory.SignUpAsync("Sparrow");
         await CreateAsync(reader, new CreateBookRequest("A Listed Book", "Someone", BookStatus.Want, null));
-        Assert.Contains("book-grid", await reader.GetStringAsync("/"));
+        Assert.Contains("book-grid", await reader.GetStringAsync("/library"));
 
         await using (var scope = factory.Services.CreateAsyncScope())
         {
@@ -316,9 +316,9 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
             await BookRules.SetLibraryAsListAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), true);
         }
 
-        Assert.Contains("book-list", await reader.GetStringAsync("/"));
-        Assert.Contains("book-grid", await reader.GetStringAsync("/?view=covers"));
-        Assert.DoesNotContain("book-grid", await _admin.GetStringAsync("/?view=list"));
+        Assert.Contains("book-list", await reader.GetStringAsync("/library"));
+        Assert.Contains("book-grid", await reader.GetStringAsync("/library?view=covers"));
+        Assert.DoesNotContain("book-grid", await _admin.GetStringAsync("/library?view=list"));
     }
 
     [Fact]
@@ -350,9 +350,9 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
         // The reader drops the sidebar for a slim bar and the text settings.
         var page = await _admin.GetStringAsync($"/library/{book.Id}/read");
         Assert.Contains("focus-bar", page);
-        Assert.DoesNotContain("Your library", page);
+        Assert.DoesNotContain("nav-main", page);
         Assert.Contains("Text settings", page);
-        Assert.Contains("Your library", await _admin.GetStringAsync($"/library/{book.Id}"));
+        Assert.Contains("nav-main", await _admin.GetStringAsync($"/library/{book.Id}"));
     }
 
     [Fact]

@@ -6,20 +6,20 @@
 
 A personal library you run yourself. Shelf keeps the books you own on paper, your e-books, and your audiobooks together, one book at a time: the catalog, where you stopped in each format, what you highlighted, your reading log and yearly goal, and who has borrowed which copy. Everyone on your server gets a shelf of their own and can lend to the others.
 
-![The library: the books being read, the one to read next, and the ones just finished](docs/images/library.png)
+![Home: the book last read with a button back into it, the shelf at a glance, and the other open books](docs/images/library.png)
 
 | | |
 | --- | --- |
-| ![Every book on the shelf as a grid of covers, with status labels](docs/images/covers.png) | ![A book's page, led by its cover, status, and next step](docs/images/book.png) |
+| ![Every book on the shelf as a grid of covers, with filter chips, stars, and a status menu on each](docs/images/covers.png) | ![A book's page, led by its cover, status, and next step](docs/images/book.png) |
 | **The whole shelf** as covers or a compact list, with search, filters, and saved searches. | **A book's page** leads with the cover and one next step, then the reading log, lending, quotes, highlights, and files. |
 | ![The e-book reader with a highlighted passage, text settings, and a button to continue in the audiobook](docs/images/reader.png) | ![The audiobook player with chapters, a bookmark, and a button to continue in the e-book](docs/images/listen.png) |
 | **The reader** keeps your place, highlights, notes, and text settings, and reads aloud. | **The player** plays many tracks as one book, with chapters, bookmarks, speed, and a sleep timer, and keeps playing in a mini player as you browse. |
-| ![Stats with the year's goal and books finished each month](docs/images/stats.png) | ![Loans, with a book lent out and another reader asking to borrow](docs/images/loans.png) |
-| **Stats** lead with the year's goal and a month-by-month chart. | **Loans** between readers, and asks to borrow from an open shelf. |
-| ![A reading list shared by link, as someone signed out sees it](docs/images/shared.png) | ![The library in dark mode](docs/images/dark.png) |
-| **A reading list** shared by link with anyone, showing only the books. | **Dark mode** follows the system setting. |
+| ![Insights with the year's goal and books finished each month](docs/images/stats.png) | ![Loans, with a book lent out and another reader asking to borrow](docs/images/loans.png) |
+| **Insights** lead with the year's goal, then a year of reading, favourites, and milestones. | **Loans** between readers, and asks to borrow from an open shelf. |
+| ![A reading list shared by link, as someone signed out sees it](docs/images/shared.png) | ![Home in dark mode](docs/images/dark.png) |
+| **A reading list** shared by link with anyone, showing only the books. | **Dark mode** follows the system, or a choice in Account. |
 
-<p align="center"><img src="docs/images/phone.png" alt="The library on a phone, with the bottom bar" width="300" /></p>
+<p align="center"><img src="docs/images/phone.png" alt="Home on a phone, with the bottom bar" width="300" /></p>
 
 The screenshots show public-domain books, with covers drawn for the demo. `npm run screenshots` in `tests/e2e` makes them again.
 

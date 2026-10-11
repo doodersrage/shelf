@@ -13,7 +13,7 @@ public static partial class ShareTarget
         {
             if (BookRules.NormalizeIsbn(candidate.Value) is { } isbn)
             {
-                return $"/?add=1&isbn={isbn}";
+                return $"/library?add=1&isbn={isbn}";
             }
         }
 
@@ -28,11 +28,11 @@ public static partial class ShareTarget
             // "The Dispossessed by Ursula K. Le Guin": a title and an author, as bookshops write them.
             var byline = ByLine().Match(name);
             return byline.Success
-                ? $"/?add=1&title={Uri.EscapeDataString(byline.Groups[1].Value.Trim())}&author={Uri.EscapeDataString(byline.Groups[2].Value.Trim())}"
-                : $"/?add=1&title={Uri.EscapeDataString(name)}";
+                ? $"/library?add=1&title={Uri.EscapeDataString(byline.Groups[1].Value.Trim())}&author={Uri.EscapeDataString(byline.Groups[2].Value.Trim())}"
+                : $"/library?add=1&title={Uri.EscapeDataString(name)}";
         }
 
-        return "/?add=1";
+        return "/library?add=1";
     }
 
     // Thirteen digits starting 978 or 979, or ten ending in a digit or X, hyphens and spaces allowed between.

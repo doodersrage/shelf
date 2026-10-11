@@ -5,7 +5,7 @@ description: The audiobook player, chapters, bookmarks, speed, the sleep timer, 
 
 # Audiobooks
 
-A book with an audiobook gets **Listen to this audiobook** on its page, and plays in the browser on any device.
+A book with an audiobook gets **Listen** on its page, and plays in the browser on any device.
 
 ## Adding an audiobook
 
@@ -48,7 +48,7 @@ Matching asks Audible and Audnexus over the internet; nothing is sent about you 
 
 ### Listening while you browse
 
-![Stats, with the book playing in the mini player at the foot of the page](assets/images/mini-player.png)
+![Insights, with the book playing in the mini player at the foot of the page](assets/images/mini-player.png)
 
 Leave the player and the book plays on in a bar at the foot of every page, with its cover, chapter, play and pause, skips, and the time left in the chapter; its title opens the full player again, and **×** closes it. After a reload it waits there, paused where you stopped. **Play while you browse** on a book's page, and the play button on a book being read in the library, start a book there without leaving the page.
 
@@ -64,7 +64,7 @@ Playing to the end of the recording marks the book **Finished**, with today's da
 
 ### Time spent listening
 
-**Stats** shows how long you have listened today, this week, and this year, a bar for each of the last two weeks, and the books you listened to most this year. The time is counted by the clock while a book plays, not by how much of the book went by, so listening at 2× counts the minutes you spent. A day of listening keeps your reading streak going. The library's **Reading now** shows how long is left of an audiobook.
+**Insights** shows how long you have listened today, this week, and this year, a bar for each of the last two weeks, and the books you listened to most this year. The time is counted by the clock while a book plays, not by how much of the book went by, so listening at 2× counts the minutes you spent. A day of listening keeps your reading streak going. The library's **Reading now** shows how long is left of an audiobook.
 
 A borrower listening to a book lent to them has their own place, bookmarks, and listening time.
 
@@ -90,7 +90,7 @@ When ffmpeg is there, Shelf always cuts tracks into ten-minute pieces, which sho
 
 ## Podcasts
 
-**Podcasts**, in the sidebar, follows podcasts by their feeds. Search by name (Apple's podcast directory finds most), or paste a feed's address. To bring the podcasts you follow in another app, export them from it as an OPML file and choose it under **Bring podcasts from another app**; **Save the podcasts you follow as OPML** takes them the other way.
+**Podcasts**, under **Browse** in the sidebar, follows podcasts by their feeds. Search by name (Apple's podcast directory finds most), or paste a feed's address. To bring the podcasts you follow in another app, export them from it as an OPML file and choose it under **Bring podcasts from another app**; **Save the podcasts you follow as OPML** takes them the other way.
 
 - Shelf reads each feed every hour. When you first follow a podcast, its newest three episodes wait to be heard and the older ones count as heard, so years of back episodes don't pile up; **Mark as new** brings any back.
 - **Keep downloaded** keeps the newest unplayed episodes on the shelf (three, by default), so they play even when the podcast's own server is slow. A played episode's file goes a day later. **Download** keeps any other episode.

@@ -20,7 +20,7 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     private readonly HttpClient _client = factory.Client;
 
     [Fact]
-    public async Task Home_page_lists_created_books()
+    public async Task The_library_lists_created_books()
     {
         var created = await _client.PostAsJsonAsync(
             "/books",
@@ -28,7 +28,7 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
             JsonOptions);
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
 
-        var response = await _client.GetAsync("/");
+        var response = await _client.GetAsync("/library");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
 
@@ -506,10 +506,10 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
             null,
             CoverUrl: "https://covers.openlibrary.org/b/id/9-M.jpg"));
 
-        var page = await _client.GetAsync("/");
+        var page = await _client.GetAsync("/reading");
         var html = await page.Content.ReadAsStringAsync();
         Assert.Contains("https://covers.openlibrary.org/b/id/9-M.jpg", html);
-        Assert.Contains("Reading now", html);
+        Assert.Contains("Open now", html);
         Assert.Contains("The Lathe of Heaven", html);
         Assert.Contains($"/library/{book.Id}", html);
     }
@@ -857,9 +857,9 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         var page = await _client.GetAsync("/recommenders");
         var html = await page.Content.ReadAsStringAsync();
         Assert.Contains("Ogion", html);
-        Assert.Contains("/?recommendedBy=Ogion", html);
+        Assert.Contains("/library?recommendedBy=Ogion", html);
 
-        var shelf = await _client.GetAsync("/?recommendedBy=Ogion");
+        var shelf = await _client.GetAsync("/library?recommendedBy=Ogion");
         var shelfHtml = await shelf.Content.ReadAsStringAsync();
         Assert.Contains("From <strong>Ogion</strong>", shelfHtml);
         Assert.Contains("Tales of Ogion", shelfHtml);
@@ -1015,9 +1015,9 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         var page = await _client.GetAsync("/loans");
         var html = await page.Content.ReadAsStringAsync();
         Assert.Contains("Tenar", html);
-        Assert.Contains("/?loanedTo=Tenar", html);
+        Assert.Contains("/library?loanedTo=Tenar", html);
 
-        var shelf = await _client.GetAsync("/?loanedTo=Tenar");
+        var shelf = await _client.GetAsync("/library?loanedTo=Tenar");
         var shelfHtml = await shelf.Content.ReadAsStringAsync();
         Assert.Contains("Loaned to <strong>Tenar</strong>", shelfHtml);
         Assert.Contains("Four Ways to Forgiveness", shelfHtml);
@@ -1118,7 +1118,7 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         Assert.Contains("A gift", html);
 
         // How a copy arrived shows in the list view, beside the rest of its details.
-        var shelf = await _client.GetAsync("/?view=list");
+        var shelf = await _client.GetAsync("/library?view=list");
         var shelfHtml = await shelf.Content.ReadAsStringAsync();
         Assert.Contains("A gift", shelfHtml);
         Assert.Contains("Lavinia", shelfHtml);
@@ -1162,7 +1162,7 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         var uploaded = await _client.PostAsync($"/books/{book.Id}/ebook", content);
         Assert.Equal(HttpStatusCode.OK, uploaded.StatusCode);
         var html = await uploaded.Content.ReadAsStringAsync();
-        Assert.Contains("Read this e-book", html);
+        Assert.Contains($"href=\"/library/{book.Id}/read\"", html);
         Assert.Contains("forest.epub", html);
 
         var chapter = await _client.GetAsync($"/books/{book.Id}/ebook/chapters/0");
@@ -1277,7 +1277,7 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         var uploaded = await _client.PostAsync($"/books/{book.Id}/audio", content);
         var html = await uploaded.Content.ReadAsStringAsync();
         Assert.Contains("The audiobook is on the shelf.", html);
-        Assert.Contains("Listen to this audiobook", html);
+        Assert.Contains($"href=\"/library/{book.Id}/listen\"", html);
         Assert.Contains("shore.mp3", html);
 
         var stored = await _client.GetFromJsonAsync<BookResponse>($"/books/{book.Id}", JsonOptions);
@@ -1711,11 +1711,30 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
         _client?.Dispose();
         await base.DisposeAsync();
 
-        // A finished shelf's idle connections are let go, or the classes' pools add up past what the server allows.
+        // A finished shelf's idle connections are let go, or the classes' pools add up past what the server allows,
+        // and its database is dropped, or a server kept for the tests fills up with them.
         if (_postgres is not null)
         {
-            using var connection = new Npgsql.NpgsqlConnection(_postgres);
-            Npgsql.NpgsqlConnection.ClearPool(connection);
+            using (var connection = new Npgsql.NpgsqlConnection(_postgres))
+            {
+                Npgsql.NpgsqlConnection.ClearPool(connection);
+            }
+
+            var builder = new Npgsql.NpgsqlConnectionStringBuilder(_postgres);
+            var database = builder.Database;
+            builder.Database = "postgres";
+            builder.Pooling = false;
+            try
+            {
+                await using var server = new Npgsql.NpgsqlConnection(builder.ConnectionString);
+                await server.OpenAsync();
+                await using var drop = new Npgsql.NpgsqlCommand($"DROP DATABASE IF EXISTS \"{database}\" WITH (FORCE)", server);
+                await drop.ExecuteNonQueryAsync();
+            }
+            catch (Npgsql.NpgsqlException)
+            {
+                // Left for the server's own keeper; the tests have their answers.
+            }
         }
 
         TryDelete(_databasePath);

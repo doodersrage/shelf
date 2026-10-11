@@ -12,7 +12,7 @@
 }
 else if (review.Finished == 0 && review.ReadingSeconds == 0 && review.ListeningSeconds == 0)
 {
-    <EmptyState Title="@T("Nothing finished in {0}", Year)" Text="@T("Books you finish that year gather here, with how long you spent and what stood out.")" ActionHref="/?status=Reading" ActionLabel="@T("See what you are reading")" />
+    <EmptyState Title="@T("Nothing finished in {0}", Year)" Text="@T("Books you finish that year gather here, with how long you spent and what stood out.")" ActionHref="/library?status=Reading" ActionLabel="@T("See what you are reading")" />
 }
 else
 {

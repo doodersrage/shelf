@@ -19,7 +19,7 @@
 }
 else if (hits.Length == 0)
 {
-    <EmptyState Title="@T("No book says that")" Text="@T("Nothing in your e-books matches those words. A book uploaded a moment ago may still be being read.")" ActionHref="@($"/?q={Uri.EscapeDataString(Q)}")" ActionLabel="@T("Search the catalog instead")" />
+    <EmptyState Title="@T("No book says that")" Text="@T("Nothing in your e-books matches those words. A book uploaded a moment ago may still be being read.")" ActionHref="@($"/library?q={Uri.EscapeDataString(Q)}")" ActionLabel="@T("Search the catalog instead")" />
 }
 else
 {

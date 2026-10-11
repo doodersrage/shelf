@@ -152,7 +152,7 @@ test("time with a book open in the reader is counted while someone is reading", 
     await page.waitForTimeout(4000);
   }
   await page.getByRole("link", { name: "Library", exact: true }).first().click();
-  await page.waitForURL((url) => url.pathname === "/");
+  await page.waitForURL((url) => url.pathname === "/library");
   await expect.poll(async () => (await (await page.request.get("/books/reading-time")).json()).totalSeconds, { timeout: 10_000 }).toBeGreaterThanOrEqual(10);
   noProblems(page);
 });

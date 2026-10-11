@@ -8,7 +8,7 @@
 
 @if (years.Count == 0)
 {
-    <EmptyState Title="@T("No books finished yet")" Text="@T("Finished books are grouped here by the year you finished them.")" ActionHref="/?status=Reading" ActionLabel="@T("See what you are reading")" />
+    <EmptyState Title="@T("No books finished yet")" Text="@T("Finished books are grouped here by the year you finished them.")" ActionHref="/library?status=Reading" ActionLabel="@T("See what you are reading")" />
 }
 else
 {

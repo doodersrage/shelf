@@ -49,14 +49,14 @@ Measured contrast on the canvas: ink 12.9:1, green 10.2:1, muted 4.5:1, danger 8
 
 ## Layout and navigation
 
-- **Wide screens:** a slim sticky sidebar holds the wordmark, search, a solid **Add a book**, then the groups below. Content sits in a column up to 62rem.
-- **Phones (under 52rem):** a top bar with the wordmark and a **Menu** drawer holding the same sidebar, plus a bottom bar for Library, Reading, Add, Loans, and Stats. No page scrolls sideways.
+- **Wide screens:** a slim sticky sidebar holds the wordmark, search, a solid **Add a book**, the five main places with their icons, then three groups that fold away. Content sits in a column up to 62rem.
+- **Phones (under 52rem):** a top bar with the wordmark and a **Menu** drawer holding the same sidebar, plus a bottom bar for Home, Library, Add (a solid round button, the one action among places), Reading, and Insights. No page scrolls sideways.
 
-| Your library | Discover & reflect | Your copies | Settings |
+| Main | Browse (folds) | Your copies (folds) | Settings (folds) |
 | --- | --- | --- | --- |
-| Library, Reading, Want to read, Finished, Loans, Shelves | Authors, Series, Quotes & highlights, Search inside books, Stats, Years | Places, Condition, Recommenders | Account, Backup & restore, Devices, Readers (admins) |
+| Home, Library, Reading, Loans, Insights | Want to read, Finished, saved searches, Collections, Series, Authors, Podcasts, Quotes & highlights, Search inside books, What to read next, Book clubs, Free books, Years | Shelves, Places, Condition, Recommenders, Duplicates | Account, Backup & restore, Devices, Offline reading, Readers (admins) |
 
-The current link is marked with `aria-current="page"`. The library's views share a path and differ by `?status=`, so their links are matched on that query.
+A folded group opens by itself on one of its own pages, and Browse while there are saved searches or series news. The current link is marked with `aria-current="page"`. The library's views share `/library` and differ by `?status=`, so their links are matched on that query. Addresses from before 2.0 (`/?status=…`) redirect to `/library`.
 
 ## Components
 
@@ -66,7 +66,8 @@ The current link is marked with `aria-current="page"`. The library's views share
 | Book card | Cover, Lora title, author and year, then badges. The title is the only link, and it stretches over the card. |
 | Buttons | A form's submit button and `.primary` are solid green. Everything else is a quiet outline. `.danger` is a red outline. Toggles use `aria-pressed`. |
 | Status badge | `StatusBadge`: the words *Want to read*, *Reading*, *Finished*, or *Abandoned*, each with a different small shape (empty ring, half ring, full dot, diamond), so status never depends on color. *On loan* is a tan-tinted badge with a square. |
-| Search and filters | Search, status, and sort stay visible. The rest sits under **More filters**, with a count of how many are on. **Clear filters** appears whenever anything narrows the list. |
+| Search and filters | Search and sort stay visible, with a row of chips for each status in use and On loan, E-book, and Audiobook; one status at a time, the others toggles. Loved and Read next sit under **More filters**, with a count of how many are on. **Clear filters** appears whenever anything narrows the list. The order chosen is kept for the reader. On a phone the chips scroll sideways in one row. |
+| Menu | `details.menu`: the rarer actions under a quiet **More**, opening a small panel below it. |
 | Forms | A visible label on every field, errors in red beside the form, a green *Saved.* after saving. |
 | Panels | A surface with a rule border and a 12px radius groups one kind of information. Settings pages put each setting in its own panel, and fields stop at 40rem however wide the page is. |
 | Empty states | `EmptyState`: what belongs here, and one next step. |
@@ -75,10 +76,13 @@ The current link is marked with `aria-current="page"`. The library's views share
 
 ## Screen patterns
 
-- **Library:** Reading now, Read next (or one pick from the want list), and Recently finished lead the page while nothing is filtered. Below them, all books in a cover grid, or a compact list with status, love, read-next, and return controls.
-- **Book:** the cover, title, author, series, and status lead, with one direct next step: *Start reading*, then *Mark finished*. Below it, separate panels for the reading log, lending, quotes, highlights, files, details (folded away), and removal.
-- **Stats:** the year's goal and a finished-per-month chart come first, then the counts, the month of reading, and recent sessions. Reaching the goal is noted once, quietly.
-- **Reader and player:** the sidebar, reminders, and bottom bar step aside for a slim bar with the wordmark and a way back. The chapter sits in a calm frame, with text size, line spacing, and reading width under **Text settings**. They are kept per reader and applied to the chapter, which also follows dark mode. The place is restored without asking.
+- **Home:** the book last read or listened to leads, in one card with its cover, progress, and a way straight back in (*Resume reading*, *Resume listening*, or *Update progress* for paper). Then four tiles (reading, want to read, finished this year against the goal, on loan), the other open books, read next, recently added as a sideways row of covers, and recently finished.
+- **Library:** every book in a cover grid, each with its stars and a status menu drawn as a badge, or a compact list with status, love, read-next, and return controls.
+- **Reading:** the open books, each with its ways back in, the read-next queue, the last weeks of reading and listening, and the latest quotes and highlights.
+- **Book:** the cover, title, author, series, status, and progress lead, with the likeliest next step solid (*Read*, *Listen*, *Start reading*, or *Update progress*), then the status change, **Edit**, and **More** for the rest. Below it, panels for the reading log, quotes, highlights, files, lending, details (a summary of what is filled in, with the form folded away), collections, and removal. Marking a book finished offers, once and dismissibly, a rating, a quote, and the next book.
+- **Insights:** the year's goals and a finished-per-month chart first (the goal form folded once set), then a year of days read and listened as a grid with its sentence beside it, what you return to (authors, kinds, series), milestones, the counts, the month of reading, and recent sessions. Reaching the goal is noted once, quietly; a run of days is told, never asked for.
+- **Reader and player:** the sidebar, reminders, and bottom bar step aside for a slim bar with the wordmark and a way back. The reader's own row holds the book's title as the way back and an **Aa Text settings** menu: page (as the device, light, sepia, or dark), typeface (the book's own, serif, or sans), text size, line spacing, layout, and reading width. They are kept per reader and applied to the chapter. The place is restored without asking.
+- **Look:** light or dark follows the device unless the reader chose one in Account; the choice sets `data-theme` on the page, and the dark tokens apply under it.
 - **PDFs:** drawn by PDF.js (self-hosted in `wwwroot/lib/pdfjs`, with eval and XFA turned off) one page at a time, with selectable text. The text size setting zooms from *Fit the width*; spacing and width do not apply, because a PDF keeps its own layout. Arrow keys and Page Up/Down turn pages, and the page is kept like an EPUB chapter. Selecting text on a page opens the same highlight and note panel as an EPUB; a PDF highlight is stored with its page in place of the chapter, found again by its words and the words around them, and painted in tan over the page. A scanned page gets the same treatment from OCR: the server reads it in the background (Tesseract, through `Books/Ocr.cs`), and the viewer lays each word over the picture at its box, with a one-line note above the page saying whether its words were read, are being read, or cannot be.
 - **Library view:** Covers or List is remembered for each reader; a `?view=` link still wins.
 - **Uploads:** e-book, audiobook, and backup forms carry `data-upload`. `wwwroot/upload.js` sends them with a progress bar and an honest status line, then follows the server's redirect to the result. Without the script they post the ordinary way.

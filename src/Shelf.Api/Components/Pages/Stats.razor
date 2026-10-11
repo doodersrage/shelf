@@ -1,10 +1,11 @@
 @page "/stats"
+@page "/insights"
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 
-<PageTitle>@T("Stats") · Shelf</PageTitle>
+<PageTitle>@T("Insights") · Shelf</PageTitle>
 
-<h1>@T("Stats")</h1>
+<h1>@T("Insights")</h1>
 
 @if (stats is null)
 {
@@ -12,7 +13,7 @@
 }
 else if (stats.Total == 0)
 {
-    <EmptyState Title="@T("Nothing to count yet")" Text="@T("Stats fill in as you add books and log reading sessions.")" ActionHref="/?add=1" ActionLabel="@T("Add a book")" />
+    <EmptyState Title="@T("Nothing to count yet")" Text="@T("Stats fill in as you add books and log reading sessions.")" ActionHref="/library?add=1" ActionLabel="@T("Add a book")" />
 }
 else
 {
@@ -65,6 +66,8 @@ else
             }
         </ul>
 
+        <details class="edit" open="@(goalSaved || (stats.YearlyGoal == 0 && goals.Pages == 0 && goals.Hours == 0))">
+        <summary>@T("Set goals")</summary>
         <EditForm Model="goal" OnValidSubmit="SaveGoal">
             <DataAnnotationsValidator />
             <div class="goal-fields">
@@ -91,7 +94,87 @@ else
                 <span class="saved" role="status">@T("Saved.")</span>
             }
         </EditForm>
+        </details>
     </section>
+
+    @if (yearOfReading is { ActiveDays: > 0 } year)
+    {
+        <section class="panel" aria-labelledby="year-heading">
+            <h2 id="year-heading">@T("A year of reading")</h2>
+            <p>
+                @T("Read or listened on {0} days in the last year.", year.ActiveDays)
+                @if (year.LongestRun > 1)
+                {
+                    @(" " + T("The longest run was {0} days.", year.LongestRun))
+                }
+                @if (year.BusiestMonth is { } busiest)
+                {
+                    @(" " + T("The fullest month was {0}.", busiest))
+                }
+            </p>
+            @* The grid is a picture of the sentence above; each day's own count is in its title for a pointer. *@
+            <div class="year-grid" aria-hidden="true">
+                @foreach (var day in year.Days)
+                {
+                    <span class="@YearDayClass(day)" title="@DayTitle(day)"></span>
+                }
+            </div>
+            <p class="year-key hint" aria-hidden="true">
+                @T("Less") <span class="day l0"></span><span class="day l1"></span><span class="day l2"></span><span class="day l3"></span><span class="day l4"></span> @T("More")
+            </p>
+        </section>
+    }
+
+    @if (favouriteAuthors.Length > 0 || favouriteKinds.Length > 0 || favouriteSeries.Length > 0)
+    {
+        <section aria-labelledby="favourites-heading">
+            <h2 id="favourites-heading">@T("What you return to")</h2>
+            <div class="favourites">
+                @foreach (var (title, items) in FavouriteLists)
+                {
+                    @if (items.Length > 0)
+                    {
+                        <div class="panel">
+                            <h3>@title</h3>
+                            <ol class="ranked">
+                                @foreach (var item in items)
+                                {
+                                    <li><a href="@item.Href">@item.Name</a> <span class="hint">@Localization.Counts.Books(item.Count)</span></li>
+                                }
+                            </ol>
+                        </div>
+                    }
+                }
+            </div>
+        </section>
+    }
+
+    @if (milestones.Length > 0)
+    {
+        <section class="panel" aria-labelledby="milestones-heading">
+            <h2 id="milestones-heading">@T("Milestones")</h2>
+            <ol class="milestones">
+                @foreach (var milestone in milestones.Take(showAllMilestones ? milestones.Length : 6))
+                {
+                    <li>
+                        <span class="hint">@milestone.Day.Medium()</span>
+                        @if (milestone.BookId is int bookId)
+                        {
+                            <a href="/library/@bookId">@milestone.Text</a>
+                        }
+                        else
+                        {
+                            <span>@milestone.Text</span>
+                        }
+                    </li>
+                }
+            </ol>
+            @if (milestones.Length > 6 && !showAllMilestones)
+            {
+                <button type="button" class="quiet" @onclick="() => showAllMilestones = true">@T("All {0} milestones", milestones.Length)</button>
+            }
+        </section>
+    }
 
     <div class="stats">
         <p><strong>@stats.Total</strong><span>@T("Books")</span></p>
@@ -226,7 +309,7 @@ else
             @foreach (var tag in stats.Tags)
             {
                 <li>
-                    <a href="@($"/?tag={Uri.EscapeDataString(tag.Name)}")">@tag.Name</a>
+                    <a href="@($"/library?tag={Uri.EscapeDataString(tag.Name)}")">@tag.Name</a>
                     <span class="hint">@tag.Count</span>
                 </li>
             }
@@ -278,6 +361,9 @@ else
         // A day spent listening, or with a book open in the reader, is a day of reading too.
         var listenedOn = await db.ListeningDays.AsNoTracking().Select(day => day.Day).ToListAsync();
         var readOn = await db.ReadingDays.AsNoTracking().Select(day => day.Day).ToListAsync();
+        yearOfReading = await Insights.YearAsync(db, Today);
+        (favouriteAuthors, favouriteKinds, favouriteSeries) = Insights.Favourites(await db.Books.AsNoTracking().Include(book => book.Tags).ToListAsync());
+        milestones = Insights.Milestones(shelf, stats.YearlyGoal, Today);
         streak = BookRules.ReadingStreak(shelf.SelectMany(book => book.Sessions).Select(session => session.Date).Concat(listenedOn).Concat(readOn), DateOnly.FromDateTime(DateTime.UtcNow));
     }
 
@@ -348,6 +434,20 @@ else
     }
 
     private BookRules.Goals goals = new(0, 0, 0);
+    private YearOfReading? yearOfReading;
+    private Favourite[] favouriteAuthors = [];
+    private Favourite[] favouriteKinds = [];
+    private Favourite[] favouriteSeries = [];
+    private Milestone[] milestones = [];
+
+    private (string Title, Favourite[] Items)[] FavouriteLists => [(T("Authors"), favouriteAuthors), (T("Kinds of book"), favouriteKinds), (T("Series"), favouriteSeries)];
+    private bool showAllMilestones;
+
+    private static string YearDayClass(ActivityDay day) => day.Level < 0 ? "day l0 future" : $"day l{day.Level}";
+
+    private static string DayTitle(ActivityDay day) => day.Level <= 0
+        ? day.Day.Medium()
+        : day.Day.Medium() + " · " + string.Join(", ", new[] { day.Minutes > 0 ? BookProgress.Span(day.Minutes * 60) : null, day.Pages > 0 ? T("{0} pages", day.Pages) : null }.OfType<string>().DefaultIfEmpty(T("read")));
 
     // Pages of the books finished this year, and whole hours spent with books this year.
     private int PagesThisYear => finished.Sum(book => shelf.FirstOrDefault(item => item.Id == book.Id)?.Pages ?? 0);

@@ -23,7 +23,7 @@ else if (Focused)
     <div class="app focus">
         <header class="focus-bar">
             <a class="wordmark" href="/">@Mark shelf</a>
-            <a href="/">@T("Library")</a>
+            <a href="/library">@T("Library")</a>
         </header>
         <main id="main" class="focus-main">
             @Body
@@ -62,11 +62,11 @@ else
         </div>
 
         <nav class="bottom-nav" aria-label="@T("Most used")">
-            <a href="/" aria-current="@Current("/")">@Icon("M4 5h4v14H4zM10 5h4v14h-4zM16 6l3.5-.9 3 13.5-3.5.9z") @T("Library")</a>
-            <a href="/?status=Reading" aria-current="@Current("/?status=Reading")">@Icon("M4 6c3-1.5 5.5-1.5 8 0v13c-2.5-1.5-5-1.5-8 0zM12 6c2.5-1.5 5-1.5 8 0v13c-3-1.5-5.5-1.5-8 0z") @T("Reading")</a>
-            <a href="/?add=1" aria-current="@Current("/?add=1")">@Icon("M12 5v14M5 12h14") @T("Add")</a>
-            <a href="/loans" aria-current="@Current("/loans")">@Icon("M7 7h11l-3-3M17 17H6l3 3") @T("Loans")</a>
-            <a href="/stats" aria-current="@Current("/stats")">@Icon("M5 19V11M12 19V5M19 19v-6") @T("Stats")</a>
+            <a href="/" aria-current="@Current("/")">@Icon(HomeIcon) @T("Home")</a>
+            <a href="/library" aria-current="@Current("/library")">@Icon(LibraryIcon) @T("Library")</a>
+            <a href="/library?add=1" class="add" aria-current="@Current("/library?add=1")">@Icon("M12 5v14M5 12h14") @T("Add")</a>
+            <a href="/reading" aria-current="@Current("/reading")">@Icon(ReadingIcon) @T("Reading")</a>
+            <a href="/stats" aria-current="@Current("/stats")">@Icon(InsightsIcon) @T("Insights")</a>
         </nav>
     </div>
 }
@@ -93,7 +93,7 @@ else
     private int seriesAlerts;
 
     private string? SavedCurrent(int id) =>
-        new Uri(Navigation.Uri) is { AbsolutePath: "/" } here
+        new Uri(Navigation.Uri) is { AbsolutePath: "/library" } here
             && Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(here.Query).TryGetValue("saved", out var value) && value == id.ToString(System.Globalization.CultureInfo.InvariantCulture)
             ? "page"
             : null;
@@ -110,45 +110,39 @@ else
 
     private RenderFragment Sidebar => @<text>
         <a class="wordmark" href="/">@Mark shelf</a>
-        <form class="search" action="/" method="get" role="search" aria-label="@T("Search the library")" data-enhance>
+        <form class="search" action="/library" method="get" role="search" aria-label="@T("Search the library")" data-enhance>
             <label class="visually-hidden" for="@SearchId">@T("Search the library")</label>
             <input id="@SearchId" name="q" type="search" placeholder="@T("Search the library")" autocomplete="off" />
         </form>
-        <a class="button primary" href="/?add=1">@T("Add a book")</a>
-        <nav class="nav-group" aria-label="@T("Your library")">
-            <h2>@T("Your library")</h2>
+        <a class="button primary" href="/library?add=1">@T("Add a book")</a>
+        @* Five places to go; the rest is a click further, in groups that open by themselves on their own pages. *@
+        <nav class="nav-main" aria-label="@T("Main")">
             <ul>
-                <li><a href="/" aria-current="@Current("/")">@T("Library")</a></li>
-                <li><a href="/?status=Reading" aria-current="@Current("/?status=Reading")">@T("Reading")</a></li>
-                <li><a href="/?status=Want" aria-current="@Current("/?status=Want")">@T("Want to read")</a></li>
-                <li><a href="/?status=Finished" aria-current="@Current("/?status=Finished")">@T("Finished")</a></li>
+                <li><a href="/" aria-current="@Current("/")">@Icon(HomeIcon) @T("Home")</a></li>
+                <li><a href="/library" aria-current="@Current("/library")">@Icon(LibraryIcon) @T("Library")</a></li>
+                <li><a href="/reading" aria-current="@Current("/reading")">@Icon(ReadingIcon) @T("Reading")</a></li>
                 <li>
                     <a href="/loans" aria-current="@Current("/loans")">
-                        @T("Loans")
+                        @Icon(LoansIcon) @T("Loans")
                         @if (reminders is { Any: true } due)
                         {
                             <span class="badge plain" aria-label="@T("{0} waiting", Waiting(due))">@Waiting(due)</span>
                         }
                     </a>
                 </li>
-                <li><a href="/collections" aria-current="@Current("/collections")">@T("Collections")</a></li>
-                <li><a href="/podcasts" aria-current="@Current("/podcasts")">@T("Podcasts")</a></li>
-                @if (!isChild)
-                {
-                    <li><a href="/shelves" aria-current="@Current("/shelves")">@T("Shelves")</a></li>
-                }
-                <li><a href="/clubs" aria-current="@Current("/clubs")">@T("Book clubs")</a></li>
-                @foreach (var search in savedSearches)
-                {
-                    <li><a href="@($"/?{search.Query}&saved={search.Id}")" aria-current="@SavedCurrent(search.Id)">@search.Name</a></li>
-                }
+                <li><a href="/stats" aria-current="@Current("/stats")">@Icon(InsightsIcon) @T("Insights")</a></li>
             </ul>
         </nav>
-        <nav class="nav-group" aria-label="@T("Discover and reflect")">
-            <h2>@T("Discover & reflect")</h2>
+        <details class="nav-group" open="@(Within(BrowseLinks) || savedSearches.Count > 0 || seriesAlerts > 0)">
+            <summary>@T("Browse")</summary>
             <ul>
-                <li><a href="/next" aria-current="@Current("/next")">@T("What to read next")</a></li>
-                <li><a href="/authors" aria-current="@Current("/authors")">@T("Authors")</a></li>
+                <li><a href="/library?status=Want" aria-current="@Current("/library?status=Want")">@T("Want to read")</a></li>
+                <li><a href="/library?status=Finished" aria-current="@Current("/library?status=Finished")">@T("Finished")</a></li>
+                @foreach (var search in savedSearches)
+                {
+                    <li><a href="@($"/library?{search.Query}&saved={search.Id}")" aria-current="@SavedCurrent(search.Id)">@search.Name</a></li>
+                }
+                <li><a href="/collections" aria-current="@Current("/collections")">@T("Collections")</a></li>
                 <li>
                     <a href="/series" aria-current="@Current("/series")">
                         @T("Series")
@@ -158,24 +152,31 @@ else
                         }
                     </a>
                 </li>
+                <li><a href="/authors" aria-current="@Current("/authors")">@T("Authors")</a></li>
+                <li><a href="/podcasts" aria-current="@Current("/podcasts")">@T("Podcasts")</a></li>
                 <li><a href="/quotes" aria-current="@Current("/quotes")">@T("Quotes & highlights")</a></li>
                 <li><a href="/search" aria-current="@Current("/search")">@T("Search inside books")</a></li>
+                <li><a href="/next" aria-current="@Current("/next")">@T("What to read next")</a></li>
+                <li><a href="/clubs" aria-current="@Current("/clubs")">@T("Book clubs")</a></li>
                 <li><a href="/free" aria-current="@Current("/free")">@T("Free books")</a></li>
-                <li><a href="/stats" aria-current="@Current("/stats")">@T("Stats")</a></li>
                 <li><a href="/years" aria-current="@Current("/years")">@T("Years")</a></li>
             </ul>
-        </nav>
-        <nav class="nav-group" aria-label="@T("Your copies")">
-            <h2>@T("Your copies")</h2>
+        </details>
+        <details class="nav-group" open="@Within(CopiesLinks)">
+            <summary>@T("Your copies")</summary>
             <ul>
+                @if (!isChild)
+                {
+                    <li><a href="/shelves" aria-current="@Current("/shelves")">@T("Shelves")</a></li>
+                }
                 <li><a href="/places" aria-current="@Current("/places")">@T("Places")</a></li>
                 <li><a href="/copies" aria-current="@Current("/copies")">@T("Condition")</a></li>
                 <li><a href="/recommenders" aria-current="@Current("/recommenders")">@T("Recommenders")</a></li>
                 <li><a href="/duplicates" aria-current="@Current("/duplicates")">@T("Duplicates")</a></li>
             </ul>
-        </nav>
-        <nav class="nav-group" aria-label="@T("Settings")">
-            <h2>@T("Settings")</h2>
+        </details>
+        <details class="nav-group" open="@Within(SettingsLinks)">
+            <summary>@T("Settings")</summary>
             <ul>
                 <li><a href="/account" aria-current="@Current("/account")">@T("Account")</a></li>
                 <li><a href="/backup" aria-current="@Current("/backup")">@T("Backup & restore")</a></li>
@@ -186,7 +187,7 @@ else
                     <li><a href="/admin" aria-current="@Current("/admin")">@T("Readers")</a></li>
                 }
             </ul>
-        </nav>
+        </details>
         <div class="sidebar-foot">
             <p>
                 <span class="reader-name">@readerName</span> ·
@@ -237,14 +238,28 @@ else
         var adding = here.Query.Contains("add=1", StringComparison.Ordinal);
         var matches = href switch
         {
-            "/" => here.AbsolutePath == "/" && status.Length == 0 && !adding && !here.Query.Contains("saved=", StringComparison.Ordinal),
-            "/?add=1" => here.AbsolutePath == "/" && adding,
-            _ when href.StartsWith("/?status=", StringComparison.Ordinal) =>
-                here.AbsolutePath == "/" && string.Equals(status, href["/?status=".Length..], StringComparison.OrdinalIgnoreCase),
+            "/" => here.AbsolutePath == "/",
+            "/library" => here.AbsolutePath == "/library" && status is not ("Want" or "Finished") && !adding && !here.Query.Contains("saved=", StringComparison.Ordinal),
+            "/library?add=1" => here.AbsolutePath == "/library" && adding,
+            _ when href.StartsWith("/library?status=", StringComparison.Ordinal) =>
+                here.AbsolutePath == "/library" && !adding && string.Equals(status, href["/library?status=".Length..], StringComparison.OrdinalIgnoreCase),
             _ => here.AbsolutePath == href || here.AbsolutePath.StartsWith(href + "/", StringComparison.Ordinal),
         };
         return matches ? "page" : null;
     }
+
+    private const string HomeIcon = "M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z";
+    private const string LibraryIcon = "M4 5h4v14H4zM10 5h4v14h-4zM16 6l3.5-.9 3 13.5-3.5.9z";
+    private const string ReadingIcon = "M4 6c3-1.5 5.5-1.5 8 0v13c-2.5-1.5-5-1.5-8 0zM12 6c2.5-1.5 5-1.5 8 0v13c-3-1.5-5.5-1.5-8 0z";
+    private const string LoansIcon = "M7 7h11l-3-3M17 17H6l3 3";
+    private const string InsightsIcon = "M5 19V11M12 19V5M19 19v-6";
+
+    private static readonly string[] BrowseLinks = ["/library?status=Want", "/library?status=Finished", "/collections", "/series", "/authors", "/podcasts", "/quotes", "/search", "/next", "/clubs", "/free", "/years"];
+    private static readonly string[] CopiesLinks = ["/shelves", "/places", "/copies", "/recommenders", "/duplicates"];
+    private static readonly string[] SettingsLinks = ["/account", "/backup", "/sync", "/admin"];
+
+    // A group opens by itself when the page shown is one of its own.
+    private bool Within(string[] links) => links.Any(link => Current(link) is not null);
 
     private static RenderFragment Icon(string path) => @<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="@path" /></svg>;
 

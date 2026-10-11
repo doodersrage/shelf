@@ -1288,8 +1288,14 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<bool>("LibraryAsList")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("LibrarySort")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("PagesGoal")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("ReaderFont")
+                        .HasColumnType("TEXT");
 
                     b.Property<int?>("ReaderLineHeight")
                         .HasColumnType("INTEGER");
@@ -1299,6 +1305,9 @@ namespace Shelf.Api.Data.Migrations
 
                     b.Property<int?>("ReaderTextSize")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("ReaderTheme")
+                        .HasColumnType("TEXT");
 
                     b.Property<int?>("ReaderWidth")
                         .HasColumnType("INTEGER");
@@ -1312,6 +1321,9 @@ namespace Shelf.Api.Data.Migrations
 
                     b.Property<string>("SyncKey")
                         .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Theme")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("WatchSeries")

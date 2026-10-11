@@ -17,7 +17,7 @@ test.use({
 
 test("a barcode held to the camera fills in the ISBN", async ({ browser }) => {
   const page = await signUp(browser, unique("Scanner"), { permissions: ["camera"] });
-  await page.goto("/?add=1");
+  await page.goto("/library?add=1");
   await ready(page);
   const scan = page.getByRole("button", { name: "Scan the barcode" });
   await expect(scan).toBeVisible();
@@ -34,7 +34,7 @@ test("a photo of a barcode fills in the ISBN, and one without a barcode says so"
   page.on("request", (request) => {
     if (!/^https?:\/\/(127\.0\.0\.1|localhost)[:/]/.test(request.url()) && !request.url().startsWith("data:")) elsewhere.push(request.url());
   });
-  await page.goto("/?add=1");
+  await page.goto("/library?add=1");
   await ready(page);
   await expect(page.getByRole("button", { name: "Scan the barcode" })).toBeVisible();
   // Where the camera cannot stream (a plain-http address), the button takes a photo; the picture arrives here.

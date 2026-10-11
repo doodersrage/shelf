@@ -54,7 +54,7 @@ else
 {
     @foreach (var shelf in shelves)
     {
-        <h2><a href="@($"/?series={Uri.EscapeDataString(shelf.Name)}")">@shelf.Name</a></h2>
+        <h2><a href="@($"/library?series={Uri.EscapeDataString(shelf.Name)}")">@shelf.Name</a></h2>
         <ul class="tag-counts">
             @foreach (var book in shelf.Books)
             {

@@ -130,10 +130,7 @@ try {
   };
 
   await shot(tenar, "library", "/");
-  await shot(tenar, "covers", "/", async (page) => {
-    await page.getByRole("heading", { name: "All books" }).evaluate((heading) => window.scrollTo(0, heading.getBoundingClientRect().top + window.scrollY - 32));
-    await page.waitForTimeout(300);
-  });
+  await shot(tenar, "covers", "/library");
   await shot(tenar, "book", `/library/${moby}`);
   await shot(tenar, "reader", `/library/${moby}/read`, async (page) => {
     await page.click('summary:text("Text settings")');
@@ -152,7 +149,7 @@ try {
   await shot(tenar, "loans", "/loans");
 
   // A reading list shared by link, as someone who is not signed in sees it.
-  await tenar.goto("/?loved=1&sort=title", { waitUntil: "networkidle" });
+  await tenar.goto("/library?loved=1&sort=title", { waitUntil: "networkidle" });
   await tenar.waitForTimeout(600);
   await tenar.getByRole("button", { name: "Save this search" }).click();
   await tenar.getByLabel("Name", { exact: true }).fill("Books I would lend you");

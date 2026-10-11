@@ -16,7 +16,7 @@ description: Shelf is a personal library you run yourself: your books, e-books, 
 </div>
 </div>
 
-<figure class="shot"><img src="assets/images/library.png" alt="The library: the books being read, the one to read next, and the ones just finished" /></figure>
+<figure class="shot"><img src="assets/images/library.png" alt="Home: the book last read with a button back into it, the shelf at a glance, and the other open books" /></figure>
 
 ## What it does
 
@@ -34,14 +34,14 @@ description: Shelf is a personal library you run yourself: your books, e-books, 
 </ul>
 
 <div class="gallery">
-<figure><img src="assets/images/covers.png" alt="Every book on the shelf as a grid of covers, with status labels" /><figcaption><strong>The whole shelf</strong> as covers or a compact list, with search, status, and sort.</figcaption></figure>
+<figure><img src="assets/images/covers.png" alt="Every book on the shelf as a grid of covers, with filter chips, stars, and a status menu on each" /><figcaption><strong>The whole shelf</strong> as covers or a compact list, with search, chips for each status, and sort.</figcaption></figure>
 <figure><img src="assets/images/book.png" alt="A book's page, led by its cover, status, and next step" /><figcaption><strong>A book's page</strong> leads with its cover and one next step.</figcaption></figure>
 <figure><img src="assets/images/reader.png" alt="The e-book reader with a highlighted passage and text settings" /><figcaption><strong>The reader</strong> keeps your place, your highlights, and your text settings.</figcaption></figure>
 <figure><img src="assets/images/listen.png" alt="The audiobook player with chapters, a bookmark, and a button to continue in the e-book" /><figcaption><strong>The player</strong> keeps chapters and bookmarks, and switches to the e-book at the same point.</figcaption></figure>
-<figure><img src="assets/images/stats.png" alt="Stats with the year's goal and books finished each month" /><figcaption><strong>Stats</strong> lead with the year's goal and a month-by-month chart.</figcaption></figure>
+<figure><img src="assets/images/stats.png" alt="Insights with the year's goal and books finished each month" /><figcaption><strong>Insights</strong> lead with the year's goal, then a year of reading, favourites, and milestones.</figcaption></figure>
 <figure><img src="assets/images/loans.png" alt="Loans, with a book lent out and another reader asking to borrow" /><figcaption><strong>Loans</strong> between readers, and asks to borrow from an open shelf.</figcaption></figure>
 <figure><img src="assets/images/shared.png" alt="A reading list shared by link, as someone signed out sees it" /><figcaption><strong>A reading list</strong> shared by link, showing only the books.</figcaption></figure>
-<figure><img src="assets/images/dark.png" alt="The library in dark mode" /><figcaption><strong>Dark mode</strong> follows the system, and every page works on a phone.</figcaption></figure>
+<figure><img src="assets/images/dark.png" alt="Home in dark mode" /><figcaption><strong>Dark mode</strong> follows the system or your choice, and every page works on a phone.</figcaption></figure>
 </div>
 
 ## Why Shelf

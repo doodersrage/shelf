@@ -1,5 +1,6 @@
+@inject IDbContextFactory<ShelfDb> DbFactory
 <!DOCTYPE html>
-<html lang="@Current">
+<html lang="@Current" data-theme="@theme">
 
 <head>
     <meta charset="utf-8" />
@@ -8,8 +9,15 @@
     <link rel="icon" href="@Assets["favicon.svg"]" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="@Assets["apple-touch-icon.png"]" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <meta name="theme-color" content="#f5f1e8" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#202824" media="(prefers-color-scheme: dark)" />
+    @if (theme is null)
+    {
+        <meta name="theme-color" content="#f5f1e8" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#202824" media="(prefers-color-scheme: dark)" />
+    }
+    else
+    {
+        <meta name="theme-color" content="@(theme == "dark" ? "#202824" : "#f5f1e8")" />
+    }
     <meta name="apple-mobile-web-app-title" content="shelf" />
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["app.css"]" />
@@ -53,3 +61,20 @@
 </body>
 
 </html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? Http { get; set; }
+
+    // Light or dark as the reader chose in Account; nothing, and the device decides.
+    private string? theme;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Http?.User.Identity?.IsAuthenticated == true)
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            theme = await BookRules.GetThemeAsync(db);
+        }
+    }
+}

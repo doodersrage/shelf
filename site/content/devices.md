@@ -88,7 +88,7 @@ Each book is matched by its title, or else by its file name, among the books on 
 
 ### Reading time from KOReader
 
-KOReader's statistics count the time you spend on each page. To have it count on Shelf too, in **Stats**, your year in review, and your hours goal:
+KOReader's statistics count the time you spend on each page. To have it count on Shelf too, in **Insights**, your year in review, and your hours goal:
 
 1. Connect the e-reader to a computer, and copy `statistics.sqlite3` from KOReader's settings folder (`koreader/settings`; on a Kobo, `.adds/koreader/settings`; on Android, `koreader/settings` in the device's storage).
 2. On **Devices**, under **Bring reading time from KOReader**, choose the file.

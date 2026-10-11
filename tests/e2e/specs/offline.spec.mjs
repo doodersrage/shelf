@@ -11,6 +11,7 @@ test("a kept book opens offline, and the place goes back when online", async ({ 
   await page.goto(`/library/${book.id}`);
   await ready(page);
   await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.locator(".menu > summary").click();
   await page.click('button:text-is("Keep for reading offline")');
   await expect(page.getByText("Kept on this device.")).toBeVisible();
 
@@ -36,6 +37,7 @@ test("a kept audiobook plays with no connection, and its place and time go back 
   await page.goto(`/library/${book.id}`);
   await ready(page);
   await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.locator(".menu > summary").click();
   await page.click('button:text-is("Keep for listening offline")');
   await expect(page.getByText("Kept on this device.")).toBeVisible({ timeout: 45_000 });
   await expect(page.getByRole("button", { name: "Kept for listening offline · forget" })).toBeVisible();
@@ -89,6 +91,7 @@ test("highlights made offline, and one removed, reach the shelf when it answers 
     await page.goto(`/library/${id}`);
     await ready(page);
     await page.evaluate(() => navigator.serviceWorker.ready);
+    await page.locator(".menu > summary").click();
     await page.click('button:text-is("Keep for reading offline")');
     await expect(page.getByText("Kept on this device.")).toBeVisible();
   }

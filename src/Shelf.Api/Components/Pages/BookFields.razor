@@ -69,7 +69,23 @@
     <input type="file" accept="image/*" capture="environment" data-scan-photo hidden tabindex="-1" aria-hidden="true" />
     <span class="hint" data-scan-status role="status"></span>
 </div>
-@if (lookupNote is not null)
+@if (found is { } match)
+{
+    @* What the lookup found, cover and all, to check before the book is saved. *@
+    <div class="lookup-preview" role="status">
+        <BookCover Title="@match.Title" Url="@match.CoverUrl" Width="4rem" Decorative="false" />
+        <div>
+            <p class="title">@match.Title</p>
+            <p class="by">@match.Author</p>
+            <p class="hint">@string.Join(" · ", new[] { match.Year?.ToString(System.Globalization.CultureInfo.InvariantCulture), match.Pages is int pages ? T("{0} pages", pages) : null, match.Publisher }.OfType<string>())</p>
+            @if (lookupNote is not null)
+            {
+                <p class="hint">@lookupNote</p>
+            }
+        </div>
+    </div>
+}
+else if (lookupNote is not null)
 {
     <p class="hint">@lookupNote</p>
 }
@@ -254,6 +270,7 @@ else if (Borrowable.Length > 0)
 
     private bool looking;
     private string? lookupNote;
+    private CatalogMatch? found;
 
     [Inject]
     public IJSRuntime JS { get; set; } = default!;
@@ -300,6 +317,7 @@ else if (Borrowable.Length > 0)
     private async Task LookUp()
     {
         lookupNote = null;
+        found = null;
         if (string.IsNullOrWhiteSpace(Model.Isbn)
             && (string.IsNullOrWhiteSpace(Model.Title) || string.IsNullOrWhiteSpace(Model.Author)))
         {
@@ -311,6 +329,7 @@ else if (Borrowable.Length > 0)
         try
         {
             var match = await Lookup.FindAsync(Model.Isbn, Model.Title, Model.Author, CancellationToken.None);
+            found = match;
             lookupNote = match is null
                 ? T("Nothing matched.")
                 : Model.FillBlanks(match) ? T("Filled the empty fields.") : T("Those fields are already filled.");

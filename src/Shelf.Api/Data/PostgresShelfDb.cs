@@ -28,6 +28,13 @@ public sealed class PostgresShelfDbDesign : IDesignTimeDbContextFactory<Postgres
         new(new DbContextOptionsBuilder<PostgresShelfDb>().UseNpgsql("Host=localhost;Database=shelf;Username=shelf").Options);
 }
 
+// SQLite's own, so the migration tools asked for ShelfDb do not take the PostgreSQL one above for it.
+public sealed class ShelfDbDesign : IDesignTimeDbContextFactory<ShelfDb>
+{
+    public ShelfDb CreateDbContext(string[] args) =>
+        new(new DbContextOptionsBuilder<ShelfDb>().UseSqlite("Data Source=shelf.db").Options);
+}
+
 // Hands out PostgresShelfDb wherever a ShelfDb is asked for.
 public sealed class PostgresShelfDbFactory(IDbContextFactory<PostgresShelfDb> inner) : IDbContextFactory<ShelfDb>
 {

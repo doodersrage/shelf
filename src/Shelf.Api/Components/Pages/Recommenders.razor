@@ -16,7 +16,7 @@ else
         @foreach (var person in people)
         {
             <li>
-                <a href="@($"/?recommendedBy={Uri.EscapeDataString(person.Name)}")">@person.Name</a>
+                <a href="@($"/library?recommendedBy={Uri.EscapeDataString(person.Name)}")">@person.Name</a>
                 <span class="hint">@Localization.Counts.Books(person.Count)</span>
             </li>
         }

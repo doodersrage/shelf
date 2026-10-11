@@ -70,7 +70,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("ReaderId");
 
-                    b.ToTable("AudioBookmarks", (string)null);
+                    b.ToTable("AudioBookmarks");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Book", b =>
@@ -297,7 +297,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("VisitingLinkId");
 
-                    b.ToTable("Books", (string)null);
+                    b.ToTable("Books");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.BookText", b =>
@@ -327,7 +327,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("BookId", "Part");
 
-                    b.ToTable("BookTexts", (string)null);
+                    b.ToTable("BookTexts");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Club", b =>
@@ -360,7 +360,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("OwnerId");
 
-                    b.ToTable("Clubs", (string)null);
+                    b.ToTable("Clubs");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.ClubBook", b =>
@@ -402,7 +402,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("ClubId");
 
-                    b.ToTable("ClubBooks", (string)null);
+                    b.ToTable("ClubBooks");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.ClubMember", b =>
@@ -420,7 +420,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("ReaderId");
 
-                    b.ToTable("ClubMembers", (string)null);
+                    b.ToTable("ClubMembers");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.ClubPost", b =>
@@ -451,7 +451,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("ReaderId");
 
-                    b.ToTable("ClubPosts", (string)null);
+                    b.ToTable("ClubPosts");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Collection", b =>
@@ -491,7 +491,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("ShareToken")
                         .IsUnique();
 
-                    b.ToTable("Collections", (string)null);
+                    b.ToTable("Collections");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.CollectionBook", b =>
@@ -512,7 +512,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("BookId");
 
-                    b.ToTable("CollectionBooks", (string)null);
+                    b.ToTable("CollectionBooks");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Highlight", b =>
@@ -558,7 +558,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("ReaderId");
 
-                    b.ToTable("Highlights", (string)null);
+                    b.ToTable("Highlights");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.KoboEntry", b =>
@@ -597,7 +597,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("ReaderId", "BookId")
                         .IsUnique();
 
-                    b.ToTable("KoboEntries", (string)null);
+                    b.ToTable("KoboEntries");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.KosyncPlace", b =>
@@ -643,7 +643,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("ReaderId", "BookId")
                         .IsUnique();
 
-                    b.ToTable("KosyncPlaces", (string)null);
+                    b.ToTable("KosyncPlaces");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.LinkedAsk", b =>
@@ -688,7 +688,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("ReaderId", "LinkId", "RemoteBookId")
                         .IsUnique();
 
-                    b.ToTable("LinkedAsks", (string)null);
+                    b.ToTable("LinkedAsks");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.ListeningDay", b =>
@@ -718,7 +718,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("ReaderId", "BookId", "Day")
                         .IsUnique();
 
-                    b.ToTable("ListeningDays", (string)null);
+                    b.ToTable("ListeningDays");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.LoanAskRow", b =>
@@ -778,7 +778,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("BookId", "ReaderId")
                         .IsUnique();
 
-                    b.ToTable("LoanPlaces", (string)null);
+                    b.ToTable("LoanPlaces");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.OcrPage", b =>
@@ -804,7 +804,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("ScanId", "Page")
                         .IsUnique();
 
-                    b.ToTable("OcrPages", (string)null);
+                    b.ToTable("OcrPages");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.OcrScan", b =>
@@ -840,7 +840,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("BookId", "StoredName")
                         .IsUnique();
 
-                    b.ToTable("OcrScans", (string)null);
+                    b.ToTable("OcrScans");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.PartSummary", b =>
@@ -879,7 +879,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("BookId", "Source", "Language", "Part")
                         .IsUnique();
 
-                    b.ToTable("PartSummaries", (string)null);
+                    b.ToTable("PartSummaries");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Podcast", b =>
@@ -933,7 +933,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("OwnerId", "FeedUrl")
                         .IsUnique();
 
-                    b.ToTable("Podcasts", (string)null);
+                    b.ToTable("Podcasts");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.PodcastEpisode", b =>
@@ -997,7 +997,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("PodcastId", "Guid")
                         .IsUnique();
 
-                    b.ToTable("PodcastEpisodes", (string)null);
+                    b.ToTable("PodcastEpisodes");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Quote", b =>
@@ -1026,7 +1026,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("BookId");
 
-                    b.ToTable("Quotes", (string)null);
+                    b.ToTable("Quotes");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.ReadAlongRow", b =>
@@ -1104,7 +1104,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("ReaderId", "BookId", "Day")
                         .IsUnique();
 
-                    b.ToTable("ReadingDays", (string)null);
+                    b.ToTable("ReadingDays");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.ReadingSession", b =>
@@ -1135,7 +1135,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("BookId");
 
-                    b.ToTable("Sessions", (string)null);
+                    b.ToTable("Sessions");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.RemoteAsk", b =>
@@ -1162,7 +1162,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("BookId", "RemoteReaderId")
                         .IsUnique();
 
-                    b.ToTable("RemoteAsks", (string)null);
+                    b.ToTable("RemoteAsks");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.RemoteReader", b =>
@@ -1189,7 +1189,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("LinkId", "RemoteId")
                         .IsUnique();
 
-                    b.ToTable("RemoteReaders", (string)null);
+                    b.ToTable("RemoteReaders");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.SavedSearch", b =>
@@ -1227,7 +1227,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("ShareToken")
                         .IsUnique();
 
-                    b.ToTable("SavedSearches", (string)null);
+                    b.ToTable("SavedSearches");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.SeriesAlert", b =>
@@ -1278,7 +1278,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("OwnerId", "WorkKey")
                         .IsUnique();
 
-                    b.ToTable("SeriesAlerts", (string)null);
+                    b.ToTable("SeriesAlerts");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.ShelfLink", b =>
@@ -1327,7 +1327,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("OurSecretHash");
 
-                    b.ToTable("ShelfLinks", (string)null);
+                    b.ToTable("ShelfLinks");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.ShelfSetting", b =>
@@ -1347,8 +1347,14 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Property<bool>("LibraryAsList")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("LibrarySort")
+                        .HasColumnType("text");
+
                     b.Property<int>("PagesGoal")
                         .HasColumnType("integer");
+
+                    b.Property<string>("ReaderFont")
+                        .HasColumnType("text");
 
                     b.Property<int?>("ReaderLineHeight")
                         .HasColumnType("integer");
@@ -1358,6 +1364,9 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.Property<int?>("ReaderTextSize")
                         .HasColumnType("integer");
+
+                    b.Property<string>("ReaderTheme")
+                        .HasColumnType("text");
 
                     b.Property<int?>("ReaderWidth")
                         .HasColumnType("integer");
@@ -1373,6 +1382,9 @@ namespace Shelf.Api.Data.PostgresMigrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("Theme")
+                        .HasColumnType("text");
+
                     b.Property<bool>("WatchSeries")
                         .HasColumnType("boolean");
 
@@ -1381,7 +1393,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Settings", (string)null);
+                    b.ToTable("Settings");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.SpokenText", b =>
@@ -1411,7 +1423,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("BookId");
 
-                    b.ToTable("SpokenTexts", (string)null);
+                    b.ToTable("SpokenTexts");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Tag", b =>
@@ -1432,7 +1444,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("Tags", (string)null);
+                    b.ToTable("Tags");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Webhook", b =>
@@ -1485,7 +1497,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("ReaderId");
 
-                    b.ToTable("Webhooks", (string)null);
+                    b.ToTable("Webhooks");
                 });
 
             modelBuilder.Entity("Shelf.Api.Readers.ApiToken", b =>
@@ -1525,7 +1537,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("ReaderId");
 
-                    b.ToTable("ApiTokens", (string)null);
+                    b.ToTable("ApiTokens");
                 });
 
             modelBuilder.Entity("Shelf.Api.Readers.AuditEntry", b =>
@@ -1568,7 +1580,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("TargetId");
 
-                    b.ToTable("AuditEntries", (string)null);
+                    b.ToTable("AuditEntries");
                 });
 
             modelBuilder.Entity("Shelf.Api.Readers.PasswordReset", b =>
@@ -1600,7 +1612,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("TokenHash")
                         .IsUnique();
 
-                    b.ToTable("PasswordResets", (string)null);
+                    b.ToTable("PasswordResets");
                 });
 
             modelBuilder.Entity("Shelf.Api.Readers.PushSubscriptionRow", b =>
@@ -1819,7 +1831,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("PublicToken")
                         .IsUnique();
 
-                    b.ToTable("Readers", (string)null);
+                    b.ToTable("Readers");
                 });
 
             modelBuilder.Entity("Shelf.Api.Readers.ReaderPasskey", b =>
@@ -1863,7 +1875,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("ReaderId");
 
-                    b.ToTable("ReaderPasskeys", (string)null);
+                    b.ToTable("ReaderPasskeys");
                 });
 
             modelBuilder.Entity("Shelf.Api.Readers.ReaderSession", b =>
@@ -1889,7 +1901,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("ReaderId");
 
-                    b.ToTable("ReaderSessions", (string)null);
+                    b.ToTable("ReaderSessions");
                 });
 
             modelBuilder.Entity("Shelf.Api.Readers.RecoveryCode", b =>
@@ -1915,7 +1927,7 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.HasIndex("ReaderId");
 
-                    b.ToTable("RecoveryCodes", (string)null);
+                    b.ToTable("RecoveryCodes");
                 });
 
             modelBuilder.Entity("BookTag", b =>

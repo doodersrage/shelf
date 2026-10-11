@@ -345,6 +345,17 @@ if (!app.Environment.IsDevelopment())
 // Passwords and device keys travel with every request, so plain HTTP is sent to HTTPS when the shelf has a port for it.
 app.UseHttpsRedirection();
 
+// The library moved from / to /library in 2.0, and / became Home; an address kept from before still finds its view.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path == "/" && context.Request.QueryString.HasValue && (HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method)))
+    {
+        context.Response.Redirect("/library" + context.Request.QueryString, permanent: true);
+        return;
+    }
+
+    await next();
+});
 app.UseWebSockets();
 app.UseAuthentication();
 app.UseRequestLocalization(Regions.Configure);

@@ -9,8 +9,10 @@ Any book with an e-book opens in the reader from its page or its card in the lib
 
 ## EPUBs
 
-An EPUB reads chapter by chapter, with **Previous**, **Next**, and a list of its chapters. **Text settings** sets:
+An EPUB reads chapter by chapter, with **Previous**, **Next**, and a list of its chapters; the line beside them says which chapter of how many you're in. The book's title above is the way back to its page. **Aa Text settings** sets:
 
+- **Page**: light, sepia, or dark, or as the device is set;
+- **Typeface**: the book's own, a serif, or a sans serif;
 - **Text size**, from smaller to largest;
 - **Line spacing**: snug, comfortable, or airy;
 - **Reading width**: narrow, medium, or wide;

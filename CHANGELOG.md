@@ -4,6 +4,28 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+Shelf 2.0 reorganizes what was there rather than adding more: a front page to pick up from, a library led by its covers, a book page with fewer buttons, a quieter reader, and insights that tell the year's story.
+
+### Changed
+
+- **Home** is the front page: the book you were last in leads, with a button straight back into it, then your shelf at a glance, the other open books, read next, recently added, and recently finished.
+- **The library moved to `/library`.** Addresses from before (`/?status=Reading`, saved searches, bookmarks) redirect there.
+- The sidebar has five main places, Home, Library, Reading, Loans, and Insights; the rest folds into **Browse**, **Your copies**, and **Settings**, each opening by itself on its own pages. The phone's bottom bar is Home, Library, Add, Reading, and Insights.
+- The library's status menu became a row of chips (each status, on loan, e-book, audiobook), with counts; the chosen order is kept for next time.
+- A book's page leads with the likeliest next step (Read, Listen, Start reading, or Update progress), then the status change, **Edit**, and **More** for the rarer actions. Its details read as a summary, with the form folded away, and its sections run reading log, quotes, highlights, files and lending, then details.
+- The reader's settings fold into an **Aa Text settings** menu, so the page starts with the text; the line by the chapter list says which chapter of how many. Read aloud shows its speed and voice once it is reading.
+- **Stats** is now **Insights** (at `/insights`, and still `/stats`), with the goal form folded once goals are set.
+
+### Added
+
+- **Reading**: the books you have open, each a tap from your place, the read-next queue, your reading and listening of the last weeks, and your latest quotes and highlights.
+- On each cover in the library, its stars and its status as a menu, to change without opening the book.
+- After marking a book finished, an offer you can dismiss: rate it, keep a quote, or start the next book.
+- The reader's page in light, sepia, or dark, and a serif or sans serif typeface in place of the book's.
+- Light or dark for all of Shelf, under **Look** on **Account**, in place of following the device.
+- On Insights: a year of the days you read and listened, the authors, kinds of book, and series you return to, and milestones such as your first finished book, the hundredth, and ten thousand pages.
+- A book looked up by ISBN shows the cover and details found, to check before adding it.
+
 ## [1.9.0] - 2026-10-11
 
 ### Added

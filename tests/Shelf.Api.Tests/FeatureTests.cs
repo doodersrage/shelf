@@ -209,7 +209,7 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal(2, await BulkAsync(new BulkRequest(ids, Delete: true)));
         Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/books/{first.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await other.GetAsync($"/books/{theirs.Id}")).StatusCode);
-        Assert.Contains("Choose all shown", await _client.GetStringAsync("/?view=list"));
+        Assert.Contains("Choose all shown", await _client.GetStringAsync("/library?view=list"));
     }
 
     [Fact]
@@ -539,7 +539,7 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
             await reader.PostAsJsonAsync("/books", new CreateBookRequest($"Volume {number:000}", "Someone", BookStatus.Want, null), JsonOptions);
         }
 
-        var page = await reader.GetStringAsync("/");
+        var page = await reader.GetStringAsync("/library");
         Assert.Contains("65 books, showing 60", page);
         Assert.Contains("Show 5 more", page);
         Assert.Contains("Volume 060", page);
@@ -651,7 +651,7 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
 
         async Task<string> ListAsync(string? language)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, "/?view=list");
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/library?view=list");
             if (language is not null)
             {
                 request.Headers.AcceptLanguage.ParseAdd(language);
