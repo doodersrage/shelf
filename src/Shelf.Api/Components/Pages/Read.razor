@@ -8,6 +8,8 @@
 @inject AudioStore Audio
 @inject NavigationManager Navigation
 @inject Microsoft.Extensions.Caching.Memory.IMemoryCache Cache
+@inject IWordLookup Dictionary
+@inject IConfiguration Configuration
 
 <PageTitle>@(book?.Title ?? "Shelf")</PageTitle>
 
@@ -217,10 +219,46 @@ else if (book is not null)
             <p>
                 <button type="button" class="primary" @onclick="SaveHighlight">@(editingId is null ? T("Highlight") : T("Save the note"))</button>
                 <button type="button" @onclick="ClearSelection">@T("Cancel")</button>
+                @if (editingId is null && CanLookUp)
+                {
+                    <button type="button" class="quiet" @onclick="LookUp" disabled="@lookingUp">@(lookingUp ? T("Looking…") : T("Look up"))</button>
+                }
             </p>
             @if (markError is not null)
             {
                 <p class="validation-message" role="alert">@markError</p>
+            }
+            @if (meaning is not null)
+            {
+                <section class="look-up" aria-live="polite">
+                    @if (meaning.Senses.Length > 0)
+                    {
+                        <h3>@meaning.Word</h3>
+                        <ol>
+                            @foreach (var sense in meaning.Senses)
+                            {
+                                <li><em>@sense.PartOfSpeech</em> @sense.Definition</li>
+                            }
+                        </ol>
+                        @if (meaning.DictionaryUrl is not null)
+                        {
+                            <p class="hint"><a href="@meaning.DictionaryUrl" target="_blank" rel="noopener">@T("More in Wiktionary")</a></p>
+                        }
+                    }
+                    @if (meaning.Summary is not null)
+                    {
+                        <h3>@meaning.SummaryTitle</h3>
+                        <p>@meaning.Summary</p>
+                        @if (meaning.EncyclopediaUrl is not null)
+                        {
+                            <p class="hint"><a href="@meaning.EncyclopediaUrl" target="_blank" rel="noopener">@T("Read more in Wikipedia")</a></p>
+                        }
+                    }
+                </section>
+            }
+            else if (lookUpNote is not null)
+            {
+                <p class="hint" role="status">@lookUpNote</p>
             }
         }
         else
@@ -369,6 +407,8 @@ else if (book is not null)
     [JSInvokable]
     public void Selected(string text, string prefix, string suffix)
     {
+        meaning = null;
+        lookUpNote = null;
         selectedText = text ?? "";
         selectedPrefix = prefix ?? "";
         selectedSuffix = suffix ?? "";
@@ -680,8 +720,37 @@ else if (book is not null)
         markError = null;
     }
 
+    private WordMeaning? meaning;
+    private string? lookUpNote;
+    private bool lookingUp;
+
+    private bool CanLookUp => Configuration.GetValue("Lookup:Dictionary", true) && WordLookups.Clean(selectedText) is not null;
+
+    // A word or a short phrase, in the book's language: its definitions, and what an encyclopedia says of it.
+    private async Task LookUp()
+    {
+        if (book is null || WordLookups.Clean(selectedText) is not { } words)
+        {
+            return;
+        }
+
+        lookingUp = true;
+        lookUpNote = null;
+        try
+        {
+            meaning = await Dictionary.FindAsync(words, WordLookups.LanguageOf(book.Language), CancellationToken.None);
+            lookUpNote = meaning is null ? T("Nothing found for “{0}”.", words) : null;
+        }
+        finally
+        {
+            lookingUp = false;
+        }
+    }
+
     private void ClearSelection()
     {
+        meaning = null;
+        lookUpNote = null;
         selectedText = "";
         selectedPrefix = "";
         selectedSuffix = "";

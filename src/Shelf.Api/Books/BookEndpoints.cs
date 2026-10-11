@@ -89,6 +89,7 @@ public static class BookEndpoints
         ReadingTime.Map(books);
         YearReview.Map(books);
         Merging.Map(books);
+        WordLookups.Map(books);
 
         // Another shelf reaches these with a device key; the rest of the API needs a signed-in reader.
         var sync = app.MapGroup("/books/sync").WithTags("Shelf").RequireAuthorization(SyncEndpoints.Policy);

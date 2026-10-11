@@ -13,6 +13,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - Highlights from a Kindle: bring its My Clippings.txt in on Devices. Highlights land in an EPUB's chapters with their notes, or as quotes with their pages on other books, each once.
 - Duplicates: books with the same ISBN, or the same title and author, are listed together, and keeping one merges the others into it: details, status, notes, quotes, highlights, reading log, time spent, collections, and the files it lacks.
 - Pages in the EPUB reader: under Text settings, Layout lays a chapter out a screen at a time, turned by tapping the sides, swiping, the arrow keys, or the wheel, and on into the next chapter.
+- Look up a word: select a word or short phrase in the reader for its definitions from Wiktionary and a summary from Wikipedia, in the book's language. `Lookup:Dictionary` turns it off.
 
 ## [1.6.0] - 2026-10-11
 

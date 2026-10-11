@@ -80,6 +80,12 @@ builder.Services.AddHttpClient<ISeriesCatalog, OpenLibrarySeries>(client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("Shelf/1.0 (personal library; +https://github.com/doodersrage/shelf)");
 });
 builder.Services.AddSingleton<SeriesWatch>();
+// Words looked up in the reader, in Wiktionary and Wikipedia (Lookup:Dictionary).
+builder.Services.AddHttpClient<IWordLookup, WikimediaLookup>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Shelf/1.0 (personal library; +https://github.com/doodersrage/shelf)");
+});
 builder.Services.AddHostedService(static services => services.GetRequiredService<SeriesWatch>());
 
 builder.Services.AddHttpClient("shelf-sync", client => client.Timeout = TimeSpan.FromMinutes(10));

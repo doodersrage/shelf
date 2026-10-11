@@ -115,6 +115,7 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | `GET /books/{id}/quotes` | A book's quotes. `POST {"text": "…", "page": 12}` adds one; `DELETE /books/{id}/quotes/{quoteId}` removes it. |
 | `GET /books/quotes` | Every quote and highlight. |
 | `POST /books/{id}/sessions` | Log a reading session: `{"date": "2026-10-10", "fromPage": 10, "toPage": 42}`. |
+| `GET /books/{id}/look-up?words=` | A word or short phrase from the book, looked up in Wiktionary and Wikipedia in the book's language. |
 | `GET /books/search?q=` | Places inside your e-books where a phrase appears, best first. |
 | `GET /books/{id}/notes.md` | A book's quotes, highlights, notes, and review as Markdown. `GET /books/notes.zip` has every book. |
 

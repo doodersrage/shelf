@@ -49,6 +49,10 @@ Every book's quotes, highlights (under their chapter titles or pages), notes, an
 
 Each file starts with YAML front matter: title, author, ISBN, year, rating, status, and finish date.
 
+## Looking up a word
+
+Select a word, or a phrase of up to four words, in an EPUB or a PDF and choose **Look up**. Its definitions come from Wiktionary in the book's language (taken from its details, English when it has none), and what Wikipedia says of it below, each with a link to read more. Only the words you chose are sent, to Wikimedia; an admin can turn look-ups off with `Lookup:Dictionary`.
+
 ## Read aloud
 
 In an EPUB or a PDF, **Read aloud** speaks the chapter or page with your browser's own voices, a sentence or two at a time, and goes on into the next chapter or page by itself. Pause, resume, or stop at any point; turning a page by hand stops it too. Choose a speed and a voice; both are kept in that browser.

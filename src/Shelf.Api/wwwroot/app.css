@@ -895,6 +895,25 @@ code.key {
     text-decoration: none;
 }
 
+/* A word looked up in the reader. */
+.look-up {
+    max-width: 40rem;
+    padding: var(--space-3) var(--space-4);
+    margin: var(--space-3) 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-card);
+}
+
+.look-up h3 {
+    margin-top: 0;
+}
+
+.look-up em {
+    color: var(--color-muted);
+    margin-right: var(--space-1);
+}
+
 /* Duplicates: each look-alike with a way to keep it. */
 .duplicate-books {
     list-style: none;
