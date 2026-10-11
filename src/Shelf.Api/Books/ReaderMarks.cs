@@ -184,7 +184,10 @@ public static class ReaderMarks
               turn((event.deltaY || event.deltaX) > 0 ? 1 : -1);
             }, { passive: false });
             window.addEventListener("message", (event) => {
-              if (event.source === parent && event.data && event.data.source === "shelf-go") turn(event.data.step);
+              if (event.source !== parent || !event.data) return;
+              if (event.data.source === "shelf-go") turn(event.data.step);
+              // The page around may start listening after this page first said where it was; it asks again.
+              if (event.data.source === "shelf-ask") show(page);
             });
           }
           // Any touch, key, or wheel inside the chapter tells the page someone is reading.

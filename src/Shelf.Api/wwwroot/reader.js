@@ -36,6 +36,7 @@ export function listen(dotNet) {
   };
 
   window.addEventListener("message", handler);
+  document.querySelector("iframe.reader-frame")?.contentWindow?.postMessage({ source: "shelf-ask" }, "*");
   if (!keys) {
     // With the focus outside the chapter, the arrow keys still turn its pages.
     keys = (event) => {

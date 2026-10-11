@@ -42,14 +42,15 @@ What it does not have, yet, is phone apps: on a phone it is the website, added t
 
 ## What it does
 
-- **[A real catalog](https://doodersrage.github.io/shelf/library.html):** series, editions, translators, places, condition, ratings, reviews, and tags. Fill it from an ISBN, typed or scanned with a phone's camera. Saved searches, new books in your series, and reading lists shared by link.
-- **[Reading](https://doodersrage.github.io/shelf/reading.html):** EPUBs, PDFs, comics, and Kindle files in the browser, with highlights, notes, read aloud, search inside every book, OCR for scanned PDFs, and offline reading.
+- **[A real catalog](https://doodersrage.github.io/shelf/library.html):** series, editions, translators, narrators, places, condition, ratings, reviews, and tags. Fill it from an ISBN, typed, scanned with a phone's camera, or shared from another app. Saved searches, hand-made collections, reading lists shared by link, new books in your series, and duplicates merged in a click.
+- **[Reading](https://doodersrage.github.io/shelf/reading.html):** EPUBs, PDFs, comics, and Kindle files in the browser, scrolled or turned page by page, with highlights, notes, a dictionary, read aloud, search inside every book, OCR for scanned PDFs, and offline reading.
 - **[Audiobooks](https://doodersrage.github.io/shelf/audiobooks.html):** one file or a folder of tracks played as one book, with chapters, bookmarks, speeds from 0.5× to 3×, a sleep timer, lock-screen controls, and a mini player that keeps going while you browse.
-- **[Readers and lending](https://doodersrage.github.io/shelf/lending.html):** a shelf for each reader, loans with due dates, open shelves to ask to borrow from, and email reminders.
+- **[Readers and lending](https://doodersrage.github.io/shelf/lending.html):** a shelf for each reader, loans with due dates, open shelves to ask to borrow from, book clubs, and email reminders.
 - **[Bringing books in](https://doodersrage.github.io/shelf/adding.html):** files, an import folder, Calibre, Audiobookshelf, Goodreads, StoryGraph, and Project Gutenberg and LibriVox.
-- **[Devices](https://doodersrage.github.io/shelf/devices.html):** KOReader downloads from Shelf's catalog, keeps its place in step, and brings its highlights across; Kindles get books by email, and two shelves trade files.
+- **[Devices and services](https://doodersrage.github.io/shelf/devices.html):** Kobo e-readers sync with Shelf as with their own store; KOReader downloads from its catalog and keeps its place in step; Kindles get books by email and their highlights come across; highlights go to Readwise and reading status to Hardcover.
 - **[Security](https://doodersrage.github.io/shelf/security.html):** passkeys, two-step sign-in, single sign-on through OpenID Connect, an activity log, and [API tokens](https://doodersrage.github.io/shelf/api.html#api-tokens) for scripts and Home Assistant.
 - **[Backups](https://doodersrage.github.io/shelf/backups.html):** nightly snapshots, copies to another folder or S3-compatible storage, and a restore drill in the tests.
+- **Your year:** goals for books, pages, and hours, time spent reading and listening, and a review of each year in books.
 - **In four languages:** English, Spanish, French, and German, chosen by each reader. The translations were made by machine and want a native speaker's eye; [docs/translating.md](docs/translating.md) shows how to help.
 
 ## Install
