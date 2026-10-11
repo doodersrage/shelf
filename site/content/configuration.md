@@ -126,6 +126,7 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 | Setting | Default | What it does |
 | --- | --- | --- |
 | `Notices:Contact` | `Email:From`, or Shelf's project page | Who the push services can contact about this shelf's notifications, as `mailto:you@example.org` or a web address. Apple asks for one. |
+| `Webhooks:Enabled` | `true` | Readers' own webhooks. Webhooks post to addresses readers give, which can be on your own network (as Home Assistant usually is); set `false` if you don't want the shelf posting anywhere. |
 | `Notices:PushHosts` | none | More push services to allow, by host name and separated by commas, for a browser whose service Shelf doesn't know. Shelf sends browser notifications only to Google's, Mozilla's, Apple's, and Microsoft's. |
 
 Links in ntfy and Gotify notifications need the shelf's own address, `Email:PublicAddress`; without it, they come without a link.

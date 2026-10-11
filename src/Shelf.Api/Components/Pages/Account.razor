@@ -16,6 +16,7 @@
 @inject ReadwiseSync Readwise
 @inject HardcoverSync Hardcover
 @inject Notices Notices
+@inject Webhooks WebhookSender
 
 <PageTitle>@T("Account") · Shelf</PageTitle>
 
@@ -214,6 +215,71 @@ else if (pushState is not null)
     <p class="@(noticeProblem ? "validation-message" : "saved")" role="status">@noticeNote</p>
 }
 </section>
+
+@if (WebhookSender.Enabled)
+{
+<section class="panel" id="webhooks">
+<h2>@T("Webhooks")</h2>
+<p class="hint">@T("Shelf can post to an address of yours when something happens to your books, loans, clubs, or series: for Home Assistant, n8n, Discord, Slack, or a script of your own. JSON bodies are signed with the webhook's secret, in the X-Shelf-Signature header.")</p>
+@if (webhooks.Length > 0)
+{
+    <ul class="tag-counts">
+        @foreach (var hook in webhooks)
+        {
+            <li>
+                <span>
+                    @hook.Url
+                    <span class="hint">
+                        @hook.Format · @(hook.Events.Length == EventKinds.All.Count ? T("every event") : string.Join(", ", hook.Events.Select(EventName)))
+                        @(hook.LastStatus is int status ? " · " + T("last answered {0}", status) : hook.LastSentAt is not null ? " · " + T("last could not be reached") : "")
+                        @(hook.Enabled ? "" : " · " + T("off"))
+                    </span>
+                </span>
+                <span>
+                    <button type="button" class="quiet" @onclick="() => TestWebhook(hook.Id)">@T("Test")</button>
+                    <button type="button" class="quiet" @onclick="() => ToggleWebhook(hook)">@(hook.Enabled ? T("Turn off") : T("Turn on"))</button>
+                    <button type="button" class="quiet" @onclick="() => RemoveWebhook(hook.Id)" aria-label="@T("Remove the webhook to {0}", hook.Url)">@T("Remove")</button>
+                </span>
+            </li>
+        }
+    </ul>
+}
+@if (newWebhook is not null)
+{
+    <p role="status">@T("The webhook's secret, shown only now:") <code>@newWebhook.Secret</code></p>
+}
+<details class="edit">
+    <summary>@T("Add a webhook")</summary>
+    <label>
+        @T("Address")
+        <input type="url" @bind="webhookUrl" @bind:event="oninput" placeholder="https://homeassistant.local:8123/api/webhook/shelf" maxlength="1000" />
+    </label>
+    <label>
+        @T("Send it as")
+        <select @bind="webhookFormat">
+            <option value="@WebhookFormat.Json">@T("JSON, signed")</option>
+            <option value="@WebhookFormat.Discord">Discord</option>
+            <option value="@WebhookFormat.Slack">Slack, Mattermost</option>
+        </select>
+    </label>
+    <fieldset class="audible-take">
+        <legend>@T("For")</legend>
+        @foreach (var kind in EventKinds.All)
+        {
+            <label class="check">
+                <input type="checkbox" checked="@webhookEvents.Contains(kind)" @onchange="change => ToggleEvent(kind, change)" />
+                @EventName(kind)
+            </label>
+        }
+    </fieldset>
+    <button type="button" class="primary" @onclick="AddWebhook" disabled="@(string.IsNullOrWhiteSpace(webhookUrl) || webhookEvents.Count == 0)">@T("Add")</button>
+</details>
+@if (webhookNote is not null)
+{
+    <p class="@(webhookProblem ? "validation-message" : "saved")" role="status">@webhookNote</p>
+}
+</section>
+}
 
 <section class="panel">
 <h2>@T("Language and region")</h2>
@@ -585,6 +651,7 @@ else
         hardcoverAuto = me.HardcoverAuto;
         readwiseAuto = me.ReadwiseAuto;
         await LoadNoticesAsync(db);
+        webhooks = await Webhooks.ListAsync(db);
         currentSession = (await Authentication.GetAuthenticationStateAsync()).User.FindFirst(TwoFactor.SessionClaim)?.Value;
         sessions = await TwoFactor.SessionsAsync(db, db.ReaderId, currentSession);
     }
@@ -792,6 +859,76 @@ else
         {
             noticeBusy = false;
         }
+    }
+
+    private WebhookSummary[] webhooks = [];
+    private NewWebhook? newWebhook;
+    private string webhookUrl = "";
+    private WebhookFormat webhookFormat = WebhookFormat.Json;
+    private HashSet<string> webhookEvents = [.. EventKinds.All];
+    private bool webhookProblem;
+    private string? webhookNote;
+
+    private static string EventName(string kind) => kind switch
+    {
+        EventKinds.BookAdded => T("A book added"),
+        EventKinds.BookStarted => T("A book started"),
+        EventKinds.BookFinished => T("A book finished"),
+        EventKinds.BookLent => T("A book lent"),
+        EventKinds.BookReturned => T("A book returned"),
+        EventKinds.LoanAsked => T("An ask to borrow"),
+        EventKinds.ClubPosted => T("A club post"),
+        EventKinds.ClubJoined => T("Someone joining a club"),
+        EventKinds.SeriesFound => T("New books in a series"),
+        _ => kind,
+    };
+
+    private void ToggleEvent(string kind, ChangeEventArgs change)
+    {
+        if (change.Value is true)
+        {
+            webhookEvents.Add(kind);
+        }
+        else
+        {
+            webhookEvents.Remove(kind);
+        }
+    }
+
+    private async Task AddWebhook()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var (made, problem) = await WebhookSender.AddAsync(db, webhookUrl, webhookFormat, webhookEvents);
+        (newWebhook, webhookProblem, webhookNote) = (made, problem is not null, problem);
+        if (made is not null)
+        {
+            (webhookUrl, webhookEvents) = ("", [.. EventKinds.All]);
+        }
+
+        webhooks = await Webhooks.ListAsync(db);
+    }
+
+    private async Task TestWebhook(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var status = await WebhookSender.TestAsync(db, id);
+        (webhookProblem, webhookNote) = status is >= 200 and < 300 ? (false, T("Sent; it answered {0}.", status)) : status is int other ? (true, T("Sent, but it answered {0}.", other)) : (true, T("The address could not be reached."));
+        webhooks = await Webhooks.ListAsync(db);
+    }
+
+    private async Task ToggleWebhook(WebhookSummary hook)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Webhooks.SetAsync(db, hook.Id, !hook.Enabled);
+        webhooks = await Webhooks.ListAsync(db);
+    }
+
+    private async Task RemoveWebhook(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Webhooks.RemoveAsync(db, id);
+        newWebhook = newWebhook?.Webhook.Id == id ? null : newWebhook;
+        webhooks = await Webhooks.ListAsync(db);
     }
 
     private sealed record PushSubscriptionJson(string Endpoint, string P256dh, string Auth, string? Label);

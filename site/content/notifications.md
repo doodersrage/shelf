@@ -1,6 +1,6 @@
 ---
 title: Notifications
-description: Hear about loans, asks to borrow, new books in your series, and your book clubs, on your phone or computer, or by ntfy or Gotify.
+description: Hear about loans, asks to borrow, new books in your series, and your book clubs, on your phone or computer, or by ntfy or Gotify; and webhooks for Home Assistant, Discord, and the like.
 ---
 
 # Notifications
@@ -40,3 +40,35 @@ For a [Gotify](https://gotify.net) server of your own, make an application on it
 ## For admins
 
 Notifications to browsers are signed with a key Shelf makes the first time it starts, kept beside the keys that seal sign-ins. A restore that brings those keys back keeps every device subscribed. Settings are under [Configuration](configuration.md#notifications-and-webhooks).
+
+## Webhooks
+
+A webhook posts to an address of yours when something happens: for [Home Assistant](https://www.home-assistant.io/docs/automation/trigger/#webhook-trigger), n8n, Node-RED, a Discord or Slack channel, or a script. Add one under **Account**, in **Webhooks**, with its address, the form to send, and the events you want. Each reader's webhooks hear only about their own books, loans, clubs, and series.
+
+| Event | When |
+| --- | --- |
+| `book.added` | You add a book. |
+| `book.started`, `book.finished` | A book of yours becomes Reading, or Finished. |
+| `book.lent`, `book.returned` | You lend a book, or are lent one; it comes back. |
+| `loan.asked` | Someone asks to borrow a book of yours. |
+| `club.posted`, `club.joined` | A post in one of your clubs; someone is added to one. |
+| `series.found` | New books in your series, with how many. |
+
+**Discord** and **Slack, Mattermost** send the event as a sentence, in your language. **JSON, signed** sends this:
+
+```json
+{
+  "event": "book.finished",
+  "at": "2026-10-11T18:20:00+00:00",
+  "actor": { "id": 1, "name": "Tenar" },
+  "book": { "id": 42, "title": "Piranesi", "author": "Susanna Clarke", "status": "finished", "isbn": "9781635575996", "url": "https://shelf.example.org/library/42" },
+  "reader": null,
+  "club": null,
+  "count": null,
+  "text": null
+}
+```
+
+The header `X-Shelf-Event` names the event, and `X-Shelf-Signature` is `sha256=` and the HMAC-SHA256 of the body, keyed with the webhook's secret. The secret is shown once, when you add the webhook; check the signature to know a post came from your shelf. `book.url` needs `Email:PublicAddress` set.
+
+**Test** sends a `webhook.test` event now and shows the answer. A webhook that fails 20 times in a row is turned off until you turn it on again. An admin can turn webhooks off for everyone with `Webhooks:Enabled=false`.

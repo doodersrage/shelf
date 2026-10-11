@@ -115,6 +115,10 @@ builder.Services.AddHttpClient<INoticeChannels, NoticeChannels>(client => client
 builder.Services.AddSingleton<Notices>();
 builder.Services.AddSingleton<IShelfEventHandler>(static services => services.GetRequiredService<Notices>());
 builder.Services.AddHostedService(static services => services.GetRequiredService<Notices>());
+// Each reader's own webhooks, for Home Assistant, Discord, Slack, and the like (Webhooks:Enabled).
+builder.Services.AddHttpClient<IWebhookPoster, WebhookPoster>(client => client.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddSingleton<Webhooks>();
+builder.Services.AddSingleton<IShelfEventHandler>(static services => services.GetRequiredService<Webhooks>());
 
 builder.Services.AddHttpClient("shelf-sync", client => client.Timeout = TimeSpan.FromMinutes(10));
 

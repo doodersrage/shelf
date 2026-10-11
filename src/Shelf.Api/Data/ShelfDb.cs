@@ -59,6 +59,7 @@ public sealed class ShelfDb : DbContext
     public DbSet<ClubBook> ClubBooks => Set<ClubBook>();
     public DbSet<ClubPost> ClubPosts => Set<ClubPost>();
     public DbSet<PushSubscriptionRow> PushSubscriptions => Set<PushSubscriptionRow>();
+    public DbSet<Webhook> Webhooks => Set<Webhook>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -175,6 +176,16 @@ public sealed class ShelfDb : DbContext
             push.HasIndex(item => item.Endpoint).IsUnique();
             push.HasIndex(item => item.ReaderId);
             push.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Webhook>(hook =>
+        {
+            hook.Property(item => item.Url).HasMaxLength(1000);
+            hook.Property(item => item.Format).HasConversion<string>().HasMaxLength(16);
+            hook.Property(item => item.Events).HasMaxLength(500);
+            hook.Property(item => item.Secret).HasMaxLength(1000);
+            hook.HasIndex(item => item.ReaderId);
+            hook.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<ClubMember>(member =>
