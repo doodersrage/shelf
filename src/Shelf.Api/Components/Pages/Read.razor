@@ -129,6 +129,7 @@ else if (book is not null)
                     <button type="button" class="@(alongOn ? "primary" : "quiet")" @onclick="ToggleAlong" aria-pressed="@(alongOn ? "true" : "false")">@(alongOn ? T("Stop listening along") : T("Listen along"))</button>
                 }
             </div>
+            <RecapPanel BookId="book.Id" Place="() => Task.FromResult(new RecapRequest(chapter, chapterAt))" />
             @if (alongOn)
             {
                 <p class="hint" role="status">@T("The audiobook plays from the first word on the screen, and the word being read is marked. Double-tap a word to go there.")</p>

@@ -1599,6 +1599,8 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
 
     public StubPodcastClient PodcastFeeds { get; } = new();
 
+    public StubRecapWriter Writer { get; } = new();
+
     // This shelf's own address, and where calls to linked shelves go: set before the shelf starts.
     public string? PublicAddress { get; set; }
 
@@ -1681,6 +1683,7 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
             services.AddSingleton<ITranscriber>(Transcriber);
             services.AddSingleton<IAudioCutter, StubCutter>();
             services.AddSingleton<IPodcastClient>(PodcastFeeds);
+            services.AddSingleton<IRecapWriter>(Writer);
             if (LinkHandler is not null)
             {
                 services.AddHttpClient(LinkClient.ClientName).ConfigurePrimaryHttpMessageHandler(() => LinkHandler);

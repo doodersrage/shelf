@@ -1,0 +1,64 @@
+@* "Previously in this book": a recap of what has happened up to the reader's place. *@
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject Recaps Recaps
+
+@if (Recaps.Enabled)
+{
+    <details class="recap" @ontoggle="Toggled" open="@open">
+        <summary>@T("Previously in this book")</summary>
+        @if (busy)
+        {
+            <p role="status">@T("Catching up on the story so far… The first time can take a minute.")</p>
+        }
+        else if (problem is not null)
+        {
+            <p class="validation-message" role="alert">@problem</p>
+        }
+        else if (recap is not null)
+        {
+            @foreach (var paragraph in recap.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                <p>@paragraph</p>
+            }
+            <p class="hint">@T("Written by a language model from the book up to your place, and nothing after it. It can get things wrong.") <button type="button" class="quiet" @onclick="Write">@T("Write it again")</button></p>
+        }
+    </details>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public int BookId { get; set; }
+
+    // Where the reader is, asked when the recap is wanted.
+    [Parameter, EditorRequired]
+    public Func<Task<RecapRequest>> Place { get; set; } = default!;
+
+    private bool open;
+    private bool busy;
+    private string? problem;
+    private Recap? recap;
+
+    private async Task Toggled()
+    {
+        open = !open;
+        if (open && recap is null && !busy)
+        {
+            await Write();
+        }
+    }
+
+    private async Task Write()
+    {
+        (busy, problem) = (true, null);
+        try
+        {
+            var place = await Place();
+            await using var db = await DbFactory.CreateDbContextAsync();
+            (recap, problem) = await Recaps.WriteAsync(db, BookId, place);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

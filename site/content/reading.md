@@ -64,6 +64,12 @@ In an EPUB or a PDF, **Read aloud** speaks the chapter or page with your browser
 > [!NOTE]
 > Nothing is sent to the server or anywhere else to read aloud. How it sounds depends on the voices your device has; phones and Macs usually have good ones.
 
+## Previously in this book
+
+Coming back to a book after a while, open **Previously in this book** above the reader for a short recap: who is who, what has happened, and where you stopped. It covers the book up to your place and nothing after it: each chapter before yours is summed up from its own text, and the recap is written from those summaries and the last passage you read, so there's nothing later in the book it could give away. In the player, an audiobook with a [transcript](audiobooks.md#read-along) gets one too, up to the player's place.
+
+Recaps are written by a language model: Anthropic's Claude, with a key an admin sets (`Recap:ApiKey`). The text of the chapters you've read goes to Anthropic to be summed up. The chapter summaries are kept, so a book's chapters are each sent once, and coming back again costs one short request. A recap can get things wrong, as the panel says. Without a key, the panel isn't shown.
+
 ## Search inside books
 
 **Search inside books** finds a phrase in the words of your e-books and of books lent to you, scanned PDFs included once they have been read. Results come best match first, shown in context, and **Open here** takes you to that chapter or page. Case and accents don't matter (`cafe` finds `café`), and the last word can be partial.

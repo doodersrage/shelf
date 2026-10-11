@@ -131,6 +131,11 @@ builder.Services.AddSingleton<IShelfEventHandler>(static services => services.Ge
 builder.Services.AddHttpClient<ITranscriber, OpenAiTranscriber>(client => client.Timeout = TimeSpan.FromHours(2)).RemoveAllResilienceHandlers();
 #pragma warning restore EXTEXP0001
 builder.Services.AddSingleton<IAudioCutter, FfmpegCutter>();
+// "Previously in this book", written by a model an admin chooses (Recap:ApiKey); a request is never sent twice.
+#pragma warning disable EXTEXP0001
+builder.Services.AddHttpClient<IRecapWriter, AnthropicWriter>(client => client.Timeout = TimeSpan.FromMinutes(2)).RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
+builder.Services.AddSingleton<Recaps>();
 // Podcasts: feeds read every hour, and the newest episodes kept downloaded.
 builder.Services.AddHttpClient<IPodcastClient, PodcastClient>(client =>
 {

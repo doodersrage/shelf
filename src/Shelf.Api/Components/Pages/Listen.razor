@@ -121,6 +121,11 @@ else if (book is not null)
             </div>
         </div>
 
+        @if (hasTranscript)
+        {
+            <RecapPanel BookId="book.Id" Place="RecapPlace" />
+        }
+
         <div class="listen-panels">
             <section class="panel">
                 <h2>@T("Bookmarks")</h2>
@@ -260,6 +265,7 @@ else if (book is not null)
             return;
         }
 
+        hasTranscript = await db.SpokenTexts.AnyAsync(text => text.BookId == Id && text.AudioStoredName == book!.AudioStoredName);
         bookmarks = await Lending.Bookmarks(db, open!).AsNoTracking().OrderBy(mark => mark.Track).ThenBy(mark => mark.Seconds).ToListAsync();
         if (TimeQuery is double time && time >= 0)
         {
@@ -304,6 +310,11 @@ else if (book is not null)
         {
         }
     }
+
+    private bool hasTranscript;
+
+    // An audiobook's recap goes up to where the player is.
+    private async Task<RecapRequest> RecapPlace() => new(Seconds: (await NowAsync())?.BookSeconds ?? 0);
 
     private async Task<PlayerNow?> NowAsync()
     {

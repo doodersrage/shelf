@@ -123,6 +123,16 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 | `Lookup:GoogleBooksKey` | none | A Google Books API key (free, from the Google Cloud console). Without one, look-ups share Google's allowance for anonymous callers everywhere, which often runs out for the day; Shelf then carries on with Open Library alone. |
 | `SeriesAlerts:Enabled` | `true` | The daily look at Open Library for new books in a series, for readers who turn it on under Series. Set `false` to stop it for everyone. |
 
+## Recaps
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `Recap:ApiKey` | none | An Anthropic API key, for **Previously in this book**. Without one, recaps are off. |
+| `Recap:Model` | `claude-haiku-5-5` | The model that writes recaps. A larger one writes better, for more. |
+| `Recap:Enabled` | `true` | Turn recaps off without removing the key. |
+
+The text of the chapters a reader has read is sent to Anthropic to be summed up; see [Previously in this book](reading.md#previously-in-this-book).
+
 ## Read-along
 
 | Setting | Default | What it does |

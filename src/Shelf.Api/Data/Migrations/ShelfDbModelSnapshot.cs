@@ -806,6 +806,43 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("OcrScans");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.PartSummary", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Part")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(48)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId", "Source", "Language", "Part")
+                        .IsUnique();
+
+                    b.ToTable("PartSummaries");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.Podcast", b =>
                 {
                     b.Property<int>("Id")
@@ -2051,6 +2088,15 @@ namespace Shelf.Api.Data.Migrations
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.OcrScan", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", null)
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.PartSummary", b =>
                 {
                     b.HasOne("Shelf.Api.Books.Book", null)
                         .WithMany()
