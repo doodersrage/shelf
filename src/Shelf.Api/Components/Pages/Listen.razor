@@ -154,10 +154,10 @@ else if (book is not null)
                 }
             </section>
 
-            @if (plan.Chapters.Length > 1)
+            @if (plan.Chapters.Length > 1 || !borrowed)
             {
                 <section class="panel">
-                    <h2>@(marks.Count > 1 ? T("Chapters") : T("Tracks"))</h2>
+                    <h2>@(marks.Count > 1 || book!.AudioChapterNames is not null ? T("Chapters") : T("Tracks"))</h2>
                     <ol class="chapter-list">
                         @foreach (var chapter in plan.Chapters)
                         {
@@ -172,6 +172,10 @@ else if (book is not null)
                             </li>
                         }
                     </ol>
+                    @if (!borrowed)
+                    {
+                        <ChapterEditor BookId="plan.BookId" Plan="plan" Edited="book!.AudioChapterNames is not null" />
+                    }
                 </section>
             }
 

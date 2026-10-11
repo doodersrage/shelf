@@ -3024,3 +3024,24 @@ blockquote mark {
     margin-top: 0.25rem;
     user-select: all;
 }
+
+/* The chapter editor: a name and a start on each line. */
+.chapter-rows {
+    padding-left: 1.5rem;
+}
+
+.chapter-rows li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.chapter-name {
+    flex: 1 1 14rem;
+}
+
+.chapter-start {
+    max-width: 7rem;
+}

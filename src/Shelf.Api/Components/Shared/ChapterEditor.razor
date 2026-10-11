@@ -1,0 +1,110 @@
+@* Chapters by hand: names and start times, for a recording with none, or with ones that are wrong. *@
+@using Microsoft.JSInterop
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject AudioStore Audio
+@inject IJSRuntime Js
+@inject NavigationManager Navigation
+
+<details class="edit chapter-editor" id="chapter-editor" @ontoggle="Opened">
+    <summary>@T("Edit the chapters")</summary>
+    <p class="hint">@T("Name each chapter and say where it starts, as 1:02:03 or 62:03. Add a chapter here sets it where the player is now. Saved chapters replace the file's own, or Audible's, until you go back to them.")</p>
+    <ol class="chapter-rows">
+        @foreach (var row in rows)
+        {
+            <li>
+                <input type="text" @bind="row.Title" maxlength="200" class="chapter-name" aria-label="@T("Name of chapter {0}", rows.IndexOf(row) + 1)" />
+                <input type="text" @bind="row.Start" inputmode="decimal" class="chapter-start" aria-label="@T("Start of chapter {0}", rows.IndexOf(row) + 1)" />
+                <button type="button" class="quiet" @onclick="() => rows.Remove(row)" aria-label="@T("Remove chapter {0}", rows.IndexOf(row) + 1)">@T("Remove")</button>
+            </li>
+        }
+    </ol>
+    <p>
+        <button type="button" @onclick="AddHere">@T("Add a chapter here")</button>
+        <button type="button" class="primary" @onclick="Save">@T("Save the chapters")</button>
+        @if (Edited)
+        {
+            <button type="button" class="quiet" @onclick="Reset">@T("Use the file's own chapters")</button>
+        }
+    </p>
+    @if (problem is not null)
+    {
+        <p class="validation-message" role="alert">@problem</p>
+    }
+</details>
+
+@code {
+    [Parameter, EditorRequired]
+    public int BookId { get; set; }
+
+    [Parameter, EditorRequired]
+    public AudioPlan Plan { get; set; } = default!;
+
+    [Parameter]
+    public bool Edited { get; set; }
+
+    private sealed class Row
+    {
+        public string Title { get; set; } = "";
+        public string Start { get; set; } = "0:00";
+    }
+
+    private List<Row> rows = [];
+    private string? problem;
+    private bool filled;
+
+    private void Opened()
+    {
+        if (filled)
+        {
+            return;
+        }
+
+        filled = true;
+        rows = Plan.Chapters.Select(chapter => new Row
+        {
+            Title = chapter.Title,
+            Start = ChapterEditing.Clock(Plan.Tracks.Take(chapter.Track).Sum(track => track.Length ?? 0) + chapter.Start),
+        }).ToList();
+    }
+
+    public sealed record PlayerNow(int BookId, double BookSeconds);
+
+    private async Task AddHere()
+    {
+        var seconds = 0.0;
+        try
+        {
+            var now = await Js.InvokeAsync<PlayerNow>("shelfPlayer.now");
+            seconds = now.BookId == BookId ? now.BookSeconds : 0;
+        }
+        catch (JSException)
+        {
+        }
+
+        rows.Add(new Row { Title = T("Chapter {0}", rows.Count + 1), Start = ChapterEditing.Clock(seconds) });
+        rows = rows.OrderBy(row => ChapterEditing.ParseClock(row.Start) ?? double.MaxValue).ToList();
+    }
+
+    private async Task Save()
+    {
+        if (rows.FirstOrDefault(row => ChapterEditing.ParseClock(row.Start) is null) is { } bad)
+        {
+            problem = T("\"{0}\" is not a time. Write it as 1:02:03, 62:03, or seconds.", bad.Start);
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        problem = await ChapterEditing.SaveAsync(db, Audio, BookId, rows.Select(row => new ChapterMark(row.Title, ChapterEditing.ParseClock(row.Start)!.Value)).ToList());
+        if (problem is null)
+        {
+            Navigation.Refresh(forceReload: true);
+        }
+    }
+
+    private async Task Reset()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Audible.ForgetChaptersAsync(db, BookId);
+        Navigation.Refresh(forceReload: true);
+    }
+}

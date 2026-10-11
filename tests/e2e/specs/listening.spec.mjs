@@ -220,3 +220,25 @@ test("Play on a book's page or its card starts it in the mini player, and the pa
   await mini.getByRole("button", { name: "Close the player" }).click();
   noProblems(page);
 });
+
+test("chapters edited by hand replace the tracks' names in the player", async ({ browser }) => {
+  const page = await signUp(browser, unique("Chapter Maker"));
+  const book = await createBook(page, { title: "Three Parts", author: "Someone", status: "Reading" });
+  await upload(page, book.id, "audio", "three-tracks.zip", "application/zip");
+
+  await page.goto(`/library/${book.id}/listen`);
+  await ready(page);
+  await page.locator("#chapter-editor summary").click();
+  await expect(page.locator(".chapter-rows li")).toHaveCount(3);
+  await page.getByLabel("Name of chapter 1").fill("The Beginning");
+  await page.getByLabel("Name of chapter 2").fill("The Middle");
+  await page.getByLabel("Remove chapter 3").click();
+  await page.getByRole("button", { name: "Save the chapters" }).click();
+  await expect(page.locator(".chapter-list")).toContainText("The Beginning");
+  await expect(page.locator(".chapter-list li")).toHaveCount(2);
+
+  await page.locator("#chapter-editor summary").click();
+  await page.getByRole("button", { name: "Use the file's own chapters" }).click();
+  await expect(page.locator(".chapter-list li")).toHaveCount(3);
+  noProblems(page);
+});

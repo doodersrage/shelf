@@ -13,6 +13,10 @@ On a book's page, under **Files**, upload one audio file or a zip of tracks, up 
 
 If the files carry cover art (an `.m4b`'s cover, or an MP3's front-cover picture) and the book has no cover yet, the art becomes its cover.
 
+### Editing the chapters
+
+Under the list of chapters in the player, **Edit the chapters** lets you name each one and say where it starts (as `1:02:03`, `62:03`, or seconds), remove some, or **Add a chapter here** at the player's place. Saved chapters replace the file's own, or Audible's, across one file or many tracks. **Use the file's own chapters** goes back. The API takes them too: `PUT /books/{id}/audio/chapters` with a list of `{ "title", "start" }`.
+
 ### Matching it on Audible
 
 Under the recording, **Match on Audible** searches Audible's catalogue by the book's title and author, or by an ASIN (the ten letters and digits in the book's address at Audible). Choose the Audible store whose edition you have; each country sells its own. For the match you choose, Shelf can take:

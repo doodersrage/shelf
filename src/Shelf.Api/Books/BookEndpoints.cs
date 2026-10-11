@@ -95,6 +95,7 @@ public static class BookEndpoints
         Audible.Map(books);
         NextReadsRules.Map(books);
         ReadAlongService.Map(books);
+        ChapterEditing.Map(books);
 
         // Another shelf reaches these with a device key; the rest of the API needs a signed-in reader.
         var sync = app.MapGroup("/books/sync").WithTags("Shelf").RequireAuthorization(SyncEndpoints.Policy);
