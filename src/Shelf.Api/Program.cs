@@ -278,6 +278,7 @@ Kosync.Map(app);
 app.MapGet("/version", () => TypedResults.Ok(ShelfVersion.Response)).WithTags("Shelf").AllowAnonymous();
 app.MapBooks();
 SharedLists.Map(app);
+Kobo.Map(app);
 await app.RunAsync();
 return 0;
 

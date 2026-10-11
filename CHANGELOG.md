@@ -19,6 +19,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - Book clubs: readers on the same shelf read together. Start a club and invite readers; members add books, pick the one being read, talk about each, and put one on their own shelf in a click.
 - Readwise: connect it on Account with your access token, then send your highlights and quotes there, all at once or every hour as you make them.
 - Hardcover: connect it on Account with your API token, and each book's status, stars, and reading dates go to your Hardcover account as they change.
+- Kobo sync: a Kobo e-reader takes your EPUBs (all, or one collection) from Shelf as if from its own store, downloads them over Wi-Fi, and sends its place and finished books back. Set it up on Devices.
 
 ## [1.6.0] - 2026-10-11
 

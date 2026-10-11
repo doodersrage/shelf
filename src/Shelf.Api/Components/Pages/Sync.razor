@@ -86,6 +86,39 @@ else if (hasKey)
 }
 </section>
 
+<section class="panel" id="kobo">
+<h2>Kobo</h2>
+<p>@T("A Kobo e-reader can take your EPUBs from Shelf as if from its own store: its sync downloads them over Wi-Fi, and where you stop on the Kobo comes back here.")</p>
+@if (koboLine is not null)
+{
+    <p>@T("Connect the Kobo to a computer by its cable, open the file .kobo/Kobo/Kobo eReader.conf on it, and under [OneStoreServices] replace the api_endpoint line with this one. Then eject the Kobo and sync it.")</p>
+    <p><code class="key">@koboLine</code></p>
+    <p class="hint">@T("Copy it now. It is not shown again.")</p>
+}
+else if (hasKobo)
+{
+    <p class="hint">@T("A Kobo is connected. A new link stops the old one from working.")</p>
+}
+<label>
+    @T("Books the Kobo gets")
+    <select @bind="koboCollection" @bind:after="SaveKoboCollection">
+        <option value="0">@T("All my EPUBs")</option>
+        @foreach (var collection in collections)
+        {
+            <option value="@collection.Id">@collection.Name</option>
+        }
+    </select>
+</label>
+<p>
+    <button type="button" @onclick="MakeKoboLink">@(hasKobo ? T("Make a new Kobo link") : T("Make a Kobo link"))</button>
+    @if (hasKobo)
+    {
+        <button type="button" class="quiet" @onclick="StopKobo">@T("Stop syncing with the Kobo")</button>
+    }
+</p>
+<p class="hint">@T("To go back to Kobo's own store, put the old api_endpoint line back: https://storeapi.kobo.com.")</p>
+</section>
+
 <section class="panel">
 <h2>@T("Another shelf")</h2>
 <EditForm Model="form" OnValidSubmit="Save">
@@ -211,6 +244,37 @@ else if (hasKey)
         var reader = await db.Readers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == db.ReaderId);
         readerName = reader?.Name;
         hasKosync = reader?.KosyncHash is not null;
+        hasKobo = reader?.KoboTokenHash is not null;
+        koboCollection = reader?.KoboCollectionId ?? 0;
+        collections = (await Collections.ListAsync(db)).ToList();
+    }
+
+    private bool hasKobo;
+    private string? koboLine;
+    private int koboCollection;
+    private List<CollectionSummary> collections = [];
+
+    private async Task MakeKoboLink()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var token = await Kobo.MakeTokenAsync(db);
+        koboLine = $"api_endpoint={Navigation.ToAbsoluteUri($"/kobo/{token}").ToString().TrimEnd('/')}";
+        hasKobo = true;
+    }
+
+    private async Task StopKobo()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Kobo.StopAsync(db);
+        (hasKobo, koboLine) = (false, null);
+    }
+
+    private async Task SaveKoboCollection()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var me = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
+        me.KoboCollectionId = koboCollection == 0 ? null : koboCollection;
+        await db.SaveChangesAsync();
     }
 
     private async Task MakeKosyncPassword()

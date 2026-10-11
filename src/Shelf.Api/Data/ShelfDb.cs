@@ -44,6 +44,7 @@ public sealed class ShelfDb : DbContext
     public DbSet<ReadingDay> ReadingDays => Set<ReadingDay>();
     public DbSet<Collection> Collections => Set<Collection>();
     public DbSet<CollectionBook> CollectionBooks => Set<CollectionBook>();
+    public DbSet<KoboEntry> KoboEntries => Set<KoboEntry>();
     public DbSet<Club> Clubs => Set<Club>();
     public DbSet<ClubMember> ClubMembers => Set<ClubMember>();
     public DbSet<ClubBook> ClubBooks => Set<ClubBook>();
@@ -131,6 +132,16 @@ public sealed class ShelfDb : DbContext
             day.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
             day.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
             day.HasQueryFilter(item => item.ReaderId == ReaderId);
+        });
+
+        modelBuilder.Entity<KoboEntry>(entry =>
+        {
+            entry.HasIndex(item => new { item.ReaderId, item.BookId }).IsUnique();
+            entry.Property(item => item.Bookmark).HasMaxLength(4000);
+            entry.Property(item => item.Status).HasMaxLength(40);
+            // Not tied to the book: when the book goes, the entry stays until the next sync tells the Kobo so.
+            entry.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+            entry.HasQueryFilter(item => item.ReaderId == ReaderId);
         });
 
         // Clubs belong to no one shelf: who may see one is decided by membership, in Clubs.
@@ -228,6 +239,8 @@ public sealed class ShelfDb : DbContext
             reader.Property(r => r.KindleEmail).HasMaxLength(EmailRules.MaxAddressLength);
             reader.Property(r => r.ReadwiseToken).HasMaxLength(1000);
             reader.Property(r => r.HardcoverToken).HasMaxLength(6000);
+            reader.Property(r => r.KoboTokenHash).HasMaxLength(64);
+            reader.HasIndex(r => r.KoboTokenHash).IsUnique();
             reader.HasIndex(r => r.OidcSubject).IsUnique();
         });
 

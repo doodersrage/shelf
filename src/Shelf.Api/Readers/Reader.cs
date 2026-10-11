@@ -52,6 +52,10 @@ public sealed class Reader
     public string? HardcoverToken { get; set; }
     public bool HardcoverAuto { get; set; }
 
+    // Kobo sync: a hash of the token in the Kobo's address for Shelf, and the collection it gets (all e-books when none).
+    public string? KoboTokenHash { get; set; }
+    public int? KoboCollectionId { get; set; }
+
     // Two-step sign-in: the authenticator secret, sealed with the shelf's own keys.
     public bool TwoFactorEnabled { get; set; }
     public string? TwoFactorSecret { get; set; }

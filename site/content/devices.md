@@ -1,6 +1,6 @@
 ---
 title: Devices and apps
-description: Read on KOReader and other e-readers through OPDS, keep your place in step with KOReader, trade with another shelf, and use Shelf on a phone.
+description: Sync a Kobo, read on KOReader and other e-readers through OPDS, keep your place in step with KOReader, trade with another shelf, and use Shelf on a phone.
 ---
 
 # Devices and apps
@@ -22,6 +22,25 @@ Shelf has an OPDS catalog, the format many reading apps browse, such as KOReader
 | Password | your device key |
 
 The catalog lists your e-books by status, and the books lent to you, ready to download.
+
+## Kobo e-readers
+
+A Kobo can take your EPUBs from Shelf as if from its own store, as it does with Calibre-Web: its **Sync** downloads them over Wi-Fi, with their covers and series, and where you stop on the Kobo comes back to Shelf.
+
+1. On **Devices**, under **Kobo**, choose which books the Kobo gets: all your EPUBs, or one [collection](library.md#collections) (a "Kobo" collection, say).
+2. Choose **Make a Kobo link**, and copy the line it shows, `api_endpoint=https://…/kobo/…`. It is shown once.
+3. Connect the Kobo to a computer by its cable. Open `.kobo/Kobo/Kobo eReader.conf` on it (the `.kobo` folder may be hidden), find `[OneStoreServices]`, and replace its `api_endpoint=` line with yours. Save, eject the Kobo, and sync it.
+
+Then:
+
+- books you add (to the collection, if you chose one) come with the next sync, and books you take away, or delete, leave the Kobo;
+- the Kobo's place moves Shelf's place to the chapter it reached, and finishing a book on the Kobo marks it finished; a book opened on the Kobo moves from want to read to reading;
+- archiving a book on the Kobo keeps it on your shelf, and the Kobo isn't sent it again.
+
+The Kobo's own store pages still go to Kobo. To stop, choose **Stop syncing with the Kobo**, and put the old line back: `api_endpoint=https://storeapi.kobo.com`.
+
+> [!NOTE]
+> Kobo's protocol is not published; Shelf answers it as Calibre-Web does, and is tested against what Calibre-Web documents a Kobo sending. Books go as EPUBs, not Kobo's own KEPUB, so the Kobo's reading statistics and page numbers are simpler than for its store's books. If your Kobo does something unexpected, please open an issue with its model and firmware.
 
 ## Send to Kindle
 
