@@ -48,9 +48,16 @@ public sealed class Reader
     public bool ReadwiseAuto { get; set; }
     public DateTimeOffset? ReadwiseSentAt { get; set; }
 
+    // And the other way: highlights made elsewhere brought from Readwise, on their own every hour, and when last.
+    public bool ReadwiseAutoImport { get; set; }
+    public DateTimeOffset? ReadwiseImportedAt { get; set; }
+
     // Hardcover: the API token, sealed with the shelf's keys, and whether changes go there on their own.
     public string? HardcoverToken { get; set; }
     public bool HardcoverAuto { get; set; }
+
+    // Whether books only on Hardcover are added here when its changes are brought back.
+    public bool HardcoverAddMissing { get; set; }
 
     // Kobo sync: a hash of the token in the Kobo's address for Shelf, and the collection it gets (all e-books when none).
     public string? KoboTokenHash { get; set; }

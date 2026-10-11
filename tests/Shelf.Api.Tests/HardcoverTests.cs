@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shelf.Api.Books;
 using Shelf.Api.Data;
@@ -75,6 +76,83 @@ public sealed class HardcoverTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.Contains(asked, item => item.Body.Contains("\"finished_at\":\"2025-01-09\"", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task Changes_on_hardcover_come_back_unless_the_book_changed_here_too()
+    {
+        var reader = await factory.SignUpAsync("Hardcover Puller");
+        var readerId = await factory.ReaderIdAsync("Hardcover Puller");
+        var linked = (await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("Linked", "Author One", BookStatus.Reading, null, Isbn: "9780000000019"), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        var both = (await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("Both Changed", "Author Two", BookStatus.Reading, null, Isbn: "9780000000026"), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        var fresh = (await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("Never Sent", "Author Three", BookStatus.Want, 5), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        factory.Hardcover.Books["9780000000019"] = 601;
+        factory.Hardcover.Books["9780000000026"] = 602;
+        var sync = factory.Services.GetRequiredService<HardcoverSync>();
+        await using (var scope = Scope(readerId))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            await sync.ConnectAsync(db, StubHardcover.Good);
+            Assert.Equal(2, (await sync.SendAsync(db)).Books);
+            var me = await db.Readers.FirstAsync(item => item.Id == readerId);
+            me.HardcoverAddMissing = true;
+            await db.SaveChangesAsync();
+        }
+
+        // Here, one book changes; on Hardcover, it and another do, a third is matched by title, and a fourth is new.
+        await reader.PutAsJsonAsync($"/books/{both.Id}", new UpdateBookRequest("Both Changed", "Author Two", BookStatus.Abandoned, null, Isbn: "9780000000026"), JsonOptions);
+        factory.Hardcover.Shelf.Clear();
+        factory.Hardcover.Shelf.AddRange(
+        [
+            new HardcoverShelfBook(9100, 601, "Linked", "Author One", "9780000000019", new HardcoverStatus(3, 4, null, new DateOnly(2026, 9, 1))),
+            new HardcoverShelfBook(9101, 602, "Both Changed", "Author Two", "9780000000026", new HardcoverStatus(3, 2, null, null)),
+            new HardcoverShelfBook(9300, 700, "Never sent", "Author Three", null, new HardcoverStatus(2, 3, new DateOnly(2026, 8, 1), null)),
+            new HardcoverShelfBook(9200, 701, "Only There", "Author Four", "9780000000033", new HardcoverStatus(1, null, null, null)),
+        ]);
+        await using (var scope = Scope(readerId))
+        {
+            var brought = await sync.PullAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>());
+            Assert.Equal((true, 2, 1), (brought.Done, brought.Changed, brought.Added));
+        }
+
+        var afterLinked = await reader.GetFromJsonAsync<BookResponse>($"/books/{linked.Id}", JsonOptions);
+        Assert.Equal((BookStatus.Finished, (int?)4, (DateOnly?)new DateOnly(2026, 9, 1)), (afterLinked!.Status, afterLinked.Rating, afterLinked.FinishedOn));
+        Assert.Equal(BookStatus.Abandoned, (await reader.GetFromJsonAsync<BookResponse>($"/books/{both.Id}", JsonOptions))!.Status);
+        var afterFresh = await reader.GetFromJsonAsync<BookResponse>($"/books/{fresh.Id}", JsonOptions);
+        Assert.Equal((BookStatus.Reading, (int?)5, (DateOnly?)new DateOnly(2026, 8, 1)), (afterFresh!.Status, afterFresh.Rating, afterFresh.StartedOn));
+        var all = await reader.GetFromJsonAsync<BookResponse[]>("/books", JsonOptions);
+        Assert.Contains(all!, book => book.Title == "Only There" && book.Status == BookStatus.Want);
+
+        // What came back is not sent back. What changed only here goes, as do the never-sent book's own stars, and the
+        // linked book's start date, which Shelf set when it was added as Reading and Hardcover does not have.
+        await using (var scope = Scope(readerId))
+        {
+            var before = factory.Hardcover.Saved.Count;
+            var sent = await sync.SendAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>());
+            var went = factory.Hardcover.Saved.Skip(before).ToList();
+            Assert.Equal([601, 602, 700], went.Select(item => item.BookId).Order());
+            Assert.Equal(5, went.Single(item => item.BookId == 700).Status.Rating);
+            Assert.Equal(3, sent.Books);
+        }
+    }
+
+    [Fact]
+    public async Task The_client_reads_the_accounts_shelf_from_hardcover()
+    {
+        var handler = new Answers(_ => Task.FromResult("""
+            {"data":{"me":[{"user_books":[
+              {"id":9001,"book_id":501,"status_id":3,"rating":4.5,"book":{"title":"Piranesi","contributions":[{"author":{"name":"Susanna Clarke"}}]},
+               "edition":{"isbn_13":"9781635575996","isbn_10":null},"user_book_reads":[{"started_at":"2025-01-02","finished_at":"2025-01-09"}]},
+              {"id":9002,"book_id":502,"status_id":1,"rating":null,"book":{"title":"Jonathan Strange","contributions":[]},"edition":null,"user_book_reads":[]}
+            ]}]}}
+            """));
+        var shelf = await new HardcoverClient(new HttpClient(handler)).ShelfAsync("secret", CancellationToken.None);
+        Assert.Equal(
+            [
+                new HardcoverShelfBook(9001, 501, "Piranesi", "Susanna Clarke", "9781635575996", new HardcoverStatus(3, 5, new DateOnly(2025, 1, 2), new DateOnly(2025, 1, 9))),
+                new HardcoverShelfBook(9002, 502, "Jonathan Strange", "", null, new HardcoverStatus(1, null, null, null)),
+            ],
+            shelf);
+    }
+
     private static async Task<(int, int)> Counts(HardcoverSync sync, AsyncServiceScope scope)
     {
         var sent = await sync.SendAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>());
@@ -103,6 +181,11 @@ public sealed class StubHardcover : IHardcoverClient
 
     public ConcurrentQueue<(int BookId, int? UserBookId, HardcoverStatus Status)> Saved { get; } = new();
 
+    public List<HardcoverShelfBook> Shelf { get; } = [];
+
+    public Task<IReadOnlyList<HardcoverShelfBook>?> ShelfAsync(string token, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<HardcoverShelfBook>?>(token == Good ? [.. Shelf] : null);
+
     public Task<string?> WhoAsync(string token, CancellationToken cancellationToken) => Task.FromResult(token == Good ? "reader42" : null);
 
     public Task<int?> FindAsync(string token, string? isbn, string title, string author, CancellationToken cancellationToken) =>
@@ -111,6 +194,7 @@ public sealed class StubHardcover : IHardcoverClient
     public Task<int?> SaveAsync(string token, int bookId, int? userBookId, HardcoverStatus status, CancellationToken cancellationToken)
     {
         Saved.Enqueue((bookId, userBookId, status));
-        return Task.FromResult<int?>(userBookId ?? 9000);
+        // A new copy there gets an id of its own: 9000 for book 501.
+        return Task.FromResult<int?>(userBookId ?? 8499 + bookId);
     }
 }

@@ -93,8 +93,14 @@ else if (emailNote is not null)
         <input type="checkbox" checked="@readwiseAuto" @onchange="ChangeReadwiseAuto" />
         @T("Send new highlights and quotes every hour")
     </label>
+    <label class="check">
+        <input type="checkbox" checked="@readwiseAutoImport" @onchange="ChangeReadwiseAutoImport" />
+        @T("Bring highlights made elsewhere every hour")
+    </label>
+    <p class="hint">@T("Highlights from your Kindle, Kobo, Apple Books, and the rest come to the books on this shelf they are from, matched by title and author: into an e-book's chapter when its words are there, or else as quotes.")</p>
     <p>
         <button type="button" class="primary" @onclick="SendToReadwise" disabled="@readwiseBusy">@(readwiseBusy ? T("Sending…") : T("Send everything now"))</button>
+        <button type="button" @onclick="BringFromReadwise" disabled="@readwiseBusy">@T("Bring highlights now")</button>
         <button type="button" class="quiet" @onclick="DisconnectReadwise">@T("Disconnect")</button>
     </p>
 }
@@ -117,13 +123,18 @@ else
 <h2>Hardcover</h2>
 @if (hardcoverConnected)
 {
-    <p>@T("Connected. Each book's status, stars, and reading dates go to your Hardcover account; what you change on Hardcover does not come back here.")</p>
+    <p>@T("Connected. Each book's status, stars, and reading dates go to your Hardcover account, and what you change on Hardcover comes back to books you have not changed here since. When a book changed in both places, this shelf's goes.")</p>
     <label class="check">
         <input type="checkbox" checked="@hardcoverAuto" @onchange="ChangeHardcoverAuto" />
-        @T("Send changes every hour")
+        @T("Keep in step every hour")
+    </label>
+    <label class="check">
+        <input type="checkbox" checked="@hardcoverAddMissing" @onchange="ChangeHardcoverAddMissing" />
+        @T("Add books that are only on Hardcover")
     </label>
     <p>
         <button type="button" class="primary" @onclick="SendToHardcover" disabled="@hardcoverBusy">@(hardcoverBusy ? T("Sending…") : T("Send changes now"))</button>
+        <button type="button" @onclick="BringFromHardcover" disabled="@hardcoverBusy">@T("Bring changes from Hardcover")</button>
         <button type="button" class="quiet" @onclick="DisconnectHardcover">@T("Disconnect")</button>
     </p>
 }
@@ -649,6 +660,8 @@ else
         readwiseConnected = me.ReadwiseToken is not null;
         hardcoverConnected = me.HardcoverToken is not null;
         hardcoverAuto = me.HardcoverAuto;
+        hardcoverAddMissing = me.HardcoverAddMissing;
+        readwiseAutoImport = me.ReadwiseAutoImport;
         readwiseAuto = me.ReadwiseAuto;
         await LoadNoticesAsync(db);
         webhooks = await Webhooks.ListAsync(db);
@@ -732,7 +745,7 @@ else
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         await ReadwiseSync.DisconnectAsync(db);
-        (readwiseConnected, readwiseAuto, readwiseProblem) = (false, false, false);
+        (readwiseConnected, readwiseAuto, readwiseProblem, readwiseAutoImport) = (false, false, false, false);
         readwiseNote = T("Disconnected from Readwise.");
     }
 
@@ -976,6 +989,62 @@ else
         }
     }
 
+    private bool hardcoverAddMissing;
+    private bool readwiseAutoImport;
+
+    private async Task ChangeHardcoverAddMissing(ChangeEventArgs change)
+    {
+        hardcoverAddMissing = change.Value is true;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var me = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
+        me.HardcoverAddMissing = hardcoverAddMissing;
+        await db.SaveChangesAsync();
+    }
+
+    private async Task ChangeReadwiseAutoImport(ChangeEventArgs change)
+    {
+        readwiseAutoImport = change.Value is true;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var me = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
+        me.ReadwiseAutoImport = readwiseAutoImport;
+        await db.SaveChangesAsync();
+    }
+
+    private async Task BringFromHardcover()
+    {
+        hardcoverBusy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var brought = await Hardcover.PullAsync(db);
+            hardcoverProblem = !brought.Done;
+            hardcoverNote = !brought.Done ? T("Hardcover could not be reached, or no longer takes the token.")
+                : T("{0} books took changes from Hardcover.", brought.Changed) + (brought.Added > 0 ? " " + T("{0} were added from it.", brought.Added) : "");
+        }
+        finally
+        {
+            hardcoverBusy = false;
+        }
+    }
+
+    private async Task BringFromReadwise()
+    {
+        readwiseBusy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var brought = await Readwise.ImportAsync(db, Ebooks, everything: true);
+            readwiseProblem = !brought.Done;
+            readwiseNote = brought.Import is not { } import ? T("Readwise could not be reached, or no longer takes the token.")
+                : T("Brought {0} highlights and {1} quotes onto {2} books; {3} were here already.", import.Highlights, import.Quotes, import.Books, import.AlreadyHere)
+                    + (import.NotFound.Count > 0 ? " " + T("Not on this shelf: {0}.", string.Join(", ", import.NotFound.Take(10))) + (import.NotFound.Count > 10 ? " " + T("and {0} more", import.NotFound.Count - 10) : "") : "");
+        }
+        finally
+        {
+            readwiseBusy = false;
+        }
+    }
+
     private async Task ChangeHardcoverAuto(ChangeEventArgs change)
     {
         hardcoverAuto = change.Value is true;
@@ -989,7 +1058,7 @@ else
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         await HardcoverSync.DisconnectAsync(db);
-        (hardcoverConnected, hardcoverAuto, hardcoverProblem) = (false, false, false);
+        (hardcoverConnected, hardcoverAuto, hardcoverProblem, hardcoverAddMissing) = (false, false, false, false);
         hardcoverNote = T("Disconnected from Hardcover.");
     }
 

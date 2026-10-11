@@ -1205,6 +1205,9 @@ namespace Shelf.Api.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("HardcoverAddMissing")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("HardcoverAuto")
                         .HasColumnType("INTEGER");
 
@@ -1280,6 +1283,12 @@ namespace Shelf.Api.Data.Migrations
 
                     b.Property<bool>("ReadwiseAuto")
                         .HasColumnType("INTEGER");
+
+                    b.Property<bool>("ReadwiseAutoImport")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("ReadwiseImportedAt")
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset?>("ReadwiseSentAt")
                         .HasColumnType("TEXT");

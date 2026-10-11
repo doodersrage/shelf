@@ -17,7 +17,8 @@ public static partial class KindleClippings
 {
     public const long MaxBytes = 20 * 1024 * 1024;
 
-    public sealed record Clipping(string Title, string Author, string Kind, string Text, int? Page, int? LocationStart, int? LocationEnd, DateTimeOffset? AddedAt);
+    // A highlight, note, or bookmark from a Kindle; Note is one already joined to its highlight, as Readwise has them.
+    public sealed record Clipping(string Title, string Author, string Kind, string Text, int? Page, int? LocationStart, int? LocationEnd, DateTimeOffset? AddedAt, string? Note = null);
 
     public static IReadOnlyList<Clipping> Parse(string text)
     {
@@ -55,9 +56,14 @@ public static partial class KindleClippings
         return clippings;
     }
 
-    public static async Task<KindleImport> ImportAsync(ShelfDb db, EbookStore store, string text, CancellationToken cancellationToken)
+    public static Task<KindleImport> ImportAsync(ShelfDb db, EbookStore store, string text, CancellationToken cancellationToken) =>
+        ImportAsync(db, store, Parse(text), Say("Brought highlights from a Kindle"), cancellationToken);
+
+    // Highlights from elsewhere, onto the books they are from: in an EPUB's chapter where the words are found there,
+    // or as quotes. Each only once, however often it comes.
+    public static async Task<KindleImport> ImportAsync(ShelfDb db, EbookStore store, IEnumerable<Clipping> from, string activity, CancellationToken cancellationToken)
     {
-        var clippings = Parse(text).Where(clipping => clipping.Kind != "bookmark" && clipping.Text.Length > 0).ToList();
+        var clippings = from.Where(clipping => clipping.Kind != "bookmark" && clipping.Text.Length > 0).ToList();
         var books = await db.Books.AsNoTracking().Select(book => new { book.Id, book.Title, book.Subtitle, book.Author, book.EbookStoredName }).ToListAsync(cancellationToken);
         int highlights = 0, quotes = 0, here = 0;
         var matched = new HashSet<int>();
@@ -85,7 +91,7 @@ public static partial class KindleClippings
             {
                 var words = clipping.Text.Length > BookRules.MaxHighlightLength ? clipping.Text[..BookRules.MaxHighlightLength] : clipping.Text;
                 // A note made at the end of a highlight belongs to it.
-                var note = notes.FirstOrDefault(item => item.LocationStart is int at && clipping.LocationStart is int from && clipping.LocationEnd is int to && at >= from && at <= to)?.Text;
+                var note = clipping.Note ?? notes.FirstOrDefault(item => item.LocationStart is int at && clipping.LocationStart is int from && clipping.LocationEnd is int to && at >= from && at <= to)?.Text;
                 var located = chapters.Count > 0 ? KoreaderHighlights.Locate(chapters, null, words) : (Chapter: -1, Prefix: null, Suffix: null);
                 if (located.Chapter >= 0 && located.Prefix is not null)
                 {
@@ -125,7 +131,7 @@ public static partial class KindleClippings
         await db.SaveChangesAsync(cancellationToken);
         if (highlights + quotes > 0)
         {
-            await Audit.NoteAsync(db, Say("Brought highlights from a Kindle"), detail: (highlights + quotes).ToString(CultureInfo.InvariantCulture), cancellationToken: cancellationToken);
+            await Audit.NoteAsync(db, activity, detail: (highlights + quotes).ToString(CultureInfo.InvariantCulture), cancellationToken: cancellationToken);
         }
 
         return new KindleImport(highlights, quotes, here, matched.Count, notFound.Distinct().ToList());

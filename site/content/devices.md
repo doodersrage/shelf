@@ -88,15 +88,18 @@ Each clipping's book is found on your shelf by title and author (a Kindle writes
 - **Send everything now** sends all your highlights and quotes, each with its book, author, note, and place (the chapter of an EPUB highlight, the page of a quote);
 - **Send new highlights and quotes every hour** sends those made since, on its own.
 
-Readwise keeps one copy of each highlight however often it is sent. Highlights you make on a book lent to you are yours and go too. **Disconnect** forgets the token.
+Readwise keeps one copy of each highlight however often it is sent. Highlights you make on a book lent to you are yours and go too.
+
+It works the other way as well. **Bring highlights now**, or **Bring highlights made elsewhere every hour**, brings the highlights Readwise has from your Kindle, Kobo, Apple Books, Moon+ Reader, and the rest onto the books on your shelf they're from, matched by title and author. Like a Kindle's clippings, each lands in an EPUB's chapter when its words are found there, with its note, or else becomes a quote with its page. Nothing comes twice, Shelf's own highlights don't come back, and articles, tweets, and podcasts stay in Readwise. Books you don't have on Shelf are listed, not added. **Disconnect** forgets the token.
 
 ## Hardcover
 
-[Hardcover](https://hardcover.app) is a place to track and share your reading. On **Account**, under **Hardcover**, paste your API token from [hardcover.app/account/api](https://hardcover.app/account/api) and choose **Connect**. Then **Send changes now**, or **Send changes every hour**, sends each book's status (want to read, reading, read, or did not finish), your stars, and the dates you started and finished it.
+[Hardcover](https://hardcover.app) is a place to track and share your reading. On **Account**, under **Hardcover**, paste your API token from [hardcover.app/account/api](https://hardcover.app/account/api) and choose **Connect**. Then **Send changes now** sends each book's status (want to read, reading, read, or did not finish), your stars, and the dates you started and finished it; **Bring changes from Hardcover** brings back what you changed there; and **Keep in step every hour** does both, on its own.
 
 - A book is found on Hardcover by its ISBN, or else by its title and author. One Hardcover doesn't have is noted and not looked for again until it changes.
-- Only books whose status, stars, or dates changed since they last went are sent, forty at a time, as Hardcover asks to be called gently.
-- It goes one way: what you change on Hardcover doesn't come back to Shelf.
+- Only books whose status, stars, or dates changed since they last went are sent, forty at a time, as Hardcover asks to be called gently. Reading dates go as a new read only when they change, so Hardcover doesn't count a read twice.
+- Changes made on Hardcover come back to books that haven't changed on Shelf since they were last sent. When a book changed in both places, Shelf's goes to Hardcover. A book on both that was never sent takes only what it lacks from Hardcover (stars, dates, or a status further along).
+- **Add books that are only on Hardcover** adds those too, with their status, stars, dates, and ISBN. Hardcover's half-stars are rounded to whole ones.
 
 Hardcover's API is young and still changing; if a send stops working after a change on their side, it will need a newer Shelf. **Disconnect** forgets the token.
 
