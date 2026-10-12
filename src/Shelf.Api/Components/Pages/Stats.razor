@@ -352,7 +352,8 @@ else
         goal.YearlyGoal = stats.YearlyGoal;
         goals = await BookRules.GetGoalsAsync(db);
         (goal.PagesGoal, goal.HoursGoal) = (goals.Pages, goals.Hours);
-        shelf = await db.Books.AsNoTracking().Include(book => book.Sessions).ToListAsync();
+        // One load of the shelf, with what every figure below needs; on a shelf of tens of thousands, a second is felt.
+        shelf = await db.Books.AsNoTracking().Include(book => book.Sessions).Include(book => book.Tags).ToListAsync();
         var year = DateOnly.FromDateTime(DateTime.UtcNow).Year;
         finished = BookRules.FinishedInYear(shelf, year).ToList();
         lately = BookRules.RecentSessions(shelf).ToList();
@@ -362,8 +363,21 @@ else
         var listenedOn = await db.ListeningDays.AsNoTracking().Select(day => day.Day).ToListAsync();
         var readOn = await db.ReadingDays.AsNoTracking().Select(day => day.Day).ToListAsync();
         yearOfReading = await Insights.YearAsync(db, Today);
-        (favouriteAuthors, favouriteKinds, favouriteSeries) = Insights.Favourites(await db.Books.AsNoTracking().Include(book => book.Tags).ToListAsync());
+        (favouriteAuthors, favouriteKinds, favouriteSeries) = Insights.Favourites(shelf);
         milestones = Insights.Milestones(shelf, stats.YearlyGoal, Today);
+        sessionDays = [.. shelf.SelectMany(book => book.Sessions).Select(session => session.Date)];
+        finishedByMonth = new int[12];
+        foreach (var book in shelf)
+        {
+            if (book.Status == BookStatus.Finished && book.FinishedOn is DateOnly done && done.Year == Today.Year)
+            {
+                finishedByMonth[done.Month - 1]++;
+            }
+        }
+
+        var pages = shelf.ToDictionary(book => book.Id, book => book.Pages ?? 0);
+        pagesThisYear = finished.Sum(book => pages.GetValueOrDefault(book.Id));
+        marked = null;
         streak = BookRules.ReadingStreak(shelf.SelectMany(book => book.Sessions).Select(session => session.Date).Concat(listenedOn).Concat(readOn), DateOnly.FromDateTime(DateTime.UtcNow));
     }
 
@@ -374,10 +388,26 @@ else
 
     private int LeadingBlanks => ((int)shown.DayOfWeek + 6) % 7;
 
-    private HashSet<int> Marked => BookRules.ReadingDays(
-        shelf.SelectMany(book => book.Sessions).Select(session => session.Date),
-        shown.Year,
-        shown.Month).ToHashSet();
+    // Worked out once, not on every drawing: the days with a session logged, the month whose days are marked, and
+    // the books finished each month and the pages in those finished this year.
+    private List<DateOnly> sessionDays = [];
+    private (DateOnly Month, HashSet<int> Days)? marked;
+    private int[] finishedByMonth = new int[12];
+    private int pagesThisYear;
+
+    private HashSet<int> Marked
+    {
+        get
+        {
+            if (marked is not var (month, days) || month != shown)
+            {
+                days = BookRules.ReadingDays(sessionDays, shown.Year, shown.Month).ToHashSet();
+                marked = (shown, days);
+            }
+
+            return days;
+        }
+    }
 
     private string DayClass(int day)
     {
@@ -424,12 +454,11 @@ else
         chosen = null;
     }
 
-    private int FinishedIn(int month) =>
-        shelf.Count(book => book.Status == BookStatus.Finished && book.FinishedOn is DateOnly done && done.Year == Today.Year && done.Month == month);
+    private int FinishedIn(int month) => finishedByMonth[month - 1];
 
     private int BarWidth(int count)
     {
-        var most = Enumerable.Range(1, 12).Max(FinishedIn);
+        var most = finishedByMonth.Max();
         return most == 0 ? 0 : (int)Math.Round(100.0 * count / most);
     }
 
@@ -450,7 +479,7 @@ else
         : day.Day.Medium() + " · " + string.Join(", ", new[] { day.Minutes > 0 ? BookProgress.Span(day.Minutes * 60) : null, day.Pages > 0 ? T("{0} pages", day.Pages) : null }.OfType<string>().DefaultIfEmpty(T("read")));
 
     // Pages of the books finished this year, and whole hours spent with books this year.
-    private int PagesThisYear => finished.Sum(book => shelf.FirstOrDefault(item => item.Id == book.Id)?.Pages ?? 0);
+    private int PagesThisYear => pagesThisYear;
 
     private int HoursThisYear => (int)(((reading?.YearSeconds ?? 0) + (listening?.YearSeconds ?? 0)) / 3600);
 

@@ -73,15 +73,19 @@ public static class NextReadsRules
                 var common = book.Tags.Select(tag => tag.Name).Where(lovedTags.ContainsKey).OrderByDescending(name => lovedTags[name]).ToArray();
                 var byAuthor = lovedAuthors.GetValueOrDefault(Simple(book.Author));
                 var score = (book.Queued ? 100 : 0) + (byAuthor is not null ? 50 : 0) + common.Sum(name => Math.Min(lovedTags[name], 5) * 5) + (book.Loved ? 10 : 0);
-                var reason = book.Queued ? NextReason.Queued : byAuthor is not null ? NextReason.Author : NextReason.Subjects;
-                var because = reason == NextReason.Author ? byAuthor!.Title : reason == NextReason.Subjects ? loved.FirstOrDefault(item => item.Tags.Any(tag => common.Contains(tag.Name, StringComparer.OrdinalIgnoreCase)))?.Title : null;
-                return (Score: score, Book: book, Read: Suggest(book, reason, because, common.Take(3).ToArray()));
+                return (Score: score, Book: book, Common: common, ByAuthor: byAuthor);
             })
             .Where(item => item.Score > 0)
             .OrderByDescending(item => item.Score)
             .ThenByDescending(item => item.Book.AddedAt)
             .Take(MostShown)
-            .Select(item => item.Read)
+            // Only those shown are given their reason, which looks through the loved books for one in common.
+            .Select(item =>
+            {
+                var reason = item.Book.Queued ? NextReason.Queued : item.ByAuthor is not null ? NextReason.Author : NextReason.Subjects;
+                var because = reason == NextReason.Author ? item.ByAuthor!.Title : reason == NextReason.Subjects ? loved.FirstOrDefault(favourite => favourite.Tags.Any(tag => item.Common.Contains(tag.Name, StringComparer.OrdinalIgnoreCase)))?.Title : null;
+                return Suggest(item.Book, reason, because, item.Common.Take(3).ToArray());
+            })
             .ToArray();
 
         return new NextReads(series, await SeriesWatch.ListAsync(db, cancellationToken), shelf, await BorrowableAsync(db, books, lovedAuthors, lovedTags, cancellationToken));

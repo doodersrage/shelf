@@ -4,6 +4,13 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.7.1] - 2026-10-12
+
+### Fixed
+
+- **Insights** opens on a big shelf again: with 72,000 books it took 17 seconds to draw, twice over, and gave up; it now takes about a second and a half. A book's reading sessions, tags, and the like are now read in a query of their own rather than joined to the books, which SQLite does many times faster on a large shelf.
+- Home and Reading are about three times quicker on a big shelf, and What to read next twice as quick: the books you're reading are put in order without a list of every one of them in the query, and a suggestion's reason is worked out only for those shown.
+
 ## [2.7.0] - 2026-10-12
 
 ### Added
@@ -412,7 +419,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.7.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.7.1...HEAD
+[2.7.1]: https://github.com/doodersrage/shelf/compare/v2.7.0...v2.7.1
 [2.7.0]: https://github.com/doodersrage/shelf/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/doodersrage/shelf/compare/v2.5.1...v2.6.0
 [2.5.1]: https://github.com/doodersrage/shelf/compare/v2.5.0...v2.5.1

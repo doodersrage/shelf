@@ -66,18 +66,20 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ShelfReader>();
 builder.Services.TryAddEnumerable(ServiceDescriptor.Scoped<CircuitHandler, ReaderCircuitHandler>());
 // SQLite in a file beside the rest, as usual; or PostgreSQL (Database:Provider = Postgres, ConnectionStrings:Postgres),
-// with migrations of its own. The SQLite file's folder still holds the keys and backups either way.
+// with migrations of its own. The SQLite file's folder still holds the keys and backups either way. A book's
+// sessions, tags, and the rest come in a query of their own: joined in one, SQLite takes seconds on a shelf of tens
+// of thousands what it does apart in a fraction of one.
 var onPostgres = builder.Configuration["Database:Provider"] is { } provider && (provider.Equals("Postgres", StringComparison.OrdinalIgnoreCase) || provider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase));
 if (onPostgres)
 {
     var postgres = builder.Configuration.GetConnectionString("Postgres")
         ?? throw new InvalidOperationException("Database:Provider is Postgres, but ConnectionStrings:Postgres is missing.");
-    builder.Services.AddDbContextFactory<PostgresShelfDb>(options => options.UseNpgsql(postgres), ServiceLifetime.Scoped);
+    builder.Services.AddDbContextFactory<PostgresShelfDb>(options => options.UseNpgsql(postgres, npgsql => npgsql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)), ServiceLifetime.Scoped);
     builder.Services.AddScoped<IDbContextFactory<ShelfDb>, PostgresShelfDbFactory>();
 }
 else
 {
-    builder.Services.AddDbContextFactory<ShelfDb>(options => options.UseSqlite(sqlite.ConnectionString), ServiceLifetime.Scoped);
+    builder.Services.AddDbContextFactory<ShelfDb>(options => options.UseSqlite(sqlite.ConnectionString, sqlite => sqlite.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)), ServiceLifetime.Scoped);
 }
 
 builder.Services.AddScoped(static services =>

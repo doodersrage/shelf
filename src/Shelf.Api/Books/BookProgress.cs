@@ -45,10 +45,10 @@ public static class BookProgress
     public static async Task<List<Book>> LatestFirstAsync(ShelfDb db, IEnumerable<Book> books, CancellationToken cancellationToken = default)
     {
         var list = books.ToList();
-        var ids = list.Select(book => book.Id).ToList();
-        var logged = await db.Sessions.AsNoTracking().Where(session => ids.Contains(session.BookId))
+        // Every book's last day, not just these: a list of thousands of ids in a query is far slower than the lot.
+        var logged = await db.Sessions.AsNoTracking()
             .GroupBy(session => session.BookId).Select(group => new { group.Key, Last = group.Max(session => session.Date) }).ToDictionaryAsync(item => item.Key, item => item.Last, cancellationToken);
-        var heard = await db.ListeningDays.AsNoTracking().Where(day => ids.Contains(day.BookId) && day.ReaderId == db.ReaderId)
+        var heard = await db.ListeningDays.AsNoTracking().Where(day => day.ReaderId == db.ReaderId)
             .GroupBy(day => day.BookId).Select(group => new { group.Key, Last = group.Max(day => day.Day) }).ToDictionaryAsync(item => item.Key, item => item.Last, cancellationToken);
         DateOnly Touched(Book book) => new[] { logged.GetValueOrDefault(book.Id), heard.GetValueOrDefault(book.Id) }.Max();
         return [.. list.OrderByDescending(Touched).ThenByDescending(book => book.StartedOn ?? DateOnly.MinValue).ThenByDescending(book => book.AddedAt)];
