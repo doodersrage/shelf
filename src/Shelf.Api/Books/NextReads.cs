@@ -35,7 +35,28 @@ public static class NextReadsRules
 
     public static async Task<NextReads> SuggestAsync(ShelfDb db, CancellationToken cancellationToken = default)
     {
-        var books = await db.Books.AsNoTracking().Include(book => book.Tags).ToListAsync(cancellationToken);
+        // Only what choosing and showing a suggestion needs; a big shelf's chapter lists and notes are slow to read.
+        var books = await db.Books.AsNoTracking()
+            .Select(book => new Book
+            {
+                Id = book.Id,
+                Title = book.Title,
+                Author = book.Author,
+                Series = book.Series,
+                SeriesNumber = book.SeriesNumber,
+                Status = book.Status,
+                Loved = book.Loved,
+                Rating = book.Rating,
+                Queued = book.Queued,
+                AddedAt = book.AddedAt,
+                CoverUrl = book.CoverUrl,
+                FileCover = book.FileCover,
+                CoverImage = book.CoverImage,
+                EbookStoredName = book.EbookStoredName,
+                AudioStoredName = book.AudioStoredName,
+                Tags = book.Tags.ToList(),
+            })
+            .ToListAsync(cancellationToken);
         var loved = books.Where(book => book.Loved || book.Rating >= 4).ToList();
         var lovedAuthors = loved.GroupBy(book => Simple(book.Author)).Where(group => group.Key.Length > 0).ToDictionary(group => group.Key, group => group.OrderByDescending(book => book.Rating ?? 0).First());
         var lovedTags = loved.SelectMany(book => book.Tags.Select(tag => tag.Name)).GroupBy(name => name, StringComparer.OrdinalIgnoreCase)

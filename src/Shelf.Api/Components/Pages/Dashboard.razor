@@ -303,7 +303,32 @@ else
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         family = await Family.SharedBooksAsync(db);
-        books = await db.Books.AsNoTracking().ToListAsync();
+        // Only what Home shows and measures progress by; a big shelf's chapter lists and notes are slow to read.
+        books = await db.Books.AsNoTracking()
+            .Select(book => new Book
+            {
+                Id = book.Id,
+                Title = book.Title,
+                Author = book.Author,
+                Status = book.Status,
+                Rating = book.Rating,
+                Queued = book.Queued,
+                AddedAt = book.AddedAt,
+                StartedOn = book.StartedOn,
+                FinishedOn = book.FinishedOn,
+                LoanedTo = book.LoanedTo,
+                Pages = book.Pages,
+                CurrentPage = book.CurrentPage,
+                Format = book.Format,
+                EbookStoredName = book.EbookStoredName,
+                AudioStoredName = book.AudioStoredName,
+                AudioTrack = book.AudioTrack,
+                AudioSeconds = book.AudioSeconds,
+                CoverUrl = book.CoverUrl,
+                FileCover = book.FileCover,
+                CoverImage = book.CoverImage,
+            })
+            .ToListAsync();
         attention = await Attention.ForHomeAsync(db);
         sections = await BookRules.GetHomeSectionsAsync(db);
         goal = await BookRules.GetGoalAsync(db);

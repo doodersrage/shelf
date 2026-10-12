@@ -1060,8 +1060,52 @@ else if (visible.Count > 0)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         readerId = db.ReaderId;
-        // Only what the library shows: tags, and quotes for their count and for search.
-        books = await db.Books.AsNoTracking().Include(book => book.Tags).Include(book => book.Quotes).AsSplitQuery().ToListAsync();
+        // Only what the library shows, searches, and sorts by, with tags, and quotes for their count and for search: a
+        // big shelf's books also carry chapter lists, reviews, and places in their files, slow to read by the thousand.
+        books = await db.Books.AsNoTracking()
+            .Select(book => new Book
+            {
+                Id = book.Id,
+                OwnerId = book.OwnerId,
+                Title = book.Title,
+                Author = book.Author,
+                Subtitle = book.Subtitle,
+                OriginalTitle = book.OriginalTitle,
+                Translator = book.Translator,
+                Narrator = book.Narrator,
+                Status = book.Status,
+                Rating = book.Rating,
+                Loved = book.Loved,
+                Queued = book.Queued,
+                Year = book.Year,
+                Isbn = book.Isbn,
+                Pages = book.Pages,
+                CurrentPage = book.CurrentPage,
+                Publisher = book.Publisher,
+                Language = book.Language,
+                Format = book.Format,
+                Series = book.Series,
+                SeriesNumber = book.SeriesNumber,
+                Notes = book.Notes,
+                Inscription = book.Inscription,
+                Location = book.Location,
+                Condition = book.Condition,
+                Acquisition = book.Acquisition,
+                RecommendedBy = book.RecommendedBy,
+                LoanedTo = book.LoanedTo,
+                LoanedOn = book.LoanedOn,
+                DueOn = book.DueOn,
+                FinishedOn = book.FinishedOn,
+                AddedAt = book.AddedAt,
+                CoverUrl = book.CoverUrl,
+                FileCover = book.FileCover,
+                CoverImage = book.CoverImage,
+                EbookStoredName = book.EbookStoredName,
+                AudioStoredName = book.AudioStoredName,
+                Tags = book.Tags.ToList(),
+                Quotes = book.Quotes.ToList(),
+            })
+            .ToListAsync();
     }
 
     private async Task AddBook()

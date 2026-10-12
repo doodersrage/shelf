@@ -352,8 +352,22 @@ else
         goal.YearlyGoal = stats.YearlyGoal;
         goals = await BookRules.GetGoalsAsync(db);
         (goal.PagesGoal, goal.HoursGoal) = (goals.Pages, goals.Hours);
-        // One load of the shelf, with what every figure below needs; on a shelf of tens of thousands, a second is felt.
-        shelf = await db.Books.AsNoTracking().Include(book => book.Sessions).Include(book => book.Tags).ToListAsync();
+        // One load of the shelf, and only what the figures below need: a big shelf's books carry chapter lists, notes,
+        // and reviews that would take far longer to read than the figures take to work out.
+        shelf = await db.Books.AsNoTracking()
+            .Select(book => new Book
+            {
+                Id = book.Id,
+                Title = book.Title,
+                Author = book.Author,
+                Status = book.Status,
+                FinishedOn = book.FinishedOn,
+                Pages = book.Pages,
+                Series = book.Series,
+                Tags = book.Tags.ToList(),
+                Sessions = book.Sessions.ToList(),
+            })
+            .ToListAsync();
         var year = DateOnly.FromDateTime(DateTime.UtcNow).Year;
         finished = BookRules.FinishedInYear(shelf, year).ToList();
         lately = BookRules.RecentSessions(shelf).ToList();

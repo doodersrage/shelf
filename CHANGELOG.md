@@ -4,6 +4,13 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.7.2] - 2026-10-12
+
+### Fixed
+
+- **Insights** opens on a big shelf with many tags: each tag's books were counted with a look of its own through the shelf, seconds on tens of thousands of books with a few hundred tags. They're now counted together, and the page reads only the few details of each book its figures need.
+- Home, Library, and What to read next read only the details of each book they show, rather than everything, such as an audiobook's chapter list, so a big shelf opens noticeably quicker.
+
 ## [2.7.1] - 2026-10-12
 
 ### Fixed
@@ -419,7 +426,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.7.1...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.7.2...HEAD
+[2.7.2]: https://github.com/doodersrage/shelf/compare/v2.7.1...v2.7.2
 [2.7.1]: https://github.com/doodersrage/shelf/compare/v2.7.0...v2.7.1
 [2.7.0]: https://github.com/doodersrage/shelf/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/doodersrage/shelf/compare/v2.5.1...v2.6.0

@@ -299,9 +299,12 @@ public static class BookRules
             .ToListAsync(cancellationToken);
         var goal = await GetGoalAsync(db, cancellationToken);
 
-        var tags = await db.Tags.AsNoTracking()
-            .Where(tag => tag.Books.Any())
-            .Select(tag => new TagCountResponse(tag.Name, tag.Books.Count()))
+        // Counted from the books' side in one grouping: a count per tag, each its own look through the books, takes
+        // seconds on a big shelf.
+        var tags = await db.Books.AsNoTracking()
+            .SelectMany(book => book.Tags.Select(tag => tag.Name))
+            .GroupBy(name => name)
+            .Select(group => new TagCountResponse(group.Key, group.Count()))
             .ToListAsync(cancellationToken);
 
         var ratings = rows.Where(row => row.Rating is not null).Select(row => (double)row.Rating!.Value).ToList();
