@@ -200,6 +200,26 @@ public static class QbitClient
         return new DownloadStatus(true, progress >= 1 && !failed, failed, progress, path, failed ? Localization.Words.T("qBittorrent says the torrent has an error.") : null);
     }
 
+    // Takes the grab's torrent out of qBittorrent, with what it has downloaded so far.
+    public static async Task RemoveAsync(HttpClient http, string url, string? user, string? password, int grabId, CancellationToken cancellationToken)
+    {
+        var cookie = await SignInAsync(http, url, user, password, cancellationToken);
+        var root = url.TrimEnd('/');
+        using var request = Request(HttpMethod.Get, $"{root}/api/v2/torrents/info?tag={Uri.EscapeDataString(Tag(grabId))}", cookie);
+        using var response = await http.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        using var document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
+        var hashes = document.RootElement.EnumerateArray().Select(torrent => ProwlarrClient.Text(torrent, "hash")).OfType<string>().ToList();
+        if (hashes.Count == 0)
+        {
+            return;
+        }
+
+        using var delete = Request(HttpMethod.Post, $"{root}/api/v2/torrents/delete", cookie, new FormUrlEncodedContent(new Dictionary<string, string> { ["hashes"] = string.Join('|', hashes), ["deleteFiles"] = "true" }));
+        using var deleted = await http.SendAsync(delete, cancellationToken);
+        deleted.EnsureSuccessStatusCode();
+    }
+
     public static async Task<string?> TestAsync(HttpClient http, string url, string? user, string? password, CancellationToken cancellationToken)
     {
         try
@@ -273,6 +293,16 @@ public static class SabClient
         }
 
         return new DownloadStatus(false, false, false, 0, null, null);
+    }
+
+    // Takes the NZB out of SABnzbd's queue, or out of its history if it is past the queue, with its files.
+    public static async Task RemoveAsync(HttpClient http, string url, string apiKey, string downloadId, CancellationToken cancellationToken)
+    {
+        foreach (var mode in new[] { "queue", "history" })
+        {
+            using var response = await http.GetAsync($"{Api(url, apiKey, mode)}&name=delete&value={Uri.EscapeDataString(downloadId)}&del_files=1", cancellationToken);
+            response.EnsureSuccessStatusCode();
+        }
     }
 
     public static async Task<string?> TestAsync(HttpClient http, string url, string apiKey, CancellationToken cancellationToken)
@@ -402,6 +432,20 @@ public static class DelugeClient
         var path = ProwlarrClient.Text(status, "save_path") is { } folder && ProwlarrClient.Text(status, "name") is { } name ? $"{folder.TrimEnd('/', '\\')}/{name}" : null;
         var failed = state == "Error";
         return new DownloadStatus(true, (finished || progress >= 1) && !failed, failed, progress, path, failed ? ProwlarrClient.Text(status, "message") ?? Localization.Words.T("Deluge says the torrent has an error.") : null);
+    }
+
+    // Takes the torrent out of Deluge, with what it has downloaded so far.
+    public static async Task RemoveAsync(HttpClient http, string url, string? password, string hash, CancellationToken cancellationToken)
+    {
+        var cookie = await SessionAsync(http, url, password, cancellationToken);
+        try
+        {
+            await CallAsync(http, url, cookie, "core.remove_torrent", [hash, true], cancellationToken);
+        }
+        catch (FetchProblem)
+        {
+            // Deluge does not have it: removed there already.
+        }
     }
 
     public static async Task<string?> TestAsync(HttpClient http, string url, string? password, CancellationToken cancellationToken)

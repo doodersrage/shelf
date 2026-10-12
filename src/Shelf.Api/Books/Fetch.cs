@@ -19,6 +19,9 @@ public enum GrabState
     Importing,
     Done,
     Failed,
+
+    // Stopped by the reader before it finished, and taken out of the download client.
+    Cancelled,
 }
 
 public enum IndexerKind

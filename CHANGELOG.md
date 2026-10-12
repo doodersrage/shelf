@@ -4,6 +4,12 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.7.3] - 2026-10-12
+
+### Added
+
+- A download from your indexers can be **cancelled** while it's sent or downloading, from the book's page or from Wanted: it's taken out of Deluge, qBittorrent, or SABnzbd with what it had downloaded so far. Handy for one that has stalled. The book stays on your want list, but isn't looked for again on its own, since the same release would most likely be chosen; search for it from its page and pick a better one.
+
 ## [2.7.2] - 2026-10-12
 
 ### Fixed
@@ -426,7 +432,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.7.2...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.7.3...HEAD
+[2.7.3]: https://github.com/doodersrage/shelf/compare/v2.7.2...v2.7.3
 [2.7.2]: https://github.com/doodersrage/shelf/compare/v2.7.1...v2.7.2
 [2.7.1]: https://github.com/doodersrage/shelf/compare/v2.7.0...v2.7.1
 [2.7.0]: https://github.com/doodersrage/shelf/compare/v2.6.0...v2.7.0

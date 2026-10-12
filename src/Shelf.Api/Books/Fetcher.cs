@@ -40,6 +40,9 @@ public sealed class Fetcher(IServiceScopeFactory scopes, IHttpClientFactory clie
     private static readonly string[] EbookExtensions = [".epub", ".azw3", ".mobi", ".azw", ".pdf", ".cbz", ".cbr", ".cb7"];
     private static readonly string[] AudioExtensions = [".m4b", ".mp3", ".m4a", ".aac", ".ogg", ".opus", ".flac", ".wav"];
 
+    // Following and cancelling take turns, so a grab being cancelled is not moved on by a look at it begun just before.
+    private readonly SemaphoreSlim turn = new(1, 1);
+
     private IDataProtector Protector => protection.CreateProtector("Shelf.Fetch");
 
     public string Seal(string secret) => Protector.Protect(secret);
@@ -148,6 +151,19 @@ public sealed class Fetcher(IServiceScopeFactory scopes, IHttpClientFactory clie
     // Each download under way: how far it has got, and, once finished, its file onto the book.
     public async Task FollowAsync(CancellationToken cancellationToken)
     {
+        await turn.WaitAsync(cancellationToken);
+        try
+        {
+            await FollowEachAsync(cancellationToken);
+        }
+        finally
+        {
+            turn.Release();
+        }
+    }
+
+    private async Task FollowEachAsync(CancellationToken cancellationToken)
+    {
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
         var settings = await FetchRules.SettingsAsync(db, cancellationToken);
@@ -196,6 +212,60 @@ public sealed class Fetcher(IServiceScopeFactory scopes, IHttpClientFactory clie
             }
 
             await db.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    // A reader's download stopped before it finishes, such as one stalled: taken out of the download client with what
+    // it has so far. The book stays wanted, but is not looked for again; it can still be searched for from its page.
+    // False if it is not the reader's, or is past stopping.
+    public async Task<bool> CancelAsync(ShelfDb db, int grabId, CancellationToken cancellationToken)
+    {
+        await turn.WaitAsync(cancellationToken);
+        try
+        {
+            var grab = await db.FetchGrabs.FirstOrDefaultAsync(item => item.Id == grabId && item.ReaderId == db.ReaderId, cancellationToken);
+            if (grab is null || grab.State is not (GrabState.Sent or GrabState.Downloading))
+            {
+                return false;
+            }
+
+            var settings = await FetchRules.SettingsAsync(db, cancellationToken);
+            string? problem = null;
+            try
+            {
+                if (grab.Protocol == "usenet")
+                {
+                    if (grab.DownloadId is { } id && settings.SabUrl is { } sab)
+                    {
+                        await SabClient.RemoveAsync(Http, sab, Open(settings.SealedSabKey) ?? "", id, cancellationToken);
+                    }
+                }
+                else if (settings.TorrentUrl is { } torrents)
+                {
+                    if (settings.TorrentKind == TorrentClientKind.QBittorrent)
+                    {
+                        await QbitClient.RemoveAsync(Http, torrents, settings.TorrentUser, Open(settings.SealedTorrentPassword), grab.Id, cancellationToken);
+                    }
+                    else if (grab.DownloadId is { } hash)
+                    {
+                        await DelugeClient.RemoveAsync(Http, torrents, Open(settings.SealedTorrentPassword), hash, cancellationToken);
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is FetchProblem or HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or InvalidOperationException)
+            {
+                // Cancelled all the same; what the client has is left for removing there by hand.
+                logger.LogWarning(ex, "Could not take download {Grab} out of the download client.", grab.Id);
+                problem = T("The download client did not answer, so it may still have the download.");
+            }
+
+            (grab.State, grab.Problem, grab.UpdatedAt) = (GrabState.Cancelled, problem, DateTimeOffset.UtcNow);
+            await db.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        finally
+        {
+            turn.Release();
         }
     }
 
@@ -315,7 +385,8 @@ public sealed class Fetcher(IServiceScopeFactory scopes, IHttpClientFactory clie
         scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
         var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
         var settings = await FetchRules.SettingsAsync(db, cancellationToken);
-        var books = await WantedAsync(db, settings, cancellationToken);
+        var cancelled = await CancelledAsync(db, cancellationToken);
+        var books = (await WantedAsync(db, settings, cancellationToken)).Where(book => !cancelled.Contains(book.Id)).ToList();
         var most = Math.Clamp(settings.MostPerDay, 1, 200);
         if (books.Count == 0)
         {
@@ -330,12 +401,17 @@ public sealed class Fetcher(IServiceScopeFactory scopes, IHttpClientFactory clie
     public static async Task<List<Book>> WantedAsync(ShelfDb db, FetchSetting settings, CancellationToken cancellationToken = default)
     {
         var busy = await db.FetchGrabs.AsNoTracking()
-            .Where(grab => grab.ReaderId == db.ReaderId && grab.State != GrabState.Failed)
+            .Where(grab => grab.ReaderId == db.ReaderId && grab.State != GrabState.Failed && grab.State != GrabState.Cancelled)
             .Select(grab => grab.BookId).ToListAsync(cancellationToken);
         var books = (await db.Books.AsNoTracking().Where(book => book.Status == BookStatus.Want).ToListAsync(cancellationToken))
             .OrderByDescending(book => book.Queued).ThenBy(book => book.AddedAt);
         return [.. books.Where(book => !busy.Contains(book.Id) && Lacks(book, settings.WantedKind))];
     }
+
+    // Wanted books whose download the reader cancelled, stalled most likely: still wanted, but not looked for again, as
+    // the same release would most likely be chosen. They can still be searched for from their pages.
+    public static async Task<HashSet<int>> CancelledAsync(ShelfDb db, CancellationToken cancellationToken = default) =>
+        [.. await db.FetchGrabs.AsNoTracking().Where(grab => grab.ReaderId == db.ReaderId && grab.State == GrabState.Cancelled).Select(grab => grab.BookId).ToListAsync(cancellationToken)];
 
     // An audiobook is not missing its e-book, nor an e-book its audio: only a book with neither in hand, nor that format, is wanted.
     private static bool Lacks(Book book, FetchKind kind) => kind == FetchKind.Ebook

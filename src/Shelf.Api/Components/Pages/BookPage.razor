@@ -351,6 +351,10 @@ else if (book is not null)
                     {
                         <span class="hint"> · @problem</span>
                     }
+                    @if (grab.State is GrabState.Sent or GrabState.Downloading)
+                    {
+                        <button type="button" class="quiet" @onclick="() => CancelGrab(grab.Id)" disabled="@cancelling.Contains(grab.Id)" aria-label="@T("Cancel downloading {0}", grab.Title)">@T("Cancel")</button>
+                    }
                 </p>
             }
             <div class="fetch-search">
@@ -1123,6 +1127,7 @@ else if (book is not null)
         GrabState.Downloading => T("Downloading"),
         GrabState.Importing => T("Bringing it onto the book"),
         GrabState.Done => T("Fetched"),
+        GrabState.Cancelled => T("Cancelled"),
         _ => T("Could not be fetched"),
     };
 
@@ -1164,6 +1169,28 @@ else if (book is not null)
         await LoadFetchAsync(db);
         FollowGrabs();
     }
+
+    private readonly HashSet<int> cancelling = [];
+
+    private async Task CancelGrab(int grabId)
+    {
+        if (!cancelling.Add(grabId))
+        {
+            return;
+        }
+
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            await Fetcher.CancelAsync(db, grabId, CancellationToken.None);
+            await LoadFetchAsync(db);
+        }
+        finally
+        {
+            cancelling.Remove(grabId);
+        }
+    }
+
     private readonly HashSet<string> fetching = [];
 
     private async Task Fetch(FreeBook free)

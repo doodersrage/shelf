@@ -148,6 +148,66 @@ public sealed class FetchTests(ShelfApiFactory factory) : IClassFixture<ShelfApi
         Assert.Null(await SabClient.TestAsync(http, "http://sab.test", "sab-key", CancellationToken.None));
     }
 
+    [Fact]
+    public async Task A_download_cancelled_is_taken_out_of_the_download_client_and_the_book_stays_wanted_but_is_not_looked_for_again()
+    {
+        var fake = new FakeServices();
+        await using var app = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddHttpClient(ProwlarrClient.ClientName).ConfigurePrimaryHttpMessageHandler(() => fake)));
+        var client = app.CreateClient();
+        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Cancel Reader", ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
+        var readerId = await factory.ReaderIdAsync("Cancel Reader");
+        var wanted = (await (await client.PostAsJsonAsync("/books", new CreateBookRequest("The Left Hand of Darkness", "Ursula K. Le Guin", BookStatus.Want, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+
+        var fetcher = app.Services.GetRequiredService<Fetcher>();
+        await using var scope = app.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
+        var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+        db.FetchSettings.RemoveRange(db.FetchSettings);
+        db.FetchSettings.Add(new FetchSetting
+        {
+            Enabled = true,
+            IndexerKind = IndexerKind.Jackett,
+            IndexerUrl = "http://jackett.test",
+            SealedIndexerKey = fetcher.Seal("jackett-key"),
+            TorrentKind = TorrentClientKind.Deluge,
+            TorrentUrl = "http://deluge.test",
+            SealedTorrentPassword = fetcher.Seal("deluge-pass"),
+        });
+        await db.SaveChangesAsync();
+        var settings = await FetchRules.SettingsAsync(db);
+        var found = await fetcher.SearchAsync(settings, wanted.Title, wanted.Author, FetchKind.Ebook, CancellationToken.None);
+        var grab = await fetcher.GrabAsync(db, settings, (await db.Books.FindAsync(wanted.Id))!, FetchKind.Ebook, found[0].Release, CancellationToken.None);
+        Assert.Equal(GrabState.Downloading, grab.State);
+
+        Assert.True(await fetcher.CancelAsync(NewDb(app, readerId), grab.Id, CancellationToken.None));
+        Assert.Contains("core.remove_torrent", fake.DelugeCalls);
+        var cancelled = (await NewDb(app, readerId).FetchGrabs.FindAsync(grab.Id))!;
+        Assert.Equal((GrabState.Cancelled, (string?)null), (cancelled.State, cancelled.Problem));
+        Assert.Contains(await Fetcher.WantedAsync(NewDb(app, readerId), settings), book => book.Id == wanted.Id);
+        Assert.Contains(wanted.Id, await Fetcher.CancelledAsync(NewDb(app, readerId)));
+        Assert.Null(await fetcher.StartWantedAsync(readerId, CancellationToken.None));
+        Assert.Contains("not looked for again", await client.GetStringAsync("/wanted"));
+
+        // Once cancelled, it is not followed again, nor cancelled twice.
+        fake.DelugeDone = true;
+        await fetcher.FollowAsync(CancellationToken.None);
+        Assert.Equal(GrabState.Cancelled, (await NewDb(app, readerId).FetchGrabs.FindAsync(grab.Id))!.State);
+        Assert.False(await fetcher.CancelAsync(NewDb(app, readerId), grab.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Qbittorrent_and_sabnzbd_are_asked_to_remove_a_download_with_its_files()
+    {
+        var fake = new FakeServices();
+        var http = new HttpClient(fake);
+        await QbitClient.RemoveAsync(http, "http://qbit.test", "admin", "adminpass", 7, CancellationToken.None);
+        Assert.Contains("hashes=h&deleteFiles=true", fake.Removed);
+        await SabClient.RemoveAsync(http, "http://sab.test", "sab-key", "SABnzbd_nzo_1", CancellationToken.None);
+        Assert.Contains("queue:SABnzbd_nzo_1", fake.Removed);
+        Assert.Contains("history:SABnzbd_nzo_1", fake.Removed);
+    }
+
     private static ShelfDb NewDb(Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> app, int readerId)
     {
         var scope = app.Services.CreateScope();
@@ -160,6 +220,8 @@ public sealed class FetchTests(ShelfApiFactory factory) : IClassFixture<ShelfApi
         public List<string> DelugeCalls { get; } = [];
 
         public bool DelugeDone { get; set; }
+
+        public List<string> Removed { get; } = [];
 
         private static HttpResponseMessage Json(string json, HttpStatusCode status = HttpStatusCode.OK) => new(status) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
 
@@ -198,6 +260,7 @@ public sealed class FetchTests(ShelfApiFactory factory) : IClassFixture<ShelfApi
                         "auth.login" => call["params"]![0]!.GetValue<string>() == "deluge-pass" ? "true" : "false",
                         "web.connected" => "true",
                         "core.add_torrent_file" => "\"abc123def\"",
+                        "core.remove_torrent" => "true",
                         "core.get_torrent_status" => DelugeDone
                             ? """{"progress":100.0,"state":"Seeding","save_path":"/downloads/complete","name":"Ursula K Le Guin - The Left Hand of Darkness","is_finished":true,"message":"OK"}"""
                             : """{"progress":50.0,"state":"Downloading","save_path":"/downloads/incomplete","name":"Ursula K Le Guin - The Left Hand of Darkness","is_finished":false,"message":"OK"}""",
@@ -236,10 +299,17 @@ public sealed class FetchTests(ShelfApiFactory factory) : IClassFixture<ShelfApi
                 case "qbit.test" when url.AbsolutePath == "/api/v2/torrents/info":
                     Assert.Equal("shelf-grab-7", query["tag"]);
                     return Json("""[{"hash":"h","progress":1,"state":"stalledUP","content_path":"/downloads/Book","save_path":"/downloads"}]""");
+                case "qbit.test" when url.AbsolutePath == "/api/v2/torrents/delete":
+                    Removed.Add(await request.Content!.ReadAsStringAsync(cancellationToken));
+                    return new HttpResponseMessage(HttpStatusCode.OK);
                 case "qbit.test":
                     return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Ok.") };
                 case "sab.test" when query["apikey"] != "sab-key":
                     return Json("""{"status":false,"error":"API Key Incorrect"}""");
+                case "sab.test" when query["name"] == "delete":
+                    Assert.Equal("1", query["del_files"]);
+                    Removed.Add($"{query["mode"]}:{query["value"]}");
+                    return Json("""{"status":true}""");
                 case "sab.test" when query["mode"] == "addfile":
                     Assert.Equal("shelf-grab-8", query["nzbname"]);
                     return Json("""{"status":true,"nzo_ids":["SABnzbd_nzo_1"]}""");
