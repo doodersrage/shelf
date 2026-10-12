@@ -1878,12 +1878,40 @@ dialog.scanner p {
 }
 
 .active-filters {
+    list-style: none;
+    padding: 0;
+    margin: var(--space-2) 0 var(--space-4);
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-2) var(--space-3);
+    gap: var(--space-2);
     font-size: var(--text-sm);
     color: var(--color-muted);
+}
+
+.chip.removable {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    color: var(--color-ink);
+}
+
+.chip.removable span {
+    color: var(--color-muted);
+}
+
+/* Where each of a book's formats is, when it has an e-book and a recording. */
+.format-places {
+    list-style: none;
+    padding: 0;
+    margin: var(--space-3) 0 var(--space-1);
+    display: grid;
+    gap: 2px;
+    font-size: var(--text-sm);
+}
+
+.format-places strong {
+    margin-right: var(--space-2);
 }
 
 /* The book page leads with the cover, then gathers each kind of information into its own section. */
@@ -2643,6 +2671,24 @@ label.volume > input[type=range] {
     font-weight: 600;
 }
 
+/* This device has lost the shelf: said at the top, with the way to the books kept here. */
+.connection-lost {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 40;
+    margin: 0;
+    padding: var(--space-2) var(--space-4);
+    background: var(--color-ink);
+    color: var(--color-canvas);
+    font-size: var(--text-sm);
+    text-align: center;
+}
+
+.connection-lost a {
+    color: inherit;
+    font-weight: 600;
+}
+
 /* Blazor's reconnect bar */
 
 #blazor-error-ui {
@@ -3277,6 +3323,84 @@ blockquote mark {
     width: 7rem;
 }
 
+/* Devices: each connection, how it stands (a word and a shape, not only a color), and what it last did. */
+.connection-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: var(--space-3);
+}
+
+.connection {
+    display: grid;
+    grid-template-columns: 9rem auto minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--space-1) var(--space-3);
+}
+
+.connection-name {
+    font-weight: 600;
+}
+
+.connection .badge {
+    justify-self: start;
+}
+
+.connection-note {
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+}
+
+.connection.working .badge::before {
+    background: currentColor;
+}
+
+.connection.waiting .badge::before {
+    background: linear-gradient(90deg, currentColor 50%, transparent 50%);
+}
+
+.connection.trouble .badge {
+    color: var(--color-danger);
+    border-color: currentColor;
+}
+
+.connection.trouble .badge::before {
+    border-radius: 1px;
+    transform: rotate(45deg);
+}
+
+.connection.off .connection-name {
+    color: var(--color-muted);
+}
+
+@media (max-width: 40rem) {
+    .connection {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .connection-note {
+        grid-column: 1 / -1;
+    }
+}
+
+/* Duplicates: what a merge will do, shown before it is done. */
+.merge-preview {
+    margin-top: var(--space-4);
+    padding: var(--space-4);
+    background: var(--color-sunken);
+    border-radius: var(--radius-control);
+}
+
+.merge-preview p {
+    margin-top: 0;
+}
+
+.merge-preview ul {
+    margin: 0 0 var(--space-3);
+    padding-left: 1.2em;
+}
+
 /* Home: the book to pick up again, the shelf at a glance, and short rows of the rest. */
 
 .continue {
@@ -3380,6 +3504,56 @@ blockquote mark {
 .tiles progress {
     width: 100%;
     margin-top: var(--space-2);
+}
+
+/* What wants the reader now, above everything else on Home; only there when something does. */
+.needs-you {
+    border-left: 4px solid var(--color-accent);
+}
+
+.needs-you h2 {
+    margin-top: 0;
+    font-size: var(--text-lg);
+}
+
+.needs-you ul {
+    margin: 0;
+    padding-left: 1.2em;
+    display: grid;
+    gap: var(--space-1);
+}
+
+/* Home's sections, shown or hidden and put in order. */
+.arrange-home {
+    margin-top: var(--space-8);
+    color: var(--color-muted);
+}
+
+.arrange-home summary {
+    cursor: pointer;
+    font-size: var(--text-sm);
+}
+
+.arrange-list {
+    list-style: none;
+    padding: 0;
+    margin: var(--space-3) 0 0;
+    max-width: 26rem;
+    display: grid;
+    gap: var(--space-1);
+}
+
+.arrange-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    color: var(--color-ink);
+}
+
+.arrange-moves {
+    display: flex;
+    gap: var(--space-1);
 }
 
 /* A row of covers that scrolls sideways on a narrow screen rather than stacking. */

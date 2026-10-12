@@ -193,6 +193,9 @@ public sealed class ShelfSetting
     // Series alerts: asked for, and when Open Library was last asked.
     public bool WatchSeries { get; set; }
     public DateTimeOffset? SeriesCheckedAt { get; set; }
+
+    // Home's sections in the reader's order, a hidden one with a minus before it; null for the usual.
+    public string? HomeSections { get; set; }
 }
 
 // How a reader likes an e-book set: text size in percent, line height in hundredths, and line length in ems; the

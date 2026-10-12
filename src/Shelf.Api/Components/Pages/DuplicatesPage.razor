@@ -8,7 +8,7 @@
 <PageTitle>@T("Duplicates") · Shelf</PageTitle>
 
 <h1>@T("Duplicates")</h1>
-<p class="hint">@T("Books that look like the same book: the same ISBN, or the same title and author. Keep one, and the other's details, notes, quotes, highlights, reading log, and files it lacks come across to it before the other goes.")</p>
+<p class="hint">@T("Books that look like the same book: the same ISBN, or the same title and author. Keep one, and the other's details, notes, quotes, highlights, reading log, and files it lacks come across to it before the other goes.") @T("You'll see what moves and what goes before anything changes.")</p>
 
 @if (note is not null)
 {
@@ -42,10 +42,27 @@ else
                                 · @T("added {0}", book.AddedAt.Medium())
                             </p>
                         </div>
-                        <button type="button" class="strip-action" @onclick="() => Keep(group, book.Id)" disabled="@busy">@T("Keep this one")</button>
+                        <button type="button" class="strip-action" @onclick="() => choice = (group, book.Id)" disabled="@busy" aria-pressed="@(choice?.Group == group && choice?.KeepId == book.Id ? "true" : "false")">@T("Keep this one")</button>
                     </li>
                 }
             </ul>
+            @* What a merge would do, said before it is done: it can't be undone. *@
+            @if (choice is var (chosenGroup, keepId) && chosenGroup == group)
+            {
+                var kept = group.Books.First(book => book.Id == keepId);
+                <div class="merge-preview" role="region" aria-label="@T("What merging does")">
+                    <p><strong>@T("Keeping the copy added {0}.", kept.AddedAt.Medium())</strong></p>
+                    <ul>
+                        @foreach (var line in Preview(group, keepId))
+                        {
+                            <li>@line</li>
+                        }
+                    </ul>
+                    <p class="hint">@T("The other entry then goes. This can't be undone.")</p>
+                    <button type="button" class="primary" @onclick="() => Keep(group, keepId)" disabled="@busy">@T("Merge")</button>
+                    <button type="button" class="quiet" @onclick="() => choice = null" disabled="@busy">@T("Cancel")</button>
+                </div>
+            }
         </section>
     }
 }
@@ -55,6 +72,48 @@ else
     private string? note;
     private bool problem;
     private bool busy;
+    private (DuplicateGroup Group, int KeepId)? choice;
+
+    // What each other entry brings to the one kept, and what of it is deleted, in the order the merge takes them:
+    // a file of a kind the kept one lacks comes across from the first that has one; any other such file goes.
+    private static IEnumerable<string> Preview(DuplicateGroup group, int keepId)
+    {
+        var kept = group.Books.First(book => book.Id == keepId);
+        var (hasEbook, hasAudio) = (kept.HasEbook, kept.HasAudio);
+        foreach (var other in group.Books.Where(book => book.Id != keepId))
+        {
+            var comes = new List<string>();
+            var goes = new List<string>();
+            if (other.HasEbook)
+            {
+                (hasEbook ? goes : comes).Add(T("its e-book"));
+                hasEbook = true;
+            }
+
+            if (other.HasAudio)
+            {
+                (hasAudio ? goes : comes).Add(T("its audiobook"));
+                hasAudio = true;
+            }
+
+            if (other.Quotes > 0)
+            {
+                comes.Add(other.Quotes == 1 ? T("1 quote") : T("{0} quotes", other.Quotes));
+            }
+
+            if (other.Sessions > 0)
+            {
+                comes.Add(other.Sessions == 1 ? T("1 reading session") : T("{0} reading sessions", other.Sessions));
+            }
+
+            comes.Add(T("its highlights, notes, tags, and collections, and any details the one kept lacks"));
+            yield return T("From the copy added {0}: {1}.", other.AddedAt.Medium(), string.Join(", ", comes));
+            if (goes.Count > 0)
+            {
+                yield return T("Deleted, as the one kept has its own: {0}.", string.Join(", ", goes));
+            }
+        }
+    }
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -84,6 +143,7 @@ else
             }
 
             problem = false;
+            choice = null;
             note = T("Merged into one book.");
             await LoadAsync();
         }

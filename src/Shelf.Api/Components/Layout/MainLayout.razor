@@ -50,7 +50,8 @@ else
                 </details>
             </header>
 
-            @if (reminders is { Any: true } due)
+            @* Home names each of these itself, under Needs you. *@
+            @if (reminders is { Any: true } due && new Uri(Navigation.Uri).AbsolutePath != "/")
             {
                 <p class="notice" role="status">
                     <a href="/loans">@string.Join(" · ", ReminderLines(due))</a>

@@ -6,7 +6,7 @@ description: The catalog, statuses, the library's views and filters, changing ma
 
 # Your library
 
-**Home** is the front page: the book you were last in leads, with a button straight back into it, then your shelf at a glance (reading, want to read, finished this year against your goal, on loan), the other books you're reading, what to read next, what you added lately, and what you finished. **Library** holds every book on your shelf, as covers or a compact list, with search, chips for each status and for books on loan, e-books, and audiobooks, and an order that's kept for next time. On a cover, the status is a menu: change it there without opening the book. **Reading** gathers the books you have open, each a tap from your place, with your reading log of the last weeks and what you noted on the way.
+**Home** is the front page. When something wants you, **Needs you** comes first and names it: a book you lent that's overdue, a borrowed one due back within three days, a reader asking to borrow, new books in series you follow or by authors you follow. Otherwise it isn't there. Then the book you were last in leads, with a button straight back into it, and after it your shelf at a glance (reading, want to read, finished this year against your goal, on loan), the other books you're reading, what to read next, what you added lately, and what you finished. **Arrange Home**, at the bottom, hides any of those and puts them in the order you like, on every device. **Library** holds every book on your shelf, as covers or a compact list, with search, chips for each status and for books on loan, e-books, and audiobooks, and an order that's kept for next time. On a cover, the status is a menu: change it there without opening the book. **Reading** gathers the books you have open, each a tap from your place, with your reading log of the last weeks and what you noted on the way.
 
 When you mark a book finished, its page offers a rating, a quote to keep, and the next book from your read-next list. Take any of them, or dismiss it.
 
@@ -39,7 +39,9 @@ Tags are kept in lowercase, and an ISBN can be typed with or without hyphens.
 
 ## Views and filters
 
-The library shows covers or a list, and remembers your choice. Search, status, and sort are always in view; more filters (author, series, tag, place, format, loved, on loan, recommended by) sit under **More filters**, and **Clear filters** appears whenever something narrows the list.
+The library shows covers or a list, and remembers your choice. Search, status, and sort are always in view, with chips for books on loan, e-books, and audiobooks; **Loved** and **Read next** sit under **More filters**. A filter from elsewhere (an author, series, tag, place, or recommender you followed a link from) shows as a chip of its own under the list's tools, and so do the ones under **More filters**: tap one's **×** to take it away, or **Clear filters** to take them all.
+
+The address keeps up with what you choose, so a filtered library can be bookmarked, and opening a book then going back finds the same books, as far down the page as you were.
 
 Pages gathered from the catalog give other ways in: **Authors**, **Series** in reading order, **Places** where books sit, **Condition**, **Recommenders**, and **Years** of finished books.
 
@@ -112,7 +114,7 @@ Under **Your copies**, **Tidy up** puts a shelf brought in from files and other 
 
 ## Duplicates
 
-Under **Your copies**, **Duplicates** lists books that look like the same book: the same ISBN, or the same title and author (case and punctuation aside). Choose **Keep this one** on the entry to keep, and the others merge into it:
+Under **Your copies**, **Duplicates** lists books that look like the same book: the same ISBN, or the same title and author (case and punctuation aside). Choose **Keep this one** on the entry to keep, and Shelf first says what merging will do: what comes across from each of the others, and which of their files will be deleted because the one kept has its own. Nothing changes until you choose **Merge**, and it can't be undone. The others merge into it:
 
 - its empty details are filled from them, the further status wins (finished over reading over wanting to read), with the earliest start and the latest finish;
 - tags, notes, reviews, quotes, highlights, the reading log, time spent reading and listening, and collections come across;

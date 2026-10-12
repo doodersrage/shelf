@@ -421,6 +421,61 @@ public static class BookRules
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    // Home's sections besides Continue, in their usual order: the year at a glance, the other books open, what to
+    // read next, the books lately added, and those lately finished.
+    public static readonly string[] HomeSectionNames = ["glance", "reading", "next", "added", "finished"];
+
+    // The reader's order, each shown or hidden; a section they have never placed goes at the end, shown.
+    public static List<(string Name, bool Shown)> HomeSections(string? stored)
+    {
+        var sections = new List<(string Name, bool Shown)>();
+        foreach (var part in (stored ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var name = part.TrimStart('-');
+            if (HomeSectionNames.Contains(name) && sections.All(section => section.Name != name))
+            {
+                sections.Add((name, !part.StartsWith('-')));
+            }
+        }
+
+        sections.AddRange(HomeSectionNames.Where(name => sections.All(section => section.Name != name)).Select(name => (name, true)));
+        return sections;
+    }
+
+    // Home's form: the sections ticked are shown, the rest hidden, and one may move up or down a place ("next:up").
+    public static List<(string Name, bool Shown)> ArrangeHome(List<(string Name, bool Shown)> current, IReadOnlyCollection<string> shown, string? move)
+    {
+        var sections = current.Select(section => (section.Name, shown.Contains(section.Name))).ToList();
+        if (move?.Split(':') is [var name, var way] && sections.FindIndex(section => section.Name == name) is var at and >= 0)
+        {
+            var to = at + (way == "up" ? -1 : 1);
+            if (to >= 0 && to < sections.Count)
+            {
+                (sections[at], sections[to]) = (sections[to], sections[at]);
+            }
+        }
+
+        return sections;
+    }
+
+    public static async Task<List<(string Name, bool Shown)>> GetHomeSectionsAsync(ShelfDb db, CancellationToken cancellationToken = default) =>
+        HomeSections(await db.Settings.AsNoTracking().Where(item => item.Id == db.ReaderId).Select(item => item.HomeSections).FirstOrDefaultAsync(cancellationToken));
+
+    public static async Task SetHomeSectionsAsync(ShelfDb db, IEnumerable<(string Name, bool Shown)> sections, CancellationToken cancellationToken = default)
+    {
+        var setting = await db.Settings.FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
+        if (setting is null)
+        {
+            setting = new ShelfSetting { Id = SettingId(db) };
+            db.Settings.Add(setting);
+        }
+
+        var stored = string.Join(",", HomeSections(string.Join(",", sections.Select(section => (section.Shown ? "" : "-") + section.Name)))
+            .Select(section => (section.Shown ? "" : "-") + section.Name));
+        setting.HomeSections = stored == string.Join(",", HomeSectionNames) ? null : stored;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public static async Task<string?> GetLibrarySortAsync(ShelfDb db, CancellationToken cancellationToken = default) =>
         await db.Settings.AsNoTracking().Where(item => item.Id == db.ReaderId).Select(item => item.LibrarySort).FirstOrDefaultAsync(cancellationToken);
 

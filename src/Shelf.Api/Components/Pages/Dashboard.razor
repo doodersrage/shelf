@@ -4,12 +4,26 @@
 
 <PageTitle>@T("Home") · Shelf</PageTitle>
 
-@* Home: where a reader picks up again. The book they were last in, with a way straight back into it; what else is
-   open, what comes next, and the year so far. The whole library, with its filters, is on its own page. *@
+@* Home: where a reader picks up again. What wants them now, if anything; the book they were last in, with a way
+   straight back into it; then what else is open, what comes next, and the year so far, in the order they like, any
+   of it hidden. The whole library, with its filters, is on its own page. *@
 <div class="page-head">
     <h1>@T("Home")</h1>
     <a class="button primary add-action" href="/library?add=1">@T("Add a book")</a>
 </div>
+
+@if (attention.Count > 0)
+{
+    <section class="panel needs-you" aria-labelledby="needs-heading">
+        <h2 id="needs-heading">@T("Needs you")</h2>
+        <ul>
+            @foreach (var item in attention)
+            {
+                <li><a href="@item.Href">@item.Text</a></li>
+            }
+        </ul>
+    </section>
+}
 
 @if (family is { Books.Length: > 0 } shared)
 {
@@ -126,108 +140,146 @@ else
         </section>
     }
 
-    <ul class="tiles" aria-label="@T("Your shelf at a glance")">
-        <li><a href="/library?status=Reading"><strong>@reading.Count</strong> <span>@T("Reading")</span></a></li>
-        <li><a href="/library?status=Want"><strong>@books.Count(item => item.Status == BookStatus.Want)</strong> <span>@T("Want to read")</span></a></li>
-        <li>
-            <a href="/stats">
-                <strong>@finishedThisYear</strong>
-                <span>@(goal > 0 ? T("of {0} finished this year", goal) : T("Finished this year"))</span>
-                @if (goal > 0)
+    @foreach (var (name, _) in sections.Where(section => section.Shown))
+    {
+        switch (name)
+        {
+            case "glance":
+                <ul class="tiles" aria-label="@T("Your shelf at a glance")">
+                    <li><a href="/library?status=Reading"><strong>@reading.Count</strong> <span>@T("Reading")</span></a></li>
+                    <li><a href="/library?status=Want"><strong>@books.Count(item => item.Status == BookStatus.Want)</strong> <span>@T("Want to read")</span></a></li>
+                    <li>
+                        <a href="/stats">
+                            <strong>@finishedThisYear</strong>
+                            <span>@(goal > 0 ? T("of {0} finished this year", goal) : T("Finished this year"))</span>
+                            @if (goal > 0)
+                            {
+                                <progress class="goal" max="@goal" value="@Math.Min(finishedThisYear, goal)" aria-label="@T("{0} of {1} books finished", finishedThisYear, goal)"></progress>
+                            }
+                        </a>
+                    </li>
+                    <li><a href="/loans"><strong>@books.Count(item => !string.IsNullOrWhiteSpace(item.LoanedTo))</strong> <span>@T("On loan")</span></a></li>
+                </ul>
+                break;
+            case "reading":
+                if (others.Count > 0)
                 {
-                    <progress class="goal" max="@goal" value="@Math.Min(finishedThisYear, goal)" aria-label="@T("{0} of {1} books finished", finishedThisYear, goal)"></progress>
-                }
-            </a>
-        </li>
-        <li><a href="/loans"><strong>@books.Count(item => !string.IsNullOrWhiteSpace(item.LoanedTo))</strong> <span>@T("On loan")</span></a></li>
-    </ul>
-
-    @if (others.Count > 0)
-    {
-        <h2>@T("Also reading")</h2>
-        <ul class="shelf-strip">
-            @foreach (var open in others)
-            {
-                <li class="strip-card">
-                    <BookCover Title="@open.Title" Url="@open.CoverShown" />
-                    <div>
-                        <p class="title"><a href="/library/@open.Id">@open.Title</a></p>
-                        <p class="by">@open.Author</p>
-                        @if (BookProgress.Fraction(open, Audio) is double done)
+                    <h2>@T("Also reading")</h2>
+                    <ul class="shelf-strip">
+                        @foreach (var open in others)
                         {
-                            <progress max="1000" value="@((int)(done * 1000))" aria-label="@ProgressText(open)"></progress>
+                            <li class="strip-card">
+                                <BookCover Title="@open.Title" Url="@open.CoverShown" />
+                                <div>
+                                    <p class="title"><a href="/library/@open.Id">@open.Title</a></p>
+                                    <p class="by">@open.Author</p>
+                                    @if (BookProgress.Fraction(open, Audio) is double done)
+                                    {
+                                        <progress max="1000" value="@((int)(done * 1000))" aria-label="@ProgressText(open)"></progress>
+                                    }
+                                    <p class="hint">@ProgressText(open)</p>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(open.AudioStoredName))
+                                {
+                                    <button type="button" class="icon-button play strip-play" data-play-book="@open.Id" aria-label="@T("Play {0}", open.Title)"><PlayerIcon Name="play" /></button>
+                                }
+                            </li>
                         }
-                        <p class="hint">@ProgressText(open)</p>
-                    </div>
-                    @if (!string.IsNullOrWhiteSpace(open.AudioStoredName))
+                    </ul>
+                    @if (reading.Count > StripSize + 1)
                     {
-                        <button type="button" class="icon-button play strip-play" data-play-book="@open.Id" aria-label="@T("Play {0}", open.Title)"><PlayerIcon Name="play" /></button>
+                        <p class="hint"><a href="/library?status=Reading">@T("All {0} you are reading", reading.Count)</a></p>
                     }
-                </li>
-            }
-        </ul>
-        @if (reading.Count > StripSize + 1)
-        {
-            <p class="hint"><a href="/library?status=Reading">@T("All {0} you are reading", reading.Count)</a></p>
+                }
+                break;
+            case "next":
+                if (next.Count > 0)
+                {
+                    <h2 class="read-next">@(queued ? T("Read next") : T("From the want list"))</h2>
+                    <ul class="shelf-strip">
+                        @foreach (var item in next)
+                        {
+                            <li class="strip-card">
+                                <BookCover Title="@item.Title" Url="@item.CoverShown" />
+                                <div>
+                                    <p class="title"><a href="/library/@item.Id">@item.Title</a></p>
+                                    <p class="by">@item.Author</p>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                    @if (queued && queuedCount > StripSize)
+                    {
+                        <p class="hint"><a href="/library?status=Want&amp;queued=1">@T("All {0} to read next", queuedCount)</a></p>
+                    }
+                }
+                break;
+            case "added":
+                if (added.Count > 0)
+                {
+                    <h2>@T("Recently added")</h2>
+                    <ul class="cover-row">
+                        @foreach (var item in added)
+                        {
+                            <li>
+                                <a href="/library/@item.Id">
+                                    <BookCover Title="@item.Title" Url="@item.CoverShown" />
+                                    <span class="title">@item.Title</span>
+                                    <span class="hint">@item.Author</span>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                    <p class="hint"><a href="/library?sort=added">@T("The whole library, newest first")</a></p>
+                }
+                break;
+            case "finished":
+                if (finished.Count > 0)
+                {
+                    <h2>@T("Recently finished")</h2>
+                    <ul class="shelf-strip">
+                        @foreach (var done in finished)
+                        {
+                            <li class="strip-card">
+                                <BookCover Title="@done.Title" Url="@done.CoverShown" />
+                                <div>
+                                    <p class="title"><a href="/library/@done.Id">@done.Title</a></p>
+                                    <p class="by">@done.Author</p>
+                                    <p class="hint">@done.FinishedOn?.Medium()@(done.Rating is int stars ? $" · {new string('★', stars)}" : "")</p>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+                break;
         }
     }
 
-    @if (next.Count > 0)
-    {
-        <h2 class="read-next">@(queued ? T("Read next") : T("From the want list"))</h2>
-        <ul class="shelf-strip">
-            @foreach (var item in next)
-            {
-                <li class="strip-card">
-                    <BookCover Title="@item.Title" Url="@item.CoverShown" />
-                    <div>
-                        <p class="title"><a href="/library/@item.Id">@item.Title</a></p>
-                        <p class="by">@item.Author</p>
-                    </div>
-                </li>
-            }
-        </ul>
-        @if (queued && queuedCount > StripSize)
-        {
-            <p class="hint"><a href="/library?status=Want&amp;queued=1">@T("All {0} to read next", queuedCount)</a></p>
-        }
-    }
-
-    @if (added.Count > 0)
-    {
-        <h2>@T("Recently added")</h2>
-        <ul class="cover-row">
-            @foreach (var item in added)
-            {
-                <li>
-                    <a href="/library/@item.Id">
-                        <BookCover Title="@item.Title" Url="@item.CoverShown" />
-                        <span class="title">@item.Title</span>
-                        <span class="hint">@item.Author</span>
-                    </a>
-                </li>
-            }
-        </ul>
-        <p class="hint"><a href="/library?sort=added">@T("The whole library, newest first")</a></p>
-    }
-
-    @if (finished.Count > 0)
-    {
-        <h2>@T("Recently finished")</h2>
-        <ul class="shelf-strip">
-            @foreach (var done in finished)
-            {
-                <li class="strip-card">
-                    <BookCover Title="@done.Title" Url="@done.CoverShown" />
-                    <div>
-                        <p class="title"><a href="/library/@done.Id">@done.Title</a></p>
-                        <p class="by">@done.Author</p>
-                        <p class="hint">@done.FinishedOn?.Medium()@(done.Rating is int stars ? $" · {new string('★', stars)}" : "")</p>
-                    </div>
-                </li>
-            }
-        </ul>
-    }
+    @* Which of Home's sections show, and in what order, kept for the reader on every device. A plain form, so Home
+       stays a page that holds no connection open. *@
+    <details class="arrange-home" id="arrange-home" open="@(Arranged == 1)">
+        <summary>@T("Arrange Home")</summary>
+        <form method="post" action="/books/home">
+            <AntiforgeryToken />
+            <ol class="arrange-list">
+                @for (var index = 0; index < sections.Count; index++)
+                {
+                    var (name, shown) = sections[index];
+                    <li>
+                        <label class="check">
+                            <input type="checkbox" name="shown" value="@name" checked="@shown" />
+                            @SectionLabel(name)
+                        </label>
+                        <span class="arrange-moves">
+                            <button type="submit" class="quiet" name="move" value="@($"{name}:up")" disabled="@(index == 0)" aria-label="@T("Move {0} up", SectionLabel(name))">↑</button>
+                            <button type="submit" class="quiet" name="move" value="@($"{name}:down")" disabled="@(index == sections.Count - 1)" aria-label="@T("Move {0} down", SectionLabel(name))">↓</button>
+                        </span>
+                    </li>
+                }
+            </ol>
+            <button type="submit">@T("Save")</button>
+        </form>
+    </details>
 }
 
 @code {
@@ -244,12 +296,16 @@ else
     private int finishedThisYear;
     private int goal;
     private (string Guardian, FamilyBook[] Books)? family;
+    private List<AttentionItem> attention = [];
+    private List<(string Name, bool Shown)> sections = [];
 
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         family = await Family.SharedBooksAsync(db);
         books = await db.Books.AsNoTracking().ToListAsync();
+        attention = await Attention.ForHomeAsync(db);
+        sections = await BookRules.GetHomeSectionsAsync(db);
         goal = await BookRules.GetGoalAsync(db);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         finishedThisYear = books.Count(book => book.Status == BookStatus.Finished && book.FinishedOn?.Year == today.Year);
@@ -267,6 +323,18 @@ else
         finished = books.Where(book => book.Status == BookStatus.Finished && book.FinishedOn is not null)
             .OrderByDescending(book => book.FinishedOn).ThenBy(book => book.Title, StringComparer.CurrentCultureIgnoreCase).Take(3).ToList();
     }
+
+    private static string SectionLabel(string name) => name switch
+    {
+        "glance" => T("Your shelf at a glance"),
+        "reading" => T("Also reading"),
+        "next" => T("Read next"),
+        "added" => T("Recently added"),
+        _ => T("Recently finished"),
+    };
+
+    [SupplyParameterFromQuery(Name = "arranged")]
+    public int? Arranged { get; set; }
 
     private string ProgressText(Book book)
     {

@@ -4,6 +4,27 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-10-12
+
+### Added
+
+- **Needs you**, at the top of Home, names what wants you now, and is only there when something does: a book you lent that's overdue, a borrowed one due back, a reader asking to borrow, new books in series you follow or by authors you follow. On Home it stands in for the loans banner every other page has.
+- **Arrange Home** hides any of Home's sections and puts them in the order you like, kept for you on every device.
+- **Connections**, at the top of Devices, shows how KOReader, a Kobo, Audiobookshelf, Readwise, Hardcover, and another shelf each stand: off, waiting for the first sync, working (and when it was last heard from, from which device), or needing a look, and why. A connection set up with nothing new isn't shown as trouble.
+- When the device loses the shelf, a line across the top of the page says so, with the way to the books kept for reading offline, instead of pages that just don't load.
+
+### Changed
+
+- On a book with an e-book and a recording, the one you used last leads, the other beside it to go back to, and the page shows where you are in each, when you last read and listened, and that each keeps its own place.
+- A book's page says when it's kept on this device to read or listen to offline, rather than only inside **More**.
+- Lending a book says what the other reader gets: its files with a place and highlights of their own, never your notes, highlights, review, or reading log.
+- The library's address keeps up with its filters and sort, so opening a book and going back finds the same books, as far down as you were, and a filtered view can be bookmarked. Each filter not shown as a chip, from an author's or series' link or under **More filters**, is a chip of its own, with **×** to take it away.
+- **Keep this one** on Duplicates now says first what merging will bring across from the others and which of their files it will delete, and asks before it does.
+
+### Fixed
+
+- **Wanted** no longer lists audiobooks when Shelf fetches e-books (or e-books when it fetches audiobooks): a book you have, or have marked, in the other format isn't missing a file.
+
 ## [2.6.0] - 2026-10-12
 
 ### Changed
@@ -391,7 +412,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.6.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.7.0...HEAD
+[2.7.0]: https://github.com/doodersrage/shelf/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/doodersrage/shelf/compare/v2.5.1...v2.6.0
 [2.5.1]: https://github.com/doodersrage/shelf/compare/v2.5.0...v2.5.1
 [2.5.0]: https://github.com/doodersrage/shelf/compare/v2.4.1...v2.5.0

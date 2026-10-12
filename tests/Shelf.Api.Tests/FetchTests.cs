@@ -97,8 +97,12 @@ public sealed class FetchTests(ShelfApiFactory factory) : IClassFixture<ShelfApi
         Assert.Null(await DelugeClient.TestAsync(app.Services.GetRequiredService<IHttpClientFactory>().CreateClient(ProwlarrClient.ClientName), "http://deluge.test", "deluge-pass", CancellationToken.None));
         Assert.Contains("password", await DelugeClient.TestAsync(app.Services.GetRequiredService<IHttpClientFactory>().CreateClient(ProwlarrClient.ClientName), "http://deluge.test", "wrong", CancellationToken.None));
 
-        // On the want list, with nothing fetched yet.
+        // On the want list, with nothing fetched yet; an audiobook wanted is not wanted as an e-book.
         Assert.Contains(await Fetcher.WantedAsync(db, settings), book => book.Id == wanted.Id);
+        var listening = (await (await client.PostAsJsonAsync("/books", new CreateBookRequest("The Dispossessed", "Ursula K. Le Guin", BookStatus.Want, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        (await db.Books.FindAsync(listening.Id))!.Format = BookFormat.Audiobook;
+        await db.SaveChangesAsync();
+        Assert.DoesNotContain(await Fetcher.WantedAsync(db, settings), book => book.Id == listening.Id);
         var found = await fetcher.SearchAsync(settings, wanted.Title, wanted.Author, FetchKind.Ebook, CancellationToken.None);
         Assert.Equal("Ursula K Le Guin - The Left Hand of Darkness (epub)", found[0].Release.Title);
         Assert.True(found[0].Matches);
@@ -118,7 +122,7 @@ public sealed class FetchTests(ShelfApiFactory factory) : IClassFixture<ShelfApi
         Assert.Equal((GrabState.Done, (string?)null), (landed.State, landed.Problem));
         var book = await client.GetFromJsonAsync<BookResponse>($"/books/{wanted.Id}", JsonOptions);
         Assert.Equal("The Left Hand of Darkness.epub", book!.EbookFileName);
-        Assert.Single((await client.GetFromJsonAsync<List<BookResponse>>("/books", JsonOptions))!);
+        Assert.Single((await client.GetFromJsonAsync<List<BookResponse>>("/books", JsonOptions))!, item => item.Title == "The Left Hand of Darkness");
         Assert.Contains("Fetched", await client.GetStringAsync($"/library/{wanted.Id}"));
         Assert.Contains("Wanted", await client.GetStringAsync("/wanted"));
     }

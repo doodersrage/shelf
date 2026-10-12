@@ -7,6 +7,8 @@
 @inject EbookStore Ebooks
 @inject AudioStore Audio
 @inject CoverStore Covers
+@using Microsoft.JSInterop
+@inject IJSRuntime Js
 
 <PageTitle>@T("Library") · Shelf</PageTitle>
 
@@ -189,34 +191,43 @@
         </div>
     }
 
-    @if (!string.IsNullOrWhiteSpace(tagFilter) || !string.IsNullOrWhiteSpace(authorFilter) || !string.IsNullOrWhiteSpace(seriesFilter) || !string.IsNullOrWhiteSpace(placeFilter) || !string.IsNullOrWhiteSpace(recommendedFilter) || !string.IsNullOrWhiteSpace(loanedFilter))
+    @* Every filter not shown as a chip above, each a tap to take away. *@
+    @if (!string.IsNullOrWhiteSpace(tagFilter) || !string.IsNullOrWhiteSpace(authorFilter) || !string.IsNullOrWhiteSpace(seriesFilter) || !string.IsNullOrWhiteSpace(placeFilter) || !string.IsNullOrWhiteSpace(recommendedFilter) || !string.IsNullOrWhiteSpace(loanedFilter) || MoreOn > 0)
     {
-        <p class="active-filters">
+        <ul class="active-filters" aria-label="@T("Filters on")">
             @if (!string.IsNullOrWhiteSpace(authorFilter))
             {
-                <span>@T("By") <strong>@authorFilter</strong></span>
+                <li>@Removable(T("By"), authorFilter, () => authorFilter = null)</li>
             }
             @if (!string.IsNullOrWhiteSpace(seriesFilter))
             {
-                <span>@T("In") <strong>@seriesFilter</strong></span>
+                <li>@Removable(T("In"), seriesFilter, () => seriesFilter = null)</li>
             }
             @if (!string.IsNullOrWhiteSpace(placeFilter))
             {
-                <span>@T("At") <strong>@placeFilter</strong></span>
+                <li>@Removable(T("At"), placeFilter, () => placeFilter = null)</li>
             }
             @if (!string.IsNullOrWhiteSpace(recommendedFilter))
             {
-                <span>@T("From") <strong>@recommendedFilter</strong></span>
+                <li>@Removable(T("From"), recommendedFilter, () => recommendedFilter = null)</li>
             }
             @if (!string.IsNullOrWhiteSpace(loanedFilter))
             {
-                <span>@T("Loaned to") <strong>@loanedFilter</strong></span>
+                <li>@Removable(T("Loaned to"), loanedFilter, () => loanedFilter = null)</li>
             }
             @if (!string.IsNullOrWhiteSpace(tagFilter))
             {
-                <span>@T("Tagged") <strong>@tagFilter</strong></span>
+                <li>@Removable(T("Tagged"), tagFilter, () => tagFilter = null)</li>
             }
-        </p>
+            @if (lovedOnly)
+            {
+                <li>@Removable(null, T("Loved"), () => lovedOnly = false)</li>
+            }
+            @if (queuedOnly)
+            {
+                <li>@Removable(null, T("Read next"), () => queuedOnly = false)</li>
+            }
+        </ul>
     }
 }
 
@@ -867,6 +878,72 @@ else if (visible.Count > 0)
         listView = asList;
         await using var db = await DbFactory.CreateDbContextAsync();
         await BookRules.SetLibraryAsListAsync(db, asList);
+    }
+
+    private RenderFragment Removable(string? label, string value, Action clear) =>
+        @<button type="button" class="chip removable" aria-label="@T("Take away the filter {0}", label is null ? value : $"{label} {value}")" @onclick="() => { clear(); shown = PageSize; }">
+            @(label is null ? "" : label + " ")<strong>@value</strong> <span aria-hidden="true">×</span>
+        </button>;
+
+    // This view's own address, so a book opened from it, then Back, finds the same books, as far down as before.
+    private sealed record LibraryPlace(string Url, int Shown, double Y);
+
+    private IJSObjectReference? placeModule;
+    private string? keptAddress;
+    private int keptShown;
+    private double? scrollBackTo;
+
+    private string Address
+    {
+        get
+        {
+            var view = CurrentQuery();
+            if (saved is not null && saved.Query == view)
+            {
+                view = $"{view}&saved={saved.Id}";
+            }
+
+            return view.Length == 0 ? "/library" : $"/library?{view}";
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            if (firstRender)
+            {
+                placeModule = await Js.InvokeAsync<IJSObjectReference>("import", "./library-place.js");
+                if (await placeModule.InvokeAsync<LibraryPlace?>("place", Address) is { } back)
+                {
+                    shown = Math.Max(shown, back.Shown);
+                    scrollBackTo = back.Y;
+                    StateHasChanged();
+                    return;
+                }
+            }
+
+            if (placeModule is null)
+            {
+                return;
+            }
+
+            if (scrollBackTo is double y)
+            {
+                scrollBackTo = null;
+                await placeModule.InvokeVoidAsync("scrollBack", y);
+            }
+
+            if (Address != keptAddress || shown != keptShown)
+            {
+                (keptAddress, keptShown) = (Address, shown);
+                await placeModule.InvokeVoidAsync("keepAddress", keptAddress, keptShown);
+            }
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
+        {
+            // Without the browser's help the library still works; it just starts at the top.
+        }
     }
 
     private void ClearFilters()

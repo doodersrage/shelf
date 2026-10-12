@@ -334,9 +334,13 @@ public sealed class Fetcher(IServiceScopeFactory scopes, IHttpClientFactory clie
             .Select(grab => grab.BookId).ToListAsync(cancellationToken);
         var books = (await db.Books.AsNoTracking().Where(book => book.Status == BookStatus.Want).ToListAsync(cancellationToken))
             .OrderByDescending(book => book.Queued).ThenBy(book => book.AddedAt);
-        return [.. books.Where(book => !busy.Contains(book.Id)
-            && (settings.WantedKind == FetchKind.Ebook ? string.IsNullOrWhiteSpace(book.EbookStoredName) : string.IsNullOrWhiteSpace(book.AudioStoredName)))];
+        return [.. books.Where(book => !busy.Contains(book.Id) && Lacks(book, settings.WantedKind))];
     }
+
+    // An audiobook is not missing its e-book, nor an e-book its audio: only a book with neither in hand, nor that format, is wanted.
+    private static bool Lacks(Book book, FetchKind kind) => kind == FetchKind.Ebook
+        ? string.IsNullOrWhiteSpace(book.EbookStoredName) && string.IsNullOrWhiteSpace(book.AudioStoredName) && book.Format != BookFormat.Audiobook
+        : string.IsNullOrWhiteSpace(book.AudioStoredName) && string.IsNullOrWhiteSpace(book.EbookStoredName) && book.Format != BookFormat.Ebook;
 
     public void Run(WantedJob job) => _ = Task.Run(() => RunWantedAsync(job, CancellationToken.None));
 

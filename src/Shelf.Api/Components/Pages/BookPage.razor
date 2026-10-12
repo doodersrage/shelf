@@ -112,12 +112,17 @@ else if (book is not null)
                 </p>
             }
             @* The one thing most likely next leads; changing the status, editing, and the rest follow, the rarer ones under More. *@
+            @* With an e-book and a recording, the one last used leads, and the other is a tap away to go back to. *@
             <div class="status-actions">
+                @if (AudioFirst)
+                {
+                    <a class="button primary" href="/library/@book.Id/listen">@(book.Status == BookStatus.Reading ? T("Resume listening") : T("Listen"))</a>
+                }
                 @if (!string.IsNullOrWhiteSpace(book.EbookStoredName))
                 {
-                    <a class="button primary" href="/library/@book.Id/read">@(book.Status == BookStatus.Reading ? T("Resume reading") : T("Read"))</a>
+                    <a class="button @(AudioFirst ? null : "primary")" href="/library/@book.Id/read">@(book.Status == BookStatus.Reading ? T("Resume reading") : T("Read"))</a>
                 }
-                @if (!string.IsNullOrWhiteSpace(book.AudioStoredName))
+                @if (!string.IsNullOrWhiteSpace(book.AudioStoredName) && !AudioFirst)
                 {
                     <a class="button @(string.IsNullOrWhiteSpace(book.EbookStoredName) ? "primary" : null)" href="/library/@book.Id/listen">@(book.Status == BookStatus.Reading ? T("Resume listening") : T("Listen"))</a>
                 }
@@ -181,6 +186,32 @@ else if (book is not null)
                     </details>
                 }
             </div>
+            @if (!string.IsNullOrWhiteSpace(book.EbookStoredName) && !string.IsNullOrWhiteSpace(book.AudioStoredName))
+            {
+                <ul class="format-places">
+                    <li>
+                        <strong>@T("E-book")</strong>
+                        <span>@EbookPlace(book)</span>
+                        @if (lastRead is DateOnly read)
+                        {
+                            <span class="hint">· @T("last read {0}", read.Medium())</span>
+                        }
+                    </li>
+                    <li>
+                        <strong>@T("Audiobook")</strong>
+                        <span>@AudioPlace(book)</span>
+                        @if (lastHeard is DateOnly heardOn)
+                        {
+                            <span class="hint">· @T("last listened to {0}", heardOn.Medium())</span>
+                        }
+                    </li>
+                </ul>
+                <p class="hint">@(alongReady ? T("Each keeps its own place. Listen along, in the reader, plays the recording with the text, word by word.") : T("Each keeps its own place: reading doesn't move the recording on, nor listening the e-book."))</p>
+            }
+            @if (keptOffline || keptAudio)
+            {
+                <p class="hint kept-here">@(keptOffline && keptAudio ? T("On this device to read and listen to offline.") : keptOffline ? T("On this device to read offline.") : T("On this device to listen to offline."))</p>
+            }
             @if (book.Status == BookStatus.Finished && book.FinishedOn is DateOnly finishedOn)
             {
                 <p class="hint">@T("Finished {0}", finishedOn.Long())</p>
@@ -693,6 +724,10 @@ else if (book is not null)
                     <span class="@(due < Today ? "late" : null)"> · @T("due {0}", due.Medium())@(due < Today ? T(", overdue") : "")</span>
                 }
             </p>
+            @if (book.BorrowerId is not null)
+            {
+                <p class="hint">@LendNote</p>
+            }
             <button type="button" @onclick="ReturnLoan">@T("Mark returned")</button>
         }
         else if (readers.Count == 0)
@@ -701,7 +736,7 @@ else if (book is not null)
         }
     else
     {
-        <p class="hint">@T("Lend this book to another reader here. It shows on their loans until it comes back.")</p>
+        <p class="hint">@T("Lend this book to another reader here. It shows on their loans until it comes back.") @LendNote</p>
         <div class="pair">
             <label>
                 @T("Reader")
@@ -1146,6 +1181,37 @@ else if (book is not null)
     // Edit opens the details form; closing it is the browser's own, which a render leaves alone.
     private bool editing;
 
+    // The days this book was last read in the browser or on KOReader, and last listened to; whether its recording is
+    // matched to the text, for Listen along.
+    private DateOnly? lastRead;
+    private DateOnly? lastHeard;
+    private bool alongReady;
+
+    private bool AudioFirst => book is not null && !string.IsNullOrWhiteSpace(book.AudioStoredName) && !string.IsNullOrWhiteSpace(book.EbookStoredName)
+        && lastHeard is DateOnly heard && (lastRead is not DateOnly read || heard > read);
+
+    private static string EbookPlace(Book book) => book switch
+    {
+        { EbookProgress: double through and > 0 } => T("{0}% through", (int)Math.Round(through * 100)),
+        { CurrentPage: int at and > 0 } => T("Page {0}", at),
+        _ => T("Not started"),
+    };
+
+    private string AudioPlace(Book book)
+    {
+        if (BookProgress.Listened(book, Audio) is var (heard, length))
+        {
+            return heard > 0 ? T("{0} left · {1}%", BookProgress.Span(length - heard), (int)Math.Round(heard * 100 / length)) : T("Not started");
+        }
+
+        return (book.AudioTrack ?? 0) > 0 || (book.AudioSeconds ?? 0) > 0 ? T("Paused at {0}", PausedAt(book)) : T("Not started");
+    }
+
+    // What lending lets the other reader see, and what it never does.
+    private string LendNote => HasFiles
+        ? T("While it's lent, they can read and listen to its files here, with a place and highlights of their own. Your notes, highlights, review, and reading log stay yours.")
+        : T("Shelf notes who has the copy and when it's due back; they see its details, never your notes or review.");
+
     private bool HasFiles => book is not null && (!string.IsNullOrWhiteSpace(book.EbookStoredName) || !string.IsNullOrWhiteSpace(book.AudioStoredName));
 
     private bool HasMore => book is not null && (book.Status == BookStatus.Reading || !string.IsNullOrWhiteSpace(book.AudioStoredName)
@@ -1388,6 +1454,13 @@ else if (book is not null)
             {
                 nextVolume = new NextVolume(next.Id, next.Title);
             }
+        }
+        if (book is not null)
+        {
+            var readerId = db.ReaderId;
+            lastRead = await db.ReadingDays.AsNoTracking().Where(day => day.BookId == book.Id && day.ReaderId == readerId).MaxAsync(day => (DateOnly?)day.Day);
+            lastHeard = await db.ListeningDays.AsNoTracking().Where(day => day.BookId == book.Id && day.ReaderId == readerId).MaxAsync(day => (DateOnly?)day.Day);
+            alongReady = await db.ReadAlongs.AsNoTracking().AnyAsync(row => row.BookId == book.Id && row.State == ReadAlongState.Ready);
         }
         readers = book is null ? [] : (await ReaderRules.OthersAsync(db, db.ReaderId)).ToList();
         borrowable = book is null ? [] : Asking.Matching(await Asking.OpenCopiesAsync(db, book.Title, book.Isbn), book.Isbn, book.Title, book.Author)

@@ -7,6 +7,17 @@ description: Sync a Kobo, read on KOReader and other e-readers through OPDS, kee
 
 Shelf talks to e-reader apps and to other shelves, and works on a phone like an app of its own. All of this is set up on **Devices**.
 
+## Connections at a glance
+
+**Connections**, at the top of **Devices**, lists each thing your shelf can trade with (KOReader, a Kobo, Audiobookshelf, Readwise, Hardcover, another shelf) and how it stands:
+
+- **Off**: not set up, with a link to set it up.
+- **Waiting**: set up, and nothing has come from it yet, with what to do next, such as syncing the Kobo.
+- **Working**: when it was last heard from, and from which device.
+- **Needs a look**: the last try went wrong, and why.
+
+A connection that's set up and simply has nothing new says so; it isn't shown as trouble.
+
 ## The device key
 
 E-reader catalogs and other shelves sign in with a **device key**, not your password. Make one on **Devices**; it is shown once, so copy it then. Making a new key stops the old one working. A key reaches only your e-books and audiobooks, never your account.

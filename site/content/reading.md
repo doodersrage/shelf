@@ -107,6 +107,8 @@ Offline, you can still:
 - **see your highlights**, which come along when you keep a book;
 - **highlight passages and remove highlights**, kept on the device and sent to the shelf when it answers.
 
+A book's page says when it's kept on that device. Whenever the device loses the shelf, a line across the top of the page says so, with a link to **Offline reading**, rather than pages simply failing to load.
+
 A scanned PDF's OCR words are not kept offline, and comics aren't offered for offline reading. Audiobooks can be kept too; see [Listening offline](audiobooks.md#listening-offline).
 
 > [!TIP]
@@ -117,5 +119,7 @@ A scanned PDF's OCR words are not kept offline, and comics aren't offered for of
 The reader counts the time you spend with a book open, while the page is in view and you have scrolled, turned a page, or touched it in the last two minutes, so a book left open on the table does not count. **Stats** shows it under **Reading time**, beside the time spent listening to audiobooks: today, this week, this year, each of the last two weeks, and the books you gave most time this year. A day of reading time keeps your reading streak going.
 
 ## Where you stopped
+
+On a book with both an e-book and a recording, its page shows where you are in each and when you last read or listened, and the button for the one you used last leads, with the other beside it. Each keeps its own place: reading doesn't move the recording on, nor listening the e-book. **Listen along**, in the reader, plays the two together.
 
 Your place is your own. A borrower has a place of their own in a book lent to them, separate from the owner's. KOReader and another shelf can move your place forward too; see [Devices and apps](devices.md).

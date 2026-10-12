@@ -1609,6 +1609,10 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<bool>("ComicSpread")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("HomeSections")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("HoursGoal")
                         .HasColumnType("INTEGER");
 

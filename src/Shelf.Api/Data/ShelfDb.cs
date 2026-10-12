@@ -442,6 +442,7 @@ public class ShelfDb : DbContext
             setting.Property(s => s.Id).ValueGeneratedNever();
             setting.Property(s => s.SyncAddress).HasMaxLength(300);
             setting.Property(s => s.SyncKey).HasMaxLength(100);
+            setting.Property(s => s.HomeSections).HasMaxLength(200);
         });
 
         modelBuilder.Entity<Reader>(reader =>

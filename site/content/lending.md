@@ -39,7 +39,7 @@ While it's out, the borrower can:
 - **search inside it** along with their own books;
 - **give it back** when they're done.
 
-Your own place, highlights, and notes stay private and unmoved. Either of you can end the loan: you with **Mark returned**, they with **Give it back**.
+Your own place, highlights, notes, review, and reading log stay private and unmoved; the **Lending** section says so as you lend. A paper copy lent this way just notes who has it and when it's due back. Either of you can end the loan: you with **Mark returned**, they with **Give it back**.
 
 ## Lending to someone else
 

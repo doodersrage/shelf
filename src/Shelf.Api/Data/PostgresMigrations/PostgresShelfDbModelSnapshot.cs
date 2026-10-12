@@ -1680,6 +1680,10 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Property<bool>("ComicSpread")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("HomeSections")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<int>("HoursGoal")
                         .HasColumnType("integer");
 

@@ -12,6 +12,22 @@
 <PageTitle>@T("Devices") · Shelf</PageTitle>
 
 <h1>@T("Devices")</h1>
+
+@* Each connection at a glance, before how to set any of them up. *@
+<section class="panel connections" aria-labelledby="connections-heading">
+    <h2 id="connections-heading">@T("Connections")</h2>
+    <ul class="connection-list">
+        @foreach (var connection in connections)
+        {
+            <li class="connection @connection.Health.ToString().ToLowerInvariant()">
+                <span class="connection-name">@connection.Name</span>
+                <span class="badge connection-state">@Connections.Label(connection.Health)</span>
+                <span class="connection-note">@connection.Note <a href="@connection.Href">@(connection.Health == ConnectionHealth.Off ? T("Set up") : T("Settings"))</a></span>
+            </li>
+        }
+    </ul>
+</section>
+
 <p>@T("Another shelf can trade e-books and audiobooks with yours. The place you stopped, and the notes on a passage, come along. The furthest place is the one that stays.")</p>
 
 <section class="panel">
@@ -32,7 +48,7 @@ else if (hasKey)
 
 </section>
 
-<section class="panel">
+<section class="panel" id="koreader">
 <h2>@T("E-reader apps")</h2>
 <p>@T("Reading apps that browse an OPDS catalog, such as KOReader, can download your e-books from this shelf. Add a catalog with this address, any user name, and this shelf's key as the password.")</p>
 <p><code class="key">@CatalogAddress</code></p>
@@ -146,7 +162,7 @@ else if (hasKobo)
 <p class="hint">@T("To go back to Kobo's own store, put the old api_endpoint line back: https://storeapi.kobo.com.")</p>
 </section>
 
-<section class="panel">
+<section class="panel" id="another-shelf">
 <h2>@T("Another shelf")</h2>
 <EditForm Model="form" OnValidSubmit="Save">
     <label>
@@ -293,12 +309,15 @@ else if (hasKobo)
     private string? newKey;
     private IReadOnlyList<string>? lines;
 
+    private List<ConnectionStatus> connections = [];
+
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         form.Address = await BookRules.GetSyncAddressAsync(db) ?? "";
         form.Key = await BookRules.GetSyncKeyAsync(db) ?? "";
         hasKey = await ReaderRules.HasKeyAsync(db, db.ReaderId);
+        connections = await Connections.ForReaderAsync(db);
         var reader = await db.Readers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == db.ReaderId);
         readerName = reader?.Name;
         hasKosync = reader?.KosyncHash is not null;
@@ -317,14 +336,14 @@ else if (hasKobo)
         await using var db = await DbFactory.CreateDbContextAsync();
         var token = await Kobo.MakeTokenAsync(db);
         koboLine = $"api_endpoint={Navigation.ToAbsoluteUri($"/kobo/{token}").ToString().TrimEnd('/')}";
-        hasKobo = true;
+        hasKobo = true;        connections = await Connections.ForReaderAsync(db);
     }
 
     private async Task StopKobo()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         await Kobo.StopAsync(db);
-        (hasKobo, koboLine) = (false, null);
+        (hasKobo, koboLine) = (false, null);        connections = await Connections.ForReaderAsync(db);
     }
 
     private async Task SaveKoboCollection()
@@ -343,7 +362,7 @@ else if (hasKobo)
         reader.KosyncHash = Kosync.HashOf(newKosyncPassword);
         await db.SaveChangesAsync();
         await Audit.NoteAsync(db, Say("Made a KOReader password"), reader);
-        hasKosync = true;
+        hasKosync = true;        connections = await Connections.ForReaderAsync(db);
     }
 
     private async Task StopKosync()
@@ -354,7 +373,7 @@ else if (hasKobo)
         await db.SaveChangesAsync();
         await Audit.NoteAsync(db, Say("Stopped syncing with KOReader"), reader);
         hasKosync = false;
-        newKosyncPassword = null;
+        newKosyncPassword = null;        connections = await Connections.ForReaderAsync(db);
     }
 
     private async Task MakeKey()
@@ -369,7 +388,7 @@ else if (hasKobo)
         await using var db = await DbFactory.CreateDbContextAsync();
         await BookRules.SetSyncAddressAsync(db, form.Address, form.Key);
         saved = true;
-        lines = null;
+        lines = null;        connections = await Connections.ForReaderAsync(db);
     }
 
     private async Task SyncNow()

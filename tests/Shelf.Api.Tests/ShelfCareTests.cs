@@ -167,7 +167,12 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
         var outgoing = (await _admin.GetFromJsonAsync<LoanAsks>("/books/asks", JsonOptions))!.Outgoing;
         Assert.Equal(["Declined Book", "Wanted Book", "Withdrawn Book"], outgoing.Select(ask => ask.Title).Order());
         Assert.Equal(3, (await owner.GetFromJsonAsync<Reminders>("/books/reminders", JsonOptions))?.Asks);
-        Assert.Contains("asked to borrow", await owner.GetStringAsync("/"));
+        Assert.Contains("asked to borrow", await owner.GetStringAsync("/library"));
+        // Home names each ask, under Needs you, in place of the banner every other page has.
+        var home = await owner.GetStringAsync("/");
+        Assert.Contains("Needs you", home);
+        Assert.Contains("Tenar asks to borrow Wanted Book", home);
+        Assert.DoesNotContain("asked to borrow", home);
         Assert.Contains("Asked of you", await owner.GetStringAsync("/loans"));
         Assert.Contains(await _admin.GetFromJsonAsync<ShelfBook[]>($"/books/shelves/{ownerId}", JsonOptions) ?? [], book => book.Id == wanted.Id && book.Asked);
 
@@ -205,12 +210,15 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
         var mine = await borrower.GetFromJsonAsync<Reminders>("/books/reminders", JsonOptions);
         Assert.Equal(1, mine?.BorrowedOverdue);
         Assert.Equal(1, mine?.BorrowedDueSoon);
-        var page = await borrower.GetStringAsync("/");
+        var page = await borrower.GetStringAsync("/library");
         Assert.Contains("1 book you borrowed is overdue", page);
         Assert.Contains("due within three days", page);
+        var home = await borrower.GetStringAsync("/");
+        Assert.Contains("Long Overdue was due back to", home);
+        Assert.Contains("Due Soon is due back to", home);
 
         Assert.True((await _admin.GetFromJsonAsync<Reminders>("/books/reminders", JsonOptions))?.LentOverdue >= 1);
-        Assert.Contains("overdue", await _admin.GetStringAsync("/"));
+        Assert.Contains("Long Overdue is overdue from Lark", await _admin.GetStringAsync("/"));
     }
 
     [Fact]

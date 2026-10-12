@@ -192,6 +192,11 @@ test("two entries for one book are found and merged into the one kept", async ({
   await ready(page);
   await expect(page.locator(".duplicate-group")).toHaveCount(1);
   await page.locator(".duplicate-books li").first().getByRole("button", { name: "Keep this one" }).click();
+  // Nothing changes until what merging does has been seen and agreed to.
+  const preview = page.getByRole("region", { name: "What merging does" });
+  await expect(preview).toContainText("From the copy added");
+  await expect(preview).toContainText("This can't be undone.");
+  await preview.getByRole("button", { name: "Merge" }).click();
   await expect(page.getByText("Merged into one book.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "No duplicates" })).toBeVisible();
   const kept = await (await page.request.get(`/books/${first.id}`)).json();

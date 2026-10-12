@@ -36,6 +36,7 @@ public static class BookEndpoints
             await SeriesWatch.DismissAsync(db, id, cancellationToken) ? TypedResults.NoContent() : TypedResults.NotFound());
         books.MapPost("/series/alerts/check", async Task<IResult> (ShelfDb db, SeriesWatch watch, CancellationToken cancellationToken) =>
             await watch.CheckAsync(db.ReaderId, cancellationToken) is int found ? TypedResults.Ok(new { found }) : TypedResults.Conflict());
+        books.MapPost("/home", ArrangeHome).ExcludeFromDescription();
         books.MapGet("/places", ListPlaces);
         books.MapGet("/recommenders", ListRecommenders);
         books.MapGet("/quotes", ListAllQuotes);
@@ -590,6 +591,18 @@ public static class BookEndpoints
             })
             .ToListAsync(cancellationToken);
         return TypedResults.Ok(BookRules.SeriesShelves(books));
+    }
+
+    // Home's Arrange form, which works without the page holding a connection open; back to Home with it open.
+    private static async Task<RedirectHttpResult> ArrangeHome(
+        IFormCollection form,
+        ShelfDb db,
+        CancellationToken cancellationToken)
+    {
+        var shown = form["shown"].OfType<string>().ToList();
+        var sections = BookRules.ArrangeHome(await BookRules.GetHomeSectionsAsync(db, cancellationToken), shown, form["move"].FirstOrDefault());
+        await BookRules.SetHomeSectionsAsync(db, sections, cancellationToken);
+        return TypedResults.Redirect("/?arranged=1#arrange-home");
     }
 
     private static async Task<Ok<PlaceCount[]>> ListPlaces(ShelfDb db, CancellationToken cancellationToken)
