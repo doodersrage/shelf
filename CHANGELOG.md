@@ -4,6 +4,16 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-10-12
+
+### Changed
+
+- The reader is friendlier to use. **☰** opens the book's contents, with the chapter being read marked, in place of a cramped list in the bar. **Aa** opens the text settings as taps rather than lists: the page's colors as swatches, the size a step at a time with **A−** and **A+** (now up to 200%), and the rest as rows of buttons; on a phone it, and the **⋯** panel, come up from the bottom. Esc or a tap on the dimmed page closes whichever is open. The bottom bar's line names the chapter and fits a phone.
+
+### Fixed
+
+- Chapters are named as the book's own table of contents names them. Before, a chapter took its file's title, which many books set to the book's title in every file, and which wasn't read at all in a file with a doctype (most EPUBs), so chapters showed as file names.
+
 ## [2.5.1] - 2026-10-11
 
 ### Changed
@@ -381,7 +391,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.5.1...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.6.0...HEAD
+[2.6.0]: https://github.com/doodersrage/shelf/compare/v2.5.1...v2.6.0
 [2.5.1]: https://github.com/doodersrage/shelf/compare/v2.5.0...v2.5.1
 [2.5.0]: https://github.com/doodersrage/shelf/compare/v2.4.1...v2.5.0
 [2.4.1]: https://github.com/doodersrage/shelf/compare/v2.4.0...v2.4.1

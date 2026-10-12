@@ -13,10 +13,12 @@ An EPUB opens in a page-turning reader built on [epub.js](https://github.com/fut
 
 A tap in the middle of the page shows the bars, and another hides them, as does turning the page by tapping or swiping:
 
-- at the top, **‹** back to the book's page (or to Loans, for a book lent to you), the book's title, the chapters, **Aa** for the text settings, and **⋯** for the rest;
-- at the bottom, **‹** and **›** to turn the page, and where you are: the chapter, the page of it, and how far through the whole book (counted once on each device, then kept there), with a slider to go anywhere in it.
+- at the top, **‹** back to the book's page (or to Loans, for a book lent to you), the book's title, **☰** for the contents, **Aa** for the text settings, and **⋯** for the rest;
+- at the bottom, **‹** and **›** to turn the page, and where you are: the chapter's name, the page of it, and how far through the whole book (counted once on each device, then kept there), with a slider to go anywhere in it.
 
-**⋯** opens a panel down the side with **Continue in the audiobook**, **Listen along**, **Read aloud**, the recap, this chapter's highlights, and **Full screen**. Selecting a passage brings up a sheet over the foot of the page to highlight it, keep a note, or look a word up.
+**☰** lists the chapters by the names the book's own table of contents gives them (or each chapter's heading, in a book without one), with the one you're reading marked; a tap opens one. Esc, a tap on the dimmed page beside it, or **✕** closes it, and the same goes for the text settings and the panel.
+
+**⋯** opens a panel (down the side, or from the bottom on a phone) with **Continue in the audiobook**, **Listen along**, **Read aloud**, the recap, this chapter's highlights, and **Full screen**. Selecting a passage brings up a sheet over the foot of the page to highlight it, keep a note, or look a word up.
 
 ### Full screen
 
@@ -24,11 +26,11 @@ A tap in the middle of the page shows the bars, and another hides them, as does 
 
 Your place is kept to the word, as an EPUB CFI, every time you turn a page, so the book opens where you stopped on any device, whatever its screen or your text size. Audiobookshelf's phone apps keep their e-book place the same way, and the two share it. [KOReader](devices.md#keeping-your-place-in-step-with-koreader) trades its place with Shelf to the word too. A Kobo, which keeps a chapter only, moves you to the start of the chapter it was in when it's further on.
 
-**Aa Text settings** sets:
+**Aa** opens the text settings, each a tap (from the bottom on a phone, within a thumb's reach), applied to the page as you choose them:
 
-- **Page**: light, sepia, or dark, or as the device is set;
+- **Page**: light, sepia, or dark, or as the device is set, as swatches;
+- **Text size**, a step at a time with **A−** and **A+**, from 85% to 200%;
 - **Typeface**: the book's own, a serif, or a sans serif;
-- **Text size**, from smaller to largest;
 - **Line spacing**: snug, comfortable, or airy;
 - **Reading width**: narrow, medium, or wide;
 - **Layout**: **Pages** (where a new reader starts) or **Scroll**, the book as one long page.

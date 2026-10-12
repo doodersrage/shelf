@@ -10,7 +10,43 @@ public sealed record EpubChapter(int Index, string Title, string Href);
 
 public static partial class EpubFile
 {
+    // A book's chapters are asked for with every page of it, so kept for the file as it is (a changed file is read
+    // afresh), for the books read lately.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Path, long Length, DateTime Written), IReadOnlyList<EpubChapter>?> Known = new();
+
     public static IReadOnlyList<EpubChapter>? Chapters(string path)
+    {
+        FileInfo file;
+        try
+        {
+            file = new FileInfo(path);
+            if (!file.Exists)
+            {
+                return null;
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return null;
+        }
+
+        var key = (file.FullName, file.Length, file.LastWriteTimeUtc);
+        if (Known.TryGetValue(key, out var known))
+        {
+            return known;
+        }
+
+        var chapters = Read(path);
+        if (Known.Count > 200)
+        {
+            Known.Clear();
+        }
+
+        Known[key] = chapters;
+        return chapters;
+    }
+
+    private static IReadOnlyList<EpubChapter>? Read(string path)
     {
         try
         {
@@ -32,6 +68,7 @@ public static partial class EpubFile
                 .Select(element => (Id: element.Attribute("id")?.Value, Href: element.Attribute("href")?.Value))
                 .Where(item => !string.IsNullOrWhiteSpace(item.Id) && !string.IsNullOrWhiteSpace(item.Href))
                 .ToDictionary(item => item.Id!, item => item.Href!, StringComparer.Ordinal);
+            var contents = Contents(zip, opfPath, package, manifest);
 
             var chapters = new List<EpubChapter>();
             foreach (var itemRef in package.Descendants().Where(element => element.Name.LocalName == "itemref"))
@@ -43,7 +80,10 @@ public static partial class EpubFile
                 }
 
                 var fullHref = Combine(opfPath, href);
-                var title = ChapterTitle(zip, fullHref) ?? Path.GetFileNameWithoutExtension(fullHref);
+                // The book's own table of contents names a chapter best; else its heading, else its file.
+                var title = (contents.TryGetValue(fullHref, out var listed) ? listed : null)
+                    ?? ChapterTitle(zip, fullHref)
+                    ?? Path.GetFileNameWithoutExtension(fullHref);
                 chapters.Add(new EpubChapter(chapters.Count, title.Trim(), fullHref));
             }
 
@@ -194,17 +234,85 @@ public static partial class EpubFile
             ?.Attribute("full-path")?.Value;
     }
 
+    // A chapter's own heading, else its <title> (which many books set to the book's title in every file).
     private static string? ChapterTitle(ZipArchive zip, string href)
     {
-        var entry = Find(zip, href);
-        var document = entry is null ? null : Load(entry);
+        var document = LoadTolerant(zip, href);
         if (document is null)
         {
             return null;
         }
 
-        var title = document.Descendants().FirstOrDefault(element => element.Name.LocalName is "title" or "h1");
-        return string.IsNullOrWhiteSpace(title?.Value) ? null : title.Value;
+        var heading = document.Descendants().FirstOrDefault(element => element.Name.LocalName is "h1" or "h2" or "h3");
+        var title = string.IsNullOrWhiteSpace(heading?.Value) ? document.Descendants().FirstOrDefault(element => element.Name.LocalName == "title") : heading;
+        return Clean(title?.Value);
+    }
+
+    // The book's table of contents, by file: EPUB 3's navigation document (its toc), else EPUB 2's NCX. The first
+    // entry for a file names it; an entry pointing into the middle of a file (#fragment) counts for the file.
+    private static Dictionary<string, string> Contents(ZipArchive zip, string opfPath, XDocument package, Dictionary<string, string> manifest)
+    {
+        var found = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var items = package.Descendants().Where(element => element.Name.LocalName == "item").ToList();
+            var nav = items.FirstOrDefault(item => (item.Attribute("properties")?.Value ?? "").Split(' ').Contains("nav"))?.Attribute("href")?.Value;
+            if (nav is not null && LoadTolerant(zip, Combine(opfPath, nav)) is { } navigation)
+            {
+                var navPath = Combine(opfPath, nav);
+                var toc = navigation.Descendants().Where(element => element.Name.LocalName == "nav")
+                    .FirstOrDefault(element => element.Attributes().Any(attribute => attribute.Name.LocalName == "type" && attribute.Value.Split(' ').Contains("toc")))
+                    ?? navigation.Descendants().FirstOrDefault(element => element.Name.LocalName == "nav");
+                foreach (var link in toc?.Descendants().Where(element => element.Name.LocalName == "a") ?? [])
+                {
+                    Add(navPath, link.Attribute("href")?.Value, link.Value);
+                }
+            }
+
+            if (found.Count == 0)
+            {
+                var ncxId = package.Descendants().FirstOrDefault(element => element.Name.LocalName == "spine")?.Attribute("toc")?.Value;
+                var ncx = ncxId is not null && manifest.TryGetValue(ncxId, out var ncxHref) ? ncxHref
+                    : items.FirstOrDefault(item => item.Attribute("media-type")?.Value == "application/x-dtbncx+xml")?.Attribute("href")?.Value;
+                if (ncx is not null && LoadTolerant(zip, Combine(opfPath, ncx)) is { } document)
+                {
+                    var ncxPath = Combine(opfPath, ncx);
+                    foreach (var point in document.Descendants().Where(element => element.Name.LocalName == "navPoint"))
+                    {
+                        var label = point.Elements().FirstOrDefault(element => element.Name.LocalName == "navLabel")?.Value;
+                        var src = point.Elements().FirstOrDefault(element => element.Name.LocalName == "content")?.Attribute("src")?.Value;
+                        Add(ncxPath, src, label);
+                    }
+                }
+            }
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or XmlException or UriFormatException)
+        {
+            // A table of contents that can't be read leaves the chapters to their own headings.
+        }
+
+        return found;
+
+        void Add(string from, string? href, string? label)
+        {
+            if (string.IsNullOrWhiteSpace(href) || Clean(label) is not { } name || href.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            found.TryAdd(Combine(from, href), name);
+        }
+    }
+
+    private static XDocument? LoadTolerant(ZipArchive zip, string path)
+    {
+        if (Find(zip, path) is not { } entry)
+        {
+            return null;
+        }
+
+        using var reader = new StreamReader(entry.Open(), Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        return ChapterDocument(reader.ReadToEnd());
     }
 
     private static XDocument? Load(ZipArchive zip, string path)

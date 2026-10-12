@@ -180,17 +180,9 @@ else if (book is not null)
                 <a class="icon-button epub-back" href="@(borrowed ? "/loans" : $"/library/{book!.Id}")" aria-label="@(borrowed ? T("Loans") : T("Back to {0}", book!.Title))">‹</a>
                 @* A borrowed book says so, as the classic reader and the player do. *@
                 <span class="epub-title">@book!.Title@if (borrowed) { <span class="epub-lent"> · @T("lent to you")</span> }</span>
-                <label class="epub-chapter">
-                    <span class="visually-hidden">@T("Chapter")</span>
-                    <select @bind="chapter" @bind:after="RememberChapter">
-                        @foreach (var item in chapters!)
-                        {
-                            <option value="@item.Index">@item.Title</option>
-                        }
-                    </select>
-                </label>
-                @TextSettings
-                <button type="button" class="icon-button" aria-label="@T("More")" aria-controls="epub-panel" aria-expanded="@(panel ? "true" : "false")" @onclick="() => panel = !panel">⋯</button>
+                <button type="button" class="icon-button" aria-label="@T("Contents")" aria-controls="epub-contents" aria-expanded="@(contentsOpen ? "true" : "false")" @onclick="ToggleContents">☰</button>
+                @SettingsButton
+                <button type="button" class="icon-button" aria-label="@T("More")" aria-controls="epub-panel" aria-expanded="@(panel ? "true" : "false")" @onclick="TogglePanel">⋯</button>
             </div>
             <div class="shelf-epub@(type.Paged ? " paged" : "")" @ref="epubHost" role="region" aria-label="@book!.Title" data-theme="@(type.Theme.Length > 0 ? type.Theme : null)"></div>
             @if (engineFailed)
@@ -200,7 +192,11 @@ else if (book is not null)
             <div class="epub-bar epub-bottom">
                 <button type="button" class="icon-button" @onclick="() => TurnPage(-1)" aria-label="@T("Previous page")">‹</button>
                 <div class="epub-progress">
-                    <span class="reader-where" aria-live="polite">@Where</span>
+                    <span class="reader-where visually-hidden" aria-live="polite">@Where</span>
+                    <span class="epub-line" aria-hidden="true">
+                        <span class="epub-line-chapter">@(chapters is { Count: > 0 } && chapter < chapters.Count ? chapters[chapter].Title : "")</span>
+                        <span class="epub-line-place">@PlaceLine</span>
+                    </span>
                     <input type="range" min="0" max="1000" step="1" value="@((int)Math.Round((bookShare ?? 0) * 1000))" disabled="@(bookShare is null)"
                            aria-label="@T("Where in the book")" @onchange="JumpInBook" />
                 </div>
@@ -226,10 +222,30 @@ else if (book is not null)
                     @Passage
                 </div>
             }
+            @if (AnyOpen)
+            {
+                <div class="reader-backdrop" @onclick="CloseAll"></div>
+            }
+            @if (contentsOpen)
+            {
+                <nav id="epub-contents" class="epub-drawer" aria-label="@T("Contents")">
+                    <div class="epub-panel-head">
+                        <h2>@T("Contents")</h2>
+                        <button type="button" class="icon-button" aria-label="@T("Close")" @onclick="CloseAll">✕</button>
+                    </div>
+                    <ol class="epub-toc">
+                        @foreach (var item in chapters!)
+                        {
+                            <li><button type="button" aria-current="@(item.Index == chapter ? "true" : null)" @onclick="() => GoToChapter(item.Index)">@item.Title</button></li>
+                        }
+                    </ol>
+                </nav>
+            }
+            @SettingsSheet
             <aside id="epub-panel" class="epub-panel" hidden="@(!panel)" aria-label="@T("More")">
                 <div class="epub-panel-head">
                     <h2>@book!.Title</h2>
-                    <button type="button" class="icon-button" aria-label="@T("Close")" @onclick="() => panel = false">✕</button>
+                    <button type="button" class="icon-button" aria-label="@T("Close")" @onclick="CloseAll">✕</button>
                 </div>
                 <div class="epub-panel-actions">
                     @if (!string.IsNullOrWhiteSpace(book!.AudioStoredName))
@@ -257,62 +273,161 @@ else if (book is not null)
 
     private bool panel;
 
-    // The type and page settings: under the title, and in the bar at the top of the full-screen reader.
-    private RenderFragment TextSettings => @<details class="menu reader-menu">
-            <summary class="button quiet"><span aria-hidden="true">Aa</span> <span class="reader-menu-label">@T("Text settings")</span></summary>
-            <div class="menu-items reader-settings">
-                <label>
-                    @T("Page")
-                    <select @bind="type.Theme" @bind:after="SaveType">
-                        <option value="">@T("As the device")</option>
-                        <option value="light">@T("Light")</option>
-                        <option value="sepia">@T("Sepia")</option>
-                        <option value="dark">@T("Dark")</option>
-                    </select>
-                </label>
-                <label>
-                    @T("Typeface")
-                    <select @bind="type.Font" @bind:after="SaveType">
-                        <option value="">@T("The book's own")</option>
-                        <option value="serif">@T("Serif")</option>
-                        <option value="sans">@T("Sans serif")</option>
-                    </select>
-                </label>
-                <label>
-                    @T("Text size")
-                    <select @bind="type.Size" @bind:after="SaveType">
-                        <option value="85">@T("Smaller")</option>
-                        <option value="100">@T("Default")</option>
-                        <option value="115">@T("Larger")</option>
-                        <option value="130">@T("Large")</option>
-                        <option value="150">@T("Largest")</option>
-                    </select>
-                </label>
-                <label>
-                    @T("Line spacing")
-                    <select @bind="type.Leading" @bind:after="SaveType">
-                        <option value="140">@T("Snug")</option>
-                        <option value="160">@T("Comfortable")</option>
-                        <option value="190">@T("Airy")</option>
-                    </select>
-                </label>
-                <label>
-                    @T("Layout")
-                    <select @bind="Layout" @bind:after="SaveType">
-                        <option value="scroll">@T("Scroll")</option>
-                        <option value="pages">@T("Pages")</option>
-                    </select>
-                </label>
-                <label>
-                    @T("Reading width")
-                    <select @bind="type.Width" @bind:after="SaveType">
-                        <option value="30">@T("Narrow")</option>
-                        <option value="38">@T("Medium")</option>
-                        <option value="50">@T("Wide")</option>
-                    </select>
-                </label>
+    // The type and page settings, as buttons a thumb can find rather than lists: the page's colors as swatches, the
+    // size a step at a time. The button sits in the reader's top bar (or under the title in the classic reader); the
+    // sheet opens over the page, from the bottom on a phone.
+    private RenderFragment SettingsButton => @<button type="button" class="icon-button reader-aa" aria-label="@T("Text settings")" aria-controls="reader-settings"
+            aria-expanded="@(settingsOpen ? "true" : "false")" @onclick="ToggleSettings">Aa</button>;
+
+    private RenderFragment TextSettings => @<text>@SettingsButton @SettingsSheet</text>;
+
+    private RenderFragment SettingsSheet => @<text>
+        @if (settingsOpen)
+        {
+            <div id="reader-settings" class="reader-sheet" role="dialog" aria-label="@T("Text settings")">
+                <div class="epub-panel-head">
+                    <h2>@T("Text settings")</h2>
+                    <button type="button" class="icon-button" aria-label="@T("Close")" @onclick="CloseAll">✕</button>
+                </div>
+                <div class="reader-choice" role="group" aria-label="@T("Page")">
+                    <span class="reader-choice-label">@T("Page")</span>
+                    <div class="swatches">
+                        @foreach (var (value, name) in new[] { ("", T("As the device")), ("light", T("Light")), ("sepia", T("Sepia")), ("dark", T("Dark")) })
+                        {
+                            <button type="button" class="swatch swatch-@(value.Length > 0 ? value : "auto")" aria-pressed="@(type.Theme == value ? "true" : "false")" @onclick="() => SetTheme(value)">
+                                <span class="swatch-face" aria-hidden="true">Aa</span>
+                                <span>@name</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+                <div class="reader-choice" role="group" aria-label="@T("Text size")">
+                    <span class="reader-choice-label">@T("Text size")</span>
+                    <div class="stepper">
+                        <button type="button" aria-label="@T("Smaller text")" disabled="@(type.Size <= Sizes[0])" @onclick="() => StepSize(-1)"><span class="small-a" aria-hidden="true">A</span>−</button>
+                        <output aria-live="polite">@($"{type.Size}%")</output>
+                        <button type="button" aria-label="@T("Larger text")" disabled="@(type.Size >= Sizes[^1])" @onclick="() => StepSize(1)"><span class="large-a" aria-hidden="true">A</span>+</button>
+                    </div>
+                </div>
+                @Choice(T("Typeface"), [("", T("The book's own")), ("serif", T("Serif")), ("sans", T("Sans serif"))], type.Font, SetFont)
+                @Choice(T("Line spacing"), [("140", T("Snug")), ("160", T("Comfortable")), ("190", T("Airy"))], type.Leading.ToString(System.Globalization.CultureInfo.InvariantCulture), SetLeading)
+                @Choice(T("Layout"), [("pages", T("Pages")), ("scroll", T("Scroll"))], Layout, SetLayout)
+                @Choice(T("Reading width"), [("30", T("Narrow")), ("38", T("Medium")), ("50", T("Wide"))], type.Width.ToString(System.Globalization.CultureInfo.InvariantCulture), SetWidth)
             </div>
-        </details>;
+        }
+    </text>;
+
+    // A row of buttons, one of them pressed: the choice made.
+    private RenderFragment Choice(string label, (string Value, string Text)[] options, string current, Func<string, Task> pick) =>
+        @<div class="reader-choice" role="group" aria-label="@label">
+            <span class="reader-choice-label">@label</span>
+            <div class="segmented">
+                @foreach (var (value, text) in options)
+                {
+                    <button type="button" aria-pressed="@(value == current ? "true" : "false")" @onclick="() => pick(value)">@text</button>
+                }
+            </div>
+        </div>;
+
+    // The sizes the lists offered before (so a size chosen then is a step now), and two larger.
+    private static readonly int[] Sizes = [85, 100, 115, 130, 150, 175, 200];
+
+    private bool settingsOpen;
+    private bool contentsOpen;
+
+    private bool AnyOpen => settingsOpen || contentsOpen || panel;
+
+    private void CloseAll() => (settingsOpen, contentsOpen, panel) = (false, false, false);
+
+    private void ToggleSettings() => (settingsOpen, contentsOpen, panel) = (!settingsOpen, false, false);
+
+    private void ToggleContents()
+    {
+        (contentsOpen, settingsOpen, panel) = (!contentsOpen, false, false);
+        revealContents = contentsOpen;
+    }
+
+    private bool revealContents;
+
+    private void TogglePanel() => (panel, settingsOpen, contentsOpen) = (!panel, false, false);
+
+    // Esc, told by epub-reader.js: closes what is open over the page; says whether there was anything.
+    [JSInvokable]
+    public bool Escape()
+    {
+        if (!AnyOpen)
+        {
+            return false;
+        }
+
+        CloseAll();
+        StateHasChanged();
+        return true;
+    }
+
+    private async Task GoToChapter(int index)
+    {
+        chapter = index;
+        contentsOpen = false;
+        await RememberChapter();
+    }
+
+    private async Task StepSize(int step)
+    {
+        var at = Array.FindLastIndex(Sizes, size => size <= type.Size);
+        type.Size = Sizes[Math.Clamp((at < 0 ? 0 : at) + step, 0, Sizes.Length - 1)];
+        await SaveType();
+    }
+
+    private async Task SetTheme(string value)
+    {
+        type.Theme = value;
+        await SaveType();
+    }
+
+    private async Task SetFont(string value)
+    {
+        type.Font = value;
+        await SaveType();
+    }
+
+    private async Task SetLeading(string value)
+    {
+        type.Leading = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+        await SaveType();
+    }
+
+    private async Task SetLayout(string value)
+    {
+        Layout = value;
+        await SaveType();
+    }
+
+    private async Task SetWidth(string value)
+    {
+        type.Width = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+        await SaveType();
+    }
+
+    // The bottom bar's short line: the page of the chapter and how far through the book, as room on a phone allows.
+    private string PlaceLine
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (type.Paged && pages > 1)
+            {
+                parts.Add(T("{0} of {1}", page, pages));
+            }
+
+            if (bookShare is double share)
+            {
+                parts.Add($"{(int)Math.Round(share * 100)}%");
+            }
+
+            return string.Join(" · ", parts);
+        }
+    }
 
     private Book? book;
     private OpenBook? open;
@@ -707,6 +822,13 @@ else if (book is not null)
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // The contents just opened: at the chapter being read.
+        if (revealContents && epub is not null)
+        {
+            revealContents = false;
+            await epub.InvokeVoidAsync("revealChapter");
+        }
+
         if (UseEngine && !engineOpen)
         {
             await OpenEngineAsync();

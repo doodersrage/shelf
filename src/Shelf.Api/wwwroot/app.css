@@ -4306,10 +4306,6 @@ blockquote mark {
     white-space: nowrap;
 }
 
-.epub-chapter select {
-    max-width: 14rem;
-}
-
 .epub-progress {
     flex: 1;
     min-width: 0;
@@ -4337,16 +4333,6 @@ blockquote mark {
 .epub-top .menu-items {
     right: 0;
     left: auto;
-}
-
-/* In the top bar, the settings button is its "Aa" alone; screen readers still hear its name. */
-.epub-top .reader-menu-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
 }
 
 .epub-failed {
@@ -4398,8 +4384,8 @@ blockquote mark {
 
 /* The panel from the bar's ⋯: the audiobook, read aloud, the recap, and this chapter's highlights, down the right. */
 .epub-panel {
-    position: absolute;
-    z-index: 3;
+    position: fixed;
+    z-index: 2100;
     top: 0;
     right: 0;
     bottom: 0;
@@ -4450,12 +4436,6 @@ html.reading-full body {
     overflow: hidden;
 }
 
-@media (max-width: 40rem) {
-    .epub-chapter select {
-        max-width: 7.5rem;
-    }
-}
-
 @media (prefers-reduced-motion: reduce) {
     .epub-bar {
         transition: none;
@@ -4465,4 +4445,252 @@ html.reading-full body {
 .epub-lent {
     font-weight: 400;
     opacity: 0.75;
+}
+
+/* What opens over the page (the contents, the text settings, the ⋯ panel) dims it; a tap on the dimmed page, Esc, or
+   ✕ closes it. */
+.reader-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2090;
+    background: rgb(0 0 0 / 0.28);
+}
+
+/* The book's contents, from the left: the chapter being read marked, and shown as they open. */
+.epub-drawer {
+    position: fixed;
+    z-index: 2100;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(22rem, 88%);
+    overflow: auto;
+    padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(1rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+    background: var(--color-surface);
+    color: var(--color-ink);
+    box-shadow: 0 0 2rem rgb(0 0 0 / 0.3);
+}
+
+.epub-toc {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.epub-toc button {
+    display: block;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.6rem 0.75rem;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.epub-toc button:hover {
+    background: var(--color-sunken);
+}
+
+.epub-toc button[aria-current] {
+    background: var(--color-sunken);
+    font-weight: 600;
+    box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+/* The text settings: a card under the bar on a wide screen, a sheet from the bottom on a phone, within a thumb's reach. */
+.reader-sheet {
+    position: fixed;
+    z-index: 2100;
+    top: calc(var(--epub-bar-height, 3.25rem) + 0.25rem + env(safe-area-inset-top));
+    right: max(0.75rem, env(safe-area-inset-right));
+    width: min(22rem, calc(100% - 1.5rem));
+    max-height: calc(100dvh - 8rem);
+    overflow: auto;
+    padding: var(--space-3);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-card);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    box-shadow: 0 0.5rem 2rem rgb(0 0 0 / 0.25);
+}
+
+.reader-choice {
+    margin-bottom: var(--space-3);
+}
+
+.reader-choice-label {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+}
+
+.reader-sheet .segmented {
+    display: flex;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-control);
+    overflow: hidden;
+}
+
+.reader-sheet .segmented button {
+    flex: 1;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0.4rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: var(--text-sm);
+    cursor: pointer;
+}
+
+.reader-sheet .segmented button + button {
+    border-left: 1px solid var(--color-rule);
+}
+
+.reader-sheet .segmented button[aria-pressed="true"] {
+    background: var(--color-ink);
+    color: var(--color-surface);
+}
+
+.swatches {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+}
+
+.swatch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.1rem;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: var(--text-xs);
+    text-align: center;
+    cursor: pointer;
+}
+
+.swatch-face {
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--color-rule);
+    border-radius: 50%;
+    font-family: Georgia, "Iowan Old Style", serif;
+    font-size: 1.05rem;
+}
+
+.swatch-light .swatch-face { background: #fffdf9; color: #252a28; }
+.swatch-sepia .swatch-face { background: #f4ecd8; color: #3d3225; }
+.swatch-dark .swatch-face { background: #1d2420; color: #e8e3d8; }
+.swatch-auto .swatch-face { background: linear-gradient(135deg, #fffdf9 50%, #1d2420 50%); color: #8a8f8b; }
+
+.swatch[aria-pressed="true"] .swatch-face {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+.stepper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.stepper button {
+    flex: 1;
+    min-height: 2.75rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.stepper button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.stepper output {
+    min-width: 4rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.small-a { font-size: 0.85em; }
+.large-a { font-size: 1.3em; }
+
+.reader-aa {
+    font-family: Georgia, "Iowan Old Style", serif;
+    font-size: 1.1rem !important;
+}
+
+/* The bottom bar's line: the chapter's name, then the page of it and how far through the book, kept to one line. */
+.epub-line {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+}
+
+.epub-line-chapter {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.epub-line-place {
+    flex: none;
+    opacity: 0.8;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 40rem) {
+    .reader-sheet {
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: auto;
+        max-height: 85dvh;
+        border-radius: 1rem 1rem 0 0;
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+}
+
+.swatch[aria-pressed="true"] {
+    background: none;
+    box-shadow: none;
+}
+
+.stepper button {
+    line-height: 1;
+    height: 2.75rem;
+}
+
+/* On a phone the ⋯ panel is a sheet from the bottom, as tall as what is in it, like the text settings. */
+@media (max-width: 40rem) {
+    .epub-panel {
+        top: auto;
+        left: 0;
+        width: auto;
+        max-height: 85dvh;
+        border-radius: 1rem 1rem 0 0;
+    }
+
+    .epub-panel-actions > button {
+        flex: 1 1 100%;
+    }
 }

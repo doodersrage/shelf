@@ -23,8 +23,14 @@ test("an EPUB takes text settings and keeps a highlight with a note", async ({ b
   await ready(page);
   await expect(page.locator(".focus-bar")).toBeVisible();
   await expect(bookFrame(page).locator("p").first()).toContainText("Call me Ishmael", { timeout: 20_000 });
-  await page.click('summary:has-text("Text settings")');
-  await page.selectOption('select:has(option:text("Largest"))', "130");
+  // Two steps up from the usual size: 130%.
+  await page.getByRole("button", { name: "Text settings" }).click();
+  await page.getByRole("button", { name: "Larger text" }).click();
+  await expect(page.locator(".stepper output")).toHaveText("115%");
+  await page.getByRole("button", { name: "Larger text" }).click();
+  await expect(page.locator(".stepper output")).toHaveText("130%");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".reader-sheet")).toHaveCount(0);
   await expect.poll(async () => {
     try {
       // A number, since Firefox rounds to 1/60 of a pixel where Chromium does not.
@@ -203,7 +209,7 @@ test("the page-turning reader turns across chapters, and opens again at the very
   await expect(where).toContainText(`page 2 of ${pages}`);
   for (let i = 2; i <= pages; i++) await page.keyboard.press("ArrowRight");
   await expect(where).toContainText("Chapter 2 of 2");
-  await expect(page.getByLabel("Chapter")).toHaveValue("1");
+  await expect(page.locator(".epub-line-chapter")).toContainText("Carpet-Bag");
 
   // Back from the first page of a chapter is the end of the one before.
   await page.keyboard.press("ArrowLeft");
@@ -336,6 +342,51 @@ test("the page-turning reader fills the window, with its bars over the book a ta
   await page.getByRole("link", { name: "Back to The Harbour" }).click();
   await expect(page).toHaveURL(new RegExp(`/library/${book.id}$`));
   await expect(page.locator("html")).not.toHaveClass(/reading-full/);
+  noProblems(page);
+});
+
+test("the reader's contents name the chapters, and its settings are a tap each; Esc or a tap outside closes them", async ({ browser }) => {
+  const page = await signUp(browser, unique("Contents"));
+  const book = await createBook(page, { title: "The Harbour", author: "Someone", status: "Reading" });
+  await upload(page, book.id, "ebook", "koreader.epub", "application/epub+zip");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/library/${book.id}/read`);
+  await ready(page);
+  await expect(page.locator(".reader-where")).toContainText("Chapter 1 of 2", { timeout: 20_000 });
+
+  // Each chapter by its heading (this book has no table of contents), the one being read marked.
+  await page.getByRole("button", { name: "Contents" }).click();
+  const contents = page.getByRole("navigation", { name: "Contents" });
+  await expect(contents.locator(".epub-toc button")).toHaveText(["Arrival", "The Harbour"]);
+  await expect(contents.locator("[aria-current]")).toHaveText("Arrival");
+  await contents.getByRole("button", { name: "The Harbour" }).click();
+  await expect(contents).toHaveCount(0);
+  await expect(page.locator(".reader-where")).toContainText("Chapter 2 of 2");
+  await expect(page.locator(".epub-line-chapter")).toHaveText("The Harbour");
+
+  // Esc closes the contents.
+  await page.getByRole("button", { name: "Contents" }).click();
+  await expect(contents.locator("[aria-current]")).toHaveText("The Harbour");
+  await page.keyboard.press("Escape");
+  await expect(contents).toHaveCount(0);
+
+  // The settings: a swatch for the page, a step for the size; a tap outside closes them, and they are kept.
+  await page.getByRole("button", { name: "Text settings" }).click();
+  const sheet = page.getByRole("dialog", { name: "Text settings" });
+  await sheet.getByRole("button", { name: "Dark" }).click();
+  await expect(sheet.getByRole("button", { name: "Dark" })).toHaveAttribute("aria-pressed", "true");
+  await sheet.getByRole("button", { name: "Smaller text" }).click();
+  await expect(sheet.locator("output")).toHaveText("85%");
+  await expect(sheet.getByRole("button", { name: "Smaller text" })).toBeDisabled();
+  await sheet.getByRole("button", { name: "Airy" }).click();
+  await page.mouse.click(10, 10);
+  await expect(sheet).toHaveCount(0);
+  await expect(page.locator(".epub-stage")).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await ready(page);
+  await page.getByRole("button", { name: "Text settings" }).click();
+  await expect(sheet.getByRole("button", { name: "Airy" })).toHaveAttribute("aria-pressed", "true");
+  await expect(sheet.locator("output")).toHaveText("85%");
   noProblems(page);
 });
 

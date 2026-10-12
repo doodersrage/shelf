@@ -346,6 +346,14 @@ function controls(contents) {
 
 function keys(event) {
   if (event.target?.closest?.("input, textarea, select, [contenteditable]") || event.altKey || event.ctrlKey || event.metaKey) return;
+  // Esc closes what is open over the page: the contents, the text settings, or the panel.
+  if (event.key === "Escape") {
+    net?.invokeMethodAsync("Escape");
+    return;
+  }
+
+  // In those, the keys are theirs: the page doesn't turn behind them.
+  if (event.target?.closest?.(".epub-drawer, .reader-sheet, .epub-panel")) return;
   if ((event.key === "f" || event.key === "F") && stage) {
     event.preventDefault();
     setBrowserFull(!document.fullscreenElement);
@@ -498,6 +506,12 @@ export async function goToShare(share) {
   if (!rendition || !ready) return;
   const cfi = book.locations.cfiFromPercentage(Math.min(1, Math.max(0, share)));
   if (cfi) await rendition.display(cfi);
+}
+
+// The chapter being read, shown in the contents as they open.
+export function revealChapter() {
+  document.querySelector(".epub-toc [aria-current]")?.scrollIntoView({ block: "center" });
+  document.querySelector(".epub-toc [aria-current]")?.focus({ preventScroll: true });
 }
 
 export async function goToCfi(cfi) {
