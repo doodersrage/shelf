@@ -270,7 +270,8 @@ public sealed class ReadingLifeTests(ShelfApiFactory factory) : IClassFixture<Sh
         Assert.Equal(new DateTimeOffset(2026, 7, 2, 23, 0, 0, TimeSpan.Zero), summer);
         Assert.Equal(new DateTimeOffset(2026, 7, 2, 19, 0, 0, TimeSpan.Zero), ClubMeetings.FromLocal(new DateTime(2026, 7, 2, 19, 0, 0), "Not/AZone"));
         Assert.Contains("(Europe/Paris)", ClubMeetings.Say(paris, "Europe/Paris"));
-        Assert.Contains("7:00", ClubMeetings.Say(paris, "Europe/Paris", nameZone: false));
+        // Seven in the evening in Paris, written as the culture the tests run in writes a time.
+        Assert.Contains(new DateTime(2026, 11, 2, 19, 0, 0).ToString("t", System.Globalization.CultureInfo.CurrentCulture), ClubMeetings.Say(paris, "Europe/Paris", nameZone: false));
     }
 
     [Fact]
