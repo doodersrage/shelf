@@ -4,6 +4,19 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-10-13
+
+### Added
+
+- **Goals of your own**, on Insights beside the books, pages, and hours: a number of books with a tag, by an author, in a series, or by authors new to you. Each shows the books that count, rereads among them, and says gently what would see it done in the weeks left, never that you're behind.
+- **An event feed**: everything a webhook is sent is kept for you too, the latest 1,000, at `GET /books/events`, for a script that would rather ask than be told. It works with webhooks turned off.
+- **API tokens kept to parts of the shelf**: the library, files, the journal, book clubs, or the event feed, chosen when the token is made. A call outside them is refused.
+
+### Fixed
+
+- A club meeting's time is the moment meant in the zone it was arranged in: each member sees it in their own time, and notifications name the zone. In 2.8.0 a time was kept as typed and taken as UTC; a meeting arranged then may be off by your distance from UTC, and arranging it again puts it right.
+- A book added as finished on an earlier day no longer gets today as its start, after its finish; the journal leaves such starts out for books added before.
+
 ## [2.8.0] - 2026-10-13
 
 ### Added
@@ -444,7 +457,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.8.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.9.0...HEAD
+[2.9.0]: https://github.com/doodersrage/shelf/compare/v2.8.0...v2.9.0
 [2.8.0]: https://github.com/doodersrage/shelf/compare/v2.7.3...v2.8.0
 [2.7.3]: https://github.com/doodersrage/shelf/compare/v2.7.2...v2.7.3
 [2.7.2]: https://github.com/doodersrage/shelf/compare/v2.7.1...v2.7.2

@@ -100,6 +100,8 @@ public static class BookEndpoints
         Journal.Map(books);
         BookLinks.Map(books);
         CopyPhotos.Map(books);
+        ReadingGoals.Map(books);
+        EventFeed.Map(books);
         Audible.Map(books);
         NextReadsRules.Map(books);
         ReadAlongService.Map(books);

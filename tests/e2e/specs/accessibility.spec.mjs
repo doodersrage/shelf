@@ -22,6 +22,7 @@ test("every page passes an accessibility audit in both themes", async ({ browser
   await page.request.put(`/books/collections/${collection.id}/books/${book.id}`, { data: { note: "Start with the whale." } });
   await page.request.put(`/books/collections/${collection.id}/plan`, { data: { readBy: `${year + 1}-01-01` } });
   await page.request.post(`/books/${book.id}/links`, { data: { toBookId: walden.id, kind: "Contrasts", note: "Sea and pond." } });
+  await page.request.post("/books/goals", { data: { kind: "Tag", name: "nature", target: 3 } });
   await page.request.post("/books/journal", { data: { text: "Read the first chapters on the ferry.", bookId: book.id } });
   const clubBook = (await (await page.request.get(`/books/clubs/${club.id}`)).json()).books[0];
   await page.request.post(`/books/clubs/${club.id}/meetings`, { data: { clubBookId: clubBook.id, at: new Date(Date.now() + 7 * 86400000).toISOString(), through: "Chapters 1–20", agenda: "Ishmael and Queequeg." } });

@@ -630,6 +630,10 @@ namespace Shelf.Api.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("TimeZone")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ClubBookId");
@@ -810,6 +814,32 @@ namespace Shelf.Api.Data.Migrations
                     b.HasIndex("BookId");
 
                     b.ToTable("CopyPhotos");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.EventRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReaderId", "Id");
+
+                    b.ToTable("EventRecords");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.FetchGrab", b =>
@@ -1596,6 +1626,40 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("ReadingDays");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.ReadingGoal", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Target")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId", "Year");
+
+                    b.ToTable("ReadingGoals");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.ReadingSession", b =>
                 {
                     b.Property<int>("Id")
@@ -1980,6 +2044,10 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("Areas")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
 
                     b.Property<bool>("CanChange")
                         .HasColumnType("INTEGER");
@@ -2650,6 +2718,15 @@ namespace Shelf.Api.Data.Migrations
                     b.Navigation("Book");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.EventRecord", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.FetchGrab", b =>
                 {
                     b.HasOne("Shelf.Api.Books.Book", null)
@@ -2874,6 +2951,15 @@ namespace Shelf.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Book");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.ReadingGoal", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.ReadingSession", b =>

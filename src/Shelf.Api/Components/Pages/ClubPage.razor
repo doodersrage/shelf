@@ -2,6 +2,8 @@
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject NavigationManager Navigation
+@using Microsoft.JSInterop
+@inject IJSRuntime Js
 
 <PageTitle>@(club?.Name ?? T("Book clubs")) · Shelf</PageTitle>
 
@@ -149,7 +151,7 @@ else
                 @foreach (var meeting in meetings)
                 {
                     <li class="meeting @(meeting.Begun ? "past" : "coming")">
-                        <h3>@When(meeting.At) · @meeting.BookTitle</h3>
+                        <h3>@When(meeting) · @meeting.BookTitle</h3>
                         @if (meeting.Through is not null)
                         {
                             <p>@T("Read through: {0}", meeting.Through)</p>
@@ -322,8 +324,30 @@ else
     private int? summarizing;
     private string summaryText = "";
 
-    // Meetings keep the time as it was written, the clock of whoever arranged it.
-    private static string When(DateTimeOffset at) => at.Medium() + " " + at.ToString("t", System.Globalization.CultureInfo.CurrentCulture);
+    // The browser's time zone, once the page is live: meetings are shown, and arranged, in it. Until then, a
+    // meeting is shown in the zone it was arranged in, named.
+    private string? viewerZone;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var clock = await Js.InvokeAsync<IJSObjectReference>("import", "./clock.js");
+            viewerZone = await clock.InvokeAsync<string>("zone");
+            StateHasChanged();
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException or InvalidOperationException)
+        {
+        }
+    }
+
+    private string When(ClubMeetingResponse meeting) =>
+        ClubMeetings.Zone(viewerZone) is not null ? ClubMeetings.Say(meeting.At, viewerZone, nameZone: false) : ClubMeetings.Say(meeting.At, meeting.TimeZone);
 
     private async Task Ask(int meetingId)
     {
@@ -344,7 +368,7 @@ else
         }
 
         await using var db = await DbFactory.CreateDbContextAsync();
-        var request = new ClubMeetingRequest(meetingBook == 0 ? Chosen : meetingBook, new DateTimeOffset(DateTime.SpecifyKind(at, DateTimeKind.Unspecified), TimeSpan.Zero), meetingThrough, meetingAgenda);
+        var request = new ClubMeetingRequest(meetingBook == 0 ? Chosen : meetingBook, ClubMeetings.FromLocal(at, viewerZone), meetingThrough, meetingAgenda, viewerZone);
         if ((await ClubMeetings.ArrangeAsync(db, Id, request)).Problem == ClubProblem.None)
         {
             (meetingAt, meetingThrough, meetingAgenda) = (null, "", "");

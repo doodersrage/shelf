@@ -90,6 +90,8 @@ public class ShelfDb : DbContext
     public DbSet<CopyPhoto> CopyPhotos => Set<CopyPhoto>();
     public DbSet<ClubMeeting> ClubMeetings => Set<ClubMeeting>();
     public DbSet<ClubQuestion> ClubQuestions => Set<ClubQuestion>();
+    public DbSet<ReadingGoal> ReadingGoals => Set<ReadingGoal>();
+    public DbSet<EventRecord> EventRecords => Set<EventRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -187,6 +189,24 @@ public class ShelfDb : DbContext
             link.HasQueryFilter(item => item.From!.OwnerId == ReaderId);
         });
 
+        // Reached by reader id, as the event handlers write every concerned reader's.
+        modelBuilder.Entity<EventRecord>(record =>
+        {
+            record.Property(item => item.Kind).HasMaxLength(40).IsRequired();
+            record.Property(item => item.Payload).HasMaxLength(8000).IsRequired();
+            record.HasIndex(item => new { item.ReaderId, item.Id });
+            record.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ReadingGoal>(goal =>
+        {
+            goal.Property(item => item.Kind).HasConversion<string>().HasMaxLength(16);
+            goal.Property(item => item.Name).HasMaxLength(ReadingGoal.MaxNameLength);
+            goal.HasIndex(item => new { item.OwnerId, item.Year });
+            goal.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            goal.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
         modelBuilder.Entity<CopyPhoto>(photo =>
         {
             photo.Property(item => item.StoredName).HasMaxLength(48).IsRequired();
@@ -202,6 +222,7 @@ public class ShelfDb : DbContext
             meeting.Property(item => item.Through).HasMaxLength(ClubMeeting.MaxThroughLength);
             meeting.Property(item => item.Agenda).HasMaxLength(ClubMeeting.MaxAgendaLength);
             meeting.Property(item => item.Summary).HasMaxLength(ClubMeeting.MaxSummaryLength);
+            meeting.Property(item => item.TimeZone).HasMaxLength(ClubMeeting.MaxTimeZoneLength);
             meeting.HasOne(item => item.Club).WithMany().HasForeignKey(item => item.ClubId).OnDelete(DeleteBehavior.Cascade);
             meeting.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.ClubBookId).OnDelete(DeleteBehavior.Cascade);
             meeting.HasMany(item => item.Questions).WithOne(question => question.Meeting).HasForeignKey(question => question.MeetingId).OnDelete(DeleteBehavior.Cascade);
@@ -581,6 +602,7 @@ public class ShelfDb : DbContext
         {
             token.Property(item => item.Name).HasMaxLength(ApiToken.MaxNameLength).IsRequired();
             token.Property(item => item.Hash).HasMaxLength(64).IsRequired();
+            token.Property(item => item.Areas).HasMaxLength(200);
             token.HasIndex(item => item.Hash).IsUnique();
             token.HasIndex(item => item.ReaderId);
             token.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);

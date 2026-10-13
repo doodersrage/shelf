@@ -24,15 +24,19 @@ public sealed class ApiToken
     public required string Name { get; set; }
     public required string Hash { get; set; }
     public bool CanChange { get; set; }
+
+    // The parts of the API it opens, by name and separated by commas (see ApiTokens.Areas); null for all of them.
+    public string? Areas { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? LastUsedAt { get; set; }
 }
 
-public sealed record ApiTokenSummary(int Id, string Name, bool CanChange, DateTimeOffset CreatedAt, DateTimeOffset? LastUsedAt);
+public sealed record ApiTokenSummary(int Id, string Name, bool CanChange, DateTimeOffset CreatedAt, DateTimeOffset? LastUsedAt, string[]? Areas = null);
 
-public sealed record NewApiTokenRequest(string? Name, bool CanChange);
+// Areas null or empty opens every part of the API; otherwise only those named, from ApiTokens.Areas.
+public sealed record NewApiTokenRequest(string? Name, bool CanChange, string[]? Areas = null);
 
-public sealed record NewApiToken(int Id, string Name, bool CanChange, string Token);
+public sealed record NewApiToken(int Id, string Name, bool CanChange, string Token, string[]? Areas = null);
 
 public static class ApiTokens
 {
@@ -40,6 +44,49 @@ public static class ApiTokens
     public const string Prefix = "shelf_";
     public const int MaxPerReader = 20;
     public const string ChangeClaim = "shelf:token-changes";
+    public const string AreasClaim = "shelf:token-areas";
+
+    // The parts of the API a token can be kept to. Library is everything not named by another: books, reading,
+    // lending, collections, goals, and settings.
+    public const string Library = "library";
+    public const string Files = "files";
+    public const string Journal = "journal";
+    public const string Clubs = "clubs";
+    public const string Events = "events";
+    public static readonly IReadOnlyList<string> Areas = [Library, Files, Journal, Clubs, Events];
+
+    // Which area a path is in. Files are a book's e-book, recording, cover, and pictures, and whole-shelf backups.
+    public static string AreaOf(PathString path)
+    {
+        if (path.StartsWithSegments("/books/journal", StringComparison.OrdinalIgnoreCase))
+        {
+            return Journal;
+        }
+
+        if (path.StartsWithSegments("/books/clubs", StringComparison.OrdinalIgnoreCase))
+        {
+            return Clubs;
+        }
+
+        if (path.StartsWithSegments("/books/events", StringComparison.OrdinalIgnoreCase))
+        {
+            return Events;
+        }
+
+        var parts = (path.Value ?? "").Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (parts is ["books", _, "ebook" or "audio" or "cover" or "photos" or "notes.md", ..] || parts is ["books", "export" or "import" or "notes.zip", ..])
+        {
+            return Files;
+        }
+
+        return Library;
+    }
+
+    private static string? CleanAreas(IEnumerable<string>? areas)
+    {
+        var kept = (areas ?? []).Select(area => area.Trim().ToLowerInvariant()).Where(Areas.Contains).Distinct().Order(StringComparer.Ordinal).ToList();
+        return kept.Count == 0 || kept.Count == Areas.Count ? null : string.Join(',', kept);
+    }
 
     // What a token opens: the library and its files, reading, lending, and the reader list to lend to.
     private static readonly string[] Opens = ["/books", "/settings", "/readers", "/version"];
@@ -57,10 +104,10 @@ public static class ApiTokens
     public static async Task<ApiTokenSummary[]> ListAsync(ShelfDb db, int readerId, CancellationToken cancellationToken = default) =>
         (await db.ApiTokens.AsNoTracking().Where(token => token.ReaderId == readerId).ToListAsync(cancellationToken))
             .OrderBy(token => token.CreatedAt)
-            .Select(token => new ApiTokenSummary(token.Id, token.Name, token.CanChange, token.CreatedAt, token.LastUsedAt))
+            .Select(token => new ApiTokenSummary(token.Id, token.Name, token.CanChange, token.CreatedAt, token.LastUsedAt, token.Areas?.Split(',')))
             .ToArray();
 
-    public static async Task<(NewApiToken? Made, string? Problem)> CreateAsync(ShelfDb db, int readerId, string? name, bool canChange, CancellationToken cancellationToken = default)
+    public static async Task<(NewApiToken? Made, string? Problem)> CreateAsync(ShelfDb db, int readerId, string? name, bool canChange, CancellationToken cancellationToken = default, IEnumerable<string>? areas = null)
     {
         name = name?.Trim();
         if (await Family.IsRestrictedAsync(db, readerId, cancellationToken))
@@ -84,11 +131,11 @@ public static class ApiTokens
         }
 
         var secret = Prefix + Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
-        var token = new ApiToken { ReaderId = readerId, Name = name, Hash = Hash(secret), CanChange = canChange, CreatedAt = DateTimeOffset.UtcNow };
+        var token = new ApiToken { ReaderId = readerId, Name = name, Hash = Hash(secret), CanChange = canChange, Areas = CleanAreas(areas), CreatedAt = DateTimeOffset.UtcNow };
         db.ApiTokens.Add(token);
         await db.SaveChangesAsync(cancellationToken);
         await Audit.NoteAsync(db, Say("Made an API token"), await db.Readers.FindAsync([readerId], cancellationToken), name, cancellationToken);
-        return (new NewApiToken(token.Id, token.Name, token.CanChange, secret), null);
+        return (new NewApiToken(token.Id, token.Name, token.CanChange, secret, token.Areas?.Split(',')), null);
     }
 
     public static async Task<bool> RemoveAsync(ShelfDb db, int readerId, int id, CancellationToken cancellationToken = default)
@@ -115,6 +162,12 @@ public static class ApiTokens
             if (!Opens.Any(open => path.StartsWithSegments(open, StringComparison.OrdinalIgnoreCase)))
             {
                 await Refuse(context, T("An API token opens the books API only, not account or admin pages."));
+                return;
+            }
+
+            if (context.User.FindFirst(AreasClaim)?.Value is { Length: > 0 } areas && !path.StartsWithSegments("/version", StringComparison.OrdinalIgnoreCase) && !areas.Split(',').Contains(AreaOf(path)))
+            {
+                await Refuse(context, T("This API token doesn't open that part of the shelf. Make one that does."));
                 return;
             }
 
@@ -154,6 +207,7 @@ public static class ApiTokens
 
         var principal = ReaderRules.Principal(reader, SchemeName);
         ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim(ChangeClaim, token.CanChange ? "true" : "false"));
+        ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim(AreasClaim, token.Areas ?? ""));
         return AuthenticateResult.Success(new AuthenticationTicket(principal, SchemeName));
     }
 
@@ -173,7 +227,7 @@ public static class ApiTokens
 
     private static async Task<IResult> Create(NewApiTokenRequest request, ShelfDb db, CancellationToken cancellationToken)
     {
-        var (made, problem) = await CreateAsync(db, db.ReaderId, request.Name, request.CanChange, cancellationToken);
+        var (made, problem) = await CreateAsync(db, db.ReaderId, request.Name, request.CanChange, cancellationToken, request.Areas);
         return made is null
             ? TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Name"] = [problem!] })
             : TypedResults.Ok(made);

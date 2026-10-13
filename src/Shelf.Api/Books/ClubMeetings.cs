@@ -6,12 +6,15 @@ using static Shelf.Api.Localization.Words;
 namespace Shelf.Api.Books;
 
 // A club meeting about one of its books: when, how far everyone should have read by then, what to talk about, and
-// afterwards what was said. The reader who started the club arranges meetings; any member sends questions.
+// afterwards what was said. The reader who started the club arranges meetings; any member sends questions. The time
+// is kept as the moment it is, with the time zone it was arranged in, so a notification can say it as the arranger
+// meant it and each member's page in their own time.
 public sealed class ClubMeeting
 {
     public const int MaxThroughLength = 200;
     public const int MaxAgendaLength = 2000;
     public const int MaxSummaryLength = 4000;
+    public const int MaxTimeZoneLength = 64;
 
     public int Id { get; set; }
     public int ClubId { get; set; }
@@ -19,6 +22,9 @@ public sealed class ClubMeeting
     public int ClubBookId { get; set; }
     public ClubBook? Book { get; set; }
     public DateTimeOffset At { get; set; }
+
+    // The IANA name of the zone it was arranged in, such as Europe/Paris; null for none known, taken as UTC.
+    public string? TimeZone { get; set; }
     public string? Through { get; set; }
     public string? Agenda { get; set; }
     public string? Summary { get; set; }
@@ -44,7 +50,8 @@ public sealed record ClubMeetingRequest(
     int ClubBookId,
     DateTimeOffset At,
     [MaxLength(ClubMeeting.MaxThroughLength)] string? Through = null,
-    [MaxLength(ClubMeeting.MaxAgendaLength)] string? Agenda = null);
+    [MaxLength(ClubMeeting.MaxAgendaLength)] string? Agenda = null,
+    [MaxLength(ClubMeeting.MaxTimeZoneLength)] string? TimeZone = null);
 
 public sealed record ClubSummaryRequest([MaxLength(ClubMeeting.MaxSummaryLength)] string? Summary);
 
@@ -63,7 +70,8 @@ public sealed record ClubMeetingResponse(
     string? Summary,
     bool Begun,
     ClubQuestionResponse[] Questions,
-    int Waiting);
+    int Waiting,
+    string? TimeZone = null);
 
 public static class ClubMeetings
 {
@@ -128,7 +136,8 @@ public static class ClubMeetings
                 return new ClubMeetingResponse(
                     item.Id, item.ClubBookId, item.Book?.Title ?? "", item.At, item.Through, item.Agenda, item.Summary, begun,
                     seen.Select(question => new ClubQuestionResponse(question.Id, names.GetValueOrDefault(question.ReaderId, "?"), question.Text, question.ReaderId == me)).ToArray(),
-                    item.Questions.Count - seen.Count);
+                    item.Questions.Count - seen.Count,
+                    item.TimeZone);
             })
             .ToArray();
     }
@@ -154,7 +163,16 @@ public static class ClubMeetings
             return (null, ClubProblem.Invalid);
         }
 
-        var meeting = new ClubMeeting { ClubId = clubId, ClubBookId = request.ClubBookId, At = request.At.ToUniversalTime(), Through = through, Agenda = agenda, CreatedAt = DateTimeOffset.UtcNow };
+        var meeting = new ClubMeeting
+        {
+            ClubId = clubId,
+            ClubBookId = request.ClubBookId,
+            At = request.At.ToUniversalTime(),
+            TimeZone = Zone(request.TimeZone) is { } zone ? zone.Id : null,
+            Through = through,
+            Agenda = agenda,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
         db.ClubMeetings.Add(meeting);
         await db.SaveChangesAsync(cancellationToken);
         return (meeting.Id, ClubProblem.None);
@@ -218,6 +236,49 @@ public static class ClubMeetings
         db.ClubQuestions.Add(new ClubQuestion { MeetingId = meetingId, ReaderId = db.ReaderId, Text = text, AskedAt = DateTimeOffset.UtcNow });
         await db.SaveChangesAsync(cancellationToken);
         return ClubProblem.None;
+    }
+
+    // A zone by its IANA name; null for none, or one the server doesn't know.
+    public static TimeZoneInfo? Zone(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name.Length > ClubMeeting.MaxTimeZoneLength)
+        {
+            return null;
+        }
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(name.Trim());
+        }
+        catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
+        {
+            return null;
+        }
+    }
+
+    // A time typed on a page, in the zone of the browser it was typed in, as the moment it is.
+    public static DateTimeOffset FromLocal(DateTime local, string? zoneName)
+    {
+        var zone = Zone(zoneName) ?? TimeZoneInfo.Utc;
+        var unspecified = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
+
+        // A time skipped when the clocks go forward is taken an hour later, as a clock on the wall would.
+        if (zone.IsInvalidTime(unspecified))
+        {
+            unspecified = unspecified.AddHours(1);
+        }
+
+        return new DateTimeOffset(unspecified, zone.GetUtcOffset(unspecified)).ToUniversalTime();
+    }
+
+    // A meeting's time in a zone, with the zone named when it isn't the reader's own: for a page, a notification, or
+    // a chat message.
+    public static string Say(DateTimeOffset at, string? zoneName, bool nameZone = true)
+    {
+        var zone = Zone(zoneName) ?? TimeZoneInfo.Utc;
+        var local = TimeZoneInfo.ConvertTime(at, zone);
+        var text = local.Medium() + " " + local.ToString("t", System.Globalization.CultureInfo.CurrentCulture);
+        return nameZone ? $"{text} ({zone.Id})" : text;
     }
 
     private static string? Trimmed(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();

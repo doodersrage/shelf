@@ -52,6 +52,31 @@ else
             <p>@((MarkupString)T("<strong>{0}</strong> of {1} hours reading and listening this year", HoursThisYear, goals.Hours))</p>
             <progress class="goal" max="@goals.Hours" value="@Math.Min(HoursThisYear, goals.Hours)" aria-label="@T("{0} of {1} hours", HoursThisYear, goals.Hours)"></progress>
         }
+        @foreach (var aim in aims)
+        {
+            <div class="reading-goal">
+                <p>
+                    @((MarkupString)T("<strong>{0}</strong> of {1}", aim.Done, System.Net.WebUtility.HtmlEncode(aim.Label)))
+                    <button type="button" class="icon-button small" @onclick="() => RemoveAim(aim.Id)" aria-label="@T("Take away the goal: {0}", aim.Label)">×</button>
+                </p>
+                <progress class="goal" max="@aim.Target" value="@Math.Min(aim.Done, aim.Target)" aria-label="@T("{0} of {1}", aim.Done, aim.Label)"></progress>
+                @if (aim.Done >= aim.Target)
+                {
+                    <p class="milestone">@T("Done: {0}.", string.Join(", ", aim.Books))</p>
+                }
+                else
+                {
+                    @if (aim.Books.Length > 0)
+                    {
+                        <p class="hint">@string.Join(", ", aim.Books)</p>
+                    }
+                    @if (aim.Pace is not null)
+                    {
+                        <p class="hint">@aim.Pace</p>
+                    }
+                }
+            </div>
+        }
 
         <h3>@T("Finished each month")</h3>
         <ul class="month-bars" aria-label="@T("Books finished each month this year")">
@@ -94,6 +119,41 @@ else
                 <span class="saved" role="status">@T("Saved.")</span>
             }
         </EditForm>
+        <h3>@T("Goals of your own")</h3>
+        <p class="hint">@T("Books of a kind you want to make room for this year. Books read again count too.")</p>
+        <form class="link-form" @onsubmit="AddAim" @onsubmit:preventDefault>
+            <label>
+                @T("Read")
+                <input type="number" @bind="aimTarget" min="1" max="1000" />
+            </label>
+            <label>
+                @T("Books")
+                <select @bind="aimKind">
+                    <option value="@GoalKind.Tag">@T("tagged")</option>
+                    <option value="@GoalKind.Author">@T("by the author")</option>
+                    <option value="@GoalKind.Series">@T("in the series")</option>
+                    <option value="@GoalKind.NewAuthors">@T("by authors new to you")</option>
+                </select>
+            </label>
+            @if (aimKind != GoalKind.NewAuthors)
+            {
+                <label>
+                    @T("Name")
+                    <input @bind="aimName" maxlength="@ReadingGoal.MaxNameLength" list="aim-names" />
+                    <datalist id="aim-names">
+                        @foreach (var known in AimNames)
+                        {
+                            <option value="@known"></option>
+                        }
+                    </datalist>
+                </label>
+            }
+            <button type="submit">@T("Add the goal")</button>
+        </form>
+        @if (aimProblem is not null)
+        {
+            <p class="validation-message" role="alert">@aimProblem</p>
+        }
         </details>
     </section>
 
@@ -352,6 +412,7 @@ else
         goal.YearlyGoal = stats.YearlyGoal;
         goals = await BookRules.GetGoalsAsync(db);
         (goal.PagesGoal, goal.HoursGoal) = (goals.Pages, goals.Hours);
+        aims = await ReadingGoals.ProgressAsync(db, Today.Year);
         // One load of the shelf, and only what the figures below need: a big shelf's books carry chapter lists, notes,
         // and reviews that would take far longer to read than the figures take to work out.
         shelf = await db.Books.AsNoTracking()
@@ -498,6 +559,40 @@ else
     private int PagesThisYear => pagesThisYear;
 
     private int HoursThisYear => (int)(((reading?.YearSeconds ?? 0) + (listening?.YearSeconds ?? 0)) / 3600);
+
+    private GoalProgress[] aims = [];
+    private GoalKind aimKind = GoalKind.Tag;
+    private int aimTarget = 3;
+    private string aimName = "";
+    private string? aimProblem;
+
+    // Names to choose from as the goal is written: the shelf's tags, authors, or series most read.
+    private IEnumerable<string> AimNames => aimKind switch
+    {
+        GoalKind.Tag => favouriteKinds.Select(item => item.Name),
+        GoalKind.Author => favouriteAuthors.Select(item => item.Name),
+        GoalKind.Series => favouriteSeries.Select(item => item.Name),
+        _ => [],
+    };
+
+    private async Task AddAim()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var (made, problem) = await ReadingGoals.AddAsync(db, new ReadingGoalRequest(aimKind, aimName, aimTarget, Today.Year));
+        aimProblem = problem;
+        if (made is not null)
+        {
+            aimName = "";
+            aims = await ReadingGoals.ProgressAsync(db, Today.Year);
+        }
+    }
+
+    private async Task RemoveAim(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.ReadingGoals.Where(goal => goal.Id == id).ExecuteDeleteAsync();
+        aims = await ReadingGoals.ProgressAsync(db, Today.Year);
+    }
 
     private async Task SaveGoal()
     {

@@ -158,11 +158,6 @@ public sealed class Webhooks(IServiceScopeFactory scopes, IWebhookPoster poster,
 
     public async Task HandleAsync(ShelfEvent shelfEvent, CancellationToken cancellationToken)
     {
-        if (!Enabled)
-        {
-            return;
-        }
-
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
         var book = shelfEvent.BookId is int bookId
@@ -192,8 +187,8 @@ public sealed class Webhooks(IServiceScopeFactory scopes, IWebhookPoster poster,
 
         if (shelfEvent.Kind == EventKinds.ClubMeeting && shelfEvent.MeetingId is int meetingId)
         {
-            var meeting = await db.ClubMeetings.AsNoTracking().Where(item => item.Id == meetingId).Select(item => new { item.At, Title = item.Book!.Title }).FirstOrDefaultAsync(cancellationToken);
-            text = meeting is null ? null : $"{meeting.Title} · {meeting.At:u}";
+            var meeting = await db.ClubMeetings.AsNoTracking().Where(item => item.Id == meetingId).Select(item => new { item.At, item.TimeZone, Title = item.Book!.Title }).FirstOrDefaultAsync(cancellationToken);
+            text = meeting is null ? null : $"{meeting.Title} · {ClubMeetings.Say(meeting.At, meeting.TimeZone)}";
         }
 
         if (shelfEvent.Kind is EventKinds.ClubPosted or EventKinds.ClubMeeting && clubId is int postedIn)
@@ -202,13 +197,6 @@ public sealed class Webhooks(IServiceScopeFactory scopes, IWebhookPoster poster,
         }
 
         if (concerned.Count == 0)
-        {
-            return;
-        }
-
-        var hooks = await db.Webhooks.Where(item => item.Enabled && concerned.Contains(item.ReaderId)).ToListAsync(cancellationToken);
-        hooks = hooks.Where(hook => hook.Events.Length == 0 || hook.Events.Split(',').Contains(shelfEvent.Kind)).ToList();
-        if (hooks.Count == 0)
         {
             return;
         }
@@ -229,12 +217,27 @@ public sealed class Webhooks(IServiceScopeFactory scopes, IWebhookPoster poster,
             shelfEvent.Kind == EventKinds.SeriesFound ? shelfEvent.Count : null,
             text);
 
+        // A book's title goes only to its owner and the other reader in a loan; club members see the club.
+        WebhookPayload For(int reader) => reader == book?.OwnerId || shelfEvent.Kind is EventKinds.BookLent or EventKinds.BookReturned ? payload : payload with { Book = null };
+
+        // Every reader concerned keeps it in their feed, webhooks or not, as they'd have been sent it.
+        await EventFeed.RecordAsync(db, concerned.ToDictionary(reader => reader, reader => JsonSerializer.Serialize(For(reader), Json)), shelfEvent.Kind, cancellationToken);
+        if (!Enabled)
+        {
+            return;
+        }
+
+        var hooks = await db.Webhooks.Where(item => item.Enabled && concerned.Contains(item.ReaderId)).ToListAsync(cancellationToken);
+        hooks = hooks.Where(hook => hook.Events.Length == 0 || hook.Events.Split(',').Contains(shelfEvent.Kind)).ToList();
+        if (hooks.Count == 0)
+        {
+            return;
+        }
+
         var languages = await db.Readers.AsNoTracking().Where(item => concerned.Contains(item.Id)).ToDictionaryAsync(item => item.Id, item => item.Language, cancellationToken);
         foreach (var hook in hooks)
         {
-            // A book's title goes only to its owner's hooks and the other reader in a loan; club members see the club.
-            var forThem = hook.ReaderId == book?.OwnerId || shelfEvent.Kind is EventKinds.BookLent or EventKinds.BookReturned ? payload : payload with { Book = null };
-            await DeliverAsync(db, hook, forThem, languages.GetValueOrDefault(hook.ReaderId), cancellationToken);
+            await DeliverAsync(db, hook, For(hook.ReaderId), languages.GetValueOrDefault(hook.ReaderId), cancellationToken);
         }
     }
 

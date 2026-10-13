@@ -131,7 +131,8 @@ public static class Journal
         var titles = await TitlesAsync(db, entries.Where(entry => entry.BookId != null).Select(entry => entry.BookId!.Value), cancellationToken);
         items.AddRange(entries.Select(entry => new JournalItem(entry.Date, JournalKind.Entry, entry.BookId, entry.BookId is int id ? titles.GetValueOrDefault(id) : null, entry.Text, EntryId: entry.Id)));
 
-        items.AddRange(await db.Books.AsNoTracking().Where(book => book.StartedOn >= from && book.StartedOn <= to)
+        // A start after the finish was stamped by older Shelfs on a book added as finished, and is no start at all.
+        items.AddRange(await db.Books.AsNoTracking().Where(book => book.StartedOn >= from && book.StartedOn <= to && (book.FinishedOn == null || book.StartedOn <= book.FinishedOn))
             .Select(book => new JournalItem(book.StartedOn!.Value, JournalKind.Started, book.Id, book.Title, null, book.Author, null, null)).ToListAsync(cancellationToken));
         items.AddRange(await db.PastReads.AsNoTracking().Where(read => read.StartedOn >= from && read.StartedOn <= to)
             .Select(read => new JournalItem(read.StartedOn!.Value, JournalKind.Started, read.BookId, read.Book!.Title, null, read.Book.Author, null, null)).ToListAsync(cancellationToken));

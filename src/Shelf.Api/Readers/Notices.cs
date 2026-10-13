@@ -485,7 +485,7 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
                 break;
             case EventKinds.ClubMeeting when shelfEvent.MeetingId is int meetingId:
                 var meeting = await db.ClubMeetings.AsNoTracking().Where(item => item.Id == meetingId)
-                    .Select(item => new { item.ClubId, Club = item.Club!.Name, BookTitle = item.Book!.Title, item.At, item.Through }).FirstOrDefaultAsync(cancellationToken);
+                    .Select(item => new { item.ClubId, Club = item.Club!.Name, BookTitle = item.Book!.Title, item.At, item.TimeZone, item.Through }).FirstOrDefaultAsync(cancellationToken);
                 if (meeting is null)
                 {
                     break;
@@ -495,7 +495,7 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
                 foreach (var reader in invited)
                 {
                     await SendAsync(reader, NoticeKinds.Clubs, _ => new Notice(
-                        T("{0} meets {1}", meeting.Club, meeting.At.Medium()),
+                        T("{0} meets {1}", meeting.Club, ClubMeetings.Say(meeting.At, meeting.TimeZone)),
                         meeting.Through is null ? meeting.BookTitle : T("{0}, {1}", meeting.BookTitle, meeting.Through),
                         $"/clubs/{meeting.ClubId}", $"club-{meeting.ClubId}"), cancellationToken);
                 }

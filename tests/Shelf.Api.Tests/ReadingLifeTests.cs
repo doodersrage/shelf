@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -215,6 +216,105 @@ public sealed class ReadingLifeTests(ShelfApiFactory factory) : IClassFixture<Sh
 
         await guest.PostAsJsonAsync($"/books/clubs/{club.Id}/books/{bookId}/posts", new ClubPostRequest("The ending!", Spoiler: true), JsonOptions);
         Assert.True(Assert.Single((await host.GetFromJsonAsync<ClubPostResponse[]>($"/books/clubs/{club.Id}/books/{bookId}/posts", JsonOptions))!).Spoiler);
+    }
+
+    [Fact]
+    public async Task A_book_added_as_finished_on_an_earlier_day_gets_no_start_after_it()
+    {
+        var reader = await factory.SignUpAsync("Dated Reader");
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var earlier = await CreateAsync(reader, new CreateBookRequest("Read Long Ago", "Someone", BookStatus.Finished, null, FinishedOn: new DateOnly(2015, 6, 1)));
+        Assert.Equal(((DateOnly?)null, (DateOnly?)new DateOnly(2015, 6, 1)), (earlier.StartedOn, earlier.FinishedOn));
+        var now = await CreateAsync(reader, new CreateBookRequest("Read Today", "Someone", BookStatus.Finished, null));
+        Assert.Equal(((DateOnly?)today, (DateOnly?)today), (now.StartedOn, now.FinishedOn));
+    }
+
+    [Fact]
+    public async Task Goals_of_a_readers_own_count_the_years_finishes()
+    {
+        var reader = await factory.SignUpAsync("Goal Setter");
+        var year = DateTime.UtcNow.Year;
+        await CreateAsync(reader, new CreateBookRequest("Old Favourite", "Known Author", BookStatus.Finished, null, FinishedOn: new DateOnly(year - 2, 3, 1)));
+        await CreateAsync(reader, new CreateBookRequest("The Histories", "Herodotus", BookStatus.Finished, null, FinishedOn: new DateOnly(year, 1, 5), Tags: ["history"]));
+        await CreateAsync(reader, new CreateBookRequest("SPQR", "Mary Beard", BookStatus.Finished, null, FinishedOn: new DateOnly(year, 1, 9), Tags: ["History"], Series: "Rome"));
+        await CreateAsync(reader, new CreateBookRequest("Another By Them", "Known Author", BookStatus.Finished, null, FinishedOn: new DateOnly(year, 1, 12)));
+
+        foreach (var goal in new[] { new ReadingGoalRequest(GoalKind.Tag, "History", 3), new ReadingGoalRequest(GoalKind.Author, "known author", 1), new ReadingGoalRequest(GoalKind.Series, "rome", 2), new ReadingGoalRequest(GoalKind.NewAuthors, null, 2) })
+        {
+            Assert.Equal(HttpStatusCode.Created, (await reader.PostAsJsonAsync("/books/goals", goal, JsonOptions)).StatusCode);
+        }
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await reader.PostAsJsonAsync("/books/goals", new ReadingGoalRequest(GoalKind.Tag, " ", 3), JsonOptions)).StatusCode);
+        var progress = (await reader.GetFromJsonAsync<GoalProgress[]>("/books/goals", JsonOptions))!;
+        Assert.Equal([2, 1, 1, 2], progress.Select(goal => goal.Done));
+        Assert.Equal(["The Histories", "SPQR"], progress[0].Books);
+        Assert.Equal(["Herodotus", "Mary Beard"], progress[3].Books);
+        Assert.Equal("3 books tagged history", progress[0].Label);
+        Assert.Null(progress[1].Pace);
+        Assert.Contains("1 to go", ReadingGoals.Pace(1, year, new DateOnly(year, 1, 1)));
+        Assert.Contains("about one every", ReadingGoals.Pace(4, year, new DateOnly(year, 1, 1)));
+        Assert.Null(ReadingGoals.Pace(4, year - 1, new DateOnly(year, 1, 1)));
+
+        var other = await factory.SignUpAsync("Goal Stranger");
+        Assert.Empty((await other.GetFromJsonAsync<GoalProgress[]>("/books/goals", JsonOptions))!);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.DeleteAsync($"/books/goals/{progress[0].Id}")).StatusCode);
+        Assert.Equal(4, (await reader.GetFromJsonAsync<LibraryExport>("/books/export", JsonOptions))!.Goals!.Length);
+    }
+
+    [Fact]
+    public void A_meeting_time_is_the_moment_meant_in_the_zone_it_was_typed_in()
+    {
+        var paris = ClubMeetings.FromLocal(new DateTime(2026, 11, 2, 19, 0, 0), "Europe/Paris");
+        Assert.Equal(new DateTimeOffset(2026, 11, 2, 18, 0, 0, TimeSpan.Zero), paris);
+        var summer = ClubMeetings.FromLocal(new DateTime(2026, 7, 2, 19, 0, 0), "America/New_York");
+        Assert.Equal(new DateTimeOffset(2026, 7, 2, 23, 0, 0, TimeSpan.Zero), summer);
+        Assert.Equal(new DateTimeOffset(2026, 7, 2, 19, 0, 0, TimeSpan.Zero), ClubMeetings.FromLocal(new DateTime(2026, 7, 2, 19, 0, 0), "Not/AZone"));
+        Assert.Contains("(Europe/Paris)", ClubMeetings.Say(paris, "Europe/Paris"));
+        Assert.Contains("7:00", ClubMeetings.Say(paris, "Europe/Paris", nameZone: false));
+    }
+
+    [Fact]
+    public async Task The_event_feed_keeps_what_webhooks_would_send_and_tokens_keep_to_their_areas()
+    {
+        var reader = await factory.SignUpAsync("Feed Reader");
+        var stranger = await factory.SignUpAsync("Feed Stranger");
+        var book = await CreateAsync(reader, new CreateBookRequest("Pale Fire", "Vladimir Nabokov", BookStatus.Want, null));
+        await reader.PutAsJsonAsync($"/books/{book.Id}", ToUpdate(BookWrite.From(book) with { Status = BookStatus.Finished }), JsonOptions);
+        await reader.PostAsync($"/books/{book.Id}/again", null);
+        await WaitIdleAsync();
+
+        var page = (await reader.GetFromJsonAsync<EventPage>("/books/events", JsonOptions))!;
+        Assert.Equal(["book.added", "book.finished", "book.reread"], page.Events.Select(item => item.Event.GetProperty("event").GetString()));
+        Assert.Equal("Pale Fire", page.Events[0].Event.GetProperty("book").GetProperty("title").GetString());
+        Assert.Equal(page.Events[^1].Id, page.Next);
+        Assert.Empty((await reader.GetFromJsonAsync<EventPage>($"/books/events?after={page.Next}", JsonOptions))!.Events);
+        var two = (await reader.GetFromJsonAsync<EventPage>("/books/events?take=2", JsonOptions))!;
+        Assert.Equal((2, true), (two.Events.Length, two.More));
+        Assert.Single((await reader.GetFromJsonAsync<EventPage>("/books/events?kind=book.reread", JsonOptions))!.Events);
+        Assert.Empty((await stranger.GetFromJsonAsync<EventPage>("/books/events", JsonOptions))!.Events);
+
+        // A token kept to the journal and the feed opens those and nothing else.
+        var made = (await (await reader.PostAsJsonAsync("/account/tokens", new NewApiTokenRequest("Journal script", true, ["journal", "events", "nonsense"]), JsonOptions))
+            .Content.ReadFromJsonAsync<NewApiToken>(JsonOptions))!;
+        Assert.Equal(["events", "journal"], made.Areas!);
+        var script = factory.CreateClient();
+        script.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", made.Token);
+        Assert.Equal(HttpStatusCode.Created, (await script.PostAsJsonAsync("/books/journal", new JournalEntryRequest(null, "Written by a script."), JsonOptions)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await script.GetAsync("/books/events")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await script.GetAsync("/version")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await script.GetAsync("/books")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await script.GetAsync($"/books/{book.Id}/photos")).StatusCode);
+        Assert.Equal(ApiTokens.Files, ApiTokens.AreaOf("/books/12/ebook"));
+        Assert.Equal(ApiTokens.Library, ApiTokens.AreaOf("/books/12/sessions"));
+    }
+
+    private async Task WaitIdleAsync()
+    {
+        var events = factory.Services.GetRequiredService<ShelfEvents>();
+        for (var i = 0; i < 100 && !events.Idle; i++)
+        {
+            await Task.Delay(50);
+        }
     }
 
     private static async Task<BookResponse> CreateAsync(HttpClient client, CreateBookRequest request)

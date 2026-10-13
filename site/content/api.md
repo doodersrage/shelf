@@ -15,7 +15,7 @@ A script or a home dashboard signs in with an API token. Make one on **Account**
 curl -s -H "Authorization: Bearer $SHELF_TOKEN" https://shelf.example.org/books?status=Reading
 ```
 
-A token opens the calls on this page under `/books`, `/settings`, and `/readers`. It never opens the account (passwords, keys, other tokens) or the admin pages, so a token that leaks cannot take the account over; remove it on **Account** and it stops working at once. A read-only token is refused anything but `GET`, with 403. Account shows when each token was last used.
+A token opens the calls on this page under `/books`, `/settings`, and `/readers`. Under **What it opens**, a token can be kept to some of them: the library (books, reading, lending, collections, goals, and settings), files (e-books, recordings, covers, pictures of a copy, and backups), the journal, book clubs, and the event feed. Leave every box clear for all of them; a call outside a token's parts is refused with 403, and `/version` is open to every token. Send `"areas": ["journal", "events"]` to make one through the API. It never opens the account (passwords, keys, other tokens) or the admin pages, so a token that leaks cannot take the account over; remove it on **Account** and it stops working at once. A read-only token is refused anything but `GET`, with 403. Account shows when each token was last used.
 
 ### Home Assistant
 
@@ -80,6 +80,7 @@ A reader with two-step sign-in is asked for a code next, at `/account/signin/cod
 | `GET /books/map` | Your linked books and the links between them; `?book=` the books within two links of one, with how far each is. |
 | `GET /books/{id}/photos` | Pictures of your copy. `POST` a form with `file` and `caption` adds one; `GET` and `DELETE /books/{id}/photos/{photoId}` fetch and remove one. |
 | `GET /books/journal` | A year of your journal, latest first: entries, books started and finished, sessions, highlights, quotes, and thoughts on earlier reads. `?year=` picks the year; `?q=` searches every year instead. `GET /books/journal/years` lists the years with anything in them; `GET /books/journal/{year}.md` is the year as Markdown. |
+| `GET /books/goals` | The year's goals of your own and how each stands: the books that count, and what would see it done. `?year=` picks another year. `POST {"kind": "Tag", "name": "history", "target": 3}` adds one, with `kind` one of `Tag`, `Author`, `Series`, and `NewAuthors` (no name); `DELETE /books/goals/{id}` takes one away. |
 | `POST /books/journal` | `{"date": "2026-10-13", "text": "…", "bookId": 12}` writes an entry (date and book optional); `PUT` and `DELETE /books/journal/{id}` change and remove one. |
 | `GET /books/series/alerts` | New books in your series that are not on your shelf. `POST /books/series/alerts/{id}/want` adds one to the want list; `DELETE /books/series/alerts/{id}` dismisses it; `POST /books/series/alerts/check` looks now. |
 | `GET /books/years/{year}/review` | A year in books: finished books and pages, time reading and listening, authors new that year, books by month, formats, tags, the longest and shortest, favourites, and quotes and highlights kept. |
@@ -158,6 +159,26 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | `GET /books/clubs/{id}/books/{bookId}/posts` | The conversation about a book; `POST {"text": "…", "spoiler": true}` says something, folded away as a spoiler if you like. `POST …/shelve` puts the book on your shelf. |
 | `GET /books/clubs/{id}/meetings` | The club's meetings, the next first, each with the questions you may see so far and how many wait. `POST {"clubBookId": 4, "at": "2026-11-02T19:00:00Z", "through": "…", "agenda": "…"}` arranges one, for the reader who started the club; `PUT …/meetings/{meetingId}/summary` with `{"summary": "…"}` keeps what was said, and `DELETE …/meetings/{meetingId}` calls it off. |
 | `POST /books/clubs/{id}/meetings/{meetingId}/questions` | `{"text": "…"}` sends a question for the meeting. |
+
+A meeting's `at` is the moment it begins, with an offset or in UTC; `timeZone`, an IANA name such as `Europe/Paris`, is the zone it is told in, in notifications and chat messages.
+
+## Events
+
+Everything a [webhook](notifications.md#webhooks) is sent is also kept for you, the latest 1,000, for a script that would rather ask than be told. Each event is the same JSON a signed webhook carries, so one script can take either.
+
+| Call | What it does |
+| --- | --- |
+| `GET /books/events` | Your events, oldest first, with `next` to send as `?after=` next time and `more` when another page waits. `take` is up to 200 (100 by default); `kind=book.finished,book.reread` keeps to those. |
+
+```bash
+after=0
+while true; do
+  page=$(curl -s -H "Authorization: Bearer $SHELF_TOKEN" "https://shelf.example.org/books/events?after=$after")
+  echo "$page" | jq -c '.events[].event'
+  after=$(echo "$page" | jq '.next')
+  sleep 60
+done
+```
 
 ## Your account
 

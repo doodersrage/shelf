@@ -610,7 +610,7 @@ else if (passkeyChecked)
         {
             <li>
                 <span>@token.Name</span>
-                <span class="hint">@(token.CanChange ? T("reads and changes") : T("reads only")) · @(token.LastUsedAt is { } used ? T("made {0}, last used {1}", token.CreatedAt.Medium(), used.Medium()) : T("made {0}, not used yet", token.CreatedAt.Medium()))</span>
+                <span class="hint">@(token.CanChange ? T("reads and changes") : T("reads only"))@(token.Areas is { Length: > 0 } areas ? " " + T("{0} only", string.Join(", ", areas.Select(AreaName))) : "") · @(token.LastUsedAt is { } used ? T("made {0}, last used {1}", token.CreatedAt.Medium(), used.Medium()) : T("made {0}, not used yet", token.CreatedAt.Medium()))</span>
                 <button type="button" class="quiet" @onclick="() => RemoveToken(token.Id)" aria-label="@T("Remove the token {0}", token.Name)">@T("Remove")</button>
             </li>
         }
@@ -629,6 +629,17 @@ else if (passkeyChecked)
     <input type="checkbox" @bind="tokenCanChange" />
     @T("Let it change things, not only read them")
 </label>
+<fieldset class="token-areas">
+    <legend>@T("What it opens")</legend>
+    <p class="hint">@T("Leave every box clear to open everything a token can.")</p>
+    @foreach (var area in ApiTokens.Areas)
+    {
+        <label class="check">
+            <input type="checkbox" checked="@tokenAreas.Contains(area)" @onchange="change => ToggleArea(area, change)" />
+            @AreaName(area)
+        </label>
+    }
+</fieldset>
 <button type="button" @onclick="MakeToken">@T("Make a token")</button>
 @if (tokenProblem is not null)
 {
@@ -704,6 +715,28 @@ else
     private NewApiToken? newToken;
     private string tokenName = "";
     private bool tokenCanChange;
+    private readonly HashSet<string> tokenAreas = [];
+
+    private void ToggleArea(string area, ChangeEventArgs change)
+    {
+        if (change.Value is true)
+        {
+            tokenAreas.Add(area);
+        }
+        else
+        {
+            tokenAreas.Remove(area);
+        }
+    }
+
+    private static string AreaName(string area) => area switch
+    {
+        ApiTokens.Files => T("Files: e-books, recordings, covers, pictures, and backups"),
+        ApiTokens.Journal => T("The journal"),
+        ApiTokens.Clubs => T("Book clubs"),
+        ApiTokens.Events => T("The event feed"),
+        _ => T("The library: books, reading, lending, collections, and goals"),
+    };
     private string? tokenProblem;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -800,11 +833,12 @@ else
     private async Task MakeToken()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        (newToken, tokenProblem) = await ApiTokens.CreateAsync(db, db.ReaderId, tokenName, tokenCanChange);
+        (newToken, tokenProblem) = await ApiTokens.CreateAsync(db, db.ReaderId, tokenName, tokenCanChange, areas: tokenAreas);
         if (newToken is not null)
         {
             tokenName = "";
             tokenCanChange = false;
+            tokenAreas.Clear();
         }
 
         tokens = await ApiTokens.ListAsync(db, db.ReaderId);

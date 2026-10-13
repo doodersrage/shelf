@@ -216,14 +216,27 @@ public static class BookRules
 
         // Stamp the reading dates when a book enters Reading or Finished, unless a date was supplied.
         var statusChanged = created || previous != write.Status;
-        if (statusChanged && write.Status is BookStatus.Reading or BookStatus.Finished)
+        if (statusChanged)
         {
-            book.StartedOn ??= today;
+            StampDates(book, write.Status, today);
         }
+    }
 
-        if (statusChanged && write.Status == BookStatus.Finished)
+    // A book begun today, or finished today, was read today. A book finished on an earlier day given for it has no
+    // start but the one given: today would be after its finish.
+    private static void StampDates(Book book, BookStatus status, DateOnly today)
+    {
+        if (status == BookStatus.Finished)
         {
             book.FinishedOn ??= today;
+            if (book.FinishedOn >= today)
+            {
+                book.StartedOn ??= today;
+            }
+        }
+        else if (status == BookStatus.Reading)
+        {
+            book.StartedOn ??= today;
         }
     }
 
@@ -234,17 +247,8 @@ public static class BookRules
             return;
         }
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
         book.Status = status;
-        if (status is BookStatus.Reading or BookStatus.Finished)
-        {
-            book.StartedOn ??= today;
-        }
-
-        if (status == BookStatus.Finished)
-        {
-            book.FinishedOn ??= today;
-        }
+        StampDates(book, status, DateOnly.FromDateTime(DateTime.UtcNow));
 
         if (status != BookStatus.Want)
         {
@@ -715,6 +719,18 @@ public static class BookRules
             }
 
             db.JournalEntries.Add(new JournalEntry { OwnerId = db.ReaderId, Date = entry.Date, Text = entry.Text.Trim(), BookId = Made(entry.Book)?.Id, CreatedAt = DateTimeOffset.UtcNow });
+        }
+
+        // Goals come back unless the year already has one the same.
+        var aims = export.Goals is { Length: > 0 }
+            ? (await db.ReadingGoals.AsNoTracking().Select(goal => new { goal.Year, goal.Kind, goal.Name }).ToListAsync(cancellationToken)).Select(goal => (goal.Year, goal.Kind, goal.Name)).ToHashSet()
+            : [];
+        foreach (var goal in export.Goals ?? [])
+        {
+            if (goal.Year is >= 1000 and <= 2100 && goal.Target is >= 1 and <= 1000 && Enum.IsDefined(goal.Kind) && !(goal.Name?.Length > ReadingGoal.MaxNameLength) && aims.Add((goal.Year, goal.Kind, goal.Name)))
+            {
+                db.ReadingGoals.Add(new ReadingGoal { OwnerId = db.ReaderId, Year = goal.Year, Kind = goal.Kind, Name = goal.Name, Target = goal.Target, CreatedAt = DateTimeOffset.UtcNow });
+            }
         }
 
         foreach (var link in export.Links ?? [])

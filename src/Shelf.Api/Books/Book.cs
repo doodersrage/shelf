@@ -713,7 +713,9 @@ public sealed record ShelfSettingsResponse(int YearlyGoal, int PagesGoal = 0, in
 public sealed record UpdateSettingsRequest([Range(0, 1000)] int YearlyGoal, [Range(0, 1_000_000)] int? PagesGoal = null, [Range(0, 10_000)] int? HoursGoal = null);
 
 // Journal entries and links name their books by place in Books, so they find them again on another shelf.
-public sealed record LibraryExport(int YearlyGoal, BookResponse[] Books, JournalExport[]? Journal = null, LinkExport[]? Links = null);
+public sealed record LibraryExport(int YearlyGoal, BookResponse[] Books, JournalExport[]? Journal = null, LinkExport[]? Links = null, GoalExport[]? Goals = null);
+
+public sealed record GoalExport(int Year, GoalKind Kind, string? Name, int Target);
 
 public sealed record JournalExport(DateOnly Date, string Text, int? Book);
 

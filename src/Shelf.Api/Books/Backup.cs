@@ -215,6 +215,7 @@ public static class Backup
         var reads = (await db.PastReads.AsNoTracking().ToListAsync(cancellationToken)).ToLookup(read => read.BookId);
         var journal = await db.JournalEntries.AsNoTracking().OrderBy(entry => entry.Date).ThenBy(entry => entry.Id).ToListAsync(cancellationToken);
         var links = await db.BookLinks.AsNoTracking().OrderBy(link => link.Id).ToListAsync(cancellationToken);
+        var goals = await db.ReadingGoals.AsNoTracking().OrderBy(goal => goal.Year).ThenBy(goal => goal.Id).ToListAsync(cancellationToken);
         var export = new LibraryExport(
             await BookRules.GetGoalAsync(db, cancellationToken),
             books.Select(book => BookResponse.From(book) is var response && reads[book.Id].Any()
@@ -222,7 +223,8 @@ public static class Backup
                 : response).ToArray(),
             journal.Select(entry => new JournalExport(entry.Date, entry.Text, entry.BookId is int id && place.TryGetValue(id, out var at) ? at : null)).ToArray(),
             links.Where(link => place.ContainsKey(link.FromBookId) && place.ContainsKey(link.ToBookId))
-                .Select(link => new LinkExport(place[link.FromBookId], place[link.ToBookId], link.Kind, link.Note)).ToArray());
+                .Select(link => new LinkExport(place[link.FromBookId], place[link.ToBookId], link.Kind, link.Note)).ToArray(),
+            goals.Select(goal => new GoalExport(goal.Year, goal.Kind, goal.Name, goal.Target)).ToArray());
         return (export, books);
     }
 

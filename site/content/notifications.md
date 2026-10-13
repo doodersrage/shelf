@@ -73,4 +73,4 @@ A webhook posts to an address of yours when something happens: for [Home Assista
 
 The header `X-Shelf-Event` names the event, and `X-Shelf-Signature` is `sha256=` and the HMAC-SHA256 of the body, keyed with the webhook's secret. The secret is shown once, when you add the webhook; check the signature to know a post came from your shelf. `book.url` needs `Email:PublicAddress` set.
 
-**Test** sends a `webhook.test` event now and shows the answer. A webhook that fails 20 times in a row is turned off until you turn it on again. An admin can turn webhooks off for everyone with `Webhooks:Enabled=false`.
+The same events are kept for you to fetch from [the event feed](api.md#events), with or without a webhook, and when an admin has turned webhooks off. **Test** sends a `webhook.test` event now and shows the answer. A webhook that fails 20 times in a row is turned off until you turn it on again. An admin can turn webhooks off for everyone with `Webhooks:Enabled=false`.

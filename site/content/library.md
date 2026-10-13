@@ -18,7 +18,7 @@ Every book is one of four, each shown with a different small shape as well as it
 | --- | --- |
 | **Want to read** | On the list. Mark one **Read next** to bring it to the front. |
 | **Reading** | Underway. Moving a book here fills in a blank start date. |
-| **Finished** | Done. Fills in a blank finish date too, and counts toward the year's goal. **Read it again** starts another read. |
+| **Finished** | Done. Fills in a blank finish date, and a blank start date when it was finished today (a book finished on an earlier day you give keeps no start but the one you give). Counts toward the year's goal. **Read it again** starts another read. |
 | **Abandoned** | Put down. **Pick it up again** moves it back to Reading. |
 
 ### Reading a book again
@@ -151,6 +151,8 @@ With none of these, the book shows a plain green spine with its title.
 Log a session from a book's page: the date, the pages you read from and to, and a note. Sessions feed **Insights**: the year's goals and how you are doing, books finished each month, a year of the days you read and listened, the authors, kinds of book, and series you return to, milestones (your first finished book, the tenth, ten thousand pages, the longest book, the year's goal reached), counts, a calendar of reading days, and recent sessions.
 
 The year can have up to three goals, set under **Set goals** in the year's panel on **Insights**: books to finish, pages to read (counting the pages of the books you finish), and hours to spend reading and listening (from the reader's and the player's own count of your time). Leave one at 0 to go without it; each one set shows how far along you are, on **Insights** and in the year's review.
+
+Under **Goals of your own**, beside those, aim for books of a kind you want to make room for: a number tagged *history*, by an author, in a series, or by authors new to you (none of whose books you'd finished before the year). Up to 20 a year. Each shows the books that count so far, and books read again count too. There's no "behind": a goal not yet met says only what would see it done in the weeks left, and that any book is a good read whether or not it counts.
 
 ## The journal
 
