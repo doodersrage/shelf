@@ -29,6 +29,7 @@ public static class FormWords
     public static string Location => T("Where it sits");
     public static string OriginalTitle => T("Original title");
     public static string Inscription => T("Inscription");
+    public static string PreviousOwners => T("Earlier owners");
     public static string Translator => T("Translator");
     public static string Narrator => T("Narrator");
     public static string PagesGoal => T("Pages to read this year");

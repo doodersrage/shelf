@@ -118,11 +118,13 @@ public static class Feeds
             book.CoverImage is not null || (string.IsNullOrWhiteSpace(book.CoverUrl) && book.FileCover) ? $"/public/{token}/covers/{book.Id}" : book.CoverUrl, book.FinishedOn, book.Rating);
         var year = DateTime.UtcNow.Year;
         var goal = await db.Settings.AsNoTracking().Where(setting => setting.Id == reader.Id).Select(setting => setting.YearlyGoal).FirstOrDefaultAsync(cancellationToken);
+        var (from, to) = (new DateOnly(year, 1, 1), new DateOnly(year, 12, 31));
+        var again = await db.PastReads.IgnoreQueryFilters().AsNoTracking().CountAsync(read => read.Book!.OwnerId == reader.Id && read.FinishedOn >= from && read.FinishedOn <= to, cancellationToken);
         return new PublicShelf(
             reader.Name,
             books.Where(book => book.Status == BookStatus.Reading).OrderByDescending(book => book.StartedOn ?? DateOnly.MinValue).Take(Shown).Select(Show).ToArray(),
             books.Where(book => book.Status == BookStatus.Finished && book.FinishedOn is not null).OrderByDescending(book => book.FinishedOn).Take(Shown).Select(Show).ToArray(),
-            books.Count(book => book.Status == BookStatus.Finished && book.FinishedOn?.Year == year),
+            books.Count(book => book.Status == BookStatus.Finished && book.FinishedOn?.Year == year) + again,
             goal);
     }
 

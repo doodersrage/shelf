@@ -89,7 +89,8 @@ With [email set up](configuration.md#email), a reader can add their address on *
 Readers on the same shelf can read together. On **Book clubs**, start a club and invite the readers you want; a club you are invited to appears in your list.
 
 - **Books.** Any member adds a book, from their own shelf or by title and author. The first one added is the one being read now; **Read this one now** picks another.
-- **Talking.** Each book has its own conversation: choose it in the list and say something about it. Everyone in the club sees what everyone says.
+- **Talking.** Each book has its own conversation: choose it in the list and say something about it. Everyone in the club sees what everyone says. Tick **It gives something away** on a post that would spoil the book for someone further behind: it is folded away until they open it, and notifications and webhooks leave its words out.
+- **Meetings.** The reader who started the club arranges them under **Meetings**: when, which book, how far everyone reads by then, and what to talk about. Members hear of a new one as they do of posts. Before a meeting, any member sends questions for it; until the meeting begins, a question is seen only by the one who asked and the one who runs it, so nobody's steers anyone else's. Afterwards, **Write what was said** keeps a summary with the meeting. A meeting keeps its time as it was written, and its questions open to everyone when that time comes by the server's clock.
 - **Your own copy.** **Put it on my shelf** adds the book to your shelf to read; when you already have it, **Your copy** opens it.
 - **Who does what.** The reader who started the club invites and removes members, and can end it. Anyone else can leave.
 

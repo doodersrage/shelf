@@ -7,9 +7,9 @@ using static Shelf.Api.Localization.Words;
 
 namespace Shelf.Api.Books;
 
-// A book as a shared list shows it to anyone with the link: what a catalog says, and the reader's stars. Never notes,
-// reviews, quotes, loans, places, or files.
-public sealed record SharedBook(int Id, string Title, string Author, string? Subtitle, int? Year, string? Series, int? SeriesNumber, int? Rating, string? CoverUrl);
+// A book as a shared list shows it to anyone with the link: what a catalog says, the reader's stars, and in a
+// collection the note they wrote for the list. Never their notes on the book, reviews, quotes, loans, places, or files.
+public sealed record SharedBook(int Id, string Title, string Author, string? Subtitle, int? Year, string? Series, int? SeriesNumber, int? Rating, string? CoverUrl, string? Note = null);
 
 public sealed record SharedList(string Name, string Reader, SharedBook[] Books, string? Description = null);
 
@@ -56,10 +56,12 @@ public static class SharedLists
     public static async Task<SharedList?> FindAsync(ShelfDb db, string? token, CancellationToken cancellationToken = default)
     {
         var books = await BooksAsync(db, token, cancellationToken);
-        return books is null ? null : new SharedList(books.Value.Name, books.Value.Reader, books.Value.Books.Select(book => Show(book, token!)).ToArray(), books.Value.Description);
+        return books is null
+            ? null
+            : new SharedList(books.Value.Name, books.Value.Reader, books.Value.Books.Select(book => Show(book, token!) with { Note = books.Value.Notes?.GetValueOrDefault(book.Id) }).ToArray(), books.Value.Description);
     }
 
-    private static async Task<(string Name, string? Description, string Reader, List<Book> Books)?> BooksAsync(ShelfDb db, string? token, CancellationToken cancellationToken)
+    private static async Task<(string Name, string? Description, string Reader, List<Book> Books, Dictionary<int, string?>? Notes)?> BooksAsync(ShelfDb db, string? token, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(token) || token.Length > 40)
         {
@@ -114,11 +116,11 @@ public static class SharedLists
             kept = kept.Where(book => book.AudioStoredName is not null);
         }
 
-        return (saved.Name, null, reader, BookRules.Sort(kept.ToList(), Text("sort")).Take(MaxBooks).ToList());
+        return (saved.Name, null, reader, BookRules.Sort(kept.ToList(), Text("sort")).Take(MaxBooks).ToList(), null);
     }
 
     // A shared collection: its books in the order its reader put them, and its description.
-    private static async Task<(string Name, string? Description, string Reader, List<Book> Books)?> CollectionAsync(ShelfDb db, string token, CancellationToken cancellationToken)
+    private static async Task<(string Name, string? Description, string Reader, List<Book> Books, Dictionary<int, string?>? Notes)?> CollectionAsync(ShelfDb db, string token, CancellationToken cancellationToken)
     {
         var collection = await db.Collections.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(item => item.ShareToken == token, cancellationToken);
         var reader = collection is null ? null : await db.Readers.AsNoTracking().Where(item => item.Id == collection.OwnerId).Select(item => item.Name).FirstOrDefaultAsync(cancellationToken);
@@ -127,15 +129,17 @@ public static class SharedLists
             return null;
         }
 
-        var order = await db.CollectionBooks.IgnoreQueryFilters().AsNoTracking()
+        var entries = await db.CollectionBooks.IgnoreQueryFilters().AsNoTracking()
             .Where(entry => entry.CollectionId == collection.Id)
             .OrderBy(entry => entry.Position)
-            .Select(entry => entry.BookId)
+            .Select(entry => new { entry.BookId, entry.Note })
             .ToListAsync(cancellationToken);
+        var order = entries.Select(entry => entry.BookId).ToList();
         var books = await db.Books.IgnoreQueryFilters().AsNoTracking()
             .Where(book => book.OwnerId == collection.OwnerId && order.Contains(book.Id))
             .ToListAsync(cancellationToken);
-        return (collection.Name, collection.Description, reader, order.Select(id => books.FirstOrDefault(book => book.Id == id)).OfType<Book>().Take(MaxBooks).ToList());
+        return (collection.Name, collection.Description, reader, order.Select(id => books.FirstOrDefault(book => book.Id == id)).OfType<Book>().Take(MaxBooks).ToList(),
+            entries.ToDictionary(entry => entry.BookId, entry => entry.Note));
     }
 
     private static SharedBook Show(Book book, string token) => new(

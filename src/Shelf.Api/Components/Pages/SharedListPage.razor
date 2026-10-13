@@ -48,6 +48,10 @@ else
                         {
                             <div class="hint">@stars/5</div>
                         }
+                        @if (book.Note is not null)
+                        {
+                            <p class="collection-note">@book.Note</p>
+                        }
                     </div>
                 </li>
             }

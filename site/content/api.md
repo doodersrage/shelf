@@ -73,7 +73,14 @@ A reader with two-step sign-in is asked for a code next, at `/account/signin/cod
 | `GET /books/pick` | One book from the want list. `?status=` picks from another. |
 | `GET /books/authors`, `/series`, `/places`, `/copies`, `/recommenders`, `/years` | The library gathered by author, series in reading order, place, condition, recommender, and year finished. |
 | `GET /books/collections` | Your collections, with how many books each holds. `POST {"name": "…", "description": "…"}` makes one; `GET`, `PUT`, and `DELETE /books/collections/{id}` read, rename, and delete one. |
-| `POST /books/collections/{id}/books` | `{"bookId": 12}` adds a book at the end; `DELETE /books/collections/{id}/books/{bookId}` takes it out; `PUT /books/collections/{id}/order` with `{"bookIds": [3, 1, 2]}` puts them in that order. |
+| `POST /books/collections/{id}/books` | `{"bookId": 12}` adds a book at the end; `DELETE /books/collections/{id}/books/{bookId}` takes it out; `PUT /books/collections/{id}/order` with `{"bookIds": [3, 1, 2]}` puts them in that order. `PUT /books/collections/{id}/books/{bookId}` with `{"note": "…"}` keeps a note on a book in the list. |
+| `PUT /books/collections/{id}/plan` | `{"readBy": "2027-01-01"}` makes the collection a plan, or `null` a list again. `GET` says whether it fits your pace: pages left, pages a day, days needed and left, a day that would fit, and how many of the longest books to leave out. No content when there's no date or nothing left. |
+| `POST /books/{id}/again` | Reads a finished book again: its read is put by and it starts over. `GET /books/{id}/reads` lists every read with its sessions, highlights, and quotes counted; `PUT /books/{id}/reads/{readId}` with `{"rating": 4, "thoughts": "…"}` changes an earlier one, and `DELETE` forgets it. |
+| `GET /books/{id}/links` | The book's links to your other books, both ways. `POST {"toBookId": 7, "kind": "Edition", "note": "…"}` adds one, with `kind` one of `Edition`, `Inspired` (this book was inspired by the other), `Answers` (this book answers the other), `Contrasts`, and `Related`; `DELETE /books/{id}/links/{linkId}` takes one away. |
+| `GET /books/map` | Your linked books and the links between them; `?book=` the books within two links of one, with how far each is. |
+| `GET /books/{id}/photos` | Pictures of your copy. `POST` a form with `file` and `caption` adds one; `GET` and `DELETE /books/{id}/photos/{photoId}` fetch and remove one. |
+| `GET /books/journal` | A year of your journal, latest first: entries, books started and finished, sessions, highlights, quotes, and thoughts on earlier reads. `?year=` picks the year; `?q=` searches every year instead. `GET /books/journal/years` lists the years with anything in them; `GET /books/journal/{year}.md` is the year as Markdown. |
+| `POST /books/journal` | `{"date": "2026-10-13", "text": "…", "bookId": 12}` writes an entry (date and book optional); `PUT` and `DELETE /books/journal/{id}` change and remove one. |
 | `GET /books/series/alerts` | New books in your series that are not on your shelf. `POST /books/series/alerts/{id}/want` adds one to the want list; `DELETE /books/series/alerts/{id}` dismisses it; `POST /books/series/alerts/check` looks now. |
 | `GET /books/years/{year}/review` | A year in books: finished books and pages, time reading and listening, authors new that year, books by month, formats, tags, the longest and shortest, favourites, and quotes and highlights kept. |
 | `GET /books/duplicates` | Books that look like the same book, by ISBN or by title and author. `POST /books/{id}/merge` with `{"otherId": 12}` merges book 12 into book `id`. |
@@ -137,7 +144,7 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 
 | Call | What it does |
 | --- | --- |
-| `GET /books/export` | Your shelf as JSON, with quotes, sessions, and highlights. `POST /books/import` restores one, skipping books already there. |
+| `GET /books/export` | Your shelf as JSON, with quotes, sessions, highlights, earlier reads, journal entries, and the links between books. `POST /books/import` restores one, skipping books already there and journal entries already kept. |
 | `GET /books/export/full` | A zip of the JSON with every e-book, audiobook, and cover picture. `POST /books/import/full` with `file` restores one. |
 | `POST /books/import/csv` | A Goodreads or StoryGraph CSV export as `file`. |
 
@@ -148,7 +155,9 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | `GET /books/clubs` | Your clubs. `POST {"name": "…"}` starts one; `GET` and `DELETE /books/clubs/{id}` read and end one. |
 | `POST /books/clubs/{id}/members` | `{"readerId": 3}` invites a reader, for the reader who started the club. `DELETE /books/clubs/{id}/members/{readerId}` removes one, or leaves. |
 | `POST /books/clubs/{id}/books` | `{"bookId": 12}` from your shelf, or `{"title": "…", "author": "…"}`. `PUT /books/clubs/{id}/current/{bookId}` picks the one being read. |
-| `GET /books/clubs/{id}/books/{bookId}/posts` | The conversation about a book; `POST {"text": "…"}` says something. `POST …/shelve` puts the book on your shelf. |
+| `GET /books/clubs/{id}/books/{bookId}/posts` | The conversation about a book; `POST {"text": "…", "spoiler": true}` says something, folded away as a spoiler if you like. `POST …/shelve` puts the book on your shelf. |
+| `GET /books/clubs/{id}/meetings` | The club's meetings, the next first, each with the questions you may see so far and how many wait. `POST {"clubBookId": 4, "at": "2026-11-02T19:00:00Z", "through": "…", "agenda": "…"}` arranges one, for the reader who started the club; `PUT …/meetings/{meetingId}/summary` with `{"summary": "…"}` keeps what was said, and `DELETE …/meetings/{meetingId}` calls it off. |
+| `POST /books/clubs/{id}/meetings/{meetingId}/questions` | `{"text": "…"}` sends a question for the meeting. |
 
 ## Your account
 

@@ -224,6 +224,14 @@ else if (Borrowable.Length > 0)
         @T("Inscription")
         <InputTextArea @bind-Value="Model.Inscription" maxlength="500" rows="3" />
     </label>
+    <label>
+        @T("Earlier owners")
+        <InputText @bind-Value="Model.PreviousOwners" maxlength="500" placeholder="@T("Who had this copy before you, and how it came to you")" />
+    </label>
+    <label class="check">
+        <InputCheckbox @bind-Value="Model.Signed" />
+        @T("Signed by the author")
+    </label>
 }
 <label>
     @T("Notes")

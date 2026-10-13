@@ -124,11 +124,16 @@ public sealed class Book
     public string? OriginalTitle { get; set; }
     public string? Inscription { get; set; }
     public string? RecommendedBy { get; set; }
+
+    // The copy's own history: who had it before, and whether the author signed it.
+    public string? PreviousOwners { get; set; }
+    public bool Signed { get; set; }
     public DateTimeOffset AddedAt { get; set; }
     public List<Tag> Tags { get; set; } = [];
     public List<Quote> Quotes { get; set; } = [];
     public List<Highlight> Highlights { get; set; } = [];
     public List<ReadingSession> Sessions { get; set; } = [];
+    public List<PastRead> PastReads { get; set; } = [];
 }
 
 public sealed class ReadingSession
@@ -332,12 +337,14 @@ public sealed record CreateBookRequest(
     bool Queued = false,
     Acquisition? Acquisition = null,
     CopyCondition? Condition = null,
-    [MaxLength(200)] string? Narrator = null)
+    [MaxLength(200)] string? Narrator = null,
+    [MaxLength(500)] string? PreviousOwners = null,
+    bool Signed = false)
 {
     public BookWrite ToWrite() => BookWrite.From(
         Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
         Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn,
-        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition, Condition, Narrator);
+        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition, Condition, Narrator) with { PreviousOwners = PreviousOwners, Signed = Signed };
 }
 
 public sealed record UpdateBookRequest(
@@ -374,12 +381,14 @@ public sealed record UpdateBookRequest(
     bool Queued = false,
     Acquisition? Acquisition = null,
     CopyCondition? Condition = null,
-    [MaxLength(200)] string? Narrator = null)
+    [MaxLength(200)] string? Narrator = null,
+    [MaxLength(500)] string? PreviousOwners = null,
+    bool Signed = false)
 {
     public BookWrite ToWrite() => BookWrite.From(
         Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
         Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn,
-        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition, Condition, Narrator);
+        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition, Condition, Narrator) with { PreviousOwners = PreviousOwners, Signed = Signed };
 }
 
 public sealed record BookWrite(
@@ -416,7 +425,9 @@ public sealed record BookWrite(
     bool Queued,
     Acquisition? Acquisition,
     CopyCondition? Condition,
-    string? Narrator = null)
+    string? Narrator = null,
+    string? PreviousOwners = null,
+    bool Signed = false)
 {
     public static BookWrite From(
         string title,
@@ -461,7 +472,8 @@ public sealed record BookWrite(
         book.Title, book.Author, book.Status, book.Rating, book.Year, book.Isbn, book.Pages, book.CurrentPage, book.Notes,
         book.StartedOn, book.FinishedOn, book.LoanedTo, book.Tags, book.Subtitle, book.Publisher, book.Language, book.Format,
         book.Series, book.SeriesNumber, book.CoverUrl, book.Review, book.Loved, book.LoanedOn,
-        book.Location, book.AcquiredOn, book.Translator, book.RecommendedBy, book.OriginalTitle, book.Inscription, book.DueOn, book.Queued, book.Acquisition, book.Condition, book.Narrator);
+        book.Location, book.AcquiredOn, book.Translator, book.RecommendedBy, book.OriginalTitle, book.Inscription, book.DueOn, book.Queued, book.Acquisition, book.Condition, book.Narrator)
+        with { PreviousOwners = book.PreviousOwners, Signed = book.Signed };
 }
 
 public sealed record BookResponse(
@@ -506,7 +518,10 @@ public sealed record BookResponse(
     string? AudioFileName,
     int? BorrowerId = null,
     HighlightResponse[]? Highlights = null,
-    string? Narrator = null)
+    string? Narrator = null,
+    string? PreviousOwners = null,
+    bool Signed = false,
+    PastReadResponse[]? PastReads = null)
 {
     public static BookResponse From(Book book) => new(
         book.Id,
@@ -550,7 +565,9 @@ public sealed record BookResponse(
         book.AudioFileName,
         book.BorrowerId,
         book.Highlights.OrderBy(mark => mark.ChapterIndex).ThenBy(mark => mark.Id).Select(HighlightResponse.From).ToArray(),
-        book.Narrator);
+        book.Narrator,
+        book.PreviousOwners,
+        book.Signed);
 }
 
 public sealed record ShelfCopy(int Id, string Title, Acquisition? Acquisition);
@@ -695,7 +712,12 @@ public sealed record ShelfSettingsResponse(int YearlyGoal, int PagesGoal = 0, in
 
 public sealed record UpdateSettingsRequest([Range(0, 1000)] int YearlyGoal, [Range(0, 1_000_000)] int? PagesGoal = null, [Range(0, 10_000)] int? HoursGoal = null);
 
-public sealed record LibraryExport(int YearlyGoal, BookResponse[] Books);
+// Journal entries and links name their books by place in Books, so they find them again on another shelf.
+public sealed record LibraryExport(int YearlyGoal, BookResponse[] Books, JournalExport[]? Journal = null, LinkExport[]? Links = null);
+
+public sealed record JournalExport(DateOnly Date, string Text, int? Book);
+
+public sealed record LinkExport(int From, int To, LinkKind Kind, string? Note);
 
 public sealed record ImportResult(int Added, int Skipped);
 

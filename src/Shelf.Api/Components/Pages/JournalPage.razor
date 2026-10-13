@@ -1,0 +1,225 @@
+@page "/journal"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@using Microsoft.JSInterop
+@inject IJSRuntime Js
+
+<PageTitle>@T("Journal") · Shelf</PageTitle>
+
+<h1>@T("Journal")</h1>
+<p class="hint">@T("Your reading life by the day: what you wrote, the books you began and finished, the sessions you logged, and the passages you kept.")</p>
+
+<form class="panel journal-write" @onsubmit="Write" @onsubmit:preventDefault>
+    <h2>@(editing is null ? T("Write in the journal") : T("Change the entry"))</h2>
+    <div class="pair">
+        <label>
+            @T("Date")
+            <input type="date" @bind="entryDate" />
+        </label>
+        <label>
+            @T("About a book")
+            <select @bind="entryBook">
+                <option value="0">@T("None in particular")</option>
+                @foreach (var book in recent)
+                {
+                    <option value="@book.Id">@book.Title</option>
+                }
+            </select>
+        </label>
+    </div>
+    <label>
+        @T("What you want to remember")
+        <textarea @bind="entryText" maxlength="@JournalEntry.MaxTextLength" rows="4" placeholder="@T("Where you were, what it stirred, who you talked to about it")"></textarea>
+    </label>
+    <button type="submit" class="primary">@T("Keep it")</button>
+    @if (editing is not null)
+    {
+        <button type="button" class="quiet" @onclick="StopEditing">@T("Cancel")</button>
+    }
+    @if (problem is not null)
+    {
+        <p class="validation-message" role="alert">@problem</p>
+    }
+</form>
+
+<div class="filters">
+    <label>
+        @T("Year")
+        <select value="@year" @onchange="ChangeYear" disabled="@Searching">
+            @foreach (var shown in years)
+            {
+                <option value="@shown">@shown</option>
+            }
+        </select>
+    </label>
+    <label>
+        @T("Search every year")
+        <input type="search" @bind="query" @bind:after="Search" placeholder="@T("Words you wrote, noted, or highlighted")" />
+    </label>
+</div>
+<p class="hint journal-export">
+    <a href="/books/journal/@(year).md" download>@T("Download {0} as Markdown", year)</a>
+    · <button type="button" class="link" @onclick="Print">@T("Print it, or save it as a PDF")</button>
+</p>
+
+@if (items.Length == 0)
+{
+    <p class="hint">@(Searching ? T("Nothing you wrote or kept holds those words.") : T("Nothing in {0} yet. Log a session, finish a book, or write a few lines above.", year))</p>
+}
+else
+{
+    @foreach (var month in items.GroupBy(item => Searching ? item.Date.Year * 100 + item.Date.Month : item.Date.Month))
+    {
+        var first = month.First().Date;
+        <section class="journal-month">
+            <h2>@(Searching ? first.MonthYear() : new DateOnly(first.Year, first.Month, 1).MonthYear())</h2>
+            <ol class="journal">
+                @foreach (var item in month)
+                {
+                    <li class="journal-item @item.Kind.ToString().ToLowerInvariant()">
+                        <p class="journal-line">
+                            <span class="hint">@item.Date.MonthDay()</span>
+                            @if (item.BookId is int bookId)
+                            {
+                                <a href="/library/@bookId">@Journal.Line(item)</a>
+                            }
+                            else
+                            {
+                                <span>@Journal.Line(item)</span>
+                            }
+                        </p>
+                        @if (!string.IsNullOrWhiteSpace(item.Text))
+                        {
+                            @if (item.Kind is JournalKind.Highlight or JournalKind.Quote)
+                            {
+                                <blockquote><p>@item.Text</p></blockquote>
+                            }
+                            else
+                            {
+                                <p class="review">@item.Text</p>
+                            }
+                        }
+                        @if (item.Kind == JournalKind.Highlight && !string.IsNullOrWhiteSpace(item.Detail))
+                        {
+                            <p>@item.Detail</p>
+                        }
+                        @if (item.EntryId is int entryId)
+                        {
+                            <p class="journal-actions">
+                                <button type="button" class="quiet" @onclick="() => StartEditing(item)">@T("Change")</button>
+                                @if (deleting == entryId)
+                                {
+                                    <button type="button" class="danger" @onclick="() => Delete(entryId)">@T("Yes, delete it")</button>
+                                    <button type="button" class="quiet" @onclick="() => deleting = null">@T("Cancel")</button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="quiet" @onclick="() => deleting = entryId">@T("Delete")</button>
+                                }
+                            </p>
+                        }
+                    </li>
+                }
+            </ol>
+        </section>
+    }
+}
+
+@code {
+    private JournalItem[] items = [];
+    private int[] years = [];
+    private int year = DateTime.UtcNow.Year;
+    private string query = "";
+    private List<(int Id, string Title)> recent = [];
+    private DateOnly entryDate = DateOnly.FromDateTime(DateTime.UtcNow);
+    private int entryBook;
+    private string entryText = "";
+    private int? editing;
+    private int? deleting;
+    private string? problem;
+
+    private bool Searching => !string.IsNullOrWhiteSpace(query);
+
+    private async Task Print() => await Js.InvokeVoidAsync("print");
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        years = await Journal.YearsAsync(db);
+
+        // The books to write about: those being read, then those touched most lately.
+        recent = (await db.Books.AsNoTracking()
+                .Where(book => book.Status == BookStatus.Reading || book.FinishedOn != null)
+                .OrderByDescending(book => book.Status == BookStatus.Reading).ThenByDescending(book => book.FinishedOn)
+                .Take(40)
+                .Select(book => new { book.Id, book.Title })
+                .ToListAsync())
+            .Select(book => (book.Id, book.Title)).ToList();
+        await LoadAsync(db);
+    }
+
+    private async Task LoadAsync(ShelfDb db) =>
+        items = Searching ? await Journal.SearchAsync(db, query) : await Journal.YearAsync(db, year);
+
+    private async Task ChangeYear(ChangeEventArgs change)
+    {
+        if (int.TryParse(change.Value?.ToString(), out var chosen))
+        {
+            year = chosen;
+            await using var db = await DbFactory.CreateDbContextAsync();
+            await LoadAsync(db);
+        }
+    }
+
+    private async Task Search()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await LoadAsync(db);
+    }
+
+    private async Task Write()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var (id, wrong) = await Journal.WriteAsync(db, editing, entryDate, entryText, entryBook == 0 ? null : entryBook);
+        problem = wrong;
+        if (id is null)
+        {
+            return;
+        }
+
+        year = entryDate.Year;
+        years = await Journal.YearsAsync(db);
+        StopEditing();
+        await LoadAsync(db);
+    }
+
+    private void StartEditing(JournalItem item)
+    {
+        editing = item.EntryId;
+        entryDate = item.Date;
+        entryText = item.Text ?? "";
+        entryBook = item.BookId ?? 0;
+        if (item.BookId is int bookId && recent.All(book => book.Id != bookId))
+        {
+            recent.Insert(0, (bookId, item.Title ?? ""));
+        }
+
+        problem = null;
+    }
+
+    private void StopEditing()
+    {
+        editing = null;
+        entryText = "";
+        entryBook = 0;
+        entryDate = DateOnly.FromDateTime(DateTime.UtcNow);
+    }
+
+    private async Task Delete(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.JournalEntries.Where(entry => entry.Id == id).ExecuteDeleteAsync();
+        deleting = null;
+        await LoadAsync(db);
+    }
+}

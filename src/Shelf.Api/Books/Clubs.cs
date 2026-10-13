@@ -59,6 +59,9 @@ public sealed class ClubPost
     public ClubBook? Book { get; set; }
     public int ReaderId { get; set; }
     public required string Text { get; set; }
+
+    // Says more than some have read yet: folded away until a member opens it.
+    public bool Spoiler { get; set; }
     public DateTimeOffset PostedAt { get; set; }
 }
 
@@ -66,7 +69,7 @@ public sealed record ClubSummary(int Id, string Name, string? Description, bool 
 
 public sealed record ClubMemberResponse(int Id, string Name, bool Owner);
 
-public sealed record ClubPostResponse(int Id, int ReaderId, string Reader, string Text, DateTimeOffset PostedAt, bool Mine);
+public sealed record ClubPostResponse(int Id, int ReaderId, string Reader, string Text, DateTimeOffset PostedAt, bool Mine, bool Spoiler = false);
 
 public sealed record ClubBookResponse(int Id, string Title, string Author, string? CoverUrl, string? Isbn, string AddedBy, DateTimeOffset AddedAt, int Posts, int? OnMyShelf);
 
@@ -79,7 +82,7 @@ public sealed record ClubInvite(int ReaderId);
 // A book from the member's own shelf (BookId), or by its title and author.
 public sealed record ClubBookRequest(int? BookId = null, [MaxLength(ClubBook.MaxTitleLength)] string? Title = null, [MaxLength(ClubBook.MaxTitleLength)] string? Author = null);
 
-public sealed record ClubPostRequest([Required, MaxLength(ClubPost.MaxLength)] string Text);
+public sealed record ClubPostRequest([Required, MaxLength(ClubPost.MaxLength)] string Text, bool Spoiler = false);
 
 public enum ClubProblem
 {
@@ -108,7 +111,7 @@ public static class Clubs
         clubs.MapPut("/{id:int}/current/{bookId:int}", async (int id, int bookId, ShelfDb db, CancellationToken cancellationToken) => Answer(await SetCurrentAsync(db, id, bookId, cancellationToken)));
         clubs.MapGet("/{id:int}/books/{bookId:int}/posts", async Task<IResult> (int id, int bookId, ShelfDb db, CancellationToken cancellationToken) =>
             await PostsAsync(db, id, bookId, cancellationToken) is { } posts ? TypedResults.Ok(posts) : TypedResults.NotFound());
-        clubs.MapPost("/{id:int}/books/{bookId:int}/posts", async (int id, int bookId, ClubPostRequest request, ShelfDb db, CancellationToken cancellationToken) => Answer(await PostAsync(db, id, bookId, request.Text, cancellationToken)));
+        clubs.MapPost("/{id:int}/books/{bookId:int}/posts", async (int id, int bookId, ClubPostRequest request, ShelfDb db, CancellationToken cancellationToken) => Answer(await PostAsync(db, id, bookId, request.Text, cancellationToken, request.Spoiler)));
         clubs.MapPost("/{id:int}/books/{bookId:int}/shelve", async Task<IResult> (int id, int bookId, ShelfDb db, CancellationToken cancellationToken) =>
             await ShelveAsync(db, id, bookId, cancellationToken) is int mine ? TypedResults.Ok(new { id = mine }) : TypedResults.NotFound());
     }
@@ -329,10 +332,10 @@ public static class Clubs
         var posts = (await db.ClubPosts.AsNoTracking().Where(post => post.ClubBookId == bookId).ToListAsync(cancellationToken)).OrderBy(post => post.PostedAt).ThenBy(post => post.Id).ToList();
         var ids = posts.Select(post => post.ReaderId).Distinct().ToList();
         var names = await db.Readers.AsNoTracking().Where(reader => ids.Contains(reader.Id)).ToDictionaryAsync(reader => reader.Id, reader => reader.Name, cancellationToken);
-        return posts.Select(post => new ClubPostResponse(post.Id, post.ReaderId, names.GetValueOrDefault(post.ReaderId, "?"), post.Text, post.PostedAt, post.ReaderId == me)).ToArray();
+        return posts.Select(post => new ClubPostResponse(post.Id, post.ReaderId, names.GetValueOrDefault(post.ReaderId, "?"), post.Text, post.PostedAt, post.ReaderId == me, post.Spoiler)).ToArray();
     }
 
-    public static async Task<ClubProblem> PostAsync(ShelfDb db, int id, int bookId, string? text, CancellationToken cancellationToken = default)
+    public static async Task<ClubProblem> PostAsync(ShelfDb db, int id, int bookId, string? text, CancellationToken cancellationToken = default, bool spoiler = false)
     {
         if (!await Mine(db).AnyAsync(item => item.Id == id && item.Books.Any(book => book.Id == bookId), cancellationToken))
         {
@@ -345,7 +348,7 @@ public static class Clubs
             return ClubProblem.Invalid;
         }
 
-        db.ClubPosts.Add(new ClubPost { ClubBookId = bookId, ReaderId = db.ReaderId, Text = words, PostedAt = DateTimeOffset.UtcNow });
+        db.ClubPosts.Add(new ClubPost { ClubBookId = bookId, ReaderId = db.ReaderId, Text = words, Spoiler = spoiler, PostedAt = DateTimeOffset.UtcNow });
         await db.SaveChangesAsync(cancellationToken);
         return ClubProblem.None;
     }

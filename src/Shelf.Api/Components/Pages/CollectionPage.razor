@@ -75,12 +75,61 @@ else
         {
             <div class="share-link" id="share-link">
                 <label>
-                    @T("Anyone with this link sees the list as it stands: titles, authors, covers, and your stars. Never your notes, reviews, or loans.")
+                    @T("Anyone with this link sees the list as it stands: titles, authors, covers, your stars, and the notes you wrote for this list. Never your notes on the books, reviews, or loans.")
                     <input type="url" readonly value="@Navigation.ToAbsoluteUri($"/shared/{token}")" />
                 </label>
             </div>
         }
     }
+
+    <section class="panel plan" aria-labelledby="plan-heading">
+        <h2 id="plan-heading">@T("A plan")</h2>
+        <div class="save-search">
+            <label>
+                @T("Read these by")
+                <input type="date" value="@collection.ReadBy?.ToString("yyyy-MM-dd")" @onchange="ChangePlan" />
+            </label>
+            @if (collection.ReadBy is not null)
+            {
+                <button type="button" class="quiet" @onclick="() => SetPlan(null)">@T("No date")</button>
+            }
+        </div>
+        @if (estimate is { } plan)
+        {
+            <p>
+                @T("At your pace of {0} a day, the {1} left take about {2}.", plan.PagesPerDay == 1 ? T("1 page") : T("{0} pages", plan.PagesPerDay), Localization.Counts.Books(plan.BooksLeft), Days(plan.DaysNeeded))
+                @(" ")
+                @if (plan.Fits)
+                {
+                    <span>@(plan.DaysLeft - plan.DaysNeeded == 0 ? T("That fits, just.") : T("That fits, with {0} to spare.", Days(plan.DaysLeft - plan.DaysNeeded)))</span>
+                }
+                else
+                {
+                    <span>@T("That's {0} more than the {1} you have.", Days(plan.DaysNeeded - plan.DaysLeft), Days(plan.DaysLeft))</span>
+                }
+            </p>
+            @if (!plan.Fits)
+            {
+                <p class="hint">
+                    @T("Nothing lost if plans change: {0} would fit,", plan.FitsBy.Medium())
+                    @(plan.LeaveOut < plan.BooksLeft ? (plan.LeaveOut == 1 ? T("or the date as it is without the longest book.") : T("or the date as it is without the {0} longest books.", plan.LeaveOut)) : T("or a shorter list."))
+                    <button type="button" class="link" @onclick="() => SetPlan(plan.FitsBy)">@T("Move the date to {0}", plan.FitsBy.Medium())</button>
+                </p>
+            }
+            @if (plan.Guessed > 0)
+            {
+                <p class="hint">@(plan.Guessed == 1 ? T("One book has no page count, so it is taken at your usual length.") : T("{0} books have no page count, so they are taken at your usual length.", plan.Guessed))</p>
+            }
+        }
+        else if (collection.ReadBy is not null)
+        {
+            <p class="hint">@T("Everything in this list is read.")</p>
+        }
+        else
+        {
+            <p class="hint">@T("Give the list a day to read it by, and Shelf says whether it fits your own pace.")</p>
+        }
+    </section>
 
     @if (collection.Books.Count == 0)
     {
@@ -98,6 +147,25 @@ else
                         <p class="title"><a href="/library/@book.Id">@book.Title</a></p>
                         <p class="by">@book.Author</p>
                         <StatusBadge Status="book.Status" />
+                        @if (noting == book.Id)
+                        {
+                            <form class="collection-note-form" @onsubmit="() => SaveNote(book.Id)" @onsubmit:preventDefault>
+                                <label>
+                                    @T("Why it's here")
+                                    <textarea @bind="noteText" maxlength="@CollectionBook.MaxNoteLength" rows="2"></textarea>
+                                </label>
+                                <button type="submit">@T("Save")</button>
+                                <button type="button" class="quiet" @onclick="() => noting = null">@T("Cancel")</button>
+                            </form>
+                        }
+                        else
+                        {
+                            @if (entry.Note is not null)
+                            {
+                                <p class="collection-note">@entry.Note</p>
+                            }
+                            <button type="button" class="link" @onclick="() => StartNote(entry)">@(entry.Note is null ? T("Say why it's here") : T("Change the note"))</button>
+                        }
                     </div>
                     <div class="collection-moves">
                         <button type="button" class="icon-button small" @onclick="() => Move(book.Id, -1)" disabled="@(index == 0)" aria-label="@T("Move {0} up", book.Title)">↑</button>
@@ -126,10 +194,43 @@ else
     private List<string> childNames = [];
     private bool isChild;
 
+    private PlanEstimate? estimate;
+    private int? noting;
+    private string noteText = "";
+
+    private void StartNote(CollectionBook entry)
+    {
+        noting = entry.BookId;
+        noteText = entry.Note ?? "";
+    }
+
+    private async Task SaveNote(int bookId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await Collections.NoteAsync(db, Id, bookId, noteText))
+        {
+            noting = null;
+            await LoadAsync();
+        }
+    }
+
+    private async Task ChangePlan(ChangeEventArgs change) =>
+        await SetPlan(DateOnly.TryParse(change.Value?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var day) ? day : null);
+
+    private async Task SetPlan(DateOnly? readBy)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Collections.PlanAsync(db, Id, readBy);
+        await LoadAsync();
+    }
+
+    private static string Days(int days) => days == 1 ? T("1 day") : T("{0} days", days);
+
     private async Task LoadAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         collection = await Collections.FindAsync(db, Id);
+        estimate = collection is null ? null : await Collections.EstimateAsync(db, Id);
         childNames = (await Family.ChildrenAsync(db)).Select(child => child.Name).ToList();
         isChild = await Family.IsRestrictedAsync(db);
     }

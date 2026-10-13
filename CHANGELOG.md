@@ -4,6 +4,18 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-10-13
+
+### Added
+
+- **Reading a book again**: **Read it again** on a finished book puts that read by, with its dates and stars, and starts the book over. Every read is kept, listed under the reading log with the sessions, highlights, and quotes from its days and a few words of your own on what changed. Each finish counts in its own year, on Insights, Years, the year's review, the goal, and the public page.
+- **A journal**: your reading life by the day, in the sidebar. The books begun and finished, sessions and their notes, highlights, quotes, thoughts on earlier reads, and entries of your own, about a book or about where you were. Read it a year at a time, search every year, download a year as Markdown, or print it.
+- **Connections between books**: link a book to another edition or translation, to one that inspired it, one that answers it, one that makes a contrast, or one to read beside it. Editions are listed under the title with what tells them apart and the one you read, and **Map** draws the links around a book.
+- **Collections with notes and plans**: a note on each book in a collection, shown on its shared page too; and a day to read the books by, with whether they fit your own pace and, when they don't, a day that would or how many books to leave out.
+- **A copy's history**: who had it before you, whether the author signed it, and up to 20 pictures of it.
+- **Club meetings**: the club's starter arranges meetings with a book, how far to read, and what to talk about; members send questions, kept between them and the one who runs it until the meeting begins; and a summary of what was said. A post can be marked a spoiler, folded until opened and kept out of notifications.
+- Webhooks for `book.reread` and `club.meeting`, and the API for all of the above. A backup carries earlier reads, the journal, and links between books.
+
 ## [2.7.3] - 2026-10-12
 
 ### Added
@@ -432,7 +444,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.7.3...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.8.0...HEAD
+[2.8.0]: https://github.com/doodersrage/shelf/compare/v2.7.3...v2.8.0
 [2.7.3]: https://github.com/doodersrage/shelf/compare/v2.7.2...v2.7.3
 [2.7.2]: https://github.com/doodersrage/shelf/compare/v2.7.1...v2.7.2
 [2.7.1]: https://github.com/doodersrage/shelf/compare/v2.7.0...v2.7.1

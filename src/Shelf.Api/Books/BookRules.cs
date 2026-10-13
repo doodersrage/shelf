@@ -178,6 +178,8 @@ public static class BookRules
         book.OriginalTitle = BlankToNull(write.OriginalTitle);
         book.Inscription = BlankToNull(write.Inscription);
         book.RecommendedBy = BlankToNull(write.RecommendedBy);
+        book.PreviousOwners = BlankToNull(write.PreviousOwners);
+        book.Signed = write.Signed;
         book.StartedOn = write.StartedOn;
         book.FinishedOn = write.FinishedOn;
         book.Status = write.Status;
@@ -318,7 +320,7 @@ public static class BookRules
             rows.Count(row => row.Status == BookStatus.Abandoned),
             ratings.Count == 0 ? null : Math.Round(ratings.Average(), 2),
             rows.Sum(PagesRead),
-            rows.Count(row => row.Status == BookStatus.Finished && row.FinishedOn?.Year == year),
+            rows.Count(row => row.Status == BookStatus.Finished && row.FinishedOn?.Year == year) + await Rereads.EarlierFinishesAsync(db, year, cancellationToken),
             tags.OrderByDescending(tag => tag.Count).ThenBy(tag => tag.Name, StringComparer.Ordinal).ToArray(),
             rows.Count(row => row.Loved),
             rows.Count(row => row.OnLoan),
@@ -593,6 +595,7 @@ public static class BookRules
         var seen = existing.Select(Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var count = 0;
         var skipped = 0;
+        var made = new Book?[export.Books.Length];
 
         for (var index = 0; index < export.Books.Length; index++)
         {
@@ -666,8 +669,25 @@ public static class BookRules
                 });
             }
 
+            foreach (var read in source.PastReads ?? [])
+            {
+                if (read.Thoughts?.Trim().Length > PastRead.MaxThoughtsLength || read.Rating is < 1 or > 5)
+                {
+                    continue;
+                }
+
+                book.PastReads.Add(new PastRead
+                {
+                    StartedOn = read.StartedOn,
+                    FinishedOn = read.FinishedOn,
+                    Rating = read.Rating,
+                    Thoughts = string.IsNullOrWhiteSpace(read.Thoughts) ? null : read.Thoughts.Trim(),
+                });
+            }
+
             db.Books.Add(book);
             await SyncTagsAsync(db, book, write.Tags, cancellationToken);
+            made[index] = book;
             if (added is not null && index < added.Length)
             {
                 added[index] = book;
@@ -681,6 +701,31 @@ public static class BookRules
             await db.SaveChangesAsync(cancellationToken);
             await RemoveUnusedTagsAsync(db, cancellationToken);
         }
+
+        // The journal, its entries on books that came in tied to them again, and the links between books that came in.
+        Book? Made(int? at) => at is int place && place >= 0 && place < made.Length ? made[place] : null;
+        var written = export.Journal is { Length: > 0 }
+            ? (await db.JournalEntries.AsNoTracking().Select(entry => new { entry.Date, entry.Text }).ToListAsync(cancellationToken)).Select(entry => (entry.Date, entry.Text)).ToHashSet()
+            : [];
+        foreach (var entry in export.Journal ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(entry.Text) || entry.Text.Trim().Length > JournalEntry.MaxTextLength || !written.Add((entry.Date, entry.Text.Trim())))
+            {
+                continue;
+            }
+
+            db.JournalEntries.Add(new JournalEntry { OwnerId = db.ReaderId, Date = entry.Date, Text = entry.Text.Trim(), BookId = Made(entry.Book)?.Id, CreatedAt = DateTimeOffset.UtcNow });
+        }
+
+        foreach (var link in export.Links ?? [])
+        {
+            if (Made(link.From) is { } from && Made(link.To) is { } to && from != to && Enum.IsDefined(link.Kind) && !(link.Note?.Trim().Length > BookLink.MaxNoteLength))
+            {
+                db.BookLinks.Add(new BookLink { FromBookId = from.Id, ToBookId = to.Id, Kind = link.Kind, Note = string.IsNullOrWhiteSpace(link.Note) ? null : link.Note.Trim(), CreatedAt = DateTimeOffset.UtcNow });
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
 
         if (export.YearlyGoal > 0 && await GetGoalAsync(db, cancellationToken) == 0)
         {

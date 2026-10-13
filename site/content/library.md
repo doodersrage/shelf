@@ -18,8 +18,12 @@ Every book is one of four, each shown with a different small shape as well as it
 | --- | --- |
 | **Want to read** | On the list. Mark one **Read next** to bring it to the front. |
 | **Reading** | Underway. Moving a book here fills in a blank start date. |
-| **Finished** | Done. Fills in a blank finish date too, and counts toward the year's goal. |
+| **Finished** | Done. Fills in a blank finish date too, and counts toward the year's goal. **Read it again** starts another read. |
 | **Abandoned** | Put down. **Pick it up again** moves it back to Reading. |
+
+### Reading a book again
+
+**Read it again**, on a finished book's page, puts that read by, with its dates and the stars you gave it then, and starts the book over: Reading from today, its place in the e-book, the recording, and on paper back at the start. Every read is kept. Under the reading log, **Each read** lists them, with the sessions, highlights, and quotes from each one's days, and **Write about this read** keeps a few words about what you made of it then and what changed since. Each finish counts in its own year, on **Insights**, **Years**, the year's review, and your goal, so a book read in 2019 and again this year counts in both.
 
 Can't choose what to read next? `/books/pick` picks one book from the want list.
 
@@ -30,7 +34,7 @@ A book's details hold as much or as little as you like:
 - **Title, subtitle, author, and year**, with the original title of a translation and its translator, and the narrator of an audiobook (search finds narrators too).
 - **Series and number**, so the next volume is offered from the book's page.
 - **ISBN, publisher, language, page count, and format** (hardcover, paperback, e-book, or audiobook).
-- **About your copy:** where it sits, its condition from fine to poor, how it arrived (bought, a gift, or found), the date, any inscription written in the front, and who recommended it.
+- **About your copy:** where it sits, its condition from fine to poor, how it arrived (bought, a gift, or found), the date, any inscription written in the front, who recommended it, who had it before you, and whether the author signed it. Under **Your copy** on the book's page, keep up to 20 pictures of it, each with a few words: the inscription, a signature, a bookplate, the spine. Only you see them; they go with the book's snapshots and are deleted with it.
 - **Your own words:** a rating, a review, notes, and tags.
 
 Give an ISBN, or a title and author, and **Look up** fills the empty fields from [Open Library](https://openlibrary.org), cover included, whether you are adding a book or editing one. When Open Library has no match, or leaves the pages, publisher, year, or cover blank, [Google Books](https://books.google.com) fills those in; it knows many newer and non-English books Open Library does not. Where you have connected [Hardcover](devices.md#hardcover), it is asked last, for what is still blank, the series and its number above all. Open Library's answer always comes first. In the library, **Fill empty details** looks up every book with gaps, in the background, a book at a time with a pause between them so the catalogs are asked politely (`Details:PauseMilliseconds`, 1200 by default): leave the page and it carries on, and **Activity** shows how far it has got. Neither touches anything you wrote.
@@ -59,9 +63,15 @@ A view you come back to, such as *loved, want to read, newest first*, can be kep
 
 A collection is a list you make by hand, in the order you choose: a book club's year, summer reading, books to lend a friend. Unlike a saved search, it holds exactly the books you put in it. Make one on **Collections** in the sidebar; then, on a book's page, choose it under **Collections** and **Add**. On the collection's page, **↑** and **↓** change the order and **×** takes a book out; **Rename or describe** gives it a name and a few words about it. Deleting a collection leaves its books on your shelf, and deleting a book takes it out of every collection.
 
+**Say why it's here** keeps a note on a book in the list: why it belongs, what to look for, what to read first. A collection can be a plan, too: give it a day under **Read these by**, and Shelf works out whether the books left fit, at your own pace (the pages of the books you finished over the last year, a day at a time). When they don't, it says which later day would fit, or how many of the longest books to leave out, and **Move the date** takes the later day. Plans change; nothing is lost when they do.
+
+### Connections and the map
+
+On a book's page, **Connections** draws a line from it to another of your books: another edition or translation of the same book, one that inspired it, one that answers or argues with it, one that makes a contrast, or simply one to read beside it, with a note if you like. Linked editions are listed under the title, each told apart by its translator, narrator, format, or language, with the one you read marked. **Map**, in the sidebar, draws your links: around one book, two steps out, or every linked book at once. Choose a book in the drawing to move to it; the same links are listed in words below.
+
 ### Sharing a reading list
 
-A saved search or a collection can be shared with anyone, signed in or not: open it and choose **Share by link**, then copy the address shown. The page behind it lists the books as the search finds them at that moment, with their covers, authors, years, series, and your stars; never your notes, reviews, quotes, loans, places, or files. Search engines are asked not to index it. **Stop sharing** ends the link at once, as does forgetting the search; sharing again makes a new link.
+A saved search or a collection can be shared with anyone, signed in or not: open it and choose **Share by link**, then copy the address shown. The page behind it lists the books as the search finds them at that moment, with their covers, authors, years, series, and your stars, and in a collection the notes you wrote for the list; never your notes on the books, reviews, quotes, loans, places, or files. Search engines are asked not to index it. **Stop sharing** ends the link at once, as does forgetting the search; sharing again makes a new link.
 
 ### New books in your series
 
@@ -141,6 +151,10 @@ With none of these, the book shows a plain green spine with its title.
 Log a session from a book's page: the date, the pages you read from and to, and a note. Sessions feed **Insights**: the year's goals and how you are doing, books finished each month, a year of the days you read and listened, the authors, kinds of book, and series you return to, milestones (your first finished book, the tenth, ten thousand pages, the longest book, the year's goal reached), counts, a calendar of reading days, and recent sessions.
 
 The year can have up to three goals, set under **Set goals** in the year's panel on **Insights**: books to finish, pages to read (counting the pages of the books you finish), and hours to spend reading and listening (from the reader's and the player's own count of your time). Leave one at 0 to go without it; each one set shows how far along you are, on **Insights** and in the year's review.
+
+## The journal
+
+**Journal**, in the sidebar, is your reading life by the day: the books you began and finished, the sessions you logged and their notes, the passages you highlighted and quotes you kept, your thoughts on earlier reads, and entries of your own. **Write in the journal** keeps a few lines for a day, about a book or about where you were in life while you read. Choose a year to read it month by month, or search every year for words you wrote, noted, or highlighted. **Download as Markdown** gives the year as one file for a notes folder; **Print it, or save it as a PDF** prints the journal alone, without the menus.
 
 ## Quotes
 

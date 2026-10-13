@@ -211,9 +211,18 @@ public static class Backup
     private static async Task<(LibraryExport Export, List<Book> Books)> ExportWithBooksAsync(ShelfDb db, CancellationToken cancellationToken)
     {
         var books = BookRules.Sort(await db.Books.AsNoTracking().WithDetails().ToListAsync(cancellationToken), "title");
+        var place = books.Select((book, index) => (book.Id, index)).ToDictionary(pair => pair.Id, pair => pair.index);
+        var reads = (await db.PastReads.AsNoTracking().ToListAsync(cancellationToken)).ToLookup(read => read.BookId);
+        var journal = await db.JournalEntries.AsNoTracking().OrderBy(entry => entry.Date).ThenBy(entry => entry.Id).ToListAsync(cancellationToken);
+        var links = await db.BookLinks.AsNoTracking().OrderBy(link => link.Id).ToListAsync(cancellationToken);
         var export = new LibraryExport(
             await BookRules.GetGoalAsync(db, cancellationToken),
-            books.Select(BookResponse.From).ToArray());
+            books.Select(book => BookResponse.From(book) is var response && reads[book.Id].Any()
+                ? response with { PastReads = reads[book.Id].OrderBy(read => read.FinishedOn).Select(PastReadResponse.From).ToArray() }
+                : response).ToArray(),
+            journal.Select(entry => new JournalExport(entry.Date, entry.Text, entry.BookId is int id && place.TryGetValue(id, out var at) ? at : null)).ToArray(),
+            links.Where(link => place.ContainsKey(link.FromBookId) && place.ContainsKey(link.ToBookId))
+                .Select(link => new LinkExport(place[link.FromBookId], place[link.ToBookId], link.Kind, link.Note)).ToArray());
         return (export, books);
     }
 

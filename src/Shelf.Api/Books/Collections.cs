@@ -25,6 +25,9 @@ public sealed class Collection
 
     // Shared with the owner's children's accounts, who may read its books.
     public bool ForChildren { get; set; }
+
+    // A plan: the day the reader means to have read the books by.
+    public DateOnly? ReadBy { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public List<CollectionBook> Books { get; set; } = [];
 }
@@ -35,19 +38,45 @@ public sealed class CollectionBook
     public Collection? Collection { get; set; }
     public int BookId { get; set; }
     public Book? Book { get; set; }
+    public const int MaxNoteLength = 500;
+
     public int Position { get; set; }
+
+    // Why the book is in the list, or what to look for in it; shown wherever the list is.
+    public string? Note { get; set; }
     public DateTimeOffset AddedAt { get; set; }
 }
 
 public sealed record CollectionSummary(int Id, string Name, string? Description, int Books, bool Shared, string[] Covers);
 
-public sealed record CollectionResponse(int Id, string Name, string? Description, string? ShareToken, BookResponse[] Books);
+// Notes runs beside Books: the note on each book in the list, or null.
+public sealed record CollectionResponse(int Id, string Name, string? Description, string? ShareToken, BookResponse[] Books, DateOnly? ReadBy = null, string?[]? Notes = null);
 
 public sealed record CollectionRequest([Required, MaxLength(Collection.MaxNameLength)] string Name, [MaxLength(Collection.MaxDescriptionLength)] string? Description = null);
 
 public sealed record CollectionBookRequest(int BookId);
 
 public sealed record CollectionOrderRequest(int[] BookIds);
+
+public sealed record CollectionNoteRequest([MaxLength(CollectionBook.MaxNoteLength)] string? Note);
+
+public sealed record CollectionPlanRequest(DateOnly? ReadBy);
+
+// Whether a plan fits, by the reader's own pace: pages a day over the last year's finished books. Books with no page
+// count are taken at the reader's usual length. Behind, it says what would fit: a later day, or fewer books.
+public sealed record PlanEstimate(
+    DateOnly ReadBy,
+    int BooksLeft,
+    int PagesLeft,
+    int Guessed,
+    int PagesPerDay,
+    int DaysNeeded,
+    int DaysLeft,
+    DateOnly FitsBy,
+    int LeaveOut)
+{
+    public bool Fits => DaysNeeded <= DaysLeft;
+}
 
 public static class Collections
 {
@@ -71,6 +100,13 @@ public static class Collections
             await RemoveAsync(db, id, bookId, cancellationToken) ? TypedResults.NoContent() : TypedResults.NotFound());
         collections.MapPut("/{id:int}/order", async Task<IResult> (int id, CollectionOrderRequest request, ShelfDb db, CancellationToken cancellationToken) =>
             await OrderAsync(db, id, request.BookIds, cancellationToken) ? TypedResults.NoContent() : TypedResults.NotFound());
+        collections.MapPut("/{id:int}/books/{bookId:int}", async Task<IResult> (int id, int bookId, CollectionNoteRequest request, ShelfDb db, CancellationToken cancellationToken) =>
+            await NoteAsync(db, id, bookId, request.Note, cancellationToken) ? TypedResults.NoContent() : TypedResults.NotFound());
+        collections.MapPut("/{id:int}/plan", async Task<IResult> (int id, CollectionPlanRequest request, ShelfDb db, CancellationToken cancellationToken) =>
+            await PlanAsync(db, id, request.ReadBy, cancellationToken) ? TypedResults.NoContent() : TypedResults.NotFound());
+        collections.MapGet("/{id:int}/plan", async Task<IResult> (int id, ShelfDb db, CancellationToken cancellationToken) =>
+            !await db.Collections.AnyAsync(item => item.Id == id, cancellationToken) ? TypedResults.NotFound()
+            : await EstimateAsync(db, id, cancellationToken) is { } estimate ? TypedResults.Ok(estimate) : TypedResults.NoContent());
     }
 
     public static async Task<CollectionSummary[]> ListAsync(ShelfDb db, CancellationToken cancellationToken = default)
@@ -222,6 +258,85 @@ public static class Collections
         return await OrderAsync(db, id, order, cancellationToken);
     }
 
+    // Why a book is in the list; blank takes the note away.
+    public static async Task<bool> NoteAsync(ShelfDb db, int id, int bookId, string? note, CancellationToken cancellationToken = default)
+    {
+        note = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+        var entry = await db.CollectionBooks.FirstOrDefaultAsync(item => item.CollectionId == id && item.BookId == bookId, cancellationToken);
+        if (entry is null || note?.Length > CollectionBook.MaxNoteLength)
+        {
+            return false;
+        }
+
+        entry.Note = note;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    // The day to have read the books by; none makes the list a list again.
+    public static async Task<bool> PlanAsync(ShelfDb db, int id, DateOnly? readBy, CancellationToken cancellationToken = default)
+    {
+        var collection = await db.Collections.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (collection is null)
+        {
+            return false;
+        }
+
+        collection.ReadBy = readBy;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public const int UsualPages = 300;
+
+    // Null for a list with no day to read by, or nothing left to read in it.
+    public static async Task<PlanEstimate?> EstimateAsync(ShelfDb db, int id, CancellationToken cancellationToken = default, DateOnly? today = null)
+    {
+        var readBy = await db.Collections.AsNoTracking().Where(item => item.Id == id).Select(item => item.ReadBy).FirstOrDefaultAsync(cancellationToken);
+        if (readBy is not DateOnly by)
+        {
+            return null;
+        }
+
+        var left = await db.CollectionBooks.AsNoTracking()
+            .Where(entry => entry.CollectionId == id && entry.Book!.Status != BookStatus.Finished && entry.Book.Status != BookStatus.Abandoned)
+            .Select(entry => new { entry.Book!.Pages, entry.Book.CurrentPage, entry.Book.Status })
+            .ToListAsync(cancellationToken);
+        if (left.Count == 0)
+        {
+            return null;
+        }
+
+        var now = today ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var yearAgo = now.AddDays(-365);
+        var finished = await db.Books.AsNoTracking()
+            .Where(book => book.Status == BookStatus.Finished && book.FinishedOn >= yearAgo && book.Pages > 0)
+            .Select(book => book.Pages!.Value)
+            .ToListAsync(cancellationToken);
+        var usual = finished.Count == 0 ? UsualPages : finished.Order().ElementAt(finished.Count / 2);
+        var pace = Math.Max(1, finished.Sum() / 365);
+        var lengths = left.Select(book => book.Pages is int pages ? Math.Max(0, pages - (book.Status == BookStatus.Reading ? book.CurrentPage ?? 0 : 0)) : usual).ToList();
+        var pagesLeft = lengths.Sum();
+        var needed = (pagesLeft + pace - 1) / pace;
+        var daysLeft = Math.Max(0, by.DayNumber - now.DayNumber);
+
+        // Fewest books to leave out to fit: the longest first.
+        var leaveOut = 0;
+        var fitting = pagesLeft;
+        foreach (var length in lengths.OrderDescending())
+        {
+            if ((fitting + pace - 1) / pace <= daysLeft)
+            {
+                break;
+            }
+
+            fitting -= length;
+            leaveOut++;
+        }
+
+        return new PlanEstimate(by, left.Count, pagesLeft, left.Count(book => book.Pages is null), pace, needed, daysLeft, now.AddDays(needed), leaveOut);
+    }
+
     public static async Task<string?> ShareAsync(ShelfDb db, int id, CancellationToken cancellationToken = default)
     {
         var collection = await db.Collections.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
@@ -283,12 +398,15 @@ public static class Collections
 
         var ids = collection.Books.Select(entry => entry.BookId).ToList();
         var books = await db.Books.AsNoTracking().WithDetails().Where(book => ids.Contains(book.Id)).ToListAsync(cancellationToken);
+        var listed = collection.Books.Where(entry => books.Any(book => book.Id == entry.BookId)).ToList();
         return TypedResults.Ok(new CollectionResponse(
             collection.Id,
             collection.Name,
             collection.Description,
             collection.ShareToken,
-            ids.Select(bookId => books.FirstOrDefault(book => book.Id == bookId)).OfType<Book>().Select(BookResponse.From).ToArray()));
+            listed.Select(entry => BookResponse.From(books.First(book => book.Id == entry.BookId))).ToArray(),
+            collection.ReadBy,
+            listed.Select(entry => entry.Note).ToArray()));
     }
 
     private static async Task<IResult> Update(int id, CollectionRequest request, ShelfDb db, CancellationToken cancellationToken)

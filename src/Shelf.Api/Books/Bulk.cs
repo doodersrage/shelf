@@ -36,6 +36,7 @@ public static class Bulk
         var books = await db.Books.Include(book => book.Tags).Where(book => ids.Contains(book.Id)).ToListAsync(cancellationToken);
         if (request.Delete)
         {
+            var photos = await db.CopyPhotos.AsNoTracking().Where(photo => ids.Contains(photo.BookId)).Select(photo => photo.StoredName).ToListAsync(cancellationToken);
             foreach (var book in books)
             {
                 ebooks.Delete(book.EbookStoredName);
@@ -45,6 +46,7 @@ public static class Bulk
 
             db.Books.RemoveRange(books);
             await db.SaveChangesAsync(cancellationToken);
+            photos.ForEach(covers.Delete);
             await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
             return new BulkResult(books.Count);
         }

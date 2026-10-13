@@ -396,6 +396,10 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Property<int?>("Pages")
                         .HasColumnType("integer");
 
+                    b.Property<string>("PreviousOwners")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("Publisher")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
@@ -423,6 +427,9 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.Property<int?>("SeriesNumber")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("Signed")
+                        .HasColumnType("boolean");
 
                     b.Property<DateOnly?>("StartedOn")
                         .HasColumnType("date");
@@ -476,6 +483,41 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("VisitingLinkId");
 
                     b.ToTable("Books");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.BookLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("FromBookId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<int>("ToBookId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FromBookId");
+
+                    b.HasIndex("ToBookId");
+
+                    b.ToTable("BookLinks");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.BookText", b =>
@@ -583,6 +625,47 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.ToTable("ClubBooks");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.ClubMeeting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Agenda")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ClubBookId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ClubId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("Through")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClubBookId");
+
+                    b.HasIndex("ClubId");
+
+                    b.ToTable("ClubMeetings");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.ClubMember", b =>
                 {
                     b.Property<int>("ClubId")
@@ -618,6 +701,9 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Property<int>("ReaderId")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("Spoiler")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Text")
                         .IsRequired()
                         .HasMaxLength(4000)
@@ -630,6 +716,37 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("ReaderId");
 
                     b.ToTable("ClubPosts");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.ClubQuestion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("AskedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("MeetingId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MeetingId");
+
+                    b.HasIndex("ReaderId");
+
+                    b.ToTable("ClubQuestions");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Collection", b =>
@@ -658,6 +775,9 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Property<int>("OwnerId")
                         .HasColumnType("integer");
 
+                    b.Property<DateOnly?>("ReadBy")
+                        .HasColumnType("date");
+
                     b.Property<string>("ShareToken")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
@@ -683,6 +803,10 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Property<DateTimeOffset>("AddedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<int>("Position")
                         .HasColumnType("integer");
 
@@ -691,6 +815,36 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("BookId");
 
                     b.ToTable("CollectionBooks");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.CopyPhoto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Caption")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("StoredName")
+                        .IsRequired()
+                        .HasMaxLength(48)
+                        .HasColumnType("character varying(48)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.ToTable("CopyPhotos");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.FetchGrab", b =>
@@ -891,6 +1045,40 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("ReaderId");
 
                     b.ToTable("Highlights");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.JournalEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BookId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("OwnerId", "Date");
+
+                    b.ToTable("JournalEntries");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.KoboEntry", b =>
@@ -1219,6 +1407,39 @@ namespace Shelf.Api.Data.PostgresMigrations
                         .IsUnique();
 
                     b.ToTable("PartSummaries");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.PastRead", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("FinishedOn")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("Rating")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("StartedOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Thoughts")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("FinishedOn");
+
+                    b.ToTable("PastReads");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Podcast", b =>
@@ -2375,6 +2596,25 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Navigation("RemoteBorrower");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.BookLink", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", "From")
+                        .WithMany()
+                        .HasForeignKey("FromBookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Books.Book", "To")
+                        .WithMany()
+                        .HasForeignKey("ToBookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("From");
+
+                    b.Navigation("To");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.BookText", b =>
                 {
                     b.HasOne("Shelf.Api.Books.OcrScan", null)
@@ -2400,6 +2640,25 @@ namespace Shelf.Api.Data.PostgresMigrations
                         .HasForeignKey("ClubId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Club");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.ClubMeeting", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.ClubBook", "Book")
+                        .WithMany()
+                        .HasForeignKey("ClubBookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Books.Club", "Club")
+                        .WithMany()
+                        .HasForeignKey("ClubId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Book");
 
                     b.Navigation("Club");
                 });
@@ -2438,6 +2697,23 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Navigation("Book");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.ClubQuestion", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.ClubMeeting", "Meeting")
+                        .WithMany("Questions")
+                        .HasForeignKey("MeetingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Meeting");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.Collection", b =>
                 {
                     b.HasOne("Shelf.Api.Readers.Reader", null)
@@ -2464,6 +2740,17 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Navigation("Book");
 
                     b.Navigation("Collection");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.CopyPhoto", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Book");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.FetchGrab", b =>
@@ -2495,6 +2782,20 @@ namespace Shelf.Api.Data.PostgresMigrations
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Book");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.JournalEntry", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", null)
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.KoboEntry", b =>
@@ -2608,6 +2909,17 @@ namespace Shelf.Api.Data.PostgresMigrations
                         .HasForeignKey("BookId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.PastRead", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", "Book")
+                        .WithMany("PastReads")
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Book");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Podcast", b =>
@@ -2806,6 +3118,8 @@ namespace Shelf.Api.Data.PostgresMigrations
                 {
                     b.Navigation("Highlights");
 
+                    b.Navigation("PastReads");
+
                     b.Navigation("Quotes");
 
                     b.Navigation("Sessions");
@@ -2821,6 +3135,11 @@ namespace Shelf.Api.Data.PostgresMigrations
             modelBuilder.Entity("Shelf.Api.Books.ClubBook", b =>
                 {
                     b.Navigation("Posts");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.ClubMeeting", b =>
+                {
+                    b.Navigation("Questions");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Collection", b =>

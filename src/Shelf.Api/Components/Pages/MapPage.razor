@@ -1,0 +1,138 @@
+@page "/map"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("Map") · Shelf</PageTitle>
+
+@* The reader's own lines between books, drawn around one book: those it touches, then those they touch. A book in
+   the picture opens the map around it; the same links are listed below in words. *@
+<h1>@T("Map")</h1>
+@if (centre is not null)
+{
+    <p class="hint">@T("Around {0}, two steps out.", centre.Title) <a href="/library/@centre.Id">@T("Open the book")</a> · <a href="/map">@T("Every linked book")</a></p>
+}
+else
+{
+    <p class="hint">@T("Every book you've linked to another. Choose one to see what lies around it.")</p>
+}
+
+@if (map is null || map.Books.Length == 0)
+{
+    <EmptyState Title="@T("No links yet")" Text="@T("On a book's page, under Connections, link it to another edition, to a book that inspired it, or to one that answers it. The links are drawn here.")" ActionHref="/library" ActionLabel="@T("Open the library")" />
+}
+else
+{
+    <figure class="literary-map">
+        <svg viewBox="@($"{-Size} {-Size} {2 * Size} {2 * Size}")" role="group" aria-label="@T("A map of {0} linked books", map.Books.Length)">
+            @foreach (var link in map.Links)
+            {
+                if (places.TryGetValue(link.From, out var from) && places.TryGetValue(link.To, out var to))
+                {
+                    <line x1="@Number(from.X)" y1="@Number(from.Y)" x2="@Number(to.X)" y2="@Number(to.Y)" class="map-link @link.Kind.ToString().ToLowerInvariant()" />
+                }
+            }
+            @foreach (var node in map.Books)
+            {
+                var place = places[node.Id];
+                <a href="/map?book=@node.Id">
+                    <circle cx="@Number(place.X)" cy="@Number(place.Y)" r="@(node.Id == centre?.Id ? 11 : 7)" class="map-book @node.Status.ToString().ToLowerInvariant()" />
+                    <text x="@Number(place.X)" y="@Number(place.Y + 22)" text-anchor="middle">@Short(node.Title)</text>
+                </a>
+            }
+        </svg>
+        <figcaption class="map-key">
+            <span><svg viewBox="0 0 24 4" aria-hidden="true"><line x1="0" y1="2" x2="24" y2="2" class="map-link edition" /></svg> @T("Another edition")</span>
+            <span><svg viewBox="0 0 24 4" aria-hidden="true"><line x1="0" y1="2" x2="24" y2="2" class="map-link inspired" /></svg> @T("Inspired by")</span>
+            <span><svg viewBox="0 0 24 4" aria-hidden="true"><line x1="0" y1="2" x2="24" y2="2" class="map-link answers" /></svg> @T("Answers")</span>
+            <span><svg viewBox="0 0 24 4" aria-hidden="true"><line x1="0" y1="2" x2="24" y2="2" class="map-link contrasts" /></svg> @T("A contrast")</span>
+            <span><svg viewBox="0 0 24 4" aria-hidden="true"><line x1="0" y1="2" x2="24" y2="2" class="map-link related" /></svg> @T("Read beside")</span>
+            <span>@T("A filled circle is a book you've finished.")</span>
+        </figcaption>
+    </figure>
+
+    <h2>@T("The links")</h2>
+    <ul class="link-list">
+        @foreach (var link in map.Links)
+        {
+            var from = map.Books.First(node => node.Id == link.From);
+            var to = map.Books.First(node => node.Id == link.To);
+            <li>
+                <a href="/map?book=@from.Id">@from.Title</a>
+                <span class="hint">@Phrase(link.Kind)</span>
+                <a href="/map?book=@to.Id">@to.Title</a>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private const double Size = 340;
+    private LiteraryMap? map;
+    private MapNode? centre;
+    private Dictionary<int, (double X, double Y)> places = [];
+
+    [SupplyParameterFromQuery(Name = "book")]
+    public int? Book { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        map = await BookLinks.MapAsync(db, Book);
+        centre = Book is int id ? map.Books.FirstOrDefault(node => node.Id == id) : null;
+        places = Lay(map, centre?.Id);
+    }
+
+    // Rings: the centre, then each step further out on a wider circle, every book placed near the one that led to
+    // it so lines cross as little as they can. With no centre, one circle holds them all.
+    private static Dictionary<int, (double X, double Y)> Lay(LiteraryMap map, int? centre)
+    {
+        var placed = new Dictionary<int, (double X, double Y)>();
+        var angle = new Dictionary<int, double>();
+        if (centre is not int middle)
+        {
+            Ring(map.Books.Select(node => node.Id).ToList(), Size - 70, placed, angle, _ => 0);
+            return placed;
+        }
+
+        placed[middle] = (0, 0);
+        angle[middle] = 0;
+        foreach (var depth in map.Books.Select(node => node.Depth).Where(depth => depth > 0).Distinct().Order())
+        {
+            // Each book at this depth goes near the first book one step in that it is linked to.
+            double Parent(int id) => map.Links
+                .Where(link => link.From == id || link.To == id)
+                .Select(link => link.From == id ? link.To : link.From)
+                .Where(angle.ContainsKey)
+                .Select(other => angle[other])
+                .DefaultIfEmpty(0)
+                .First();
+            var ring = map.Books.Where(node => node.Depth == depth).Select(node => node.Id).OrderBy(Parent).ToList();
+            Ring(ring, Math.Min(Size - 70, 140 * depth), placed, angle, Parent);
+        }
+
+        return placed;
+    }
+
+    private static void Ring(List<int> ids, double radius, Dictionary<int, (double X, double Y)> placed, Dictionary<int, double> angle, Func<int, double> near)
+    {
+        for (var index = 0; index < ids.Count; index++)
+        {
+            var turn = ids.Count == 1 ? near(ids[index]) : 2 * Math.PI * index / ids.Count - Math.PI / 2;
+            angle[ids[index]] = turn;
+            placed[ids[index]] = (radius * Math.Cos(turn), radius * Math.Sin(turn));
+        }
+    }
+
+    private static string Number(double value) => value.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Short(string title) => title.Length <= 22 ? title : title[..21].TrimEnd() + "…";
+
+    private static string Phrase(LinkKind kind) => kind switch
+    {
+        LinkKind.Edition => T("is another edition of"),
+        LinkKind.Inspired => T("was inspired by"),
+        LinkKind.Answers => T("answers"),
+        LinkKind.Contrasts => T("makes a contrast with"),
+        _ => T("is good to read beside"),
+    };
+}

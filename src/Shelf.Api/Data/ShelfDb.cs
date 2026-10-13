@@ -84,6 +84,12 @@ public class ShelfDb : DbContext
     public DbSet<RemoteAsk> RemoteAsks => Set<RemoteAsk>();
     public DbSet<LinkedAsk> LinkedAsks => Set<LinkedAsk>();
     public DbSet<PodcastEpisode> PodcastEpisodes => Set<PodcastEpisode>();
+    public DbSet<PastRead> PastReads => Set<PastRead>();
+    public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+    public DbSet<BookLink> BookLinks => Set<BookLink>();
+    public DbSet<CopyPhoto> CopyPhotos => Set<CopyPhoto>();
+    public DbSet<ClubMeeting> ClubMeetings => Set<ClubMeeting>();
+    public DbSet<ClubQuestion> ClubQuestions => Set<ClubQuestion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -113,6 +119,7 @@ public class ShelfDb : DbContext
             book.Property(b => b.OriginalTitle).HasMaxLength(200);
             book.Property(b => b.Inscription).HasMaxLength(500);
             book.Property(b => b.RecommendedBy).HasMaxLength(120);
+            book.Property(b => b.PreviousOwners).HasMaxLength(500);
             book.Property(b => b.Format).HasConversion<string>().HasMaxLength(16);
             book.Property(b => b.Acquisition).HasConversion<string>().HasMaxLength(16);
             book.Property(b => b.Condition).HasConversion<string>().HasMaxLength(16);
@@ -146,6 +153,65 @@ public class ShelfDb : DbContext
                 .WithOne(session => session.Book)
                 .HasForeignKey(session => session.BookId)
                 .OnDelete(DeleteBehavior.Cascade);
+            book.HasMany(b => b.PastReads)
+                .WithOne(read => read.Book)
+                .HasForeignKey(read => read.BookId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PastRead>(read =>
+        {
+            read.Property(item => item.Thoughts).HasMaxLength(PastRead.MaxThoughtsLength);
+            read.HasIndex(item => item.FinishedOn);
+            read.HasQueryFilter(item => item.Book!.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<JournalEntry>(entry =>
+        {
+            entry.Property(item => item.Text).HasMaxLength(JournalEntry.MaxTextLength).IsRequired();
+            entry.HasIndex(item => new { item.OwnerId, item.Date });
+            entry.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            entry.HasOne<Book>().WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.SetNull);
+            entry.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        // Both ends are the same reader's books; deleting either takes the link.
+        modelBuilder.Entity<BookLink>(link =>
+        {
+            link.Property(item => item.Kind).HasConversion<string>().HasMaxLength(16);
+            link.Property(item => item.Note).HasMaxLength(BookLink.MaxNoteLength);
+            link.HasOne(item => item.From).WithMany().HasForeignKey(item => item.FromBookId).OnDelete(DeleteBehavior.Cascade);
+            link.HasOne(item => item.To).WithMany().HasForeignKey(item => item.ToBookId).OnDelete(DeleteBehavior.Cascade);
+            link.HasIndex(item => item.FromBookId);
+            link.HasIndex(item => item.ToBookId);
+            link.HasQueryFilter(item => item.From!.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<CopyPhoto>(photo =>
+        {
+            photo.Property(item => item.StoredName).HasMaxLength(48).IsRequired();
+            photo.Property(item => item.Caption).HasMaxLength(CopyPhoto.MaxCaptionLength);
+            photo.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
+            photo.HasIndex(item => item.BookId);
+            photo.HasQueryFilter(item => item.Book!.OwnerId == ReaderId);
+        });
+
+        // Like clubs, reached through membership in ClubMeetings rather than a filter.
+        modelBuilder.Entity<ClubMeeting>(meeting =>
+        {
+            meeting.Property(item => item.Through).HasMaxLength(ClubMeeting.MaxThroughLength);
+            meeting.Property(item => item.Agenda).HasMaxLength(ClubMeeting.MaxAgendaLength);
+            meeting.Property(item => item.Summary).HasMaxLength(ClubMeeting.MaxSummaryLength);
+            meeting.HasOne(item => item.Club).WithMany().HasForeignKey(item => item.ClubId).OnDelete(DeleteBehavior.Cascade);
+            meeting.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.ClubBookId).OnDelete(DeleteBehavior.Cascade);
+            meeting.HasMany(item => item.Questions).WithOne(question => question.Meeting).HasForeignKey(question => question.MeetingId).OnDelete(DeleteBehavior.Cascade);
+            meeting.HasIndex(item => item.ClubId);
+        });
+
+        modelBuilder.Entity<ClubQuestion>(question =>
+        {
+            question.Property(item => item.Text).HasMaxLength(ClubQuestion.MaxLength).IsRequired();
+            question.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<ReadingSession>(session =>
@@ -412,6 +478,7 @@ public class ShelfDb : DbContext
         modelBuilder.Entity<CollectionBook>(entry =>
         {
             entry.HasKey(item => new { item.CollectionId, item.BookId });
+            entry.Property(item => item.Note).HasMaxLength(CollectionBook.MaxNoteLength);
             entry.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
             entry.HasIndex(item => item.BookId);
             entry.HasQueryFilter(item => item.Collection!.OwnerId == ReaderId);
@@ -673,10 +740,13 @@ public class ShelfDb : DbContext
                 continue;
             }
 
+            // A finished book begun again, its read put by, is read again rather than started.
             var status = entry.Property(item => item.Status);
             if (status.IsModified && !Equals(status.OriginalValue, status.CurrentValue) && book.Status is BookStatus.Reading or BookStatus.Finished)
             {
-                var kind = book.Status == BookStatus.Finished ? EventKinds.BookFinished : EventKinds.BookStarted;
+                var again = book.Status == BookStatus.Reading && status.OriginalValue == BookStatus.Finished
+                    && ChangeTracker.Entries<PastRead>().Any(read => read.State == EntityState.Added && read.Entity.BookId == book.Id);
+                var kind = book.Status == BookStatus.Finished ? EventKinds.BookFinished : again ? EventKinds.BookReread : EventKinds.BookStarted;
                 _happening.Add(() => new ShelfEvent(kind, actor, book.Id));
             }
 
@@ -703,6 +773,11 @@ public class ShelfDb : DbContext
         foreach (var post in ChangeTracker.Entries<ClubPost>().Where(entry => entry.State == EntityState.Added).Select(entry => entry.Entity))
         {
             _happening.Add(() => new ShelfEvent(EventKinds.ClubPosted, actor, ReaderId: post.ReaderId, PostId: post.Id));
+        }
+
+        foreach (var meeting in ChangeTracker.Entries<ClubMeeting>().Where(entry => entry.State == EntityState.Added).Select(entry => entry.Entity))
+        {
+            _happening.Add(() => new ShelfEvent(EventKinds.ClubMeeting, actor, ClubId: meeting.ClubId, MeetingId: meeting.Id));
         }
 
         foreach (var member in ChangeTracker.Entries<ClubMember>().Where(entry => entry.State == EntityState.Added).Select(entry => entry.Entity))

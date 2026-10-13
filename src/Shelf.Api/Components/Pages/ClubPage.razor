@@ -103,7 +103,21 @@ else
                         {
                             <li class="@(post.Mine ? "mine" : null)">
                                 <p class="hint"><strong>@post.Reader</strong> · @post.PostedAt.Medium()</p>
-                                <p class="collection-description">@post.Text</p>
+                                @if (post.Spoiler && !post.Mine)
+                                {
+                                    <details class="spoiler">
+                                        <summary>@T("A spoiler: open it when you've read further")</summary>
+                                        <p class="collection-description">@post.Text</p>
+                                    </details>
+                                }
+                                else
+                                {
+                                    <p class="collection-description">@post.Text</p>
+                                    @if (post.Spoiler)
+                                    {
+                                        <p class="hint">@T("Folded away for the others as a spoiler.")</p>
+                                    }
+                                }
                             </li>
                         }
                     </ol>
@@ -113,11 +127,128 @@ else
                         @T("Say something about it")
                         <textarea @bind="postText" @bind:event="oninput" maxlength="@ClubPost.MaxLength" rows="3"></textarea>
                     </label>
+                    <label class="check">
+                        <input type="checkbox" @bind="postSpoiler" />
+                        @T("It gives something away: fold it until opened")
+                    </label>
                     <button type="submit" class="primary" disabled="@string.IsNullOrWhiteSpace(postText)">@T("Post")</button>
                 </form>
             </section>
         }
     </div>
+
+    <section class="panel club-meetings" aria-labelledby="meetings-heading">
+        <h2 id="meetings-heading">@T("Meetings")</h2>
+        @if (meetings.Length == 0)
+        {
+            <p class="hint">@(club.Mine ? T("No meetings yet. Arrange the first below.") : T("No meetings yet. The reader who started the club arranges them."))</p>
+        }
+        else
+        {
+            <ol class="meetings">
+                @foreach (var meeting in meetings)
+                {
+                    <li class="meeting @(meeting.Begun ? "past" : "coming")">
+                        <h3>@When(meeting.At) · @meeting.BookTitle</h3>
+                        @if (meeting.Through is not null)
+                        {
+                            <p>@T("Read through: {0}", meeting.Through)</p>
+                        }
+                        @if (meeting.Agenda is not null)
+                        {
+                            <p class="collection-description">@meeting.Agenda</p>
+                        }
+                        @if (meeting.Questions.Length > 0)
+                        {
+                            <h4>@T("Questions")</h4>
+                            <ul class="tag-counts">
+                                @foreach (var question in meeting.Questions)
+                                {
+                                    <li><span>@question.Text <span class="hint">· @question.Reader</span></span></li>
+                                }
+                            </ul>
+                        }
+                        @if (meeting.Waiting > 0)
+                        {
+                            <p class="hint">@(meeting.Waiting == 1 ? T("1 question from another member, shown when the meeting begins.") : T("{0} questions from other members, shown when the meeting begins.", meeting.Waiting))</p>
+                        }
+                        @if (!meeting.Begun)
+                        {
+                            <form class="save-search" @onsubmit="() => Ask(meeting.Id)" @onsubmit:preventDefault>
+                                <label>
+                                    @T("A question for the meeting")
+                                    <input @bind="questionText[meeting.Id]" maxlength="@ClubQuestion.MaxLength" />
+                                </label>
+                                <button type="submit">@T("Send")</button>
+                            </form>
+                            <p class="hint">@(club.Mine ? T("Members' questions are seen by you, to plan, and by everyone once the meeting begins.") : T("Only you and whoever runs the meeting see your question until it begins."))</p>
+                        }
+                        @if (meeting.Summary is not null && summarizing != meeting.Id)
+                        {
+                            <h4>@T("What was said")</h4>
+                            <p class="collection-description">@meeting.Summary</p>
+                        }
+                        @if (club.Mine)
+                        {
+                            @if (summarizing == meeting.Id)
+                            {
+                                <form @onsubmit="() => SaveSummary(meeting.Id)" @onsubmit:preventDefault>
+                                    <label>
+                                        @T("What was said")
+                                        <textarea @bind="summaryText" maxlength="@ClubMeeting.MaxSummaryLength" rows="4"></textarea>
+                                    </label>
+                                    <button type="submit">@T("Save")</button>
+                                    <button type="button" class="quiet" @onclick="() => summarizing = null">@T("Cancel")</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <p class="toolbar-actions">
+                                    @if (meeting.Begun)
+                                    {
+                                        <button type="button" class="quiet" @onclick="() => StartSummary(meeting)">@(meeting.Summary is null ? T("Write what was said") : T("Change what was said"))</button>
+                                    }
+                                    <button type="button" class="quiet" @onclick="() => Cancel(meeting.Id)">@(meeting.Begun ? T("Take it off the list") : T("Call it off"))</button>
+                                </p>
+                            }
+                        }
+                    </li>
+                }
+            </ol>
+        }
+        @if (club.Mine && club.Books.Length > 0)
+        {
+            <details>
+                <summary>@T("Arrange a meeting")</summary>
+                <form @onsubmit="Arrange" @onsubmit:preventDefault>
+                    <div class="pair">
+                        <label>
+                            @T("When")
+                            <input type="datetime-local" @bind="meetingAt" required />
+                        </label>
+                        <label>
+                            @T("About")
+                            <select @bind="meetingBook">
+                                @foreach (var book in club.Books)
+                                {
+                                    <option value="@book.Id">@book.Title</option>
+                                }
+                            </select>
+                        </label>
+                    </div>
+                    <label>
+                        @T("How far everyone reads by then")
+                        <input @bind="meetingThrough" maxlength="@ClubMeeting.MaxThroughLength" placeholder="@T("Chapters 1–8, or to page 120")" />
+                    </label>
+                    <label>
+                        @T("What to talk about")
+                        <textarea @bind="meetingAgenda" maxlength="@ClubMeeting.MaxAgendaLength" rows="3"></textarea>
+                    </label>
+                    <button type="submit" class="primary">@T("Arrange it")</button>
+                </form>
+            </details>
+        }
+    </section>
 
     <section class="panel">
         <h2>@T("Members")</h2>
@@ -181,6 +312,67 @@ else
     private string postText = "";
     private bool confirmingEnd;
     private int me;
+    private bool postSpoiler;
+    private ClubMeetingResponse[] meetings = [];
+    private readonly Dictionary<int, string> questionText = [];
+    private DateTime? meetingAt;
+    private int meetingBook;
+    private string meetingThrough = "";
+    private string meetingAgenda = "";
+    private int? summarizing;
+    private string summaryText = "";
+
+    // Meetings keep the time as it was written, the clock of whoever arranged it.
+    private static string When(DateTimeOffset at) => at.Medium() + " " + at.ToString("t", System.Globalization.CultureInfo.CurrentCulture);
+
+    private async Task Ask(int meetingId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await ClubMeetings.AskAsync(db, Id, meetingId, questionText.GetValueOrDefault(meetingId)) == ClubProblem.None)
+        {
+            questionText[meetingId] = "";
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task Arrange()
+    {
+        if (meetingAt is not DateTime at)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var request = new ClubMeetingRequest(meetingBook == 0 ? Chosen : meetingBook, new DateTimeOffset(DateTime.SpecifyKind(at, DateTimeKind.Unspecified), TimeSpan.Zero), meetingThrough, meetingAgenda);
+        if ((await ClubMeetings.ArrangeAsync(db, Id, request)).Problem == ClubProblem.None)
+        {
+            (meetingAt, meetingThrough, meetingAgenda) = (null, "", "");
+        }
+
+        await LoadAsync();
+    }
+
+    private void StartSummary(ClubMeetingResponse meeting)
+    {
+        summarizing = meeting.Id;
+        summaryText = meeting.Summary ?? "";
+    }
+
+    private async Task SaveSummary(int meetingId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await ClubMeetings.SummarizeAsync(db, Id, meetingId, summaryText);
+        summarizing = null;
+        await LoadAsync();
+    }
+
+    private async Task Cancel(int meetingId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await ClubMeetings.CancelAsync(db, Id, meetingId);
+        await LoadAsync();
+    }
 
     [Parameter]
     public int Id { get; set; }
@@ -205,6 +397,13 @@ else
         var members = club.Members.Select(member => member.Id).ToHashSet();
         others = (await ReaderRules.OthersAsync(db, me)).Where(reader => !members.Contains(reader.Id)).ToList();
         posts = Chosen == 0 ? [] : await Clubs.PostsAsync(db, Id, Chosen) ?? [];
+        meetings = await ClubMeetings.ListAsync(db, Id) ?? [];
+        foreach (var meeting in meetings)
+        {
+            questionText.TryAdd(meeting.Id, "");
+        }
+
+        meetingBook = meetingBook == 0 ? club.CurrentBookId ?? 0 : meetingBook;
     }
 
     private async Task Choose(int bookId)
@@ -248,9 +447,9 @@ else
     private async Task Post()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        if (await Clubs.PostAsync(db, Id, Chosen, postText) == ClubProblem.None)
+        if (await Clubs.PostAsync(db, Id, Chosen, postText, spoiler: postSpoiler) == ClubProblem.None)
         {
-            postText = "";
+            (postText, postSpoiler) = ("", false);
         }
 
         await LoadAsync();

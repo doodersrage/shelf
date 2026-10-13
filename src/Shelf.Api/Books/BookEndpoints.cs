@@ -95,6 +95,11 @@ public static class BookEndpoints
         YearCard.Map(books);
         WordLookups.Map(books);
         Clubs.Map(books);
+        ClubMeetings.Map(books);
+        Rereads.Map(books);
+        Journal.Map(books);
+        BookLinks.Map(books);
+        CopyPhotos.Map(books);
         Audible.Map(books);
         NextReadsRules.Map(books);
         ReadAlongService.Map(books);
@@ -232,11 +237,13 @@ public static class BookEndpoints
             return TypedResults.NotFound();
         }
 
+        var photos = await CopyPhotos.StoredForAsync(db, id, cancellationToken);
         store.Delete(book.EbookStoredName);
         audio.Delete(book.AudioStoredName);
         covers.Delete(book.CoverImage);
         db.Books.Remove(book);
         await db.SaveChangesAsync(cancellationToken);
+        photos.ForEach(covers.Delete);
         await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
         return TypedResults.NoContent();
     }

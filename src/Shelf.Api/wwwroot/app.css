@@ -4868,3 +4868,275 @@ html.reading-full body {
         flex: 1 1 100%;
     }
 }
+
+/* A reading life: each read of a book, the journal, links between books and their map, a copy's pictures,
+   a collection's notes and plan, and club meetings. */
+
+.reads {
+    padding-left: var(--space-6);
+}
+
+.reads li + li {
+    margin-top: var(--space-3);
+}
+
+.reads p {
+    margin: 0 0 var(--space-1);
+}
+
+.link-list {
+    list-style: none;
+    padding: 0;
+    margin: var(--space-3) 0;
+    display: grid;
+    gap: var(--space-2);
+}
+
+.link-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2);
+}
+
+.link-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: var(--space-3);
+}
+
+.link-form label {
+    flex: 1 1 12rem;
+}
+
+.copy-photos {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: var(--space-3);
+}
+
+.copy-photos img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: var(--radius-control);
+    box-shadow: var(--shadow-cover);
+}
+
+.copy-photos p {
+    margin: var(--space-1) 0;
+}
+
+/* Above the card's own link, like the moves beside it. */
+.collection-books .collection-note,
+.collection-books .link,
+.collection-note-form {
+    position: relative;
+    z-index: 1;
+}
+
+.collection-books .link {
+    display: block;
+    margin-top: var(--space-1);
+}
+
+.collection-note {
+    margin: var(--space-1) 0 0;
+    font-family: var(--font-serif);
+    font-style: italic;
+    white-space: pre-line;
+}
+
+.plan p {
+    max-width: 40rem;
+}
+
+.journal-write textarea {
+    width: 100%;
+}
+
+.journal-month h2 {
+    margin-top: var(--space-8);
+}
+
+.journal {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-left: 2px solid var(--color-rule);
+}
+
+.journal-item {
+    position: relative;
+    padding: 0 0 var(--space-4) var(--space-4);
+}
+
+.journal-item::before {
+    content: "";
+    position: absolute;
+    left: -5px;
+    top: 0.45em;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-rule);
+}
+
+.journal-item.finished::before,
+.journal-item.entry::before {
+    background: var(--color-brand);
+}
+
+.journal-item p {
+    margin: 0 0 var(--space-1);
+}
+
+.journal-line .hint {
+    display: inline-block;
+    min-width: 4.5rem;
+}
+
+.journal-item blockquote,
+.journal-item .review {
+    max-width: 40rem;
+}
+
+.journal-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.literary-map {
+    margin: var(--space-4) 0;
+}
+
+.literary-map > svg {
+    display: block;
+    width: 100%;
+    max-width: 44rem;
+    height: auto;
+    margin: 0 auto;
+}
+
+.literary-map text {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    fill: var(--color-ink);
+}
+
+/* The drawing shrinks to a phone's width; its words are drawn larger to stay readable. */
+@media (max-width: 40rem) {
+    .literary-map text {
+        font-size: 22px;
+    }
+}
+
+.map-book {
+    fill: var(--color-surface);
+    stroke: var(--color-brand);
+    stroke-width: 2;
+}
+
+.map-book.finished {
+    fill: var(--color-brand);
+}
+
+.literary-map a:focus-visible .map-book,
+.literary-map a:hover .map-book {
+    stroke: var(--color-accent);
+    stroke-width: 3;
+}
+
+.map-link {
+    stroke: var(--color-muted);
+    stroke-width: 1.5;
+}
+
+/* Told apart by their dashes as much as by color, so the key reads without color. */
+.map-link.edition {
+    stroke: var(--color-brand);
+    stroke-width: 3;
+}
+
+.map-link.inspired {
+    stroke-dasharray: 6 3;
+}
+
+.map-link.answers {
+    stroke: var(--color-accent);
+    stroke-dasharray: 2 3;
+    stroke-width: 2;
+}
+
+.map-link.contrasts {
+    stroke-dasharray: 10 3 2 3;
+}
+
+.map-key {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-2) var(--space-4);
+    font-size: var(--text-sm);
+    color: var(--color-muted);
+}
+
+.map-key svg {
+    width: 1.5rem;
+    height: 0.25rem;
+    vertical-align: middle;
+    overflow: visible;
+}
+
+.meetings {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: var(--space-4);
+}
+
+.meeting {
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-card);
+    background: var(--color-canvas);
+}
+
+.meeting.coming {
+    border-color: var(--color-accent);
+}
+
+.meeting h3 {
+    margin: 0 0 var(--space-2);
+}
+
+.meeting h4 {
+    margin: var(--space-3) 0 var(--space-1);
+}
+
+.spoiler summary {
+    cursor: pointer;
+    color: var(--color-muted);
+}
+
+/* The journal on paper: the page without the shelf around it. */
+@media print {
+    .sidebar,
+    .topbar,
+    .bottom-nav,
+    .focus-bar,
+    .journal-write,
+    .filters,
+    .journal-export,
+    .journal-actions {
+        display: none !important;
+    }
+
+    .journal-item {
+        break-inside: avoid;
+    }
+}

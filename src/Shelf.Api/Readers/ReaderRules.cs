@@ -386,6 +386,9 @@ public static class ReaderRules
 
             var owned = await db.Books.IgnoreQueryFilters().Where(book => book.OwnerId == readerId).ToListAsync(cancellationToken);
             files.AddRange(owned.Select(book => (book.EbookStoredName, book.AudioStoredName, book.CoverImage)));
+            var ownedIds = owned.Select(book => book.Id).ToList();
+            files.AddRange((await db.CopyPhotos.IgnoreQueryFilters().Where(photo => ownedIds.Contains(photo.BookId)).Select(photo => photo.StoredName).ToListAsync(cancellationToken))
+                .Select(photo => ((string?)null, (string?)null, (string?)photo)));
             db.Books.RemoveRange(owned);
             db.Settings.RemoveRange(await db.Settings.Where(setting => setting.Id == readerId).ToListAsync(cancellationToken));
             db.Readers.Remove(reader);

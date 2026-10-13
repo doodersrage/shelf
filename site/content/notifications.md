@@ -53,6 +53,8 @@ A webhook posts to an address of yours when something happens: for [Home Assista
 | `loan.asked` | Someone asks to borrow a book of yours. |
 | `club.posted`, `club.joined` | A post in one of your clubs; someone is added to one. |
 | `series.found` | New books in your series, with how many. |
+| `book.reread` | You begin a finished book again. |
+| `club.meeting` | A meeting is arranged in one of your clubs, with its book and time. |
 
 **Discord** and **Slack, Mattermost** send the event as a sentence, in your language. **JSON, signed** sends this:
 

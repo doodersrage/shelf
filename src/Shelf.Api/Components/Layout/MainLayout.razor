@@ -161,6 +161,7 @@ else
                     <li><a href="@($"/library?{search.Query}&saved={search.Id}")" aria-current="@SavedCurrent(search.Id)">@search.Name</a></li>
                 }
                 <li><a href="/collections" aria-current="@Current("/collections")">@T("Collections")</a></li>
+                <li><a href="/map" aria-current="@Current("/map")">@T("Map")</a></li>
                 <li>
                     <a href="/series" aria-current="@Current("/series")">
                         @T("Series")
@@ -181,6 +182,7 @@ else
                     </a>
                 </li>
                 <li><a href="/podcasts" aria-current="@Current("/podcasts")">@T("Podcasts")</a></li>
+                <li><a href="/journal" aria-current="@Current("/journal")">@T("Journal")</a></li>
                 <li><a href="/quotes" aria-current="@Current("/quotes")">@T("Quotes & highlights")</a></li>
                 <li><a href="/search" aria-current="@Current("/search")">@T("Search inside books")</a></li>
                 <li><a href="/next" aria-current="@Current("/next")">@T("What to read next")</a></li>

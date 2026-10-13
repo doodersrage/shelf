@@ -12,7 +12,7 @@ services:
     environment:
       # Behind a proxy that ends HTTPS (Caddy, nginx, Traefik), trust its forwarded headers:
       # Hosting__BehindProxy: "true"
-      # Email for password resets and reminders:
+      # Email for password resets and reminders (Email__Host and Email__From are both needed):
       # Email__Host: smtp.example.org
       # Email__Port: "587"
       # Email__Security: auto

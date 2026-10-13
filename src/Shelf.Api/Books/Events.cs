@@ -11,7 +11,8 @@ public sealed record ShelfEvent(
     int? ReaderId = null,
     int? ClubId = null,
     int? PostId = null,
-    int Count = 1)
+    int Count = 1,
+    int? MeetingId = null)
 {
     public DateTimeOffset At { get; init; } = DateTimeOffset.UtcNow;
 }
@@ -27,8 +28,10 @@ public static class EventKinds
     public const string ClubPosted = "club.posted";
     public const string ClubJoined = "club.joined";
     public const string SeriesFound = "series.found";
+    public const string BookReread = "book.reread";
+    public const string ClubMeeting = "club.meeting";
 
-    public static readonly IReadOnlyList<string> All = [BookAdded, BookStarted, BookFinished, BookLent, BookReturned, LoanAsked, ClubPosted, ClubJoined, SeriesFound];
+    public static readonly IReadOnlyList<string> All = [BookAdded, BookStarted, BookFinished, BookLent, BookReturned, LoanAsked, ClubPosted, ClubJoined, SeriesFound, BookReread, ClubMeeting];
 }
 
 public interface IShelfEventHandler

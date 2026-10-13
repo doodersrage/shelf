@@ -100,15 +100,15 @@ Then start Shelf with the same two settings. The SQLite file stays as it was, to
 
 ## Email
 
-Without a mail server, an admin resets forgotten passwords and reminders stay in the app.
+Without a mail server, an admin resets forgotten passwords and reminders stay in the app. Set at least `Email:Host` and `Email:From`, and `Email:PublicAddress` for password resets; then **Forgot the password?** on the sign-in page sends a reader a link, to the email address on their account.
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| `Email:Host` | none | The SMTP server. Email is on once this is set. |
+| `Email:Host` | none | The SMTP server. Email is on once this and `Email:From` are both set. |
 | `Email:Port` | `587` | Its port. |
 | `Email:Security` | `auto` | `auto`, `starttls`, `ssl` (port 465), or `none` for a server on the same machine. |
 | `Email:User`, `Email:Password` | none | The account to send with, if the server wants one. |
-| `Email:From` | none | The address emails come from. |
+| `Email:From` | none | The address emails come from. Required: without it, Shelf sends no email, even with `Email:Host` set. |
 | `Email:PublicAddress` | none | Shelf's own address, such as `https://shelf.example.org`, for links in emails. A password reset needs it (or `AllowedHosts` set to the shelf's own names): without it, no reset email is sent, since the link would point wherever the request claimed to be from. |
 
 ## Nightly backups

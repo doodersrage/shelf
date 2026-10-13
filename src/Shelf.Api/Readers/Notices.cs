@@ -483,9 +483,27 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
                 }
 
                 break;
+            case EventKinds.ClubMeeting when shelfEvent.MeetingId is int meetingId:
+                var meeting = await db.ClubMeetings.AsNoTracking().Where(item => item.Id == meetingId)
+                    .Select(item => new { item.ClubId, Club = item.Club!.Name, BookTitle = item.Book!.Title, item.At, item.Through }).FirstOrDefaultAsync(cancellationToken);
+                if (meeting is null)
+                {
+                    break;
+                }
+
+                var invited = await db.ClubMembers.AsNoTracking().Where(item => item.ClubId == meeting.ClubId && item.ReaderId != shelfEvent.ActorId).Select(item => item.ReaderId).ToListAsync(cancellationToken);
+                foreach (var reader in invited)
+                {
+                    await SendAsync(reader, NoticeKinds.Clubs, _ => new Notice(
+                        T("{0} meets {1}", meeting.Club, meeting.At.Medium()),
+                        meeting.Through is null ? meeting.BookTitle : T("{0}, {1}", meeting.BookTitle, meeting.Through),
+                        $"/clubs/{meeting.ClubId}", $"club-{meeting.ClubId}"), cancellationToken);
+                }
+
+                break;
             case EventKinds.ClubPosted when shelfEvent.PostId is int postId:
                 var post = await db.ClubPosts.AsNoTracking().Where(item => item.Id == postId)
-                    .Select(item => new { item.ReaderId, item.Text, item.Book!.ClubId, Club = item.Book.Club!.Name, BookTitle = item.Book.Title }).FirstOrDefaultAsync(cancellationToken);
+                    .Select(item => new { item.ReaderId, Text = item.Spoiler ? null : item.Text, item.Book!.ClubId, Club = item.Book.Club!.Name, BookTitle = item.Book.Title }).FirstOrDefaultAsync(cancellationToken);
                 if (post is null)
                 {
                     break;
@@ -495,7 +513,7 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
                 var members = await db.ClubMembers.AsNoTracking().Where(item => item.ClubId == post.ClubId && item.ReaderId != post.ReaderId).Select(item => item.ReaderId).ToListAsync(cancellationToken);
                 foreach (var reader in members)
                 {
-                    await SendAsync(reader, NoticeKinds.Clubs, _ => new Notice(T("{0} in {1}", poster, post.Club), $"{post.BookTitle}: {post.Text}", $"/clubs/{post.ClubId}", $"club-{post.ClubId}"), cancellationToken);
+                    await SendAsync(reader, NoticeKinds.Clubs, _ => new Notice(T("{0} in {1}", poster, post.Club), $"{post.BookTitle}: {post.Text ?? T("(a spoiler, in the club)")}", $"/clubs/{post.ClubId}", $"club-{post.ClubId}"), cancellationToken);
                 }
 
                 break;

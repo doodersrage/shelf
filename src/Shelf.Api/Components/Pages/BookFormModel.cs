@@ -94,6 +94,11 @@ public sealed class BookFormModel
     [MaxLength(120, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.RecommendedBy), ResourceType = typeof(FormWords))]
     public string RecommendedBy { get; set; } = "";
 
+    [MaxLength(500, ErrorMessageResourceType = typeof(FormWords), ErrorMessageResourceName = nameof(FormWords.TooLong)), Display(Name = nameof(FormWords.PreviousOwners), ResourceType = typeof(FormWords))]
+    public string PreviousOwners { get; set; } = "";
+
+    public bool Signed { get; set; }
+
     public string Tags { get; set; } = "";
 
     public BookWrite ToWrite() => BookWrite.From(
@@ -132,7 +137,7 @@ public sealed class BookFormModel
         Queued,
         Enum.TryParse<Acquisition>(Arrival, out var acquisition) ? acquisition : null,
         Enum.TryParse<CopyCondition>(Condition, out var condition) ? condition : null,
-        Narrator);
+        Narrator) with { PreviousOwners = PreviousOwners, Signed = Signed };
 
     public bool FillBlanks(CatalogMatch match)
     {
@@ -237,6 +242,8 @@ public sealed class BookFormModel
         OriginalTitle = "";
         Inscription = "";
         RecommendedBy = "";
+        PreviousOwners = "";
+        Signed = false;
         Tags = "";
     }
 
@@ -275,6 +282,8 @@ public sealed class BookFormModel
         OriginalTitle = book.OriginalTitle ?? "",
         Inscription = book.Inscription ?? "",
         RecommendedBy = book.RecommendedBy ?? "",
+        PreviousOwners = book.PreviousOwners ?? "",
+        Signed = book.Signed,
         Tags = string.Join(", ", book.Tags.Select(tag => tag.Name).OrderBy(name => name, StringComparer.OrdinalIgnoreCase)),
     };
 }

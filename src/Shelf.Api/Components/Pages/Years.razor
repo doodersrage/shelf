@@ -43,6 +43,7 @@ else
         var books = await db.Books.AsNoTracking()
             .Where(book => book.Status == BookStatus.Finished)
             .ToListAsync();
+        books.AddRange(await Rereads.EarlierBooksAsync(db));
         years = BookRules.FinishedByYear(books).ToList();
     }
 }

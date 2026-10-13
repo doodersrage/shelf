@@ -186,11 +186,17 @@ public sealed class Webhooks(IServiceScopeFactory scopes, IWebhookPoster poster,
 
         if (shelfEvent.Kind == EventKinds.ClubPosted && shelfEvent.PostId is int postId)
         {
-            var post = await db.ClubPosts.AsNoTracking().Where(item => item.Id == postId).Select(item => new { item.Book!.ClubId, item.Text }).FirstOrDefaultAsync(cancellationToken);
-            (clubId, text) = (post?.ClubId, post?.Text);
+            var post = await db.ClubPosts.AsNoTracking().Where(item => item.Id == postId).Select(item => new { item.Book!.ClubId, item.Text, item.Spoiler }).FirstOrDefaultAsync(cancellationToken);
+            (clubId, text) = (post?.ClubId, post?.Spoiler == true ? T("(a spoiler, in the club)") : post?.Text);
         }
 
-        if (shelfEvent.Kind == EventKinds.ClubPosted && clubId is int postedIn)
+        if (shelfEvent.Kind == EventKinds.ClubMeeting && shelfEvent.MeetingId is int meetingId)
+        {
+            var meeting = await db.ClubMeetings.AsNoTracking().Where(item => item.Id == meetingId).Select(item => new { item.At, Title = item.Book!.Title }).FirstOrDefaultAsync(cancellationToken);
+            text = meeting is null ? null : $"{meeting.Title} · {meeting.At:u}";
+        }
+
+        if (shelfEvent.Kind is EventKinds.ClubPosted or EventKinds.ClubMeeting && clubId is int postedIn)
         {
             concerned.UnionWith(await db.ClubMembers.AsNoTracking().Where(item => item.ClubId == postedIn).Select(item => item.ReaderId).ToListAsync(cancellationToken));
         }
@@ -287,6 +293,8 @@ public sealed class Webhooks(IServiceScopeFactory scopes, IWebhookPoster poster,
             EventKinds.ClubPosted => T("{0} in {1}: {2}", who, payload.Club?.Name ?? "", payload.Text ?? ""),
             EventKinds.ClubJoined => T("{0} joined {1}.", payload.Reader?.Name ?? "", payload.Club?.Name ?? ""),
             EventKinds.SeriesFound => payload.Count == 1 ? T("A new book in your series") : T("{0} new books in your series", payload.Count ?? 0),
+            EventKinds.BookReread => T("{0} is reading {1} again.", who, title),
+            EventKinds.ClubMeeting => T("{0} arranged a meeting of {1}: {2}", who, payload.Club?.Name ?? "", payload.Text ?? ""),
             _ => T(payload.Text ?? "A test from Shelf."),
         };
     }

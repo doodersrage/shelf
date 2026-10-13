@@ -369,7 +369,9 @@ else
             })
             .ToListAsync();
         var year = DateOnly.FromDateTime(DateTime.UtcNow).Year;
-        finished = BookRules.FinishedInYear(shelf, year).ToList();
+        // Earlier reads of books read again count in the years they were finished.
+        var counted = shelf.Concat(await Rereads.EarlierBooksAsync(db)).ToList();
+        finished = BookRules.FinishedInYear(counted, year).ToList();
         lately = BookRules.RecentSessions(shelf).ToList();
         listening = await AudioPlayback.SummaryAsync(db);
         reading = await ReadingTime.SummaryAsync(db);
@@ -378,10 +380,10 @@ else
         var readOn = await db.ReadingDays.AsNoTracking().Select(day => day.Day).ToListAsync();
         yearOfReading = await Insights.YearAsync(db, Today);
         (favouriteAuthors, favouriteKinds, favouriteSeries) = Insights.Favourites(shelf);
-        milestones = Insights.Milestones(shelf, stats.YearlyGoal, Today);
+        milestones = Insights.Milestones(counted, stats.YearlyGoal, Today);
         sessionDays = [.. shelf.SelectMany(book => book.Sessions).Select(session => session.Date)];
         finishedByMonth = new int[12];
-        foreach (var book in shelf)
+        foreach (var book in counted)
         {
             if (book.Status == BookStatus.Finished && book.FinishedOn is DateOnly done && done.Year == Today.Year)
             {

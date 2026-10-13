@@ -45,6 +45,12 @@ public static class YearReview
         var all = await db.Books.AsNoTracking().Include(book => book.Tags).AsSplitQuery()
             .Where(book => book.Status == BookStatus.Finished && book.FinishedOn != null)
             .ToListAsync(cancellationToken);
+
+        // A book read again counts in each year it was finished, with the stars it had then.
+        var again = await db.PastReads.AsNoTracking().Where(read => read.FinishedOn != null)
+            .Include(read => read.Book!).ThenInclude(book => book.Tags).AsSplitQuery()
+            .ToListAsync(cancellationToken);
+        all.AddRange(again.Select(read => Rereads.Earlier(read.Book!, read)));
         var finished = all.Where(book => book.FinishedOn!.Value.Year == year)
             .OrderBy(book => book.FinishedOn)
             .ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase)
@@ -102,7 +108,7 @@ public static class YearReview
             measured.Count > 1 ? Show(measured.MinBy(book => book.Pages)) : null,
             Show(finished.FirstOrDefault()),
             finished.Count > 1 ? Show(finished.LastOrDefault()) : null,
-            finished.Where(book => book.Loved || book.Rating == 5).Select(Show).OfType<ReviewBook>().ToArray(),
+            finished.Where(book => book.Loved || book.Rating == 5).DistinctBy(book => book.Id).Select(Show).OfType<ReviewBook>().ToArray(),
             finished.Select(Show).OfType<ReviewBook>().ToArray(),
             quotes.Count,
             highlights,
@@ -115,6 +121,7 @@ public static class YearReview
     // The years with something finished in them, newest first, for links to each review.
     public static async Task<int[]> YearsAsync(ShelfDb db, CancellationToken cancellationToken = default) =>
         (await db.Books.AsNoTracking().Where(book => book.Status == BookStatus.Finished && book.FinishedOn != null).Select(book => book.FinishedOn!.Value.Year).Distinct().ToListAsync(cancellationToken))
+            .Union(await db.PastReads.AsNoTracking().Where(read => read.FinishedOn != null).Select(read => read.FinishedOn!.Value.Year).Distinct().ToListAsync(cancellationToken))
             .OrderDescending()
             .ToArray();
 

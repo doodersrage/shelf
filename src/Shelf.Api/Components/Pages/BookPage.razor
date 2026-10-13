@@ -86,6 +86,20 @@ else if (book is not null)
             {
                 <p class="hint">@T("On the read-next list.")</p>
             }
+            @if (pastReads.Length > 0)
+            {
+                <p class="hint"><a href="/library/@book.Id#reads">@(book.Status == BookStatus.Finished ? T("Read {0} times", pastReads.Length + 1) : pastReads.Length == 1 ? T("Read once before") : T("Read {0} times before", pastReads.Length))</a></p>
+            }
+            @if (links.Any(link => link.Kind == LinkKind.Edition))
+            {
+                <p class="hint">
+                    @T("Other editions:")
+                    @foreach (var (edition, index) in links.Where(link => link.Kind == LinkKind.Edition).Select((edition, index) => (edition, index)))
+                    {
+                        @(index > 0 ? " · " : " ")<a href="/library/@edition.BookId">@EditionLabel(edition)</a>
+                    }
+                </p>
+            }
             @if (book.Status == BookStatus.Reading && BookProgress.Fraction(book, Audio) is double done)
             {
                 <progress class="book-progress" max="1000" value="@((int)(done * 1000))" aria-label="@T("{0}% through", (int)Math.Round(done * 100))"></progress>
@@ -140,6 +154,9 @@ else if (book is not null)
                         break;
                     case BookStatus.Abandoned:
                         <button type="button" @onclick="() => MoveTo(BookStatus.Reading)">@T("Pick it up again")</button>
+                        break;
+                    case BookStatus.Finished:
+                        <button type="button" @onclick="ReadAgain">@T("Read it again")</button>
                         break;
                 }
                 <a class="button quiet" href="/library/@book.Id#details" @onclick="() => editing = true">@T("Edit")</a>
@@ -482,6 +499,8 @@ else if (book is not null)
         <a href="/library/@book.Id#highlights">@T("Highlights")</a>
         <a href="/library/@book.Id#files">@T("Files & lending")</a>
         <a href="/library/@book.Id#details">@T("Details")</a>
+        <a href="/library/@book.Id#links">@T("Connections")</a>
+        <a href="/library/@book.Id#copy">@T("Your copy")</a>
     </nav>
 
     <section class="panel" id="reading">
@@ -554,6 +573,54 @@ else if (book is not null)
         </div>
         <button type="submit">@T("Add session")</button>
     </EditForm>
+    @if (throughs.Length > 1)
+    {
+        <h3 id="reads">@T("Each read")</h3>
+        <ol class="reads">
+            @foreach (var read in throughs)
+            {
+                <li>
+                    <p>
+                        <strong>@(read.Current ? T("This read") : T("Read no. {0}", read.Number))</strong>
+                        <span class="hint"> · @ReadSpan(read)@(read.Rating is int stars ? " · " + new string('★', stars) : "")</span>
+                    </p>
+                    <p class="hint">@ReadCounts(read)</p>
+                    @if (read.PastReadId is int pastId)
+                    {
+                        @if (editingRead == pastId)
+                        {
+                            <form @onsubmit="() => SaveRead(pastId)" @onsubmit:preventDefault>
+                                <label>
+                                    @T("Stars then")
+                                    <select @bind="readRating">
+                                        <option value="0">—</option>
+                                        @for (var count = 1; count <= 5; count++)
+                                        {
+                                            <option value="@count">@(new string('★', count))</option>
+                                        }
+                                    </select>
+                                </label>
+                                <label>
+                                    @T("What you made of it then, and what changed since")
+                                    <textarea @bind="readThoughts" maxlength="@PastRead.MaxThoughtsLength" rows="4"></textarea>
+                                </label>
+                                <button type="submit">@T("Save")</button>
+                                <button type="button" class="quiet" @onclick="() => editingRead = null">@T("Cancel")</button>
+                            </form>
+                        }
+                        else
+                        {
+                            @if (read.Thoughts is not null)
+                            {
+                                <p class="review">@read.Thoughts</p>
+                            }
+                            <button type="button" class="quiet" @onclick="() => StartEditingRead(read)">@(read.Thoughts is null ? T("Write about this read") : T("Change"))</button>
+                        }
+                    }
+                </li>
+            }
+        </ol>
+    }
     </section>
 
     <section class="panel" id="quotes">
@@ -882,6 +949,118 @@ else if (book is not null)
         else if (bookCollections.Length == 0)
         {
             <p class="hint">@T("Collections are lists you make by hand.") <a href="/collections">@T("Make one")</a></p>
+        }
+    </section>
+
+    <section class="panel" id="links">
+        <h2>@T("Connections")</h2>
+        <p class="hint">@T("Lines you draw between your books: another edition or translation, a book that inspired this one, one that answers it.") <a href="/map?book=@book.Id">@T("See it on the map")</a></p>
+        @if (links.Length > 0)
+        {
+            <ul class="link-list">
+                @foreach (var link in links)
+                {
+                    <li>
+                        <span class="hint">@BookLinks.Describe(link.Kind, link.Outgoing)</span>
+                        <a href="/library/@link.BookId">@link.Title</a>
+                        <span class="hint">@link.Author</span>
+                        @if (link.Note is not null)
+                        {
+                            <span> · @link.Note</span>
+                        }
+                        <button type="button" class="icon-button small" @onclick="() => Unlink(link.LinkId)" aria-label="@T("Take away the link to {0}", link.Title)">×</button>
+                    </li>
+                }
+            </ul>
+        }
+        <form class="link-form" @onsubmit="FindToLink" @onsubmit:preventDefault>
+            <label>
+                @T("This book")
+                <select @bind="linkKind">
+                    @foreach (var (kind, label) in BookLinks.Choices())
+                    {
+                        <option value="@kind">@label</option>
+                    }
+                </select>
+            </label>
+            <label>
+                @T("Find a book on your shelf")
+                <input type="search" @bind="linkSearch" maxlength="200" />
+            </label>
+            <label>
+                @T("Note")
+                <input @bind="linkNote" maxlength="@BookLink.MaxNoteLength" placeholder="@T("Optional: how they meet")" />
+            </label>
+            <button type="submit">@T("Find")</button>
+        </form>
+        @if (linkMatches is { Count: > 0 })
+        {
+            <ul class="link-list">
+                @foreach (var match in linkMatches)
+                {
+                    <li>
+                        <button type="button" @onclick="() => Link(match.Id)">@T("Link")</button>
+                        <span>@match.Title</span> <span class="hint">@match.Author</span>
+                    </li>
+                }
+            </ul>
+        }
+        else if (linkMatches is not null)
+        {
+            <p class="hint">@T("No other book on your shelf matches that.")</p>
+        }
+        @if (linkProblem is not null)
+        {
+            <p class="validation-message" role="alert">@linkProblem</p>
+        }
+    </section>
+
+    <section class="panel" id="copy">
+        <h2>@T("Your copy")</h2>
+        <p class="hint">@T("Pictures of this copy: an inscription, a signature, a bookplate, the spine. Only you see them.")</p>
+        @if (PhotoMessage == "saved")
+        {
+            <p class="saved" role="status">@T("The picture is kept with this copy.")</p>
+        }
+        else if (PhotoMessage == "unsupported")
+        {
+            <p class="validation-message" role="alert">@T("Choose a JPEG, PNG, GIF, or WebP picture of 10 MB or less.")</p>
+        }
+        else if (PhotoMessage == "full")
+        {
+            <p class="validation-message" role="alert">@T("A copy keeps up to {0} pictures.", CopyPhoto.MaxPerBook)</p>
+        }
+        @if (photos.Length > 0)
+        {
+            <ul class="copy-photos">
+                @foreach (var photo in photos)
+                {
+                    <li>
+                        <a href="/books/@book.Id/photos/@photo.Id" target="_blank" rel="noopener"><img src="/books/@book.Id/photos/@photo.Id" alt="@(photo.Caption ?? T("A picture of this copy"))" loading="lazy" /></a>
+                        @if (photo.Caption is not null)
+                        {
+                            <p class="hint">@photo.Caption</p>
+                        }
+                        <button type="button" class="quiet" @onclick="() => RemovePhoto(photo.Id)">@T("Remove")</button>
+                    </li>
+                }
+            </ul>
+        }
+        @if (photos.Length < CopyPhoto.MaxPerBook)
+        {
+            <form action="/books/@book.Id/photos" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
+                <label>
+                    @T("A picture: JPEG, PNG, GIF, or WebP, up to 10 MB")
+                    <input type="file" name="file" accept="image/jpeg,image/png,image/gif,image/webp" required />
+                </label>
+                <label>
+                    @T("What it shows")
+                    <input name="caption" maxlength="@CopyPhoto.MaxCaptionLength" />
+                </label>
+                <progress data-upload-progress max="100" hidden></progress>
+                <p class="hint" data-upload-status role="status" hidden></p>
+                <button type="submit">@T("Keep the picture")</button>
+            </form>
         }
     </section>
 
@@ -1274,6 +1453,8 @@ else if (book is not null)
             Add(T("Condition"), book.Condition is CopyCondition condition ? BookRules.ConditionLabel(condition) : null);
             Add(T("Place"), book.Location);
             Add(T("Recommended by"), book.RecommendedBy);
+            Add(T("Earlier owners"), book.PreviousOwners);
+            Add(T("Signed"), book.Signed ? T("Signed by the author") : null);
             Add(T("Tags"), string.Join(", ", book.Tags.Select(tag => tag.Name).Order(StringComparer.CurrentCultureIgnoreCase)));
             return facts;
         }
@@ -1303,6 +1484,9 @@ else if (book is not null)
 
     [SupplyParameterFromQuery(Name = "cover")]
     public string? CoverMessage { get; set; }
+
+    [SupplyParameterFromQuery(Name = "photo")]
+    public string? PhotoMessage { get; set; }
 
     // Where the cover showing comes from, in a few words.
     private string CoverSource => book switch
@@ -1449,6 +1633,137 @@ else if (book is not null)
         await ReadHeldAsync();
     }
 
+    private PastRead[] pastReads = [];
+    private ReadThrough[] throughs = [];
+    private BookLinked[] links = [];
+    private CopyPhotoResponse[] photos = [];
+    private int? editingRead;
+    private int readRating;
+    private string readThoughts = "";
+    private LinkKind linkKind = LinkKind.Edition;
+    private string linkSearch = "";
+    private string linkNote = "";
+    private List<OtherBook>? linkMatches;
+    private string? linkProblem;
+
+    private async Task ReadAgain()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Rereads.ReadAgainAsync(db, Id);
+        justFinished = false;
+        await LoadAsync();
+    }
+
+    private void StartEditingRead(ReadThrough read)
+    {
+        editingRead = read.PastReadId;
+        readRating = read.Rating ?? 0;
+        readThoughts = read.Thoughts ?? "";
+    }
+
+    private async Task SaveRead(int pastId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await Rereads.UpdateAsync(db, Id, pastId, readRating == 0 ? null : readRating, readThoughts))
+        {
+            editingRead = null;
+            await LoadAsync(replaceDraft: false);
+        }
+    }
+
+    // When a read ran: from its start to its finish, or on from its start.
+    private static string ReadSpan(ReadThrough read) => (read.StartedOn, read.FinishedOn) switch
+    {
+        (DateOnly from, DateOnly to) => T("{0} to {1}", from.Medium(), to.Medium()),
+        (null, DateOnly to) => T("finished {0}", to.Medium()),
+        (DateOnly from, null) => T("since {0}", from.Medium()),
+        _ => T("undated"),
+    };
+
+    private static string ReadCounts(ReadThrough read) =>
+        string.Join(" · ", new[]
+        {
+            read.Sessions == 0 ? null : read.Sessions == 1 ? T("1 session") : T("{0} sessions", read.Sessions),
+            read.Highlights == 0 ? null : read.Highlights == 1 ? T("1 highlight") : T("{0} highlights", read.Highlights),
+            read.Quotes == 0 ? null : read.Quotes == 1 ? T("1 quote") : T("{0} quotes", read.Quotes),
+        }.OfType<string>()) is { Length: > 0 } counts ? counts : T("Nothing logged or marked in these days.");
+
+    // An edition told apart from this one by what differs: its translator, reader, format, or language.
+    private string EditionLabel(BookLinked edition)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(edition.Translator) && edition.Translator != book?.Translator)
+        {
+            parts.Add(T("translated by {0}", edition.Translator));
+        }
+
+        if (!string.IsNullOrWhiteSpace(edition.Narrator) && edition.Narrator != book?.Narrator)
+        {
+            parts.Add(T("read by {0}", edition.Narrator));
+        }
+
+        if (edition.Format is BookFormat format && format != book?.Format)
+        {
+            parts.Add(format.ToString());
+        }
+
+        if (!string.IsNullOrWhiteSpace(edition.Language) && edition.Language != book?.Language)
+        {
+            parts.Add(edition.Language);
+        }
+
+        if (edition.Status == BookStatus.Finished)
+        {
+            parts.Add(T("the one you read"));
+        }
+
+        return parts.Count == 0 ? edition.Title : $"{edition.Title} ({string.Join(", ", parts)})";
+    }
+
+    private async Task FindToLink()
+    {
+        linkProblem = null;
+        var term = linkSearch.Trim().ToLower();
+        if (term.Length == 0)
+        {
+            linkMatches = null;
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        linkMatches = await db.Books.AsNoTracking()
+            .Where(item => item.Id != Id && (item.Title.ToLower().Contains(term) || item.Author.ToLower().Contains(term)))
+            .OrderBy(item => item.Title).Take(8)
+            .Select(item => new OtherBook(item.Id, item.Title) { Author = item.Author })
+            .ToListAsync();
+    }
+
+    private async Task Link(int otherId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var (made, problem) = await BookLinks.LinkAsync(db, Id, otherId, linkKind, linkNote);
+        linkProblem = string.IsNullOrEmpty(problem) ? null : problem;
+        if (made is not null)
+        {
+            (linkMatches, linkSearch, linkNote) = (null, "", "");
+            links = await BookLinks.ForBookAsync(db, Id);
+        }
+    }
+
+    private async Task Unlink(int linkId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await BookLinks.UnlinkAsync(db, Id, linkId);
+        links = await BookLinks.ForBookAsync(db, Id);
+    }
+
+    private async Task RemovePhoto(int photoId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await CopyPhotos.RemoveAsync(db, Covers, Id, photoId);
+        photos = await CopyPhotos.ListAsync(db, Id);
+    }
+
     private async Task LoadAsync(bool replaceDraft = true)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
@@ -1456,6 +1771,10 @@ else if (book is not null)
         missing = book is null;
         await LoadFetchAsync(db);
         bookCollections = book is null ? [] : await Collections.ForBookAsync(db, book.Id);
+        pastReads = book is null ? [] : await Rereads.ForBookAsync(db, book.Id);
+        throughs = book is null || pastReads.Length == 0 ? [] : await Rereads.ThroughsAsync(db, book.Id) ?? [];
+        links = book is null ? [] : await BookLinks.ForBookAsync(db, book.Id);
+        photos = book is null ? [] : await CopyPhotos.ListAsync(db, book.Id);
         others = book is null
             ? []
             : await db.Books.AsNoTracking()
@@ -1603,11 +1922,13 @@ else if (book is not null)
         var existing = await db.Books.FirstOrDefaultAsync(item => item.Id == Id);
         if (existing is not null)
         {
+            var photos = await CopyPhotos.StoredForAsync(db, existing.Id);
             Ebooks.Delete(existing.EbookStoredName);
             Audio.Delete(existing.AudioStoredName);
             Covers.Delete(existing.CoverImage);
             db.Books.Remove(existing);
             await db.SaveChangesAsync();
+            photos.ForEach(Covers.Delete);
             await BookRules.RemoveUnusedTagsAsync(db, CancellationToken.None);
         }
 
@@ -1801,7 +2122,10 @@ else if (book is not null)
         await LoadAsync(replaceDraft: false);
     }
 
-    private sealed record OtherBook(int Id, string Title);
+    private sealed record OtherBook(int Id, string Title)
+    {
+        public string? Author { get; init; }
+    }
 
     private sealed record NextVolume(int Id, string Title);
 }

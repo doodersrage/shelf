@@ -143,6 +143,15 @@ public static partial class Merging
             await db.KosyncPlaces.Where(place => place.BookId == otherId && !keptDevices.Contains(place.ReaderId)).ExecuteUpdateAsync(set => set.SetProperty(place => place.BookId, keepId), cancellationToken);
         }
 
+        // Earlier reads, pictures of the copy, and journal entries come across; links to the other book go to this
+        // one, except those that would join it to itself.
+        await db.PastReads.Where(read => read.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(read => read.BookId, keepId), cancellationToken);
+        await db.CopyPhotos.Where(photo => photo.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(photo => photo.BookId, keepId), cancellationToken);
+        await db.JournalEntries.Where(entry => entry.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(entry => entry.BookId, keepId), cancellationToken);
+        await db.BookLinks.Where(link => (link.FromBookId == otherId && link.ToBookId == keepId) || (link.FromBookId == keepId && link.ToBookId == otherId)).ExecuteDeleteAsync(cancellationToken);
+        await db.BookLinks.Where(link => link.FromBookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(link => link.FromBookId, keepId), cancellationToken);
+        await db.BookLinks.Where(link => link.ToBookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(link => link.ToBookId, keepId), cancellationToken);
+
         var keptIn = await db.CollectionBooks.IgnoreQueryFilters().Where(entry => entry.BookId == keepId).Select(entry => entry.CollectionId).ToListAsync(cancellationToken);
         await db.CollectionBooks.IgnoreQueryFilters().Where(entry => entry.BookId == otherId && !keptIn.Contains(entry.CollectionId))
             .ExecuteUpdateAsync(set => set.SetProperty(entry => entry.BookId, keepId), cancellationToken);
