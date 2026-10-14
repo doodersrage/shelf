@@ -4,6 +4,12 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.11.1] - 2026-10-14
+
+### Fixed
+
+- **Goodreads, StoryGraph, and spreadsheet imports find books already on your shelf in any edition**: by ISBN, or by author and title however written, so an audiobook with its own ISBN, "(Unabridged)" in its title, a series before its title, or its narrator beside its author is no longer added a second time. A book found this way takes the status (when it is still want to read), dates, rating, review, and tags it doesn't have yet from the file, and the result says how many were filled in.
+
 ## [2.11.0] - 2026-10-14
 
 ### Added
@@ -490,7 +496,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.11.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.11.1...HEAD
+[2.11.1]: https://github.com/doodersrage/shelf/compare/v2.11.0...v2.11.1
 [2.11.0]: https://github.com/doodersrage/shelf/compare/v2.10.0...v2.11.0
 [2.10.0]: https://github.com/doodersrage/shelf/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/doodersrage/shelf/compare/v2.8.0...v2.9.0

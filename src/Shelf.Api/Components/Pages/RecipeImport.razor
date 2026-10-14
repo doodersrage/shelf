@@ -265,7 +265,7 @@
         {
             await using var db = await DbFactory.CreateDbContextAsync();
             var result = await ImportRecipes.ImportAsync(db, text!, spec!, saveAs, recipeId == 0 ? null : recipeId);
-            (note, problem) = (T("Brought in {0}, and skipped {1} already on your shelf or missing a title or author. Undo it under Trash & undo.", Localization.Counts.Books(result.Added), result.Skipped), false);
+            (note, problem) = (T("Brought in {0}, filled in the reading of {1} already on your shelf, and skipped {2} with nothing new or missing a title or author. Undo it under Trash & undo.", Localization.Counts.Books(result.Added), result.Updated, result.Skipped), false);
             (text, preview) = (null, null);
             await LoadAsync();
         }

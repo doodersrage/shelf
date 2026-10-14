@@ -354,7 +354,7 @@ public static class BookEndpoints
         }
 
         var result = await BookRules.ImportCsvAsync(db, library, cancellationToken);
-        return TypedResults.Redirect($"/backup?csv=done&source={library.Source}&added={result.Added}&skipped={result.Skipped}");
+        return TypedResults.Redirect($"/backup?csv=done&source={library.Source}&added={result.Added}&updated={result.Updated}&skipped={result.Skipped}");
     }
 
     // Like the e-book upload, this answers the form on the Backup page with a redirect back to it.

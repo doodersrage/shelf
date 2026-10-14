@@ -761,22 +761,47 @@ public static class BookRules
     }
 
     // Books from another service's export: skipped when invalid or already on the shelf, as a backup restore is.
+    // Rows already on the shelf, under any edition, are not added again; what they say of the reading fills in
+    // what the book on the shelf doesn't have.
     public static async Task<ImportResult> ImportCsvAsync(ShelfDb db, CsvLibrary library, CancellationToken cancellationToken = default)
     {
         var batch = await History.StartAsync(db, BatchKind.Import, T("Books brought in from a spreadsheet"), cancellationToken);
         using var _ = History.Use(batch.Id);
         var existing = await db.Books.AsNoTracking()
-            .Select(book => new ExistingBook(book.Title, book.Author, book.Isbn))
+            .Select(book => new { book.Id, book.Title, book.Author, book.Isbn })
             .ToListAsync(cancellationToken);
-        var seen = existing.Select(Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var shelf = new ShelfMatcher();
+        foreach (var book in existing)
+        {
+            shelf.Add(book.Id, book.Title, book.Author, book.Isbn);
+        }
+
         var added = 0;
         var skipped = 0;
+        var matched = new List<(int[] Ids, BookWrite Write)>();
         foreach (var row in library.Books)
         {
             var write = row.Write;
-            if (Validate(write) is not null || !seen.Add(Key(new ExistingBook(write.Title.Trim(), write.Author.Trim(), NormalizeIsbn(write.Isbn)))))
+            if (Validate(write) is not null)
             {
                 skipped++;
+                continue;
+            }
+
+            var found = shelf.Find(write.Title, write.Author, NormalizeIsbn(write.Isbn));
+            if (found.Count > 0)
+            {
+                // A book this file already brought is the one it means again.
+                var ids = found.Where(id => id > 0).ToArray();
+                if (ids.Length > 0)
+                {
+                    matched.Add((ids, write));
+                }
+                else
+                {
+                    skipped++;
+                }
+
                 continue;
             }
 
@@ -789,16 +814,82 @@ public static class BookRules
 
             db.Books.Add(book);
             await SyncTagsAsync(db, book, write.Tags, cancellationToken);
+            shelf.Add(-1, book.Title, book.Author, book.Isbn);
             added++;
         }
 
         if (added > 0)
         {
             await db.SaveChangesAsync(cancellationToken);
+        }
+
+        var updated = new HashSet<int>();
+        foreach (var chunk in matched.Chunk(500))
+        {
+            var ids = chunk.SelectMany(item => item.Ids).Distinct().ToList();
+            var books = await db.Books.Include(book => book.Tags).Where(book => ids.Contains(book.Id)).ToDictionaryAsync(book => book.Id, cancellationToken);
+            foreach (var (bookIds, write) in chunk)
+            {
+                foreach (var id in bookIds)
+                {
+                    if (books.TryGetValue(id, out var book) && await FillReadingAsync(db, book, write, cancellationToken))
+                    {
+                        updated.Add(id);
+                    }
+                }
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        skipped += matched.Count(item => !item.Ids.Any(updated.Contains));
+        if (added > 0 || updated.Count > 0)
+        {
             await RemoveUnusedTagsAsync(db, cancellationToken);
         }
 
-        return new ImportResult(added, skipped);
+        return new ImportResult(added, skipped, updated.Count);
+    }
+
+    // What another catalog says of a reading, where the book here says nothing: a status beyond "want to read", its
+    // dates, a rating, a review, and its tags beside those it has. What the book already says is kept.
+    private static async Task<bool> FillReadingAsync(ShelfDb db, Book book, BookWrite write, CancellationToken cancellationToken)
+    {
+        var changed = false;
+        if (book.Status == BookStatus.Want && write.Status != BookStatus.Want)
+        {
+            book.Status = write.Status;
+            book.Queued = false;
+            changed = true;
+        }
+
+        if (book.Status == write.Status && book.FinishedOn is null && book.StartedOn is null && (write.StartedOn ?? write.FinishedOn) is not null)
+        {
+            (book.StartedOn, book.FinishedOn) = (write.StartedOn, book.Status == BookStatus.Finished ? write.FinishedOn : null);
+            changed = true;
+        }
+
+        if (book.Rating is null && write.Rating is not null)
+        {
+            book.Rating = write.Rating;
+            changed = true;
+        }
+
+        if (book.Review is null && BlankToNull(write.Review) is { } review)
+        {
+            book.Review = review;
+            changed = true;
+        }
+
+        var have = book.Tags.Select(tag => tag.Name).ToList();
+        var more = write.Tags.Where(tag => !have.Contains(tag, StringComparer.OrdinalIgnoreCase)).Take(MaxTags - have.Count).ToList();
+        if (more.Count > 0)
+        {
+            await SyncTagsAsync(db, book, [.. have, .. more], cancellationToken);
+            changed = true;
+        }
+
+        return changed;
     }
 
     public static void AdvanceProgress(Book book, int? toPage)

@@ -108,13 +108,13 @@ An admin can bring in a [Calibre](https://calibre-ebook.com) library from the se
 
 ## From Goodreads or StoryGraph
 
-Export your library as CSV from either service, then upload it on **Backup & restore**. Shelves become statuses and tags, ratings, reviews, and dates come along, and books already on your shelf are skipped.
+Export your library as CSV from either service, then upload it on **Backup & restore**. Shelves become statuses and tags, and ratings, reviews, and dates come along. A book already on your shelf isn't added again, whatever its edition: an audiobook titled "The Way of Kings (Unabridged)" by "Brandon Sanderson, Michael Kramer" is the Goodreads row "The Way of Kings" by Brandon Sanderson. Its status (when it is still want to read), dates, rating, review, and tags fill in what it doesn't have yet, and what it already says is kept.
 
 ## From any spreadsheet
 
 For a CSV from any other app or service, **Bring in any spreadsheet** on **Backup & restore** reads the file and guesses which column holds the title, the author, the ISBN, the status, and the rest from their names, in several languages. Change any of them, say what the file's words for a status mean ("gelesen" is finished, "wishlist" is want to read), how it writes dates and separates tags, and whether its ratings are out of ten. The first rows show as they would come in, with the ones that would be skipped and why.
 
-Name it to keep it as a **recipe**: the next export from the same place comes in with one choice. Books already on your shelf are skipped, and the whole import can be [undone at once](library.md#trash-and-undo).
+Name it to keep it as a **recipe**: the next export from the same place comes in with one choice. Books already on your shelf are matched the same way and filled in, and the whole import can be [undone at once](library.md#trash-and-undo).
 
 ## Finding new books
 

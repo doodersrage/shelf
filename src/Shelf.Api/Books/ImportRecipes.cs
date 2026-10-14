@@ -38,7 +38,7 @@ public sealed record RecipeRow(int Line, string? Title, string? Author, BookStat
 // the first rows read with the recipe.
 public sealed record RecipePreview(string[] Columns, RecipeSpec Spec, string[] StatusWords, RecipeRow[] Rows, int Total);
 
-public sealed record RecipeImportResult(int Added, int Skipped, int? RecipeId, int? BatchId);
+public sealed record RecipeImportResult(int Added, int Skipped, int? RecipeId, int? BatchId, int Updated = 0);
 
 public static class ImportRecipes
 {
@@ -218,7 +218,7 @@ public static class ImportRecipes
             await db.ImportRecipes.Where(item => item.Id == used).ExecuteUpdateAsync(set => set.SetProperty(item => item.LastUsedAt, now), cancellationToken);
         }
 
-        return new RecipeImportResult(result.Added, result.Skipped, recipeId, batch);
+        return new RecipeImportResult(result.Added, result.Skipped, recipeId, batch, result.Updated);
     }
 
     // Kept by name: a recipe of the same name is replaced.

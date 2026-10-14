@@ -175,17 +175,22 @@ public static partial class Merging
 
     // A title's words without its subtitle, what is in brackets, a leading article, or words that only say which
     // edition it is.
-    public static (string Joined, string[] Words) BaseTitle(string title)
+    public static (string Joined, string[] Words) BaseTitle(string title) => TitleWords(title, subtitle: false);
+
+    // As BaseTitle, but with its subtitle kept: "Star Wars: Thrawn" is not "Star Wars: Heir to the Empire".
+    public static (string Joined, string[] Words) FullTitle(string title) => TitleWords(title, subtitle: true);
+
+    private static (string Joined, string[] Words) TitleWords(string title, bool subtitle)
     {
         var main = BracketsPattern().Replace(title, " ");
         var cut = main.IndexOfAny([':', ';']);
-        if (cut > 2)
+        if (cut > 2 && !subtitle)
         {
             main = main[..cut];
         }
 
         var dash = main.IndexOf(" - ", StringComparison.Ordinal);
-        if (dash > 2)
+        if (dash > 2 && !subtitle)
         {
             main = main[..dash];
         }

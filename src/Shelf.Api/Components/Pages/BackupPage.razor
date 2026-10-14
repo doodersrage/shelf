@@ -111,7 +111,7 @@
 
 <section class="panel" id="csv" aria-labelledby="csv-heading">
     <h2 id="csv-heading">@T("Bring a library from Goodreads or StoryGraph")</h2>
-    <p>@T("Export your library from Goodreads (My Books, then Import and export) or The StoryGraph (Manage account, then Export), and choose the CSV file here. Shelves, reading status, ratings, dates, reviews, and tags come along; books already on your shelf are skipped.")</p>
+    <p>@T("Export your library from Goodreads (My Books, then Import and export) or The StoryGraph (Manage account, then Export), and choose the CSV file here. Shelves, reading status, ratings, dates, reviews, and tags come along. A book already on your shelf in any edition, an audiobook too, isn't added again: its status, dates, rating, review, and tags fill in what it doesn't have yet.")</p>
     <form action="/books/import/csv" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
         <label>
             @T("CSV export")
@@ -124,7 +124,7 @@
     <p class="hint">@T("From another app or service?") <a href="/import/spreadsheet">@T("Bring in any spreadsheet")</a>, @T("choosing which column holds what.")</p>
     @if (Csv == "done")
     {
-        <p class="saved" role="status">@T("Imported from {0}. Added {1}, and skipped {2} already on your shelf or missing a title or author.", Source == "StoryGraph" ? "The StoryGraph" : "Goodreads", Localization.Counts.Books(Added), Skipped)</p>
+        <p class="saved" role="status">@T("Imported from {0}. Added {1}, filled in the reading of {2} already on your shelf, and skipped {3} with nothing new or missing a title or author.", Source == "StoryGraph" ? "The StoryGraph" : "Goodreads", Localization.Counts.Books(Added), Updated, Skipped)</p>
     }
     else if (Csv == "unreadable")
     {
@@ -217,6 +217,9 @@
 
     [SupplyParameterFromQuery]
     public int Skipped { get; set; }
+
+    [SupplyParameterFromQuery]
+    public int Updated { get; set; }
 
     [SupplyParameterFromQuery]
     public int Files { get; set; }

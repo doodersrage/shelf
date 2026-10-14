@@ -123,7 +123,7 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
             6,"Gravity's Rainbow",Thomas Pynchon,"Pynchon, Thomas",,"=""""","=""""",0,4.0,Penguin,Paperback,776,2006,1973,,2024/01/04,did-not-finish,,did-not-finish,,,,0,0
             """""";
         var response = await PostCsvAsync(csv.Replace("            ", ""), "goodreads_library_export.csv");
-        Assert.Contains("csv=done&source=Goodreads&added=4&skipped=0", response.RequestMessage?.RequestUri?.Query);
+        Assert.Contains("csv=done&source=Goodreads&added=4&updated=0&skipped=0", response.RequestMessage?.RequestUri?.Query);
 
         var books = await _client.GetFromJsonAsync<BookResponse[]>("/books?author=Ursula%20K.%20Le%20Guin", JsonOptions);
         var wizard = books!.Single(book => book.Title == "A Wizard of Earthsea");
@@ -147,7 +147,45 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal(BookStatus.Abandoned, all!.Single(book => book.Title == "Gravity's Rainbow").Status);
 
         var again = await PostCsvAsync(csv.Replace("            ", ""), "goodreads_library_export.csv");
-        Assert.Contains("added=0&skipped=4", again.RequestMessage?.RequestUri?.Query);
+        Assert.Contains("added=0&updated=0&skipped=4", again.RequestMessage?.RequestUri?.Query);
+    }
+
+    [Fact]
+    public async Task A_goodreads_row_finds_the_audiobook_already_on_the_shelf_and_fills_in_its_reading()
+    {
+        var audiobook = await CreateAsync(new CreateBookRequest("The Way of Kings (Unabridged)", "Brandon Sanderson, Michael Kramer", BookStatus.Want, null, Isbn: "9781427211262", Format: BookFormat.Audiobook, Tags: ["audio"]));
+        var leading = await CreateAsync(new CreateBookRequest("Stormlight Archive 02 - Words of Radiance", "Sanderson, Brandon", BookStatus.Finished, 4, FinishedOn: new DateOnly(2022, 1, 9)));
+        await CreateAsync(new CreateBookRequest("Star Wars: Heir to the Empire", "Timothy Zahn", BookStatus.Want, null));
+        const string csv = """"""
+            Book Id,Title,Author,Author l-f,Additional Authors,ISBN,ISBN13,My Rating,Average Rating,Publisher,Binding,Number of Pages,Year Published,Original Publication Year,Date Read,Date Added,Bookshelves,Bookshelves with positions,Exclusive Shelf,My Review,Spoiler,Private Notes,Read Count,Owned Copies
+            7235533,"The Way of Kings (The Stormlight Archive, #1)",Brandon Sanderson,"Sanderson, Brandon",,"=""0765326353""","=""9780765326355""",5,4.65,Tor,Hardcover,1007,2010,2010,2023/05/01,2023/01/02,"fantasy, read",,read,So good.,,,1,0
+            17332218,"Words of Radiance (The Stormlight Archive, #2)",Brandon Sanderson,"Sanderson, Brandon",,"=""""","=""""",5,4.76,Tor,Hardcover,1087,2014,2014,2024/02/02,2023/01/02,,,read,,,,1,0
+            25371,"Star Wars: Thrawn",Timothy Zahn,"Zahn, Timothy",,"=""""","=""""",0,4.2,Del Rey,Hardcover,427,2017,2017,,2024/01/04,to-read,,to-read,,,,0,0
+            """""";
+        var response = await PostCsvAsync(csv.Replace("            ", ""), "goodreads_library_export.csv");
+        Assert.Contains("added=1&updated=1&skipped=1", response.RequestMessage?.RequestUri?.Query);
+
+        var kings = await _client.GetFromJsonAsync<BookResponse>($"/books/{audiobook.Id}", JsonOptions);
+        Assert.Equal("The Way of Kings (Unabridged)", kings!.Title);
+        Assert.Equal(BookFormat.Audiobook, kings.Format);
+        Assert.Equal("9781427211262", kings.Isbn);
+        Assert.Equal(BookStatus.Finished, kings.Status);
+        Assert.Equal(new DateOnly(2023, 5, 1), kings.FinishedOn);
+        Assert.Equal(5, kings.Rating);
+        Assert.Equal("So good.", kings.Review);
+        Assert.Equal(["audio", "fantasy"], kings.Tags.Order());
+
+        // What the shelf already says of a reading is kept.
+        var radiance = await _client.GetFromJsonAsync<BookResponse>($"/books/{leading.Id}", JsonOptions);
+        Assert.Equal(4, radiance!.Rating);
+        Assert.Equal(new DateOnly(2022, 1, 9), radiance.FinishedOn);
+
+        var all = await _client.GetFromJsonAsync<BookResponse[]>("/books", JsonOptions);
+        Assert.Single(all!, book => book.Title.Contains("Way of Kings"));
+        Assert.Single(all!, book => book.Title == "Star Wars: Thrawn");
+
+        var again = await PostCsvAsync(csv.Replace("            ", ""), "goodreads_library_export.csv");
+        Assert.Contains("added=0&updated=0&skipped=3", again.RequestMessage?.RequestUri?.Query);
     }
 
     [Fact]

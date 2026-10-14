@@ -721,7 +721,7 @@ public sealed record JournalExport(DateOnly Date, string Text, int? Book);
 
 public sealed record LinkExport(int From, int To, LinkKind Kind, string? Note);
 
-public sealed record ImportResult(int Added, int Skipped);
+public sealed record ImportResult(int Added, int Skipped, int Updated = 0);
 
 public sealed record CatalogMatch(
     string Title,
