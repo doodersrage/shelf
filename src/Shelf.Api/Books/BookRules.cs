@@ -264,6 +264,12 @@ public static class BookRules
             : await db.Tags.Where(tag => names.Contains(tag.Name)).ToListAsync(cancellationToken);
         var byName = existing.ToDictionary(tag => tag.Name, StringComparer.OrdinalIgnoreCase);
 
+        // A tag another book brought earlier in the same save is that one, not a second of the same name.
+        foreach (var added in db.Tags.Local.Where(tag => tag.Id == 0 && names.Contains(tag.Name, StringComparer.OrdinalIgnoreCase)))
+        {
+            byName.TryAdd(added.Name, added);
+        }
+
         book.Tags.Clear();
         foreach (var name in names)
         {

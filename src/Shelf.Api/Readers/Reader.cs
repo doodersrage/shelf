@@ -81,6 +81,9 @@ public sealed class Reader
 
     public const int DefaultDueSoonDays = 3;
 
+    // A sandbox of sample books made by this reader, for trying a connector on; no one signs in as it.
+    public int? SandboxOf { get; set; }
+
     // The most space this reader's files may take, set by an admin; null for no limit.
     public int? StorageLimitMegabytes { get; set; }
 

@@ -1,0 +1,285 @@
+@page "/import/spreadsheet"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("Bring in a spreadsheet") · Shelf</PageTitle>
+
+<h1>@T("Bring in a spreadsheet")</h1>
+<p class="hint">@T("A CSV file from any app or service: say which column holds what once, see the first rows as they would come in, and keep it as a recipe for the next export from the same place. Books already on your shelf are skipped, and the whole import can be undone under Trash & undo.")</p>
+
+@if (note is not null)
+{
+    <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
+}
+
+<section class="panel">
+    <h2>@T("The file")</h2>
+    @if (recipes.Length > 0)
+    {
+        <label>
+            @T("Use a recipe")
+            <select value="@recipeId" @onchange="ChooseRecipe">
+                <option value="0">@T("Work it out from the file")</option>
+                @foreach (var recipe in recipes)
+                {
+                    <option value="@recipe.Id">@recipe.Name</option>
+                }
+            </select>
+        </label>
+    }
+    <label>
+        @T("CSV file, up to {0}", Localization.Counts.Size(ImportRecipes.MaxBytes))
+        <InputFile OnChange="Load" accept=".csv,.tsv,.txt,text/csv" />
+    </label>
+</section>
+
+@if (preview is not null && spec is not null)
+{
+    <section class="panel">
+        <h2>@T("Which column holds what")</h2>
+        <p class="hint">@T("{0} rows. Leave a detail on “none” if the file doesn't have it.", preview.Total.ToString("N0"))</p>
+        <div class="recipe-grid">
+            @foreach (var field in ImportRecipes.Fields)
+            {
+                <label>
+                    @FieldLabel(field)@(field is "Title" or "Author" ? " *" : "")
+                    <select value="@(spec.Columns.GetValueOrDefault(field) ?? "")" @onchange="change => SetColumn(field, change)">
+                        <option value="">@T("none")</option>
+                        @foreach (var column in preview.Columns)
+                        {
+                            <option value="@column">@column</option>
+                        }
+                    </select>
+                </label>
+            }
+        </div>
+
+        @if (preview.StatusWords.Length > 0)
+        {
+            <h3>@T("What its statuses mean")</h3>
+            <div class="recipe-grid">
+                @foreach (var word in preview.StatusWords)
+                {
+                    var current = spec.Statuses?.GetValueOrDefault(word) ?? ImportRecipes.StatusOf(word);
+                    <label>
+                        “@word”
+                        <select value="@(current?.ToString() ?? "")" @onchange="change => SetStatus(word, change)">
+                            <option value="">@T("Want to read, unless finished")</option>
+                            @foreach (var status in Enum.GetValues<BookStatus>())
+                            {
+                                <option value="@status">@BookRules.StatusLabel(status)</option>
+                            }
+                        </select>
+                    </label>
+                }
+            </div>
+        }
+
+        <h3>@T("How it writes things")</h3>
+        <div class="recipe-grid">
+            <label>
+                @T("Dates")
+                <select value="@(spec.DateFormat ?? "")" @onchange="SetDateFormat">
+                    <option value="">@T("Work them out")</option>
+                    @foreach (var format in ImportRecipes.DateFormats)
+                    {
+                        <option value="@format">@format</option>
+                    }
+                </select>
+            </label>
+            <label>
+                @T("Tags separated by")
+                <input maxlength="4" value="@(spec.TagSeparator ?? ";")" @onchange="SetSeparator" style="width: 4em" />
+            </label>
+            <label class="check">
+                <input type="checkbox" checked="@spec.RatingOutOfTen" @onchange="SetOutOfTen" />
+                @T("Ratings are out of ten")
+            </label>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>@T("The first rows")</h2>
+        <table class="proposal-table">
+            <thead>
+                <tr><th scope="col">@T("Row")</th><th scope="col">@T("Title")</th><th scope="col">@T("Author")</th><th scope="col">@T("Status")</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var row in preview.Rows)
+                {
+                    <tr class="@(row.Problem is null ? null : "disagree")">
+                        <td>@row.Line</td>
+                        <td>@(row.Title ?? "—")</td>
+                        <td>@(row.Author ?? "—")</td>
+                        <td>@(row.Problem ?? (row.Status is BookStatus status ? BookRules.StatusLabel(status) : ""))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <label>
+            @T("Keep this as a recipe named (optional)")
+            <input maxlength="@ImportRecipe.MaxNameLength" @bind="saveAs" placeholder="@T("Such as the app it came from")" />
+        </label>
+        <button type="button" class="primary" @onclick="Import" disabled="@(busy || !spec.Columns.ContainsKey("Title") || !spec.Columns.ContainsKey("Author"))">
+            @(preview.Total == 1 ? T("Bring in 1 row") : T("Bring in {0} rows", preview.Total.ToString("N0")))
+        </button>
+    </section>
+}
+
+@if (recipes.Length > 0)
+{
+    <section class="panel">
+        <h2>@T("Recipes")</h2>
+        <ul class="plain-list">
+            @foreach (var recipe in recipes)
+            {
+                <li>
+                    <strong>@recipe.Name</strong>
+                    <span class="hint">@(recipe.LastUsedAt is DateTimeOffset used ? T("last used {0}", used.Medium()) : T("made {0}", recipe.CreatedAt.Medium()))</span>
+                    <button type="button" class="quiet danger" @onclick="() => Forget(recipe.Id)">@T("Delete")</button>
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+@code {
+    private RecipeView[] recipes = [];
+    private int recipeId;
+    private string? text;
+    private RecipeSpec? spec;
+    private RecipePreview? preview;
+    private string? saveAs;
+    private string? note;
+    private bool problem;
+    private bool busy;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        recipes = await ImportRecipes.ListAsync(db);
+    }
+
+    private static string FieldLabel(string field) => field switch
+    {
+        "Tags" => T("Tags"),
+        "Rating" => T("Rating"),
+        "AddedAt" => T("Added"),
+        _ => History.Label(field),
+    };
+
+    private async Task Load(InputFileChangeEventArgs change)
+    {
+        (note, problem) = (null, false);
+        if (change.File.Size > ImportRecipes.MaxBytes)
+        {
+            (note, problem) = (T("That file is larger than {0}.", Localization.Counts.Size(ImportRecipes.MaxBytes)), true);
+            return;
+        }
+
+        await using var stream = change.File.OpenReadStream(ImportRecipes.MaxBytes);
+        using var reader = new StreamReader(stream, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        text = await reader.ReadToEndAsync();
+        spec = recipes.FirstOrDefault(recipe => recipe.Id == recipeId)?.Spec;
+        Refresh();
+        saveAs ??= recipes.FirstOrDefault(recipe => recipe.Id == recipeId)?.Name;
+        if (preview is { Columns.Length: 0 })
+        {
+            (note, problem, preview) = (T("That file has no columns to read."), true, null);
+        }
+    }
+
+    private void ChooseRecipe(ChangeEventArgs change)
+    {
+        recipeId = int.TryParse(change.Value?.ToString(), out var id) ? id : 0;
+        var recipe = recipes.FirstOrDefault(item => item.Id == recipeId);
+        (spec, saveAs) = (recipe?.Spec, recipe?.Name);
+        if (text is not null)
+        {
+            Refresh();
+        }
+    }
+
+    private void Refresh()
+    {
+        preview = ImportRecipes.Preview(text ?? "", spec);
+        spec = preview.Spec;
+    }
+
+    private void SetColumn(string field, ChangeEventArgs change)
+    {
+        var columns = new Dictionary<string, string>(spec!.Columns);
+        if (change.Value?.ToString() is { Length: > 0 } column)
+        {
+            columns[field] = column;
+        }
+        else
+        {
+            columns.Remove(field);
+        }
+
+        spec = spec with { Columns = columns };
+        Refresh();
+    }
+
+    private void SetStatus(string word, ChangeEventArgs change)
+    {
+        var statuses = new Dictionary<string, BookStatus>(spec!.Statuses ?? []);
+        if (Enum.TryParse<BookStatus>(change.Value?.ToString(), out var status))
+        {
+            statuses[word] = status;
+        }
+        else
+        {
+            statuses.Remove(word);
+        }
+
+        spec = spec with { Statuses = statuses };
+        Refresh();
+    }
+
+    private void SetDateFormat(ChangeEventArgs change)
+    {
+        spec = spec! with { DateFormat = change.Value?.ToString() is { Length: > 0 } format ? format : null };
+        Refresh();
+    }
+
+    private void SetSeparator(ChangeEventArgs change)
+    {
+        spec = spec! with { TagSeparator = change.Value?.ToString() is { Length: > 0 } separator ? separator : null };
+        Refresh();
+    }
+
+    private void SetOutOfTen(ChangeEventArgs change)
+    {
+        spec = spec! with { RatingOutOfTen = change.Value is true };
+        Refresh();
+    }
+
+    private async Task Import()
+    {
+        busy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var result = await ImportRecipes.ImportAsync(db, text!, spec!, saveAs, recipeId == 0 ? null : recipeId);
+            (note, problem) = (T("Brought in {0}, and skipped {1} already on your shelf or missing a title or author. Undo it under Trash & undo.", Localization.Counts.Books(result.Added), result.Skipped), false);
+            (text, preview) = (null, null);
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task Forget(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.ImportRecipes.Where(recipe => recipe.Id == id).ExecuteDeleteAsync();
+        recipeId = recipeId == id ? 0 : recipeId;
+        await LoadAsync();
+    }
+}

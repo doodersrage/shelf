@@ -17,7 +17,7 @@ public static class ReaderRules
 
     public const string StampClaim = "shelf:stamp";
 
-    private static readonly PasswordHasher<Reader> Hasher = new();
+    internal static readonly PasswordHasher<Reader> Hasher = new();
 
     public static string NewStamp() => Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
 
@@ -295,7 +295,7 @@ public static class ReaderRules
             .GroupBy(book => book.OwnerId!.Value)
             .Select(group => new { Id = group.Key, Count = group.Count() })
             .ToDictionaryAsync(item => item.Id, item => item.Count, cancellationToken);
-        var readers = await db.Readers.AsNoTracking().ToListAsync(cancellationToken);
+        var readers = await db.Readers.AsNoTracking().Where(reader => reader.SandboxOf == null).ToListAsync(cancellationToken);
         return readers
             .OrderBy(reader => reader.Name, StringComparer.OrdinalIgnoreCase)
             .Select(reader => new ReaderSummary(reader.Id, reader.Name, reader.IsAdmin, reader.CreatedAt, counts.GetValueOrDefault(reader.Id), reader.Restricted))
@@ -373,6 +373,12 @@ public static class ReaderRules
         if (reader.IsAdmin && !await db.Readers.AnyAsync(other => other.IsAdmin && other.Id != readerId, cancellationToken))
         {
             return AccountProblem.LastAdmin;
+        }
+
+        // A reader's sandbox goes with them.
+        foreach (var sandbox in await db.Readers.Where(item => item.SandboxOf == readerId).Select(item => item.Id).ToListAsync(cancellationToken))
+        {
+            await RemoveAsync(db, ebooks, audio, covers, sandbox, cancellationToken);
         }
 
         var files = new List<(string? Ebook, string? Audio, string? Cover)>();
@@ -467,10 +473,16 @@ public static class ReaderRules
 
     public static async Task<ReaderResponse[]> OthersAsync(ShelfDb db, int readerId, CancellationToken cancellationToken = default)
     {
+        // A sandbox knows no one.
+        if (await db.Readers.AsNoTracking().AnyAsync(reader => reader.Id == readerId && reader.SandboxOf != null, cancellationToken))
+        {
+            return [];
+        }
+
         // Children's accounts are known only to their guardian, and know only them.
         var guardian = await db.Readers.AsNoTracking().Where(reader => reader.Id == readerId && reader.Restricted).Select(reader => (int?)(reader.GuardianId ?? 0)).FirstOrDefaultAsync(cancellationToken);
         var readers = await db.Readers.AsNoTracking()
-            .Where(reader => reader.Id != readerId && (guardian == null ? !reader.Restricted || reader.GuardianId == readerId : reader.Id == guardian))
+            .Where(reader => reader.Id != readerId && reader.SandboxOf == null && (guardian == null ? !reader.Restricted || reader.GuardianId == readerId : reader.Id == guardian))
             .Select(reader => new ReaderResponse(reader.Id, reader.Name))
             .ToListAsync(cancellationToken);
         return readers.OrderBy(reader => reader.Name, StringComparer.OrdinalIgnoreCase).ToArray();

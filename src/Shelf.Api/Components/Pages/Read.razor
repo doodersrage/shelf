@@ -506,6 +506,16 @@ else if (book is not null)
                         {
                             <p class="hint"><a href="@meaning.DictionaryUrl" target="_blank" rel="noopener">@T("More in Wiktionary")</a></p>
                         }
+                        <p>
+                            @if (wordKept)
+                            {
+                                <span class="saved" role="status">@T("Kept.")</span> <a href="/words">@T("Words and passages")</a>
+                            }
+                            else
+                            {
+                                <button type="button" class="quiet" @onclick="KeepWord">@T("Keep this word")</button>
+                            }
+                        </p>
                     }
                     @if (meaning.Summary is not null)
                     {
@@ -1280,7 +1290,24 @@ else if (book is not null)
     }
 
     private WordMeaning? meaning;
+    private bool wordKept;
     private string? lookUpNote;
+
+    // The word, its first meaning, and the words around it, kept to practise; tied to the book when it is the reader's own.
+    private async Task KeepWord()
+    {
+        if (book is null || meaning is null)
+        {
+            return;
+        }
+
+        var context = (selectedPrefix.Length > 120 ? selectedPrefix[^120..] : selectedPrefix) + selectedText + (selectedSuffix.Length > 120 ? selectedSuffix[..120] : selectedSuffix);
+        var sense = meaning.Senses.FirstOrDefault();
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var request = new WordRequest(meaning.Word, string.IsNullOrWhiteSpace(book.Language) ? null : book.Language, sense is null ? null : $"({sense.PartOfSpeech}) {sense.Definition}",
+            context.Trim() is { Length: > 0 and <= VocabularyWord.MaxContextLength } around ? around : null, null, open?.Borrowed == true ? null : book.Id);
+        wordKept = Vocabulary.Validate(request) is null && await Vocabulary.KeepAsync(db, request) is not null;
+    }
     private bool lookingUp;
 
     private bool CanLookUp => Configuration.GetValue("Lookup:Dictionary", true) && WordLookups.Clean(selectedText) is not null;
@@ -1295,6 +1322,7 @@ else if (book is not null)
 
         lookingUp = true;
         lookUpNote = null;
+        wordKept = false;
         try
         {
             meaning = await Dictionary.FindAsync(words, WordLookups.LanguageOf(book.Language), CancellationToken.None);

@@ -79,6 +79,10 @@ On **Series**, tick **Tell me when a new book comes out in a series I am reading
 
 Box sets and collections are left out. Open Library knows the series of many books but not all, so a book it has not filed under the series is missed; the series name on your books should match Open Library's (with or without a leading *The*).
 
+## Reading DNA
+
+**Reading DNA**, under **Browse** and linked from **Insights**, is what your own shelf says about your reading: the subjects (your tags) and authors you return to, with books you loved or rated highly counting for more; what each recent year was mostly about, and which subjects you read more of lately or less than before; subjects and authors you own plenty of but have hardly read; and books you have had a year or more and not begun that fit what you read, each saying why (the next in a series you read, by an author you loved, about a subject you read often). It is worked out on the server when you open the page, from your shelf alone, and kept nowhere.
+
 ## What to read next
 
 **What to read next**, under Discover & reflect, suggests books from what's already here, without sending anything anywhere:
@@ -175,6 +179,16 @@ Under **Goals of your own**, beside those, aim for books of a kind you want to m
 ## The journal
 
 **Journal**, in the sidebar, is your reading life by the day: the books you began and finished, the sessions you logged and their notes, the passages you highlighted and quotes you kept, your thoughts on earlier reads, and entries of your own. **Write in the journal** keeps a few lines for a day, about a book or about where you were in life while you read. Choose a year to read it month by month, or search every year for words you wrote, noted, or highlighted. **Download as Markdown** gives the year as one file for a notes folder; **Print it, or save it as a PDF** prints the journal alone, without the menus.
+
+## The reference desk
+
+**Reference desk**, under **Browse**, is for questions you look into across books. Start one, write your thinking so far, and add notes under it: a quotation, your own words, a link, each citing a book of yours and where in it (a page, a chapter, a time in an audiobook). A quote already kept on a book comes across with its page. The notes are grouped by book, and the books cited make a bibliography in Chicago, APA, or MLA style. **Download the research packet** gives the question, the notes, and the bibliography as Markdown.
+
+## Reading in other languages
+
+Reading a book in another language, select a word and choose **Look up**, then **Keep this word**: it is kept with its meaning and the sentence it came in, under the book's language. **Words and passages**, under **Browse**, brings up a few at a time to practise: the word, then its meaning when you ask, and whether you knew it. A word you know comes back after longer each time (a day, then two, four, nine, three weeks, two months) until it is learned; one you don't comes back tomorrow. **Download as flashcards** gives them tab-separated, for Anki or any flashcard app.
+
+**Passages** keeps lines beside their translation, from one edition or two, with the languages and where they are. A book's languages, its translator, and its original title are among its [details](#the-catalog), and [connections](#connections-and-the-map) link an edition to its translation.
 
 ## Quotes
 

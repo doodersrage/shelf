@@ -113,9 +113,15 @@ public static class BookEndpoints
         Trash.Map(books);
         LoanHistory.Map(books);
         Scanning.Map(books);
+        ShelfPhotos.Map(books);
         FileCheck.Map(books);
         DetailReview.Map(books);
         BackupCheck.Map(books);
+        ImportRecipes.Map(books);
+        ReadingDna.Map(books);
+        HouseholdCalendar.Map(books);
+        Research.Map(books);
+        Vocabulary.Map(books);
 
         // Another shelf reaches these with a device key; the rest of the API needs a signed-in reader.
         var sync = app.MapGroup("/books/sync").WithTags("Shelf").RequireAuthorization(SyncEndpoints.Policy);

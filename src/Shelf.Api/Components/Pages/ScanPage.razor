@@ -96,6 +96,48 @@ else
         {
             <p class="scan-last" role="status" aria-live="polite">@Said(read)</p>
         }
+
+        <h3>@T("Or photograph the spines")</h3>
+        <p class="hint">@T("A photo or two of the shelf, spines facing out and in good light: their titles are read and matched to your catalog.")@(session.Kind == ScanKind.Check ? " " + T("Books found that belong here are ticked off.") : "")</p>
+        <label class="button">
+            @(photographing ? T("Reading the spines…") : T("Choose photos"))
+            <input type="file" accept="image/*" multiple @ref="shelfPhotos" @onchange="PhotographShelf" disabled="@photographing" hidden />
+        </label>
+        @if (photo is { } shown)
+        {
+            @if (!shown.CanRead)
+            {
+                <p class="hint">@T("This shelf can't read text in pictures: Tesseract is not installed on the server.")</p>
+            }
+            else if (shown.Matches.Length == 0 && shown.Unmatched.Length == 0)
+            {
+                <p class="hint">@T("No titles could be read. Try closer, straight on, with more light.")</p>
+            }
+            else
+            {
+                <ul class="plain-list">
+                    @foreach (var match in shown.Matches)
+                    {
+                        <li>
+                            <a href="/library/@match.BookId">@match.Title</a> <span class="hint">@match.Author</span>
+                            <span class="hint">@(match.Seen ? T("ticked off") : match.Location is { } at ? T("noted at {0}", at) : T("no place noted")) · @T("{0}% sure", match.Score)</span>
+                        </li>
+                    }
+                </ul>
+                @if (shown.Unmatched.Length > 0)
+                {
+                    <details>
+                        <summary>@T("Read, but not in your catalog")</summary>
+                        <ul class="plain-list">
+                            @foreach (var line in shown.Unmatched)
+                            {
+                                <li><span>@line</span> <a href="@($"/find?q={Uri.EscapeDataString(line)}")">@T("Look it up")</a></li>
+                            }
+                        </ul>
+                    </details>
+                }
+            }
+        }
     </section>
 
     @if (session.Kind == ScanKind.Add)
@@ -225,6 +267,32 @@ else
 
     private ElementReference video;
     private ElementReference photoInput;
+    private ElementReference shelfPhotos;
+    private ShelfPhotoResult? photo;
+    private bool photographing;
+
+    private async Task PhotographShelf()
+    {
+        if (module is null || session is null)
+        {
+            return;
+        }
+
+        photographing = true;
+        try
+        {
+            photo = await module.InvokeAsync<ShelfPhotoResult?>("photographShelf", shelfPhotos, session.Id);
+            await RefreshAsync();
+        }
+        catch (JSException)
+        {
+            (problem, note) = (true, T("Those photos could not be sent. Try one at a time."));
+        }
+        finally
+        {
+            photographing = false;
+        }
+    }
     private IJSObjectReference? module;
     private IJSObjectReference? watcher;
     private DotNetObjectReference<ScanPage>? self;

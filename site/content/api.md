@@ -15,7 +15,11 @@ A script or a home dashboard signs in with an API token. Make one on **Account**
 curl -s -H "Authorization: Bearer $SHELF_TOKEN" https://shelf.example.org/books?status=Reading
 ```
 
-A token opens the calls on this page under `/books`, `/settings`, and `/readers`. Under **What it opens**, a token can be kept to some of them: the library (books, reading, lending, collections, goals, and settings), files (e-books, recordings, covers, pictures of a copy, backups, and the file check), the journal, book clubs, and the event feed. Leave every box clear for all of them; a call outside a token's parts is refused with 403, and `/version` is open to every token. Send `"areas": ["journal", "events"]` to make one through the API. It never opens the account (passwords, keys, other tokens) or the admin pages, so a token that leaks cannot take the account over; remove it on **Account** and it stops working at once. A read-only token is refused anything but `GET`, with 403. Account shows when each token was last used.
+A token opens the calls on this page under `/books`, `/settings`, and `/readers`. Under **What it opens**, a token can be kept to some of them: the library (books, reading, lending, collections, goals, and settings), files (e-books, recordings, covers, pictures of a copy, backups, and the file check), the journal, book clubs, and the event feed. Leave every box clear for all of them; a call outside a token's parts is refused with 403, and `/version` is open to every token. Send `"areas": ["journal", "events"]` to make one through the API. It never opens the account (passwords, keys, other tokens, the sandbox) or the admin pages, so a token that leaks cannot take the account over; remove it on **Account** and it stops working at once. A read-only token is refused anything but `GET`, with 403. Account shows when each token was last used.
+
+### Trying a connector on a sandbox
+
+On **Account**, **Sandbox**, **Make a sandbox token** gives a token for a shelf of a dozen sample books instead of yours: a connector, a script, or a webhook can be tried on it, writing included, before it is given the real one. Everything under `/books` works the same there, webhooks and the event feed too, but it is a reader of its own that no one signs in as: no other reader sees it, it lends to and asks no one, and it is in no club. **Put the samples back as they were** resets it and its tokens go on working; **Remove the sandbox** ends it and them.
 
 ### Home Assistant
 
@@ -152,6 +156,8 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | `GET /books/export/full` | A zip of the JSON with every e-book, audiobook, and cover picture. `POST /books/import/full` with `file` restores one. |
 | `POST /books/import/csv` | A Goodreads or StoryGraph CSV export as `file`. |
 
+| `GET /books/import/recipes` | Your import recipes. `POST /books/import/recipes/preview` with `file` (and a `spec` or `recipeId`, or neither to guess one) answers with the file's columns, the recipe, the words in its status column, and its first rows as they would come in; `POST /books/import/recipes/import` with `file`, the same, and `saveAs` to keep the recipe brings it in. A `spec` is `{"columns": {"Title": "Book Name", "Author": "By"}, "statuses": {"wishlist": "Want"}, "tagSeparator": ";", "dateFormat": "dd.MM.yyyy", "ratingOutOfTen": true}`. `DELETE /books/import/recipes/{id}` forgets one. |
+
 `GET /books/export/full` also carries `README.md`, `books.csv`, `collections.json`, `loans.json`, and `borrowed-highlights.json`; the README says what each holds.
 
 ## Trash, history, and undo
@@ -163,6 +169,16 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | `GET /books/changes` | Changes to many books at once, newest first: kind (`Edit`, `Delete`, `Import`, `Scan`, `Details`, `Undo`), how many books, and whether it can still be undone. `POST /books/changes/{id}/undo` undoes one. |
 | `GET /books/backups` | The nightly backups and whether each was proved to restore. `GET /books/backups/{name}/books?q=` lists your books in one that aren't on your shelf now; `POST /books/backups/{name}/books/{id}/restore` brings one back. |
 
+## Your reading
+
+| Call | What it does |
+| --- | --- |
+| `GET /books/dna` | Your reading DNA: subjects and authors read most, with their share; the main subjects of recent years; subjects rising and fading; subjects and authors owned but hardly read; and books long waiting that fit, each with its reasons. |
+| `GET /books/agenda` | Your calendar from two weeks back for a year, or `?from=&until=`: each item's kind (`Lent`, `Borrowed`, `Meeting`, `Plan`, `Goal`), day, moment for a meeting, and words. |
+| `GET /books/research` | Your research questions. `POST {"question": "…"}` starts one; `GET`, `PUT`, and `DELETE /books/research/{id}` read, change, and remove one, `?style=Chicago`, `Apa`, or `Mla` for its bibliography. `POST /books/research/{id}/notes` with `{"bookId": 4, "place": "p. 12", "quote": "…", "text": "…", "link": "…"}` adds a note; `POST /books/research/{id}/quotes/{quoteId}` brings a kept quote; `GET /books/research/{id}/packet.md` is the packet. |
+| `GET /books/words` | Words kept, `?language=`, `?bookId=`, or `?due=true` for those to practise. `POST {"word": "…", "meaning": "…", "context": "…", "bookId": 4}` keeps one; `POST /books/words/{id}/review` with `{"knew": true}` records a practice; `GET /books/words/languages` counts them; `GET /books/words/cards.txt` is them as flashcards. |
+| `GET /books/passages` | Passages beside their translations. `POST {"original": "…", "translation": "…", "bookId": 4, "originalLanguage": "French", "translationLanguage": "English"}` keeps one. |
+
 ## Scanning
 
 | Call | What it does |
@@ -171,6 +187,7 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | `POST /books/scans/{id}/codes` | `{"isbn": "9780441478125"}` reads a code. A check answers with `Here`, `Again`, `Elsewhere` (with the place it's noted at), or `Unknown`. `DELETE /books/scans/{id}/codes/{isbn}` takes a code off the list. |
 | `POST /books/scans/{id}/add` | `{"isbns": […], "status": "Want"}` adds the books read in an adding run, together. Answers with how many were added and skipped, and the change to undo them by. |
 | `GET /books/scans/{id}/books` | The books a check expects at its place, and whether each has been seen. `POST /books/scans/{id}/seen/{bookId}` ticks one off by hand, `?moveHere=true` noting it at this place. |
+| `POST /books/scans/photo` | Photos of a shelf as `files` (each turned as the spines read), with `scanId` to tick off what is found in a check. Answers with the books matched and how sure, and the lines read that match none. |
 | `POST /books/scans/{id}/finish` | `{"tagMissing": true}` ends a check, tagging the books not seen `missing`. `GET /books/scans/places` lists the places your books are kept. |
 
 ## Tidying
@@ -219,6 +236,7 @@ done
 | `GET /account/sessions` | Your signed-in devices. `DELETE /account/sessions/{id}` signs one out. |
 | `GET /account/passkeys` | Your passkeys. `DELETE /account/passkeys/{id}` removes one. |
 | `GET /account/tokens` | Your API tokens. `POST {"name": "…", "canChange": false}` makes one and answers with it, once; `DELETE /account/tokens/{id}` removes one. Only with the browser's sign-in, not a token. |
+| `GET /account/sandbox` | Your sandbox: how many books, and its tokens; nothing when there is none. `POST /account/sandbox/tokens` with `{"name": "…", "canChange": true}` makes a token for it, making the sandbox the first time; `POST /account/sandbox/reset` puts the samples back; `DELETE /account/sandbox` removes it. Only with the browser's sign-in. |
 | `PUT /account/email` | `{"email": "you@example.org", "reminders": true}`. `POST /account/email/test` sends a test. |
 | `POST /account/signout` | Sign out of this browser. |
 

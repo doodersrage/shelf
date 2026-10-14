@@ -65,31 +65,34 @@ public static class Feeds
             return Results.NotFound();
         }
 
-        var lent = await db.Books.IgnoreQueryFilters().AsNoTracking().Where(book => book.OwnerId == reader.Id && book.LoanedTo != null && book.DueOn != null)
-            .Select(book => new { book.Id, book.Title, book.LoanedTo, Due = book.DueOn!.Value }).ToListAsync(cancellationToken);
-        var borrowed = await db.Books.IgnoreQueryFilters().AsNoTracking().Where(book => book.BorrowerId == reader.Id && book.DueOn != null)
-            .Select(book => new { book.Id, book.Title, Owner = book.Owner!.Name, Due = book.DueOn!.Value }).ToListAsync(cancellationToken);
-        var visiting = await db.Books.IgnoreQueryFilters().AsNoTracking().Where(book => book.OwnerId == reader.Id && book.VisitingDueOn != null)
-            .Select(book => new { book.Id, book.Title, Owner = book.VisitingOwner ?? "", Due = book.VisitingDueOn!.Value }).ToListAsync(cancellationToken);
-
-        var events = new List<(string Uid, DateOnly Day, string Summary)>();
+        // Loans due either way, however far off or overdue, the reader's club meetings at their moment, plans, and goals.
+        List<CalendarItem> items;
         using (Speaking(reader.Language))
         {
-            events.AddRange(lent.Select(book => ($"lent-{book.Id}", book.Due, T("{0} is due back from {1}", book.Title, book.LoanedTo!))));
-            events.AddRange(borrowed.Concat(visiting).Select(book => ($"borrowed-{book.Id}", book.Due, T("Give {0} back to {1}", book.Title, book.Owner))));
+            items = await HouseholdCalendar.ItemsAsync(db, reader.Id, DateOnly.MinValue, DateOnly.MaxValue, cancellationToken);
         }
 
         var stamp = DateTime.UtcNow.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture);
         var ics = new StringBuilder("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Shelf//Loans//EN\r\nCALSCALE:GREGORIAN\r\nX-WR-CALNAME:")
             .Append(Escape(T("Loans on Shelf"))).Append("\r\n");
-        foreach (var (uid, day, summary) in events)
+        foreach (var item in items)
         {
             ics.Append("BEGIN:VEVENT\r\n")
-                .Append("UID:").Append(uid).Append("-").Append(reader.Id).Append("@shelf\r\n")
-                .Append("DTSTAMP:").Append(stamp).Append("\r\n")
-                .Append("DTSTART;VALUE=DATE:").Append(day.ToString("yyyyMMdd", CultureInfo.InvariantCulture)).Append("\r\n")
-                .Append("DTEND;VALUE=DATE:").Append(day.AddDays(1).ToString("yyyyMMdd", CultureInfo.InvariantCulture)).Append("\r\n")
-                .Append("SUMMARY:").Append(Escape(summary)).Append("\r\n")
+                .Append("UID:").Append(item.Uid).Append("-").Append(reader.Id).Append("@shelf\r\n")
+                .Append("DTSTAMP:").Append(stamp).Append("\r\n");
+            if (item.At is DateTimeOffset at)
+            {
+                // A meeting is an hour from the moment it begins, in UTC, which every calendar shows in its own zone.
+                ics.Append("DTSTART:").Append(at.UtcDateTime.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture)).Append("\r\n")
+                    .Append("DTEND:").Append(at.UtcDateTime.AddHours(1).ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture)).Append("\r\n");
+            }
+            else
+            {
+                ics.Append("DTSTART;VALUE=DATE:").Append(item.Day.ToString("yyyyMMdd", CultureInfo.InvariantCulture)).Append("\r\n")
+                    .Append("DTEND;VALUE=DATE:").Append(item.Day.AddDays(1).ToString("yyyyMMdd", CultureInfo.InvariantCulture)).Append("\r\n");
+            }
+
+            ics.Append("SUMMARY:").Append(Escape(item.Text)).Append("\r\n")
                 .Append("END:VEVENT\r\n");
         }
 

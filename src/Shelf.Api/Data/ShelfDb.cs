@@ -102,6 +102,11 @@ public class ShelfDb : DbContext
     public DbSet<FileRecord> FileRecords => Set<FileRecord>();
     public DbSet<NotDuplicate> NotDuplicates => Set<NotDuplicate>();
     public DbSet<DetailProposal> DetailProposals => Set<DetailProposal>();
+    public DbSet<ImportRecipe> ImportRecipes => Set<ImportRecipe>();
+    public DbSet<ResearchTopic> ResearchTopics => Set<ResearchTopic>();
+    public DbSet<ResearchNote> ResearchNotes => Set<ResearchNote>();
+    public DbSet<VocabularyWord> VocabularyWords => Set<VocabularyWord>();
+    public DbSet<ParallelPassage> ParallelPassages => Set<ParallelPassage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -274,6 +279,67 @@ public class ShelfDb : DbContext
             pair.HasOne<Book>().WithMany().HasForeignKey(item => item.OtherId).OnDelete(DeleteBehavior.Cascade);
             pair.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
             pair.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<ImportRecipe>(recipe =>
+        {
+            recipe.Property(item => item.Name).HasMaxLength(ImportRecipe.MaxNameLength).IsRequired();
+            recipe.Property(item => item.Spec).IsRequired();
+            recipe.HasIndex(item => new { item.OwnerId, item.Name }).IsUnique();
+            recipe.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            recipe.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<ResearchTopic>(topic =>
+        {
+            topic.Property(item => item.Question).HasMaxLength(ResearchTopic.MaxQuestionLength).IsRequired();
+            topic.Property(item => item.Notes).HasMaxLength(ResearchTopic.MaxNotesLength);
+            topic.HasIndex(item => item.OwnerId);
+            topic.HasMany(item => item.Entries).WithOne(item => item.Topic).HasForeignKey(item => item.TopicId).OnDelete(DeleteBehavior.Cascade);
+            topic.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            topic.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        // A note outlives the book it cites, as the reader's own words.
+        modelBuilder.Entity<ResearchNote>(note =>
+        {
+            note.Property(item => item.Place).HasMaxLength(ResearchNote.MaxPlaceLength);
+            note.Property(item => item.Quote).HasMaxLength(ResearchNote.MaxQuoteLength);
+            note.Property(item => item.Text).HasMaxLength(ResearchNote.MaxTextLength);
+            note.Property(item => item.Link).HasMaxLength(ResearchNote.MaxLinkLength);
+            note.HasIndex(item => item.TopicId);
+            note.HasIndex(item => item.BookId);
+            note.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.SetNull);
+            note.HasQueryFilter(item => item.Topic!.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<VocabularyWord>(word =>
+        {
+            word.Property(item => item.Word).HasMaxLength(VocabularyWord.MaxWordLength).IsRequired();
+            word.Property(item => item.Language).HasMaxLength(VocabularyWord.MaxLanguageLength).IsRequired();
+            word.Property(item => item.Meaning).HasMaxLength(VocabularyWord.MaxMeaningLength);
+            word.Property(item => item.Context).HasMaxLength(VocabularyWord.MaxContextLength);
+            word.Property(item => item.Note).HasMaxLength(VocabularyWord.MaxNoteLength);
+            word.HasIndex(item => new { item.OwnerId, item.Language, item.Word }).IsUnique();
+            word.HasIndex(item => new { item.OwnerId, item.DueOn });
+            word.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.SetNull);
+            word.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            word.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<ParallelPassage>(passage =>
+        {
+            passage.Property(item => item.Original).HasMaxLength(ParallelPassage.MaxTextLength).IsRequired();
+            passage.Property(item => item.Translation).HasMaxLength(ParallelPassage.MaxTextLength).IsRequired();
+            passage.Property(item => item.OriginalLanguage).HasMaxLength(40);
+            passage.Property(item => item.TranslationLanguage).HasMaxLength(40);
+            passage.Property(item => item.Place).HasMaxLength(40);
+            passage.Property(item => item.Note).HasMaxLength(1000);
+            passage.HasIndex(item => item.OwnerId);
+            passage.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.SetNull);
+            passage.HasOne<Book>().WithMany().HasForeignKey(item => item.OtherBookId).OnDelete(DeleteBehavior.SetNull);
+            passage.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            passage.HasQueryFilter(item => item.OwnerId == ReaderId);
         });
 
         modelBuilder.Entity<DetailProposal>(proposal =>
@@ -635,6 +701,7 @@ public class ShelfDb : DbContext
         modelBuilder.Entity<Reader>(reader =>
         {
             reader.HasOne<Reader>().WithMany().HasForeignKey(r => r.GuardianId).OnDelete(DeleteBehavior.SetNull);
+            reader.HasOne<Reader>().WithMany().HasForeignKey(r => r.SandboxOf).OnDelete(DeleteBehavior.Restrict);
             reader.Property(r => r.Name).HasMaxLength(ReaderRules.MaxNameLength).IsRequired();
             reader.Property(r => r.NormalizedName).HasMaxLength(ReaderRules.MaxNameLength).IsRequired();
             reader.Property(r => r.PasswordHash).HasMaxLength(200).IsRequired();

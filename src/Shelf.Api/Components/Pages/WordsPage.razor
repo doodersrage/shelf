@@ -1,0 +1,188 @@
+@page "/words"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("Words and passages") · Shelf</PageTitle>
+
+<h1>@T("Words and passages")</h1>
+<p class="hint">@T("For reading in other languages: words kept from the books, with what they mean and the sentence they came in, to practise a few at a time; and passages beside their translations.") @T("Keep a word while reading by selecting it and choosing Look up.")</p>
+
+@if (languages.Length > 0)
+{
+    <section class="panel">
+        <h2>@T("Practice")</h2>
+        <div class="chips">
+            @foreach (var count in languages)
+            {
+                <button type="button" class="chip" aria-pressed="@(language == count.Language ? "true" : "false")" @onclick="() => Choose(count.Language)">@count.Language</button>
+            }
+        </div>
+        @if (languages.FirstOrDefault(count => count.Language == language) is { } chosen)
+        {
+            <p class="hint">@T("{0} words, {1} learned, {2} due", chosen.Words, chosen.Learned, chosen.Due)</p>
+        }
+        @if (due.Length == 0)
+        {
+            <p class="hint">@T("Nothing to practise today.")</p>
+        }
+        else
+        {
+            var card = due[0];
+            <div class="word-card" aria-live="polite">
+                <p class="word" lang="@LanguageTag(card.Language)">@card.Word</p>
+                @if (revealed)
+                {
+                    <p>@(card.Meaning ?? T("No meaning kept yet."))</p>
+                    @if (card.Context is { } context)
+                    {
+                        <p class="hint" lang="@LanguageTag(card.Language)">“@context”@(card.Title is { } title ? " — " + title : "")</p>
+                    }
+                    <button type="button" class="primary" @onclick="() => Review(card, true)">@T("I knew it")</button>
+                    <button type="button" @onclick="() => Review(card, false)">@T("Not yet")</button>
+                }
+                else
+                {
+                    <button type="button" class="primary" @onclick="() => revealed = true">@T("Show the meaning")</button>
+                }
+                <p class="hint">@(due.Length == 1 ? T("1 left today") : T("{0} left today", due.Length))</p>
+            </div>
+        }
+        <p class="hint"><a href="/books/words/cards.txt?language=@Uri.EscapeDataString(language ?? "")" download="words.txt">@T("Download as flashcards")</a> @T("(tab-separated, for Anki or any flashcard app)")</p>
+    </section>
+
+    <section class="panel">
+        <h2>@T("Your words")</h2>
+        <ul class="plain-list">
+            @foreach (var word in words)
+            {
+                <li>
+                    <strong lang="@LanguageTag(word.Language)">@word.Word</strong>
+                    <span>@word.Meaning</span>
+                    <span class="hint">@(word.Learned ? T("learned") : T("due {0}", word.DueOn.Medium()))@(word.Title is { } title ? " · " + title : "")</span>
+                    <button type="button" class="quiet" @onclick="() => Remove(word.Id)" aria-label="@T("Remove {0}", word.Word)">@T("Remove")</button>
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+<section class="panel">
+    <h2>@T("Keep a word")</h2>
+    <div class="recipe-grid">
+        <label>@T("Word or phrase") <input maxlength="@VocabularyWord.MaxWordLength" @bind="newWord" /></label>
+        <label>@T("Language") <input maxlength="@VocabularyWord.MaxLanguageLength" @bind="newLanguage" placeholder="@(language ?? "French")" /></label>
+        <label>@T("Meaning") <input maxlength="@VocabularyWord.MaxMeaningLength" @bind="newMeaning" /></label>
+    </div>
+    <button type="button" @onclick="Keep" disabled="@string.IsNullOrWhiteSpace(newWord)">@T("Keep it")</button>
+</section>
+
+<section class="panel">
+    <h2>@T("Passages")</h2>
+    @foreach (var passage in passages)
+    {
+        <div class="passage-pair">
+            <blockquote lang="@LanguageTag(passage.OriginalLanguage)"><p>@passage.Original</p></blockquote>
+            <blockquote lang="@LanguageTag(passage.TranslationLanguage)"><p>@passage.Translation</p></blockquote>
+        </div>
+        <p class="hint">
+            @(passage.Title ?? "")@(passage.OtherTitle is { } other ? " · " + other : "")@(passage.Place is { } at ? " · " + at : "")
+            <button type="button" class="quiet" @onclick="() => RemovePassage(passage.Id)">@T("Remove")</button>
+        </p>
+    }
+    <div class="passage-pair">
+        <label>@T("The passage") <textarea rows="3" maxlength="@ParallelPassage.MaxTextLength" @bind="original"></textarea></label>
+        <label>@T("Its translation") <textarea rows="3" maxlength="@ParallelPassage.MaxTextLength" @bind="translation"></textarea></label>
+        <label>@T("Its language") <input maxlength="40" @bind="originalLanguage" /></label>
+        <label>@T("The translation's language") <input maxlength="40" @bind="translationLanguage" /></label>
+    </div>
+    <label>@T("Where in the book (optional)") <input maxlength="40" @bind="passagePlace" /></label>
+    <button type="button" @onclick="AddPassage" disabled="@(string.IsNullOrWhiteSpace(original) || string.IsNullOrWhiteSpace(translation))">@T("Keep the passage")</button>
+</section>
+
+@code {
+    private LanguageCount[] languages = [];
+    private string? language;
+    private WordView[] due = [];
+    private WordView[] words = [];
+    private bool revealed;
+    private PassageView[] passages = [];
+    private string? newWord;
+    private string? newLanguage;
+    private string? newMeaning;
+    private string? original;
+    private string? translation;
+    private string? originalLanguage;
+    private string? translationLanguage;
+    private string? passagePlace;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        languages = await Vocabulary.LanguagesAsync(db);
+        language = languages.Any(count => count.Language == language) ? language : languages.FirstOrDefault()?.Language;
+        due = language is null ? [] : await Vocabulary.ListAsync(db, language, null, true);
+        words = language is null ? [] : await Vocabulary.ListAsync(db, language, null, false);
+        passages = await Vocabulary.PassagesAsync(db, null);
+    }
+
+    // A language as the page names it, for the browser's voice and hyphenation, when it is one it knows.
+    private static string? LanguageTag(string? language) => language is null ? null : WordLookups.LanguageOf(language);
+
+    private async Task Choose(string chosen)
+    {
+        (language, revealed) = (chosen, false);
+        await LoadAsync();
+    }
+
+    private async Task Review(WordView card, bool knew)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Vocabulary.ReviewAsync(db, card.Id, knew);
+        revealed = false;
+        await LoadAsync();
+    }
+
+    private async Task Remove(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.VocabularyWords.Where(word => word.Id == id).ExecuteDeleteAsync();
+        await LoadAsync();
+    }
+
+    private async Task Keep()
+    {
+        var request = new WordRequest(newWord ?? "", newLanguage ?? language, newMeaning);
+        if (Vocabulary.Validate(request) is not null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var kept = await Vocabulary.KeepAsync(db, request);
+        (language, newWord, newMeaning) = (kept?.Language ?? language, null, null);
+        await LoadAsync();
+    }
+
+    private async Task AddPassage()
+    {
+        var request = new PassageRequest(original ?? "", translation ?? "", null, null, originalLanguage, translationLanguage, passagePlace);
+        if (Vocabulary.Validate(request) is not null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Vocabulary.AddPassageAsync(db, request);
+        (original, translation, passagePlace) = (null, null, null);
+        await LoadAsync();
+    }
+
+    private async Task RemovePassage(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.ParallelPassages.Where(passage => passage.Id == id).ExecuteDeleteAsync();
+        await LoadAsync();
+    }
+}

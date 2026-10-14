@@ -249,3 +249,41 @@ export async function readPhoto(input) {
     return null;
   }
 }
+
+// Photos of a shelf, for reading its spines on the server. Spines stand on end, so each photo goes as it is and
+// turned a quarter each way; each is made no larger than the server reads well. Answers with what was found.
+export async function photographShelf(input, scanId) {
+  const files = [...(input.files ?? [])].slice(0, 6);
+  input.value = "";
+  if (files.length === 0) {
+    return null;
+  }
+
+  const form = new FormData();
+  for (const file of files) {
+    const image = await createImageBitmap(file);
+    const scale = Math.min(1, 2400 / Math.max(image.width, image.height));
+    const width = Math.round(image.width * scale);
+    const height = Math.round(image.height * scale);
+    for (const turn of [0, 90, 270]) {
+      const canvas = document.createElement("canvas");
+      const sideways = turn !== 0;
+      canvas.width = sideways ? height : width;
+      canvas.height = sideways ? width : height;
+      const context = canvas.getContext("2d");
+      context.translate(canvas.width / 2, canvas.height / 2);
+      context.rotate((turn * Math.PI) / 180);
+      context.drawImage(image, -width / 2, -height / 2, width, height);
+      const blob = await new Promise((done) => canvas.toBlob(done, "image/png"));
+      form.append("files", blob, `shelf-${turn}.png`);
+    }
+    image.close?.();
+  }
+
+  if (scanId) {
+    form.append("scanId", String(scanId));
+  }
+
+  const response = await fetch("/books/scans/photo", { method: "POST", body: form, credentials: "same-origin" });
+  return response.ok ? await response.json() : null;
+}

@@ -247,6 +247,7 @@ builder.Services.AddSingleton<OffsiteBackup>();
 builder.Services.AddSingleton<BackupSchedule>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<BackupSchedule>());
 builder.Services.AddSingleton<BackupCheck>();
+builder.Services.AddSingleton<Sandbox>();
 builder.Services.AddSingleton<OcrTools>();
 builder.Services.AddHostedService<FileSweep>();
 // Every stored file read through once a week and checked against what it was (FileCheck:Days).
@@ -457,6 +458,7 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.MapAccounts();
 app.MapAdmin();
+Sandbox.Map(app);
 app.MapOpds();
 Kosync.Map(app);
 app.MapGet("/version", () => TypedResults.Ok(ShelfVersion.Response)).WithTags("Shelf").AllowAnonymous();

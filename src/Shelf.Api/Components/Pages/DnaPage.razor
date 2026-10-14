@@ -1,0 +1,105 @@
+@page "/dna"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("Reading DNA") · Shelf</PageTitle>
+
+<h1>@T("Reading DNA")</h1>
+<p class="hint">@T("What your own shelf says about your reading: the subjects and authors you return to, how that has changed, what you own but leave alone, and books long on the shelf that fit you. It is worked out here when you open this page, from your shelf alone, and kept nowhere.")</p>
+
+@if (dna is null)
+{
+}
+else if (dna.Read < 5)
+{
+    <EmptyState Title="@T("Not enough read yet")" Text="@T("Once five or so books are marked read, with their tags, this page has something to say.")" ActionHref="/library" ActionLabel="@T("Open the library")" />
+}
+else
+{
+    <section class="panel">
+        <h2>@T("What you return to")</h2>
+        <p class="hint">@T("Out of {0} read. Books loved or rated highly count for more in the order.", dna.Read.ToString("N0"))</p>
+        <ul class="dna-bars">
+            @foreach (var strand in dna.Themes)
+            {
+                <li>
+                    <a href="@strand.Href">@strand.Name</a>
+                    <span class="bar" aria-hidden="true"><span style="width: @(Math.Max(2, strand.Share))%"></span></span>
+                    <span class="hint">@T("{0} read, {1}%", strand.Read, strand.Share)</span>
+                </li>
+            }
+        </ul>
+        @if (dna.Authors.Length > 0)
+        {
+            <h3>@T("Authors")</h3>
+            <p>
+                @foreach (var (author, at) in dna.Authors.Select((author, at) => (author, at)))
+                {
+                    @(at > 0 ? " · " : "")<a href="@author.Href">@author.Name</a> <span class="hint">(@author.Read)</span>
+                }
+            </p>
+        }
+    </section>
+
+    @if (dna.Years.Length > 1 || dna.Rising.Length > 0 || dna.Fading.Length > 0)
+    {
+        <section class="panel">
+            <h2>@T("How it has changed")</h2>
+            @if (dna.Rising.Length > 0)
+            {
+                <p>@T("More of late: {0}.", string.Join(", ", dna.Rising))</p>
+            }
+            @if (dna.Fading.Length > 0)
+            {
+                <p>@T("Less than before: {0}.", string.Join(", ", dna.Fading))</p>
+            }
+            <ul class="plain-list">
+                @foreach (var year in dna.Years)
+                {
+                    <li><a href="/years/@year.Year">@year.Year</a> <span class="hint">@Localization.Counts.Books(year.Read)</span> <span>@string.Join(", ", year.Themes)</span></li>
+                }
+            </ul>
+        </section>
+    }
+
+    @if (dna.Unexplored.Length > 0)
+    {
+        <section class="panel">
+            <h2>@T("Owned, but left alone")</h2>
+            <p class="hint">@T("Subjects and authors you have plenty of on the shelf and have hardly read.")</p>
+            <ul class="plain-list">
+                @foreach (var gap in dna.Unexplored)
+                {
+                    <li><a href="@gap.Href">@gap.Name</a> <span class="hint">@T("{0} unread, {1} read", gap.Unread, gap.Read)</span></li>
+                }
+            </ul>
+        </section>
+    }
+
+    @if (dna.Forgotten.Length > 0)
+    {
+        <section class="panel">
+            <h2>@T("Waiting on your shelf")</h2>
+            <p class="hint">@T("Books you have had a year or more and not begun, that fit what you read. Each says why.")</p>
+            <ul class="plain-list">
+                @foreach (var book in dna.Forgotten)
+                {
+                    <li>
+                        <a href="/library/@book.Id">@book.Title</a> <span class="hint">@book.Author</span>
+                        <p class="hint">@string.Join(" · ", book.Reasons)</p>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+}
+
+@code {
+    private ReadingDnaView? dna;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        dna = await ReadingDna.BuildAsync(db, DateOnly.FromDateTime(DateTime.UtcNow));
+    }
+}

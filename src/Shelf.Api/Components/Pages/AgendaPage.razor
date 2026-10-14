@@ -1,0 +1,70 @@
+@page "/agenda"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("Calendar") · Shelf</PageTitle>
+
+<h1>@T("Calendar")</h1>
+<p class="hint">@T("What the household's reading asks of you, and when: books due back either way, your clubs' meetings, collections to read by a day, and the end of your goals' year. Only what is yours, or what you share with someone, is here; no one's reading is shown to anyone else.")</p>
+<p class="hint">@T("To see it in a calendar app, make a calendar address under Account.") <a href="/account#feeds">@T("Account")</a></p>
+
+@if (items is null)
+{
+}
+else if (items.Count == 0)
+{
+    <EmptyState Title="@T("Nothing coming up")" Text="@T("Loans with a due date, club meetings, and collections with a day to read them by appear here.")" ActionHref="/loans" ActionLabel="@T("Open Loans")" />
+}
+else
+{
+    @foreach (var month in items.GroupBy(item => new DateOnly(item.Day.Year, item.Day.Month, 1)))
+    {
+        <section class="panel">
+            <h2>@month.Key.MonthYear()</h2>
+            @foreach (var day in month.GroupBy(item => item.Day))
+            {
+                <div class="agenda-day">
+                    <strong class="@(day.Key < Today ? "hint" : day.Key == Today ? "saved" : null)">@(day.Key == Today ? T("Today") : day.Key.Medium())</strong>
+                    <ul>
+                        @foreach (var item in day)
+                        {
+                            <li>
+                                <span class="hint">@Kind(item.Kind)@(item.At is DateTimeOffset at ? " · " + ClubMeetings.Say(at, item.Zone) : "")</span>
+                                <br />
+                                @if (item.Href is { } href)
+                                {
+                                    <a href="@href">@item.Text</a>
+                                }
+                                else
+                                {
+                                    @item.Text
+                                }
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        </section>
+    }
+}
+
+@code {
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+
+    private List<CalendarItem>? items;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        items = await HouseholdCalendar.ItemsAsync(db, db.ReaderId, Today.AddDays(-14), Today.AddYears(1));
+    }
+
+    private static string Kind(CalendarKind kind) => kind switch
+    {
+        CalendarKind.Lent => T("Due back to you"),
+        CalendarKind.Borrowed => T("To give back"),
+        CalendarKind.Meeting => T("Club meeting"),
+        CalendarKind.Plan => T("Reading plan"),
+        _ => T("Goal"),
+    };
+}

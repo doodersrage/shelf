@@ -220,7 +220,7 @@ public static partial class LibraryCsv
     }
 
     // Goodreads writes titles as "A Wizard of Earthsea (Earthsea Cycle, #1)".
-    private static (string? Title, string? Series, int? Number) SplitSeries(string? value)
+    internal static (string? Title, string? Series, int? Number) SplitSeries(string? value)
     {
         if (value is null)
         {
@@ -242,7 +242,7 @@ public static partial class LibraryCsv
     [GeneratedRegex(@"^(?<title>.+?)\s*\((?<series>[^()#]+?),?\s*#(?<number>[\d.]+)\)\s*$")]
     private static partial Regex SeriesPattern();
 
-    private static string? Value(string[] row, int index)
+    internal static string? Value(string[] row, int index)
     {
         if (index < 0 || index >= row.Length)
         {
@@ -259,37 +259,37 @@ public static partial class LibraryCsv
         return text.Length == 0 ? null : text;
     }
 
-    private static string? Clip(string? value, int max) =>
+    internal static string? Clip(string? value, int max) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim() is var trimmed && trimmed.Length > max ? trimmed[..max] : value.Trim();
 
-    private static string? Isbn(string? value) => BookRules.NormalizeIsbn(value);
+    internal static string? Isbn(string? value) => BookRules.NormalizeIsbn(value);
 
-    private static int? Rating(string? value) =>
+    internal static int? Rating(string? value) =>
         double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var stars) && stars > 0
             ? Math.Clamp((int)Math.Round(stars, MidpointRounding.AwayFromZero), 1, 5)
             : null;
 
-    private static int? Year(string? value) =>
+    internal static int? Year(string? value) =>
         int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var year) && year is >= 1000 and <= 2100 ? year : null;
 
-    private static int? Pages(string? value) =>
+    internal static int? Pages(string? value) =>
         int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var pages) && pages is >= 1 and <= 20000 ? pages : null;
 
     private static readonly string[] DateFormats = ["yyyy/MM/dd", "yyyy-MM-dd", "yyyy/M/d", "MM/dd/yyyy"];
 
-    private static DateOnly? Date(string? value) =>
+    internal static DateOnly? Date(string? value) =>
         DateOnly.TryParseExact(value, DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ? date : null;
 
-    private static DateTimeOffset? Moment(string? value) =>
+    internal static DateTimeOffset? Moment(string? value) =>
         Date(value) is DateOnly date ? new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero) : null;
 
-    private static string? Review(string? value) =>
+    internal static string? Review(string? value) =>
         value is null ? null : BreakPattern().Replace(value, "\n").Trim();
 
     [GeneratedRegex(@"<br\s*/?>", RegexOptions.IgnoreCase)]
     private static partial Regex BreakPattern();
 
-    private static string[] Tags(IEnumerable<string> tags) =>
+    internal static string[] Tags(IEnumerable<string> tags) =>
         BookRules.CanonicalTags(tags.ToList())
             .Where(tag => tag.Length <= BookRules.MaxTagLength)
             .Take(BookRules.MaxTags)

@@ -1194,6 +1194,38 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("Highlights");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.ImportRecipe", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("LastUsedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Spec")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("ImportRecipes");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.JournalEntry", b =>
                 {
                     b.Property<int>("Id")
@@ -1579,6 +1611,61 @@ namespace Shelf.Api.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("OcrScans");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.ParallelPassage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("BookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Original")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OriginalLanguage")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("OtherBookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Place")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Translation")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TranslationLanguage")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("OtherBookId");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("ParallelPassages");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.PartSummary", b =>
@@ -1979,6 +2066,77 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("RemoteReaders");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.ResearchNote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("BookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Link")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Place")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Quote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Text")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TopicId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("TopicId");
+
+                    b.ToTable("ResearchNotes");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.ResearchTopic", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Question")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("ResearchTopics");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.SavedSearch", b =>
                 {
                     b.Property<int>("Id")
@@ -2313,6 +2471,61 @@ namespace Shelf.Api.Data.Migrations
                     b.HasIndex("OwnerId", "DeletedAt");
 
                     b.ToTable("TrashItems");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.VocabularyWord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("BookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Box")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Context")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("DueOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Meaning")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Word")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("OwnerId", "DueOn");
+
+                    b.HasIndex("OwnerId", "Language", "Word")
+                        .IsUnique();
+
+                    b.ToTable("VocabularyWords");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Webhook", b =>
@@ -2657,6 +2870,9 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<bool>("Restricted")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("SandboxOf")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("ShelfOpen")
                         .HasColumnType("INTEGER");
 
@@ -2693,6 +2909,8 @@ namespace Shelf.Api.Data.Migrations
 
                     b.HasIndex("PublicToken")
                         .IsUnique();
+
+                    b.HasIndex("SandboxOf");
 
                     b.ToTable("Readers");
                 });
@@ -3135,6 +3353,15 @@ namespace Shelf.Api.Data.Migrations
                     b.Navigation("Book");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.ImportRecipe", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.JournalEntry", b =>
                 {
                     b.HasOne("Shelf.Api.Books.Book", null)
@@ -3290,6 +3517,27 @@ namespace Shelf.Api.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.ParallelPassage", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Shelf.Api.Books.Book", null)
+                        .WithMany()
+                        .HasForeignKey("OtherBookId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Book");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.PartSummary", b =>
                 {
                     b.HasOne("Shelf.Api.Books.Book", null)
@@ -3413,6 +3661,33 @@ namespace Shelf.Api.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.ResearchNote", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Shelf.Api.Books.ResearchTopic", "Topic")
+                        .WithMany("Entries")
+                        .HasForeignKey("TopicId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Book");
+
+                    b.Navigation("Topic");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.ResearchTopic", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.SavedSearch", b =>
                 {
                     b.HasOne("Shelf.Api.Readers.Reader", null)
@@ -3463,6 +3738,22 @@ namespace Shelf.Api.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.VocabularyWord", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Book");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.Webhook", b =>
                 {
                     b.HasOne("Shelf.Api.Readers.Reader", null)
@@ -3505,6 +3796,11 @@ namespace Shelf.Api.Data.Migrations
                         .WithMany()
                         .HasForeignKey("GuardianId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("SandboxOf")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Shelf.Api.Readers.ReaderPasskey", b =>
@@ -3570,6 +3866,11 @@ namespace Shelf.Api.Data.Migrations
             modelBuilder.Entity("Shelf.Api.Books.Podcast", b =>
                 {
                     b.Navigation("Episodes");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.ResearchTopic", b =>
+                {
+                    b.Navigation("Entries");
                 });
 #pragma warning restore 612, 618
         }

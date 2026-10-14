@@ -121,6 +121,7 @@
         <p class="hint" data-upload-status role="status" hidden></p>
         <button type="submit" class="quiet">@T("Import this file")</button>
     </form>
+    <p class="hint">@T("From another app or service?") <a href="/import/spreadsheet">@T("Bring in any spreadsheet")</a>, @T("choosing which column holds what.")</p>
     @if (Csv == "done")
     {
         <p class="saved" role="status">@T("Imported from {0}. Added {1}, and skipped {2} already on your shelf or missing a title or author.", Source == "StoryGraph" ? "The StoryGraph" : "Goodreads", Localization.Counts.Books(Added), Skipped)</p>

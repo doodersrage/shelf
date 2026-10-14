@@ -5264,3 +5264,89 @@ html.reading-full body {
         border-radius: 0;
     }
 }
+
+/* A recipe's choices, two or three to a row on a wide screen. */
+.recipe-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: var(--space-2) var(--space-4);
+    margin-bottom: var(--space-3);
+}
+
+/* Reading DNA: bars for a share of what is read. */
+.dna-bars {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: var(--space-2);
+}
+
+.dna-bars li {
+    display: grid;
+    grid-template-columns: minmax(8rem, 14rem) 1fr auto;
+    gap: var(--space-3);
+    align-items: center;
+}
+
+.dna-bars .bar {
+    height: 0.6rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-sunken);
+    overflow: hidden;
+}
+
+.dna-bars .bar span {
+    display: block;
+    height: 100%;
+    background: var(--color-brand);
+}
+
+/* A day in the calendar: its date beside what it holds. */
+.agenda-day {
+    display: grid;
+    grid-template-columns: 7rem 1fr;
+    gap: var(--space-3);
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-rule);
+}
+
+.agenda-day ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* A practice card: the word, then its meaning when asked for. */
+.word-card {
+    text-align: center;
+    padding: var(--space-6) var(--space-4);
+}
+
+.word-card .word {
+    font-family: var(--font-serif);
+    font-size: var(--text-2xl);
+    margin: 0 0 var(--space-3);
+}
+
+.passage-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+}
+
+@media (max-width: 40rem) {
+    .passage-pair,
+    .agenda-day {
+        grid-template-columns: 1fr;
+    }
+
+    .dna-bars li {
+        grid-template-columns: 1fr auto;
+    }
+
+    .dna-bars .bar {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+}

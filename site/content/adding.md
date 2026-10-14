@@ -28,6 +28,10 @@ Choose **Checking a shelf** and the place, such as a room or a box, and go along
 
 A run, either kind, is kept as you go: stop, and take it up again later on any device, from the same page.
 
+### Photographing the spines
+
+In a run, **Or photograph the spines** takes a photo or two of the shelf instead of a barcode at a time. The server reads the titles with Tesseract (the same tool that reads [scanned PDFs](configuration.md#scanned-pdfs-ocr), so it needs to be installed) and matches them to your catalog: on the distinctive words of each title, forgiving a misread letter, with the author's name making a short title sure. In a shelf check, the books found that belong at the place are ticked off. Lines read that match nothing are listed with a link to look them up. Spines stand on end, so the page sends each photo turned both ways too; a photo straight on, in good light, reads best.
+
 ## From files
 
 Under **Add a book**, **Or add from files** takes as many files as you like at once, up to 1 GB in total (`Uploads:MaxAudioMegabytes` changes it), and makes a book of each:
@@ -105,6 +109,12 @@ An admin can bring in a [Calibre](https://calibre-ebook.com) library from the se
 ## From Goodreads or StoryGraph
 
 Export your library as CSV from either service, then upload it on **Backup & restore**. Shelves become statuses and tags, ratings, reviews, and dates come along, and books already on your shelf are skipped.
+
+## From any spreadsheet
+
+For a CSV from any other app or service, **Bring in any spreadsheet** on **Backup & restore** reads the file and guesses which column holds the title, the author, the ISBN, the status, and the rest from their names, in several languages. Change any of them, say what the file's words for a status mean ("gelesen" is finished, "wishlist" is want to read), how it writes dates and separates tags, and whether its ratings are out of ten. The first rows show as they would come in, with the ones that would be skipped and why.
+
+Name it to keep it as a **recipe**: the next export from the same place comes in with one choice. Books already on your shelf are skipped, and the whole import can be [undone at once](library.md#trash-and-undo).
 
 ## Finding new books
 

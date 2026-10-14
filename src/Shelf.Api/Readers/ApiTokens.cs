@@ -111,7 +111,7 @@ public static class ApiTokens
     public static async Task<(NewApiToken? Made, string? Problem)> CreateAsync(ShelfDb db, int readerId, string? name, bool canChange, CancellationToken cancellationToken = default, IEnumerable<string>? areas = null)
     {
         name = name?.Trim();
-        if (await Family.IsRestrictedAsync(db, readerId, cancellationToken))
+        if (await Family.IsChildAsync(db, readerId, cancellationToken))
         {
             return (null, T("A child's account cannot do that. Ask the grown-up who made it."));
         }

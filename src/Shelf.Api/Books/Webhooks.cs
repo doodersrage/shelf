@@ -93,7 +93,7 @@ public sealed class Webhooks(IServiceScopeFactory scopes, IWebhookPoster poster,
 
     public async Task<(NewWebhook? Made, string? Problem)> AddAsync(ShelfDb db, string? url, WebhookFormat format, IEnumerable<string>? events, CancellationToken cancellationToken = default)
     {
-        if (await Family.IsRestrictedAsync(db, cancellationToken: cancellationToken))
+        if (await Family.IsChildAsync(db, cancellationToken: cancellationToken))
         {
             return (null, T("A child's account cannot do that. Ask the grown-up who made it."));
         }

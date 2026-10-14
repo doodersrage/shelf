@@ -31,9 +31,12 @@ test("every page passes an accessibility audit in both themes", async ({ browser
   const kept = await (await page.request.post(`/books/${paper.id}/quotes`, { data: { text: "The sea, the sea." } })).json();
   await page.request.delete(`/books/${paper.id}/quotes/${kept.id}`);
   await page.request.post("/books/scans", { data: { kind: "Check", location: "Study" } });
+  const topic = await (await page.request.post("/books/research", { data: { question: "Why do sailors tell stories?" } })).json();
+  await page.request.post(`/books/research/${topic.id}/notes`, { data: { bookId: book.id, place: "ch. 1", text: "Ishmael frames it all." } });
+  await page.request.post("/books/words", { data: { word: "baleine", language: "French", meaning: "whale" } });
 
   const pages = ["/", "/library", "/reading", "/insights", "/library?view=list", "/library?add=1", `/library/${book.id}`, `/library/${book.id}/read`, `/library/${book.id}/listen`, "/quotes", "/search?q=ishmael",
-    "/free", "/import/audiobookshelf", "/import/calibre", "/authors", "/series", "/places", "/copies", "/recommenders", "/years", `/years/${year}`, "/loans", "/shelves", "/collections", `/collections/${collection.id}`, "/duplicates", "/clubs", `/clubs/${club.id}`, "/stats", "/backup", "/sync", "/account", "/admin", "/next", "/podcasts", "/downloads", "/wanted", "/find", "/find?q=Harbour", "/tidy", "/activity", "/journal", "/map", `/map?book=${book.id}`, "/scan", "/trash", "/labels?place=Study", `/c/${paper.id}`];
+    "/free", "/import/audiobookshelf", "/import/calibre", "/authors", "/series", "/places", "/copies", "/recommenders", "/years", `/years/${year}`, "/loans", "/shelves", "/collections", `/collections/${collection.id}`, "/duplicates", "/clubs", `/clubs/${club.id}`, "/stats", "/backup", "/sync", "/account", "/admin", "/next", "/podcasts", "/downloads", "/wanted", "/find", "/find?q=Harbour", "/tidy", "/activity", "/journal", "/map", `/map?book=${book.id}`, "/scan", "/trash", "/labels?place=Study", `/c/${paper.id}`, "/agenda", "/dna", "/research", `/research/${topic.id}`, "/words", "/import/spreadsheet"];
   const failures = [];
   for (const scheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: scheme });

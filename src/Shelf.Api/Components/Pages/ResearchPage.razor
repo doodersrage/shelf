@@ -1,0 +1,66 @@
+@page "/research"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject NavigationManager Navigation
+
+<PageTitle>@T("Reference desk") · Shelf</PageTitle>
+
+<h1>@T("Reference desk")</h1>
+<p class="hint">@T("Questions you are looking into across your books. Gather notes, quotations, and links under each, each with the book and the page it comes from, then take it away as a bibliography or a research packet.")</p>
+
+<section class="panel">
+    <h2>@T("A new question")</h2>
+    <form @onsubmit="Create" @onsubmit:preventDefault>
+        <label>
+            @T("Question")
+            <input maxlength="@ResearchTopic.MaxQuestionLength" @bind="question" placeholder="@T("Such as: how did medieval libraries lend books?")" />
+        </label>
+        @if (problem is not null)
+        {
+            <p class="validation-message" role="alert">@problem</p>
+        }
+        <button type="submit" class="primary">@T("Start it")</button>
+    </form>
+</section>
+
+@if (topics.Length > 0)
+{
+    <section class="panel">
+        <h2>@T("Your questions")</h2>
+        <ul class="plain-list">
+            @foreach (var topic in topics)
+            {
+                <li>
+                    <a href="/research/@topic.Id">@topic.Question</a>
+                    <span class="hint">@(topic.Notes == 1 ? T("1 note") : T("{0} notes", topic.Notes)) · @Localization.Counts.Books(topic.Books) · @topic.UpdatedAt.Medium()</span>
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+@code {
+    private ResearchTopicSummary[] topics = [];
+    private string? question;
+    private string? problem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        topics = await Research.ListAsync(db);
+    }
+
+    private async Task Create()
+    {
+        var request = new ResearchTopicRequest(question ?? "", null);
+        if (Research.ValidateTopic(request) is { } problems)
+        {
+            problem = problems.Values.First()[0];
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var topic = await Research.CreateAsync(db, request);
+        Navigation.NavigateTo($"/research/{topic.Id}");
+    }
+}

@@ -17,6 +17,7 @@
 @inject HardcoverSync Hardcover
 @inject Notices Notices
 @inject Webhooks WebhookSender
+@inject Sandbox SandboxService
 
 <PageTitle>@T("Account") · Shelf</PageTitle>
 
@@ -302,7 +303,7 @@ else if (pushState is not null)
 <section class="panel" id="feeds">
 <h2>@T("Calendar and public page")</h2>
 <h3>@T("Calendar")</h3>
-<p class="hint">@T("Subscribe to your loans' due dates in a calendar app, such as Google Calendar, Apple Calendar, or Outlook: books lent out, and books to give back.")</p>
+<p class="hint">@T("Subscribe to your calendar in a calendar app, such as Google Calendar, Apple Calendar, or Outlook: books lent out and books to give back, your clubs' meetings, collections to read by a day, and your goals.") <a href="/agenda">@T("See it here")</a></p>
 @if (calendarUrl is not null)
 {
     <p role="status">@T("Your calendar's address, shown only now:") <code class="link-code">@calendarUrl</code></p>
@@ -651,6 +652,39 @@ else if (passkeyChecked)
 }
 </section>
 
+<section class="panel" id="sandbox">
+<h2>@T("Sandbox")</h2>
+<p class="hint">@T("A shelf of a dozen sample books to try a connector, a script, or a webhook on before giving it yours. A sandbox token reads and changes only the samples; no other reader sees them, and they lend to no one. Its webhooks and event feed work like yours.")</p>
+@if (sandbox is not null)
+{
+    <p>@T("{0} in the sandbox.", Localization.Counts.Books(sandbox.Books))</p>
+    @if (sandbox.Tokens.Length > 0)
+    {
+        <ul class="tag-counts">
+            @foreach (var token in sandbox.Tokens)
+            {
+                <li><span>@token.Name</span> <span class="hint">@(token.LastUsedAt is { } used ? T("last used {0}", used.Medium()) : T("not used yet"))</span></li>
+            }
+        </ul>
+    }
+}
+@if (sandboxToken is not null)
+{
+    <p><code class="key">@sandboxToken.Token</code></p>
+    <p class="hint">@T("Copy the token now. It is not shown again.")</p>
+}
+<label class="inline-date">
+    @T("What will use it")
+    <input @bind="sandboxTokenName" maxlength="@ApiToken.MaxNameLength" placeholder="@T("A connector to try")" />
+</label>
+<button type="button" @onclick="MakeSandboxToken">@T("Make a sandbox token")</button>
+@if (sandbox is not null)
+{
+    <button type="button" class="quiet" @onclick="ResetSandbox">@T("Put the samples back as they were")</button>
+    <button type="button" class="quiet danger" @onclick="RemoveSandbox">@T("Remove the sandbox")</button>
+}
+</section>
+
 }
 
 <section class="panel">
@@ -717,6 +751,31 @@ else
     private string? passkeyProblem;
     private IReadOnlyList<ApiTokenSummary> tokens = [];
     private NewApiToken? newToken;
+    private SandboxInfo? sandbox;
+    private NewApiToken? sandboxToken;
+    private string? sandboxTokenName;
+
+    private async Task MakeSandboxToken()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        (sandboxToken, tokenProblem) = await SandboxService.TokenAsync(db, new SandboxTokenRequest(sandboxTokenName));
+        sandbox = await SandboxService.InfoAsync(db);
+        sandboxTokenName = null;
+    }
+
+    private async Task ResetSandbox()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await SandboxService.ResetAsync(db);
+        sandbox = await SandboxService.InfoAsync(db);
+    }
+
+    private async Task RemoveSandbox()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await SandboxService.RemoveAsync(db);
+        (sandbox, sandboxToken) = (null, null);
+    }
     private string tokenName = "";
     private bool tokenCanChange;
     private readonly HashSet<string> tokenAreas = [];
@@ -807,6 +866,7 @@ else
         activity = await Audit.RecentAsync(db, me.Id, take: 20);
         passkeys = await Passkeys.ListAsync(db, me.Id);
         tokens = await ApiTokens.ListAsync(db, me.Id);
+        sandbox = await SandboxService.InfoAsync(db);
         savedEmail = me.Email;
         emailAddress = me.Email ?? "";
         emailReminders = me.EmailReminders;

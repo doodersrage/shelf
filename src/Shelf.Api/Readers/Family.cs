@@ -18,7 +18,15 @@ public static class Family
 {
     public const int MaxChildren = 10;
 
+    // A child's account, or a sandbox: kept apart from the other readers, and from anything they share.
     public static async Task<bool> IsRestrictedAsync(ShelfDb db, int? readerId = null, CancellationToken cancellationToken = default)
+    {
+        var id = readerId ?? db.ReaderId;
+        return id != 0 && await db.Readers.AsNoTracking().AnyAsync(reader => reader.Id == id && (reader.Restricted || reader.SandboxOf != null), cancellationToken);
+    }
+
+    // A child's account only: a sandbox may have its own tokens and webhooks, as trying them is what it is for.
+    public static async Task<bool> IsChildAsync(ShelfDb db, int? readerId = null, CancellationToken cancellationToken = default)
     {
         var id = readerId ?? db.ReaderId;
         return id != 0 && await db.Readers.AsNoTracking().AnyAsync(reader => reader.Id == id && reader.Restricted, cancellationToken);

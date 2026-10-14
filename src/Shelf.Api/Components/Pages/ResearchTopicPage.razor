@@ -1,0 +1,255 @@
+@page "/research/{Id:int}"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject NavigationManager Navigation
+
+<PageTitle>@(topic?.Question ?? T("Reference desk")) · Shelf</PageTitle>
+
+@if (missing)
+{
+    <EmptyState Title="@T("No such question")" Text="@T("It may have been deleted.")" ActionHref="/research" ActionLabel="@T("Open the reference desk")" />
+}
+else if (topic is not null)
+{
+    <p><a href="/research">@T("Reference desk")</a></p>
+    <h1>@topic.Question</h1>
+
+    <section class="panel">
+        <h2>@T("Your thinking so far")</h2>
+        <label>
+            <span class="visually-hidden">@T("Notes")</span>
+            <textarea rows="4" maxlength="@ResearchTopic.MaxNotesLength" @bind="thinking"></textarea>
+        </label>
+        <button type="button" @onclick="SaveThinking">@T("Save")</button>
+        @if (saved)
+        {
+            <span class="saved" role="status">@T("Saved.")</span>
+        }
+    </section>
+
+    <section class="panel">
+        <h2>@T("Add a note")</h2>
+        <label>
+            @T("From the book (optional)")
+            <input @bind="bookSearch" @bind:event="oninput" @bind:after="FindBooks" placeholder="@T("Type a title")" />
+        </label>
+        @if (chosenBook is { } chosen)
+        {
+            <p>@chosen.Title <span class="hint">@chosen.Author</span> <button type="button" class="quiet" @onclick="() => { chosenBook = null; quotes = []; }">@T("Change")</button></p>
+            @if (quotes.Length > 0)
+            {
+                <details>
+                    <summary>@T("Your quotes from it")</summary>
+                    <ul class="plain-list">
+                        @foreach (var quote in quotes)
+                        {
+                            <li><span>“@quote.Text”@(quote.Page is int page ? " · " + T("p. {0}", page) : "")</span> <button type="button" class="quiet" @onclick="() => AddQuote(quote.Id)">@T("Add")</button></li>
+                        }
+                    </ul>
+                </details>
+            }
+        }
+        else if (found.Length > 0)
+        {
+            <ul class="plain-list">
+                @foreach (var book in found)
+                {
+                    <li><span>@book.Title <span class="hint">@book.Author</span></span> <button type="button" class="quiet" @onclick="() => Choose(book)">@T("Choose")</button></li>
+                }
+            </ul>
+        }
+        <label>
+            @T("Where in it")
+            <input maxlength="@ResearchNote.MaxPlaceLength" @bind="place" placeholder="@T("p. 34, ch. 2, 1:02:10")" />
+        </label>
+        <label>
+            @T("Quotation")
+            <textarea rows="2" maxlength="@ResearchNote.MaxQuoteLength" @bind="quoteText"></textarea>
+        </label>
+        <label>
+            @T("Your note")
+            <textarea rows="3" maxlength="@ResearchNote.MaxTextLength" @bind="noteText"></textarea>
+        </label>
+        <label>
+            @T("Link (optional)")
+            <input type="url" maxlength="@ResearchNote.MaxLinkLength" @bind="link" />
+        </label>
+        @if (problem is not null)
+        {
+            <p class="validation-message" role="alert">@problem</p>
+        }
+        <button type="button" class="primary" @onclick="AddNote">@T("Add the note")</button>
+    </section>
+
+    @if (topic.Entries.Length > 0)
+    {
+        <section class="panel">
+            <h2>@T("Notes")</h2>
+            @foreach (var group in topic.Entries.GroupBy(entry => (entry.BookId, entry.Title, entry.Author)))
+            {
+                <h3>@(group.Key.Title is { } title ? title : T("Other notes")) <span class="hint">@group.Key.Author</span></h3>
+                <ul class="quotes">
+                    @foreach (var entry in group)
+                    {
+                        <li>
+                            @if (entry.Quote is { } quote)
+                            {
+                                <blockquote><p>@quote</p></blockquote>
+                            }
+                            @if (entry.Text is { } text)
+                            {
+                                <p>@text</p>
+                            }
+                            <p class="hint">
+                                @(entry.Place ?? "")
+                                @if (entry.Link is { } address)
+                                {
+                                    <a href="@address" target="_blank" rel="noopener noreferrer">@address</a>
+                                }
+                                <button type="button" class="quiet" @onclick="() => RemoveNote(entry.Id)">@T("Remove")</button>
+                            </p>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+
+        <section class="panel">
+            <h2>@T("Bibliography")</h2>
+            <label>
+                @T("Style")
+                <select value="@style" @onchange="ChangeStyle">
+                    <option value="@CitationStyle.Chicago">Chicago</option>
+                    <option value="@CitationStyle.Apa">APA</option>
+                    <option value="@CitationStyle.Mla">MLA</option>
+                </select>
+            </label>
+            <ul class="plain-list">
+                @foreach (var line in topic.Bibliography)
+                {
+                    <li>@((MarkupString)Italics(line))</li>
+                }
+            </ul>
+            <a class="button" href="/books/research/@topic.Id/packet.md?style=@style" download>@T("Download the research packet")</a>
+        </section>
+    }
+
+    <section class="panel">
+        @if (confirmDelete)
+        {
+            <p>@T("The question and every note under it go for good.")</p>
+            <button type="button" class="danger" @onclick="Delete">@T("Delete the question")</button>
+            <button type="button" class="quiet" @onclick="() => confirmDelete = false">@T("Cancel")</button>
+        }
+        else
+        {
+            <button type="button" class="quiet danger" @onclick="() => confirmDelete = true">@T("Delete the question")</button>
+        }
+    </section>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private ResearchTopicView? topic;
+    private bool missing;
+    private string? thinking;
+    private bool saved;
+    private CitationStyle style = CitationStyle.Chicago;
+    private string? bookSearch;
+    private (int Id, string Title, string Author)[] found = [];
+    private (int Id, string Title, string Author)? chosenBook;
+    private (int Id, string Text, int? Page)[] quotes = [];
+    private string? place;
+    private string? quoteText;
+    private string? noteText;
+    private string? link;
+    private string? problem;
+    private bool confirmDelete;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        topic = await Research.GetAsync(db, Id, style);
+        missing = topic is null;
+        thinking ??= topic?.Notes;
+    }
+
+    // The title is escaped first; only the asterisks the citation put round it become italics.
+    private static string Italics(string line) =>
+        System.Text.RegularExpressions.Regex.Replace(System.Net.WebUtility.HtmlEncode(line), @"\*(.+?)\*", "<em>$1</em>");
+
+    private async Task ChangeStyle(ChangeEventArgs change)
+    {
+        style = Enum.TryParse<CitationStyle>(change.Value?.ToString(), out var chosen) ? chosen : CitationStyle.Chicago;
+        await LoadAsync();
+    }
+
+    private async Task SaveThinking()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        saved = await Research.UpdateAsync(db, Id, new ResearchTopicRequest(topic!.Question, thinking));
+    }
+
+    private async Task FindBooks()
+    {
+        if (string.IsNullOrWhiteSpace(bookSearch) || bookSearch.Trim().Length < 2)
+        {
+            found = [];
+            return;
+        }
+
+        var pattern = $"%{bookSearch.Trim()}%";
+        await using var db = await DbFactory.CreateDbContextAsync();
+        found = [.. (await db.Books.AsNoTracking().Where(book => EF.Functions.Like(book.Title, pattern) || EF.Functions.Like(book.Author, pattern))
+            .OrderBy(book => book.Title).Take(8).Select(book => new { book.Id, book.Title, book.Author }).ToListAsync())
+            .Select(book => (book.Id, book.Title, book.Author))];
+    }
+
+    private async Task Choose((int Id, string Title, string Author) book)
+    {
+        (chosenBook, found, bookSearch) = (book, [], null);
+        await using var db = await DbFactory.CreateDbContextAsync();
+        quotes = [.. (await db.Quotes.AsNoTracking().Where(quote => quote.BookId == book.Id).OrderBy(quote => quote.Page).Select(quote => new { quote.Id, quote.Text, quote.Page }).ToListAsync())
+            .Select(quote => (quote.Id, quote.Text, quote.Page))];
+    }
+
+    private async Task AddQuote(int quoteId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Research.AddQuoteAsync(db, Id, quoteId);
+        await LoadAsync();
+    }
+
+    private async Task AddNote()
+    {
+        var request = new ResearchNoteRequest(chosenBook?.Id, place, quoteText, noteText, link);
+        if (Research.ValidateNote(request) is { } problems)
+        {
+            problem = problems.Values.First()[0];
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Research.AddNoteAsync(db, Id, request);
+        (problem, place, quoteText, noteText, link) = (null, null, null, null, null);
+        await LoadAsync();
+    }
+
+    private async Task RemoveNote(int noteId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.ResearchNotes.Where(note => note.Id == noteId && note.TopicId == Id).ExecuteDeleteAsync();
+        await LoadAsync();
+    }
+
+    private async Task Delete()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.ResearchTopics.Where(item => item.Id == Id).ExecuteDeleteAsync();
+        Navigation.NavigateTo("/research");
+    }
+}

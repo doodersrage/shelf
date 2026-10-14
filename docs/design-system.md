@@ -54,7 +54,7 @@ Measured contrast on the canvas: ink 12.9:1, green 10.2:1, muted 4.5:1, danger 8
 
 | Main | Browse (folds) | Your copies (folds) | Settings (folds) |
 | --- | --- | --- | --- |
-| Home, Library, Reading, Loans, Insights | Want to read, Finished, saved searches, Collections, Series, Authors, Podcasts, Quotes & highlights, Search inside books, What to read next, Book clubs, Free books, Years | Shelves, Places, Scan books, QR labels, Condition, Recommenders, Duplicates, Tidy up | Account, Activity, Backup & restore, Trash & undo, Devices, Offline reading, Readers (admins) |
+| Home, Library, Reading, Loans, Insights | Want to read, Finished, saved searches, Collections, Series, Authors, Podcasts, Journal, Calendar, Reference desk, Words and passages, Quotes & highlights, Search inside books, What to read next, Reading DNA, Book clubs, Free books, Years | Shelves, Places, Scan books, QR labels, Condition, Recommenders, Duplicates, Tidy up | Account, Activity, Backup & restore, Trash & undo, Devices, Offline reading, Readers (admins) |
 
 A folded group opens by itself on one of its own pages, and Browse while there are saved searches or series news. The current link is marked with `aria-current="page"`. The library's views share `/library` and differ by `?status=`, so their links are matched on that query. Addresses from before 2.0 (`/?status=…`) redirect to `/library`.
 

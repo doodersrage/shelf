@@ -4,6 +4,23 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-10-14
+
+### Added
+
+- **Shelf photos**: in a scanning run, photograph the spines; their titles are read on the server with Tesseract and matched to your catalog, a misread letter forgiven, and in a shelf check the books found are ticked off. Lines that match nothing link to a search.
+- **Reading DNA**: the subjects and authors you return to, what each year was about, what you read more and less of lately, what you own but leave alone, and books long waiting that fit you, each with its reasons. Worked out from your own shelf when you look, and kept nowhere.
+- **A calendar**: books due back either way, your clubs' meetings, collections to read by a day, and your goals' year end, only ever what is yours or shared with you. The subscribed calendar now carries all of it, meetings at their moment.
+- **A reference desk**: questions you look into across books, with notes, quotations, and links each citing a book and where in it; a bibliography in Chicago, APA, or MLA; and a research packet as Markdown.
+- **Words and passages**: keep a word from the reader's look-up with its meaning and sentence, practise a few at a time as they come due, and download them as flashcards; keep passages beside their translations.
+- **Import recipes**: bring in a CSV from any app, choosing which column holds what, what its statuses mean, and how it writes dates and tags, with the first rows shown first; keep it as a recipe for next time.
+- **A sandbox**: a token for a shelf of sample books, to try a connector, script, or webhook on before it is given yours. No one else sees it, and it lends to no one.
+
+### Fixed
+
+- A spreadsheet import where two books share a tag not yet on the shelf no longer fails.
+
+
 ## [2.10.0] - 2026-10-13
 
 ### Added
@@ -473,7 +490,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.10.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.11.0...HEAD
+[2.11.0]: https://github.com/doodersrage/shelf/compare/v2.10.0...v2.11.0
 [2.10.0]: https://github.com/doodersrage/shelf/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/doodersrage/shelf/compare/v2.8.0...v2.9.0
 [2.8.0]: https://github.com/doodersrage/shelf/compare/v2.7.3...v2.8.0

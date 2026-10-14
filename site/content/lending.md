@@ -72,9 +72,11 @@ Shelf also points out open shelves where they help:
 
 Only shelves their owners opened are ever mentioned.
 
-## A calendar of due dates
+## The calendar
 
-Under **Account**, **Calendar and public page**, **Make a calendar address** gives an address to subscribe to in a calendar app (Google Calendar, Apple Calendar, Outlook, Thunderbird): each loan's due date is a day in it, for books you've lent and books to give back. The address is shown once and works without signing in, so keep it to yourself; **Make a new address** replaces it, and **Stop the calendar** ends it.
+**Calendar**, under **Browse**, lists what the household's reading asks of you, a month at a time: books due back to you and books to give back, your book clubs' meetings at their time, collections to read by a day (your own, and for a child's account the ones their grown-up shares), and the last day of the year for your goals. Only what is yours, or what you share with someone, is in it: a loan between you, or a club you are both in. No one's reading is shown to anyone else.
+
+Under **Account**, **Calendar and public page**, **Make a calendar address** gives an address to subscribe to in a calendar app (Google Calendar, Apple Calendar, Outlook, Thunderbird) with all of it: loans as days, meetings at their moment, shown in the app's own time zone. The address is shown once and works without signing in, so keep it to yourself; **Make a new address** replaces it, and **Stop the calendar** ends it.
 
 ## Linked shelves
 
