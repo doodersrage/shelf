@@ -4,6 +4,12 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.12.2] - 2026-10-14
+
+### Security
+
+- System.Security.Cryptography.Pkcs, which the email library brings in, is 10.0.13, past [GHSA-846f-f764-76mx](https://github.com/advisories/GHSA-846f-f764-76mx) (high) and [GHSA-2fmv-rv2c-59x7](https://github.com/advisories/GHSA-2fmv-rv2c-59x7) (moderate) in 10.0.0.
+
 ## [2.12.1] - 2026-10-14
 
 ### Added
@@ -529,7 +535,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.12.1...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.12.2...HEAD
+[2.12.2]: https://github.com/doodersrage/shelf/compare/v2.12.1...v2.12.2
 [2.12.1]: https://github.com/doodersrage/shelf/compare/v2.12.0...v2.12.1
 [2.12.0]: https://github.com/doodersrage/shelf/compare/v2.11.1...v2.12.0
 [2.11.1]: https://github.com/doodersrage/shelf/compare/v2.11.0...v2.11.1
