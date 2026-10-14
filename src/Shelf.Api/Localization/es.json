@@ -3059,5 +3059,9 @@
   "To: {0}": "A: {0}",
   "What's new": "Novedades",
   "How to update": "Cómo actualizar",
-  "Not now": "Ahora no"
+  "Not now": "Ahora no",
+  "Barcodes in view are read as they come. Point it at a stretch of shelf, spines facing out, and read the spines in view.": "Los códigos de barras a la vista se leen según aparecen. Apunta a un tramo de estantería, con los lomos hacia fuera, y lee los lomos a la vista.",
+  "Read the spines in view": "Leer los lomos a la vista",
+  "The camera reads barcodes as they come into view, and the spines on a shelf when you ask.": "La cámara lee los códigos de barras en cuanto aparecen, y los lomos de una estantería cuando se lo pides.",
+  "What the camera has in view could not be sent. Try again.": "No se pudo enviar lo que la cámara tiene a la vista. Inténtalo de nuevo."
 }

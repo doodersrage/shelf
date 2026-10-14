@@ -202,7 +202,11 @@ export function watch(video, page) {
 
   (async () => {
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      // As sharp as the camera gives, so the spines in view can be read as well as barcodes.
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false,
+      });
       if (stopped) {
         stop();
         return;
@@ -233,7 +237,26 @@ export function watch(video, page) {
     }
   })();
 
-  return { stop };
+  // The frame in view, or the camera's own still where the browser can take one sharper than it.
+  const still = async () => {
+    const frame = video.readyState >= 2 ? await createImageBitmap(video) : null;
+    const track = stream?.getVideoTracks()[0];
+    if (frame && track && "ImageCapture" in window) {
+      try {
+        const photo = await createImageBitmap(await new window.ImageCapture(track).takePhoto());
+        if (photo.width * photo.height > frame.width * frame.height) {
+          frame.close?.();
+          return photo;
+        }
+        photo.close?.();
+      } catch {
+        // The frame in view will do.
+      }
+    }
+    return frame;
+  };
+
+  return { stop, still };
 }
 
 // A photo of a barcode, for where the camera cannot stay open: the code in it, or null.
@@ -250,8 +273,7 @@ export async function readPhoto(input) {
   }
 }
 
-// Photos of a shelf, for reading its spines on the server. Spines stand on end, so each photo goes as it is and
-// turned a quarter each way; each is made no larger than the server reads well. Answers with what was found.
+// Photos of a shelf, for reading its spines on the server. Answers with what was found.
 export async function photographShelf(input, scanId) {
   const files = [...(input.files ?? [])].slice(0, 6);
   input.value = "";
@@ -259,9 +281,24 @@ export async function photographShelf(input, scanId) {
     return null;
   }
 
-  const form = new FormData();
+  const images = [];
   for (const file of files) {
-    const image = await createImageBitmap(file);
+    images.push(await createImageBitmap(file));
+  }
+  return await sendShelf(images, scanId);
+}
+
+// What the live camera has in view, read for spines as a photo of the shelf would be.
+export async function photographView(watcher, scanId) {
+  const image = await watcher.still();
+  return image ? await sendShelf([image], scanId) : null;
+}
+
+// Spines stand on end, so each image goes as it is and turned a quarter each way; each is made no larger than the
+// server reads well.
+async function sendShelf(images, scanId) {
+  const form = new FormData();
+  for (const image of images) {
     const scale = Math.min(1, 2400 / Math.max(image.width, image.height));
     const width = Math.round(image.width * scale);
     const height = Math.round(image.height * scale);

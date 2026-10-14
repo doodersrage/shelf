@@ -4,6 +4,16 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.12.1] - 2026-10-14
+
+### Added
+
+- **Reading spines with the live camera**: while the camera is running in a scanning run, **Read the spines in view** reads the titles on the shelf it shows and matches them to your catalog, so a shelf can be read a stretch at a time without leaving the page. Each reading adds to what was found before. The live camera asks for a sharper picture, and takes a full still where the browser can.
+
+### Changed
+
+- The scanning page says that the live camera reads barcodes as they come and spines only when asked, as walking along a shelf with it running found nothing until a barcode was shown.
+
 ## [2.12.0] - 2026-10-14
 
 ### Added
@@ -519,7 +529,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.12.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.12.1...HEAD
+[2.12.1]: https://github.com/doodersrage/shelf/compare/v2.12.0...v2.12.1
 [2.12.0]: https://github.com/doodersrage/shelf/compare/v2.11.1...v2.12.0
 [2.11.1]: https://github.com/doodersrage/shelf/compare/v2.11.0...v2.11.1
 [2.11.0]: https://github.com/doodersrage/shelf/compare/v2.10.0...v2.11.0

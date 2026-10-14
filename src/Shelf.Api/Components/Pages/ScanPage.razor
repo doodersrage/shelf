@@ -69,11 +69,16 @@ else
             <video @ref="video" aria-hidden="true" hidden="@(!watching)"></video>
             @if (watching)
             {
-                <button type="button" @onclick="StopCamera">@T("Stop the camera")</button>
+                <p class="hint">@T("Barcodes in view are read as they come. Point it at a stretch of shelf, spines facing out, and read the spines in view.")</p>
+                <p>
+                    <button type="button" class="primary" @onclick="PhotographView" disabled="@photographing">@(photographing ? T("Reading the spines…") : T("Read the spines in view"))</button>
+                    <button type="button" @onclick="StopCamera">@T("Stop the camera")</button>
+                </p>
             }
             else if (canWatch)
             {
                 <button type="button" class="primary" @onclick="StartCamera">@T("Start the camera")</button>
+                <p class="hint">@T("The camera reads barcodes as they come into view, and the spines on a shelf when you ask.")</p>
             }
             else
             {
@@ -297,7 +302,7 @@ else
         photographing = true;
         try
         {
-            photo = await module.InvokeAsync<ShelfPhotoResult?>("photographShelf", shelfPhotos, session.Id);
+            Gather(await module.InvokeAsync<ShelfPhotoResult?>("photographShelf", shelfPhotos, session.Id));
             await RefreshAsync();
         }
         catch (JSException)
@@ -308,6 +313,44 @@ else
         {
             photographing = false;
         }
+    }
+
+    private async Task PhotographView()
+    {
+        if (module is null || watcher is null || session is null)
+        {
+            return;
+        }
+
+        photographing = true;
+        try
+        {
+            Gather(await module.InvokeAsync<ShelfPhotoResult?>("photographView", watcher, session.Id));
+            await RefreshAsync();
+        }
+        catch (JSException)
+        {
+            (problem, note) = (true, T("What the camera has in view could not be sent. Try again."));
+        }
+        finally
+        {
+            photographing = false;
+        }
+    }
+
+    // Each reading adds to the last, so a shelf can be read a stretch at a time; the newest found come first.
+    private void Gather(ShelfPhotoResult? read)
+    {
+        if (read is null || photo is null || !read.CanRead || !photo.CanRead)
+        {
+            photo = read ?? photo;
+            return;
+        }
+
+        var matches = read.Matches.Concat(photo.Matches).GroupBy(match => match.BookId)
+            .Select(group => group.First() with { Score = group.Max(match => match.Score), Seen = group.Any(match => match.Seen) });
+        var unmatched = read.Unmatched.Concat(photo.Unmatched).Distinct(StringComparer.OrdinalIgnoreCase).Take(80);
+        photo = new ShelfPhotoResult(true, [.. matches], [.. unmatched]);
     }
     private IJSObjectReference? module;
     private IJSObjectReference? watcher;
@@ -415,6 +458,7 @@ else
     {
         session = run;
         lastRead = null;
+        photo = null;
         elsewhere = [];
         unknown = [];
         await RefreshAsync();
