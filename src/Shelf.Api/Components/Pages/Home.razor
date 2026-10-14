@@ -560,6 +560,9 @@ else if (visible.Count > 0)
     [SupplyParameterFromQuery(Name = "author")]
     public string? AuthorQuery { get; set; }
 
+    [SupplyParameterFromQuery(Name = "location")]
+    public string? LocationQuery { get; set; }
+
     private bool lookUpNow;
 
     [SupplyParameterFromQuery(Name = "imported")]
@@ -783,6 +786,7 @@ else if (visible.Count > 0)
             draft.Isbn = IsbnQuery?.Trim() ?? draft.Isbn;
             draft.Title = string.IsNullOrWhiteSpace(TitleQuery) ? draft.Title : TitleQuery.Trim();
             draft.Author = string.IsNullOrWhiteSpace(AuthorQuery) ? draft.Author : AuthorQuery.Trim();
+            draft.Location = string.IsNullOrWhiteSpace(LocationQuery) ? draft.Location : LocationQuery.Trim();
             lookUpNow = true;
         }
         if (Saved is int savedId)

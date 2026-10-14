@@ -72,6 +72,10 @@ public sealed record ScanAdded(int Added, int Skipped, int? BatchId);
 
 public sealed record ScanFinishRequest(bool TagMissing);
 
+public sealed record ScanPlaceRequest(int[] BookIds);
+
+public sealed record ScanPlaced(int? BatchId);
+
 public sealed record ScanFinished(int Seen, int Missing, int? BatchId);
 
 public static class Scanning
@@ -97,6 +101,10 @@ public static class Scanning
         scans.MapGet("/places", async (ShelfDb db, CancellationToken cancellationToken) => TypedResults.Ok(await PlacesAsync(db, cancellationToken)));
         scans.MapPost("/{id:int}/seen/{bookId:int}", async Task<Results<NoContent, NotFound>> (int id, int bookId, bool? moveHere, ShelfDb db, CancellationToken cancellationToken) =>
             await MarkSeenAsync(db, id, bookId, moveHere == true, cancellationToken) ? TypedResults.NoContent() : TypedResults.NotFound());
+        scans.MapPost("/{id:int}/place", async Task<IResult> (int id, ScanPlaceRequest request, ShelfDb db, CancellationToken cancellationToken) =>
+            await FindAsync(db, id, cancellationToken) is null
+                ? TypedResults.NotFound()
+                : TypedResults.Ok(new ScanPlaced(await PlaceFoundAsync(db, id, request.BookIds ?? [], cancellationToken))));
         scans.MapDelete("/{id:int}/codes/{isbn}", async Task<Results<NoContent, NotFound>> (int id, string isbn, ShelfDb db, CancellationToken cancellationToken) =>
             await UnreadAsync(db, id, isbn, cancellationToken) ? TypedResults.NoContent() : TypedResults.NotFound());
         scans.MapDelete("/{id:int}", async (int id, ShelfDb db, CancellationToken cancellationToken) =>
@@ -207,6 +215,45 @@ public static class Scanning
         session.Seen = string.Join(',', seen);
         await db.SaveChangesAsync(cancellationToken);
         return true;
+    }
+
+    // Books a photo of the spines found, noted at the run's place together, so they can be undone at once; in a
+    // check they are seen too. The batch, or null if none moved.
+    public static async Task<int?> PlaceFoundAsync(ShelfDb db, int sessionId, IReadOnlyCollection<int> bookIds, CancellationToken cancellationToken = default)
+    {
+        var session = await FindAsync(db, sessionId, cancellationToken);
+        if (session?.Location is not { } place || bookIds.Count == 0)
+        {
+            return null;
+        }
+
+        var ids = bookIds.Distinct().Take(ScanSession.MaxCodes).ToList();
+        var books = await db.Books.Where(book => ids.Contains(book.Id)).ToListAsync(cancellationToken);
+        var moving = books.Where(book => !SamePlace(book.Location, place)).ToList();
+        int? batchId = null;
+        if (moving.Count > 0)
+        {
+            var temporary = await PlaceTree.TemporaryPathsAsync(db, cancellationToken);
+            var batch = await History.StartAsync(db, BatchKind.Scan, T("Spines found at {0}", place), cancellationToken);
+            batchId = batch.Id;
+            using var _ = History.Use(batchId);
+            foreach (var book in moving)
+            {
+                PlaceTree.Put(book, place, session.Kind == ScanKind.Pack || temporary.Contains(place), temporary);
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        if (session.Kind != ScanKind.Add)
+        {
+            var seen = session.SeenIds;
+            seen.UnionWith(books.Select(book => book.Id));
+            session.Seen = string.Join(',', seen);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return batchId;
     }
 
     public static async Task<bool> UnreadAsync(ShelfDb db, int sessionId, string isbn, CancellationToken cancellationToken = default)

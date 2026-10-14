@@ -2545,7 +2545,6 @@
   "No titles could be read. Try closer, straight on, with more light.": "Es ließ sich kein Titel lesen. Versuch es näher, gerade von vorn und mit mehr Licht.",
   "ticked off": "abgehakt",
   "Read, but not in your catalog": "Gelesen, aber nicht in deinem Katalog",
-  "Look it up": "Nachschlagen",
   "Those photos could not be sent. Try one at a time.": "Diese Fotos ließen sich nicht senden. Versuch es einzeln.",
   "Your reading DNA": "Deine Lese-DNA",
   "how it has changed, what you leave alone, and books long waiting that fit you.": "wie es sich verändert hat, was du liegen lässt und lange wartende Bücher, die zu dir passen.",
@@ -3063,5 +3062,16 @@
   "Barcodes in view are read as they come. Point it at a stretch of shelf, spines facing out, and read the spines in view.": "Strichcodes im Bild werden gelesen, sobald sie erscheinen. Richte die Kamera auf ein Stück Regal, Buchrücken nach vorn, und lies die Buchrücken im Bild.",
   "Read the spines in view": "Buchrücken im Bild lesen",
   "The camera reads barcodes as they come into view, and the spines on a shelf when you ask.": "Die Kamera liest Strichcodes, sobald sie ins Bild kommen, und die Buchrücken eines Regals, wenn du darum bittest.",
-  "What the camera has in view could not be sent. Try again.": "Was die Kamera im Bild hat, konnte nicht gesendet werden. Versuch es noch einmal."
+  "What the camera has in view could not be sent. Try again.": "Was die Kamera im Bild hat, konnte nicht gesendet werden. Versuch es noch einmal.",
+  "{0} noted at {1}.": "{0} bei {1} vermerkt.",
+  "Add to this run": "Zu diesem Durchgang hinzufügen",
+  "A spine can be read as the wrong book: untick any that aren't.": "Ein Buchrücken kann als falsches Buch gelesen werden: Entferne den Haken bei allen, die es nicht sind.",
+  "Find it": "Suchen",
+  "Note {0} at {1}": "{0} bei {1} vermerken",
+  "noted here": "hier vermerkt",
+  "Nothing found for that.": "Nichts dazu gefunden.",
+  "Open Library could not be reached. Try again in a moment.": "Open Library ist nicht erreichbar. Versuch es gleich noch einmal.",
+  "Search in other words": "Mit anderen Worten suchen",
+  "Spines found at {0}": "Buchrücken gefunden bei {0}",
+  "Start a run with a place to note where the books found are kept.": "Starte einen Durchgang mit einem Ort, um zu vermerken, wo die gefundenen Bücher stehen."
 }

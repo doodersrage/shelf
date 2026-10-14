@@ -3,6 +3,7 @@
 @implements IAsyncDisposable
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject IBookLookup Lookup
+@inject IBookSearch Search
 @using Microsoft.JSInterop
 @inject IJSRuntime JS
 
@@ -120,23 +121,70 @@ else
             }
             else
             {
+                var away = shown.Matches.Where(match => !Here(match)).ToList();
                 <ul class="plain-list">
                     @foreach (var match in shown.Matches)
                     {
                         <li>
+                            @if (session.Location is { } place && !Here(match))
+                            {
+                                <input type="checkbox" checked="@placing.Contains(match.BookId)" @onchange="change => ChoosePlace(match.BookId, change)" aria-label="@T("Note {0} at {1}", match.Title, place)" />
+                            }
                             <a href="/library/@match.BookId">@match.Title</a> <span class="hint">@match.Author</span>
-                            <span class="hint">@(match.Seen ? T("ticked off") : match.Location is { } at ? T("noted at {0}", at) : T("no place noted")) · @T("{0}% sure", match.Score)</span>
+                            <span class="hint">@(match.Seen ? T("ticked off") : Here(match) ? T("noted here") : match.Location is { } at ? T("noted at {0}", at) : T("no place noted")) · @T("{0}% sure", match.Score)</span>
                         </li>
                     }
                 </ul>
+                @if (away.Count > 0)
+                {
+                    @if (session.Location is { } place)
+                    {
+                        var count = away.Count(match => placing.Contains(match.BookId));
+                        <p class="hint">@T("A spine can be read as the wrong book: untick any that aren't.")</p>
+                        <button type="button" class="primary" @onclick="PlaceFound" disabled="@(busy || count == 0)">@T("Note {0} at {1}", Localization.Counts.Books(count), place)</button>
+                    }
+                    else
+                    {
+                        <p class="hint">@T("Start a run with a place to note where the books found are kept.")</p>
+                    }
+                }
                 @if (shown.Unmatched.Length > 0)
                 {
-                    <details>
+                    <details open>
                         <summary>@T("Read, but not in your catalog")</summary>
-                        <ul class="plain-list">
+                        <ul class="plain-list spine-strangers">
                             @foreach (var line in shown.Unmatched)
                             {
-                                <li><span>@line</span> <a href="@($"/find?q={Uri.EscapeDataString(line)}")">@T("Look it up")</a></li>
+                                <li>
+                                    <span>@line</span>
+                                    @if (!lookedUp.TryGetValue(line, out var hits))
+                                    {
+                                        <button type="button" class="quiet" @onclick="() => LookUp(line)" disabled="@(lookingUp == line)">@(lookingUp == line ? T("Searching…") : T("Find it"))</button>
+                                    }
+                                    else if (hits.Count == 0)
+                                    {
+                                        <span class="hint">@T("Nothing found for that.")</span> <a href="@($"/find?q={Uri.EscapeDataString(line)}")">@T("Search in other words")</a>
+                                    }
+                                    else
+                                    {
+                                        <ul class="plain-list">
+                                            @foreach (var hit in hits)
+                                            {
+                                                <li>
+                                                    <strong>@hit.Title</strong> <span class="hint">@hit.Author@(hit.Year is { } year ? $" · {year}" : "")</span>
+                                                    @if (session.Kind == ScanKind.Add && hit.Isbn is { } isbn)
+                                                    {
+                                                        <button type="button" class="quiet" @onclick="() => AddFound(line, isbn)">@T("Add to this run")</button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <a href="@AddLink(hit.Isbn, hit.Title, hit.Author)">@T("Add it")</a>
+                                                    }
+                                                </li>
+                                            }
+                                        </ul>
+                                    }
+                                </li>
                             }
                         </ul>
                     </details>
@@ -213,7 +261,7 @@ else
                 <ul class="plain-list">
                     @foreach (var stranger in unknown)
                     {
-                        <li>@stranger <a href="@($"/library?add=1&isbn={stranger}")">@T("Add it")</a></li>
+                        <li>@stranger <a href="@AddLink(stranger, null, null)">@T("Add it")</a></li>
                     }
                 </ul>
             }
@@ -338,9 +386,102 @@ else
         }
     }
 
+    private HashSet<int> placing = [];
+    private Dictionary<string, IReadOnlyList<CatalogHit>> lookedUp = new(StringComparer.OrdinalIgnoreCase);
+    private string? lookingUp;
+
+    private bool Here(SpineMatch match) =>
+        session?.Location is { } place && string.Equals(match.Location?.Trim(), place.Trim(), StringComparison.CurrentCultureIgnoreCase);
+
+    private void ChoosePlace(int bookId, ChangeEventArgs change)
+    {
+        if (change.Value is true)
+        {
+            placing.Add(bookId);
+        }
+        else
+        {
+            placing.Remove(bookId);
+        }
+    }
+
+    private async Task PlaceFound()
+    {
+        if (session?.Location is not { } place || photo is null)
+        {
+            return;
+        }
+
+        var ids = photo.Matches.Where(match => !Here(match) && placing.Contains(match.BookId)).Select(match => match.BookId).ToList();
+        busy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var batchId = await Scanning.PlaceFoundAsync(db, session.Id, ids);
+            var seen = session.Kind != ScanKind.Add;
+            photo = photo with { Matches = [.. photo.Matches.Select(match => ids.Contains(match.BookId) ? match with { Location = place, Seen = match.Seen || seen } : match)] };
+            placing.ExceptWith(ids);
+            elsewhere.RemoveAll(stray => stray.BookId is int id && ids.Contains(id));
+            (problem, undoBatch, note) = (false, batchId, T("{0} noted at {1}.", Localization.Counts.Books(ids.Count), place));
+            await RefreshAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    // A line no book of the reader's matched, looked for in Open Library: the likeliest few.
+    private async Task LookUp(string line)
+    {
+        lookingUp = line;
+        try
+        {
+            var hits = await Search.SearchAsync(line, CancellationToken.None);
+            lookedUp[line] = [.. hits.Take(3)];
+        }
+        catch (HttpRequestException)
+        {
+            (problem, note) = (true, T("Open Library could not be reached. Try again in a moment."));
+        }
+        finally
+        {
+            lookingUp = null;
+        }
+    }
+
+    private async Task AddFound(string line, string isbn)
+    {
+        await ReadAsync(isbn);
+        lookedUp[line] = [];
+        photo = photo is null ? null : photo with { Unmatched = [.. photo.Unmatched.Where(item => !string.Equals(item, line, StringComparison.OrdinalIgnoreCase))] };
+    }
+
+    // The book form, filled in, with the place this run is at.
+    private string AddLink(string? isbn, string? title, string? author)
+    {
+        var query = new List<string> { "add=1" };
+        void Put(string name, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                query.Add($"{name}={Uri.EscapeDataString(value)}");
+            }
+        }
+
+        Put("isbn", isbn);
+        Put("title", title);
+        Put("author", author);
+        Put("location", session?.Kind == ScanKind.Pack ? null : session?.Location);
+        return "/library?" + string.Join('&', query);
+    }
+
     // Each reading adds to the last, so a shelf can be read a stretch at a time; the newest found come first.
     private void Gather(ShelfPhotoResult? read)
     {
+        var known = photo?.Matches.Select(match => match.BookId).ToHashSet() ?? [];
+        placing.UnionWith(read?.Matches.Where(match => !known.Contains(match.BookId) && !Here(match)).Select(match => match.BookId) ?? []);
+
         if (read is null || photo is null || !read.CanRead || !photo.CanRead)
         {
             photo = read ?? photo;
@@ -459,6 +600,8 @@ else
         session = run;
         lastRead = null;
         photo = null;
+        placing = [];
+        lookedUp.Clear();
         elsewhere = [];
         unknown = [];
         await RefreshAsync();

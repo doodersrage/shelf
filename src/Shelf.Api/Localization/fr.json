@@ -2545,7 +2545,6 @@
   "No titles could be read. Try closer, straight on, with more light.": "Aucun titre n'a pu être lu. Essayez de plus près, bien en face, avec plus de lumière.",
   "ticked off": "coché",
   "Read, but not in your catalog": "Lus, mais absents de votre catalogue",
-  "Look it up": "Le chercher",
   "Those photos could not be sent. Try one at a time.": "Ces photos n'ont pas pu être envoyées. Essayez une à la fois.",
   "Your reading DNA": "Votre ADN de lecture",
   "how it has changed, what you leave alone, and books long waiting that fit you.": "comment cela a changé, ce que vous délaissez et les livres qui attendent depuis longtemps et vous correspondent.",
@@ -3063,5 +3062,16 @@
   "Barcodes in view are read as they come. Point it at a stretch of shelf, spines facing out, and read the spines in view.": "Les codes-barres en vue sont lus au fur et à mesure. Visez une portion d'étagère, dos tournés vers vous, et lisez les dos en vue.",
   "Read the spines in view": "Lire les dos en vue",
   "The camera reads barcodes as they come into view, and the spines on a shelf when you ask.": "La caméra lit les codes-barres dès qu'ils apparaissent, et les dos d'une étagère quand vous le demandez.",
-  "What the camera has in view could not be sent. Try again.": "Ce que la caméra a en vue n'a pas pu être envoyé. Réessayez."
+  "What the camera has in view could not be sent. Try again.": "Ce que la caméra a en vue n'a pas pu être envoyé. Réessayez.",
+  "{0} noted at {1}.": "{0} notés à {1}.",
+  "Add to this run": "Ajouter à cette session",
+  "A spine can be read as the wrong book: untick any that aren't.": "Un dos peut être pris pour un autre livre : décochez ceux qui n'en sont pas.",
+  "Find it": "Le trouver",
+  "Note {0} at {1}": "Noter {0} à {1}",
+  "noted here": "noté ici",
+  "Nothing found for that.": "Rien de trouvé.",
+  "Open Library could not be reached. Try again in a moment.": "Open Library est injoignable. Réessayez dans un instant.",
+  "Search in other words": "Chercher avec d'autres mots",
+  "Spines found at {0}": "Dos trouvés à {0}",
+  "Start a run with a place to note where the books found are kept.": "Commencez une session avec un emplacement pour noter où sont rangés les livres trouvés."
 }

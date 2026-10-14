@@ -4,6 +4,17 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.12.3] - 2026-10-14
+
+### Added
+
+- **Spines found are put in their place**: books a photo of the spines finds that aren't noted at the run's place are ticked, and one button notes them there together (ticking them off in a check), as a change undone at once. Untick any the spines were misread as. Also `POST /books/scans/{id}/place`.
+- **Spines not in the catalog, added**: **Find it** beside a line read but matching none of your books looks it up in Open Library; in an adding run, **Add to this run** puts it on the run's list with the barcodes read, and elsewhere **Add it** opens the book form with the run's place filled in. The book form takes `location` in its address.
+
+### Changed
+
+- Only lines read clearly, from a turn of the photo about as clear as the best, are offered as not in the catalog, so text read upside down no longer is; nor is a line that names a book already found. The list is open rather than folded away.
+
 ## [2.12.2] - 2026-10-14
 
 ### Security
@@ -535,7 +546,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.12.2...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.12.3...HEAD
+[2.12.3]: https://github.com/doodersrage/shelf/compare/v2.12.2...v2.12.3
 [2.12.2]: https://github.com/doodersrage/shelf/compare/v2.12.1...v2.12.2
 [2.12.1]: https://github.com/doodersrage/shelf/compare/v2.12.0...v2.12.1
 [2.12.0]: https://github.com/doodersrage/shelf/compare/v2.11.1...v2.12.0

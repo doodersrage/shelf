@@ -2545,7 +2545,6 @@
   "No titles could be read. Try closer, straight on, with more light.": "No se ha podido leer ningún título. Prueba más cerca, de frente y con más luz.",
   "ticked off": "marcado como visto",
   "Read, but not in your catalog": "Leídos, pero no están en tu catálogo",
-  "Look it up": "Buscarlo",
   "Those photos could not be sent. Try one at a time.": "No se han podido enviar esas fotos. Prueba de una en una.",
   "Your reading DNA": "Tu ADN lector",
   "how it has changed, what you leave alone, and books long waiting that fit you.": "cómo ha cambiado, lo que dejas de lado y libros que esperan desde hace tiempo y encajan contigo.",
@@ -3063,5 +3062,16 @@
   "Barcodes in view are read as they come. Point it at a stretch of shelf, spines facing out, and read the spines in view.": "Los códigos de barras a la vista se leen según aparecen. Apunta a un tramo de estantería, con los lomos hacia fuera, y lee los lomos a la vista.",
   "Read the spines in view": "Leer los lomos a la vista",
   "The camera reads barcodes as they come into view, and the spines on a shelf when you ask.": "La cámara lee los códigos de barras en cuanto aparecen, y los lomos de una estantería cuando se lo pides.",
-  "What the camera has in view could not be sent. Try again.": "No se pudo enviar lo que la cámara tiene a la vista. Inténtalo de nuevo."
+  "What the camera has in view could not be sent. Try again.": "No se pudo enviar lo que la cámara tiene a la vista. Inténtalo de nuevo.",
+  "{0} noted at {1}.": "{0} anotados en {1}.",
+  "Add to this run": "Añadir a esta sesión",
+  "A spine can be read as the wrong book: untick any that aren't.": "Un lomo puede leerse como el libro equivocado: desmarca los que no lo sean.",
+  "Find it": "Buscarlo",
+  "Note {0} at {1}": "Anotar {0} en {1}",
+  "noted here": "anotado aquí",
+  "Nothing found for that.": "No se encontró nada.",
+  "Open Library could not be reached. Try again in a moment.": "No se pudo contactar con Open Library. Inténtalo de nuevo en un momento.",
+  "Search in other words": "Buscar con otras palabras",
+  "Spines found at {0}": "Lomos encontrados en {0}",
+  "Start a run with a place to note where the books found are kept.": "Empieza una sesión con un lugar para anotar dónde se guardan los libros encontrados."
 }

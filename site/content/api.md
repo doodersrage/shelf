@@ -196,6 +196,7 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | `POST /books/scans/{id}/add` | `{"isbns": […], "status": "Want"}` adds the books read in an adding run, together. Answers with how many were added and skipped, and the change to undo them by. |
 | `GET /books/scans/{id}/books` | The books a check expects at its place, and whether each has been seen. `POST /books/scans/{id}/seen/{bookId}` ticks one off by hand, `?moveHere=true` noting it at this place. |
 | `POST /books/scans/photo` | Photos of a shelf as `files` (each turned as the spines read), with `scanId` to tick off what is found in a check. Answers with the books matched and how sure, and the lines read that match none. |
+| `POST /books/scans/{id}/place` | `{"bookIds": […]}` notes books a photo found at the run's place, together, and in a check ticks them off. Answers with the change to undo it by. |
 | `POST /books/scans/{id}/finish` | `{"tagMissing": true}` ends a check, tagging the books not seen `missing`. `GET /books/scans/places` lists the places your books are kept. |
 
 ## Tidying

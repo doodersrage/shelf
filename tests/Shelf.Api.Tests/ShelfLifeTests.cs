@@ -291,6 +291,54 @@ public sealed class ShelfLifeTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.Equal([book.Id], Assert.Single((await reader.GetFromJsonAsync<ScanSessionView[]>("/books/scans", JsonOptions))!).Seen);
     }
 
+    [Fact]
+    public void Tesseract_s_words_are_gathered_into_lines_with_how_sure_it_was()
+    {
+        var tsv = string.Join('\n',
+            "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext",
+            "4\t1\t1\t1\t1\t0\t0\t0\t9\t9\t-1\t",
+            "5\t1\t1\t1\t1\t1\t0\t0\t9\t9\t96.5\tPIRANESI",
+            "5\t1\t2\t1\t1\t1\t0\t0\t9\t9\t90\tSUSANNA",
+            "5\t1\t2\t1\t1\t2\t0\t0\t9\t9\t80\tCLARKE",
+            "5\t1\t3\t1\t1\t1\t0\t0\t9\t9\t41\tVNNVSNS\r");
+        Assert.Equal([("PIRANESI", 96.5), ("SUSANNA CLARKE", 85.0), ("VNNVSNS", 41.0)], ShelfPhotos.Lines(tsv));
+    }
+
+    [Fact]
+    public async Task Books_a_photo_found_are_noted_at_the_run_s_place_together_and_undone_together()
+    {
+        var reader = await factory.SignUpAsync("Spine Placer");
+        var hall = await CreateAsync(reader, new CreateBookRequest("Piranesi", "Susanna Clarke", BookStatus.Finished, null, Location: "Hall"));
+        var nowhere = await CreateAsync(reader, new CreateBookRequest("Emma", "Jane Austen", BookStatus.Want, null));
+        var here = await CreateAsync(reader, new CreateBookRequest("Middlemarch", "George Eliot", BookStatus.Want, null, Location: "Study"));
+        var check = (await (await reader.PostAsJsonAsync("/books/scans", new Scanning.ScanStart(ScanKind.Check, "Study"), JsonOptions)).Content.ReadFromJsonAsync<ScanSessionView>(JsonOptions))!;
+
+        var placed = (await (await reader.PostAsJsonAsync($"/books/scans/{check.Id}/place", new ScanPlaceRequest([hall.Id, nowhere.Id, here.Id]), JsonOptions)).Content.ReadFromJsonAsync<ScanPlaced>(JsonOptions))!;
+        Assert.NotNull(placed.BatchId);
+        foreach (var id in new[] { hall.Id, nowhere.Id, here.Id })
+        {
+            Assert.Equal("Study", (await reader.GetFromJsonAsync<BookResponse>($"/books/{id}", JsonOptions))!.Location);
+        }
+
+        Assert.Equal([hall.Id, nowhere.Id, here.Id], Assert.Single((await reader.GetFromJsonAsync<ScanSessionView[]>("/books/scans", JsonOptions))!).Seen.Order());
+
+        // Only the two that moved are in the change, and undoing it puts them back.
+        Assert.Equal(HttpStatusCode.OK, (await reader.PostAsync($"/books/changes/{placed.BatchId}/undo", null)).StatusCode);
+        Assert.Equal("Hall", (await reader.GetFromJsonAsync<BookResponse>($"/books/{hall.Id}", JsonOptions))!.Location);
+        Assert.Null((await reader.GetFromJsonAsync<BookResponse>($"/books/{nowhere.Id}", JsonOptions))!.Location);
+        Assert.Equal("Study", (await reader.GetFromJsonAsync<BookResponse>($"/books/{here.Id}", JsonOptions))!.Location);
+
+        // An adding run notes them at its place but sees nothing; one with no place does nothing.
+        var adding = (await (await reader.PostAsJsonAsync("/books/scans", new Scanning.ScanStart(ScanKind.Add, "Attic"), JsonOptions)).Content.ReadFromJsonAsync<ScanSessionView>(JsonOptions))!;
+        await reader.PostAsJsonAsync($"/books/scans/{adding.Id}/place", new ScanPlaceRequest([nowhere.Id]), JsonOptions);
+        Assert.Equal("Attic", (await reader.GetFromJsonAsync<BookResponse>($"/books/{nowhere.Id}", JsonOptions))!.Location);
+        var unplaced = (await (await reader.PostAsJsonAsync("/books/scans", new Scanning.ScanStart(ScanKind.Add, null), JsonOptions)).Content.ReadFromJsonAsync<ScanSessionView>(JsonOptions))!;
+        var none = (await (await reader.PostAsJsonAsync($"/books/scans/{unplaced.Id}/place", new ScanPlaceRequest([hall.Id]), JsonOptions)).Content.ReadFromJsonAsync<ScanPlaced>(JsonOptions))!;
+        Assert.Null(none.BatchId);
+        Assert.Equal("Hall", (await reader.GetFromJsonAsync<BookResponse>($"/books/{hall.Id}", JsonOptions))!.Location);
+        Assert.Equal(HttpStatusCode.NotFound, (await reader.PostAsJsonAsync("/books/scans/999999/place", new ScanPlaceRequest([hall.Id]), JsonOptions)).StatusCode);
+    }
+
     private static bool Installed(string tool)
     {
         try
