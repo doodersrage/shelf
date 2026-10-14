@@ -79,7 +79,7 @@ test("a spine not in the catalog is found in Open Library and added to the run",
   await expect(strangers.filter({ hasText: /VASHLYV3|ANVH|VNNVSNS/ })).toHaveCount(0);
   const wizard = strangers.filter({ hasText: /WIZARD OF EARTHSEA/ });
   await wizard.getByRole("button", { name: "Find it" }).click();
-  await expect(wizard.getByText("A Wizard of Earthsea")).toBeVisible();
+  await expect(wizard.getByText("A Wizard of Earthsea", { exact: true })).toBeVisible();
   await wizard.getByRole("button", { name: "Add to this run" }).click();
   await expect(page.getByRole("checkbox", { name: "9780547773742" })).toBeChecked();
   await expect(strangers.filter({ hasText: /WIZARD OF EARTHSEA/ })).toHaveCount(0);
