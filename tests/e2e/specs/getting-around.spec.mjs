@@ -84,7 +84,8 @@ test("the compact table holds every book, drawing only those in view, with the c
   await expect(rows.first()).toContainText("Row Book 000");
   // Far fewer than 400 drawn, and the rest come as it scrolls.
   expect(await page.locator(".book-table tbody tr td a[href^='/library/']").count()).toBeLessThan(150);
-  await page.mouse.wheel(0, 40_000);
+  // To the foot of the page: a wheel turn goes only so far in Firefox.
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
   await expect(page.locator(".book-table").getByRole("link", { name: "Row Book 399" })).toBeVisible();
 
   // A column taken away is gone, and the choice is kept.
