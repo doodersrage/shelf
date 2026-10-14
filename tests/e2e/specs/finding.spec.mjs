@@ -55,7 +55,9 @@ test("a book not on the shelf is found and wanted, and a followed author's new b
   await results.nth(0).getByRole("link", { name: "Open it" }).click();
   await ready(page);
   await expect(page.locator("h1")).toHaveText("The Grey Harbour");
-  await expect(page.locator("body")).toContainText("9780000000019");
+  // What Open Library knew is in the book's details.
+  await page.getByRole("navigation", { name: "This book" }).getByRole("link", { name: "Details" }).click();
+  await expect(page.locator("#details")).toContainText("9780000000019");
 
   // Following the author, from the Authors page.
   await page.goto("/authors");

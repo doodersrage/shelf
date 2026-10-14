@@ -1,5 +1,4 @@
 @page "/admin/health"
-@rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject ShelfHealth Health
 @inject ReleaseWatch Releases
@@ -22,10 +21,13 @@ else if (report is not null)
             HealthState.Look => T("All is working; a few things are worth a look."),
             _ => T("All is well."),
         })
-        <button type="button" class="quiet" @onclick="LoadAsync">@T("Look again")</button>
+        <a class="button quiet" href="/admin/health">@T("Look again")</a>
         @if (Releases.Enabled)
         {
-            <button type="button" class="quiet" @onclick="CheckRelease">@T("Look for a newer Shelf")</button>
+            <form class="inline" method="post" @formname="check-release" @onsubmit="CheckRelease" data-enhance>
+                <AntiforgeryToken />
+                <button type="submit" class="quiet">@T("Look for a newer Shelf")</button>
+            </form>
         }
     </p>
 

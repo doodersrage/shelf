@@ -38,6 +38,9 @@ public sealed class Reader
     // The newer release an admin said "not now" to.
     public string? DismissedRelease { get; set; }
 
+    // The pages left out of the reader's menu, their addresses one to a line (NavMap).
+    public string? HiddenNav { get; set; }
+
     // Changes when the password is reset or changed, which signs out every session made before.
     public string Stamp { get; set; } = ReaderRules.NewStamp();
 

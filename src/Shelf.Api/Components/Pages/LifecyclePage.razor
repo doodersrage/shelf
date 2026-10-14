@@ -1,4 +1,5 @@
 @page "/lifecycle"
+@attribute [StreamRendering]
 @inject IDbContextFactory<ShelfDb> DbFactory
 
 <PageTitle>@T("Your collection over time") · Shelf</PageTitle>
@@ -6,7 +7,11 @@
 <h1>@T("Your collection over time")</h1>
 <p class="hint">@T("How the shelf changes, beside what you read: copies that came and went, what they cost, and what has waited longest. Let a copy go from its page; its record and reading stay.")</p>
 
-@if (report is not null)
+@if (report is null)
+{
+    <Loading />
+}
+else
 {
     <div class="stat-grid">
         <div class="stat"><span class="stat-number">@report.Owned.ToString("N0")</span><span class="hint">@T("copies kept")</span></div>

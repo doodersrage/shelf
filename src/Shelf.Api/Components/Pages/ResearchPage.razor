@@ -1,5 +1,4 @@
 @page "/research"
-@rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject NavigationManager Navigation
 
@@ -10,10 +9,11 @@
 
 <section class="panel">
     <h2>@T("A new question")</h2>
-    <form @onsubmit="Create" @onsubmit:preventDefault>
+    <form method="post" @formname="new-question" @onsubmit="Create" data-enhance>
+        <AntiforgeryToken />
         <label>
             @T("Question")
-            <input maxlength="@ResearchTopic.MaxQuestionLength" @bind="question" placeholder="@T("Such as: how did medieval libraries lend books?")" />
+            <input name="Question" value="@Question" maxlength="@ResearchTopic.MaxQuestionLength" placeholder="@T("Such as: how did medieval libraries lend books?")" />
         </label>
         @if (problem is not null)
         {
@@ -41,7 +41,8 @@
 
 @code {
     private ResearchTopicSummary[] topics = [];
-    private string? question;
+    [SupplyParameterFromForm(FormName = "new-question")]
+    private string? Question { get; set; }
     private string? problem;
 
     protected override async Task OnInitializedAsync()
@@ -52,7 +53,7 @@
 
     private async Task Create()
     {
-        var request = new ResearchTopicRequest(question ?? "", null);
+        var request = new ResearchTopicRequest(Question ?? "", null);
         if (Research.ValidateTopic(request) is { } problems)
         {
             problem = problems.Values.First()[0];

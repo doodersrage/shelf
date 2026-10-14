@@ -1,0 +1,65 @@
+@* The ways books come onto a shelf, as tiles: on Home for a new shelf, and all of them, grouped, on Add & import. *@
+@if (!All)
+{
+    <ul class="welcome-ways">
+        @Way("/import/audiobookshelf", "Audiobookshelf", T("Audiobooks and e-books from your server, with covers, series, and where you stopped. It can keep in step every day."))
+        @Way("/import/calibre", "Calibre", T("A Calibre library on this server, with its files, covers, series, tags, and ratings."))
+        @Way("/backup#csv", "Goodreads · StoryGraph", T("Your shelves, ratings, dates, and reviews from an exported CSV file."))
+        @Way("/scan", T("Scan your shelves"), T("Walk along a shelf scanning barcodes, or photograph the spines, and add what's there in one go."))
+        @Way("/library?add=1#add", T("Files"), T("E-books, PDFs, comics, and audiobooks from your computer or phone, as many at once as you like."))
+        @Way("/library?add=1", T("By hand"), T("A paper book: type its ISBN, or scan the barcode, and Shelf fills in the rest."))
+        @Way("/free", T("Free books"), T("Public-domain e-books from Project Gutenberg and audiobooks from LibriVox, to start with something to read."))
+    </ul>
+}
+else
+{
+    <section class="panel" aria-labelledby="add-one-heading">
+        <h2 id="add-one-heading">@T("A book at a time")</h2>
+        <ul class="welcome-ways">
+            @Way("/library?add=1", T("By hand"), T("A paper book: type its ISBN, or scan the barcode, and Shelf fills in the rest."))
+            @Way("/library?add=1#add", T("Files"), T("E-books, PDFs, comics, and audiobooks from your computer or phone, as many at once as you like."))
+        </ul>
+    </section>
+    <section class="panel" aria-labelledby="add-shelf-heading">
+        <h2 id="add-shelf-heading">@T("A shelf at a time")</h2>
+        <ul class="welcome-ways">
+            @Way("/scan", T("Scan your shelves"), T("Walk along a shelf scanning barcodes, or photograph the spines, and add what's there in one go."))
+            @Way("/moving", T("Moving house"), T("Pack boxes by scanning, and unpack them where they're going."))
+        </ul>
+    </section>
+    <section class="panel" aria-labelledby="add-apps-heading">
+        <h2 id="add-apps-heading">@T("From another app")</h2>
+        <ul class="welcome-ways">
+            @Way("/backup#csv", "Goodreads · StoryGraph", T("Your shelves, ratings, dates, and reviews from an exported CSV file."))
+            @Way("/import/spreadsheet", T("Any spreadsheet"), T("A CSV from any app, choosing which column holds what, kept as a recipe for next time."))
+            @Way("/import/calibre", "Calibre", T("A Calibre library on this server, with its files, covers, series, tags, and ratings."))
+            @Way("/import/audiobookshelf", "Audiobookshelf", T("Audiobooks and e-books from your server, with covers, series, and where you stopped. It can keep in step every day."))
+            @if (!Child)
+            {
+                @Way("/account#hardcover", "Hardcover", T("Your Hardcover shelves, kept in step both ways."))
+                @Way("/account#readwise", "Readwise", T("Highlights from Kindle and elsewhere, onto the books they came from."))
+            }
+            @Way("/backup#restore-heading", T("A Shelf backup"), T("Everything from a backup of Shelf, adding what isn't here and changing nothing that is."))
+        </ul>
+    </section>
+    <section class="panel" aria-labelledby="add-new-heading">
+        <h2 id="add-new-heading">@T("Something new")</h2>
+        <ul class="welcome-ways">
+            @Way("/find", T("Find new books"), T("Search Open Library for a book you don't have yet, and put it on your want list."))
+            @Way("/free", T("Free books"), T("Public-domain e-books from Project Gutenberg and audiobooks from LibriVox, to start with something to read."))
+        </ul>
+    </section>
+}
+
+@code {
+    // Every way, in groups, rather than the few a new shelf starts with.
+    [Parameter]
+    public bool All { get; set; }
+
+    // A child's account, which doesn't connect other services.
+    [Parameter]
+    public bool Child { get; set; }
+
+    private static RenderFragment Way(string href, string title, string text) =>
+        @<li><a href="@href"><strong>@title</strong><span>@text</span></a></li>;
+}

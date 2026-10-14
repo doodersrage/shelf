@@ -11,10 +11,7 @@
     <a class="button quiet" href="/places/labels">@T("Shelf labels")</a>
 </p>
 
-@if (note is not null)
-{
-    <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
-}
+<StatusNote Text="@note" Problem="problem" />
 
 @if (map is not null)
 {

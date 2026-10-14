@@ -1,0 +1,131 @@
+@implements IDisposable
+@inject NavigationManager Navigation
+@inject IJSRuntime Js
+@using Microsoft.JSInterop
+
+@* A long page in tabs. The tab shown follows the address: "#tab-…" (or "?tab=tab-…") names a tab, and "#…" a
+   section in one, which is then scrolled to, so links into a page's sections from elsewhere keep working. Only the
+   tab shown is drawn. *@
+<nav class="page-tabs" aria-label="@Label">
+    <ul>
+        @foreach (var (key, label) in Tabs)
+        {
+            <li><a href="@($"{Path}#{key}")" aria-current="@(key == Active ? "page" : null)" @onclick="() => Select(key, null)">@label</a></li>
+        }
+    </ul>
+</nav>
+
+@code {
+    // Each tab's key (its address is "#key") and name.
+    [Parameter, EditorRequired]
+    public IReadOnlyList<(string Key, string Label)> Tabs { get; set; } = [];
+
+    // Which tab each section, by its id, is in.
+    [Parameter, EditorRequired]
+    public IReadOnlyDictionary<string, string> Sections { get; set; } = new Dictionary<string, string>();
+
+    [Parameter]
+    public string Label { get; set; } = "";
+
+    [Parameter]
+    public string Active { get; set; } = "";
+
+    // The tab shown when the address names none; the first, if this doesn't.
+    [Parameter]
+    public string? Default { get; set; }
+
+    [Parameter]
+    public EventCallback<string> ActiveChanged { get; set; }
+
+    private string? reveal;
+    private DotNetObjectReference<SectionTabs>? self;
+
+    private string Path => new Uri(Navigation.Uri).PathAndQuery;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Navigation.LocationChanged += Moved;
+        await FollowAsync(Navigation.Uri);
+    }
+
+    private void Moved(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args) =>
+        _ = InvokeAsync(() => FollowAsync(args.Location));
+
+    private async Task FollowAsync(string address)
+    {
+        var at = address.IndexOf('#');
+        var fragment = at < 0 ? "" : Uri.UnescapeDataString(address[(at + 1)..]);
+        if (Tabs.Any(tab => tab.Key == fragment))
+        {
+            await Select(fragment, null);
+        }
+        else if (Sections.TryGetValue(fragment, out var tab))
+        {
+            await Select(tab, fragment);
+        }
+        else if (Query(address) is { } asked && Tabs.Any(tab => tab.Key == asked))
+        {
+            await Select(asked, null);
+        }
+        else if (Active.Length == 0 && Tabs.Count > 0)
+        {
+            await Select(Default ?? Tabs[0].Key, null);
+        }
+    }
+
+    // ?tab=… chooses a tab as #… does, and reaches the server, which a fragment never does.
+    private static string? Query(string address) =>
+        Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(address).Query).TryGetValue("tab", out var tab) ? tab.ToString() : null;
+
+    private async Task Select(string key, string? section)
+    {
+        reveal = section;
+        if (key != Active)
+        {
+            Active = key;
+            await ActiveChanged.InvokeAsync(key);
+        }
+
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public Task Follow(string address) => InvokeAsync(() => FollowAsync(address));
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            self = DotNetObjectReference.Create(this);
+            try
+            {
+                await Js.InvokeVoidAsync("shelfWatchHash", self);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+
+        if (reveal is { } section)
+        {
+            reveal = null;
+            try
+            {
+                await Js.InvokeVoidAsync("shelfReveal", section);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+                // Drawn ahead on the server, before the page is live: it is scrolled to once it is.
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= Moved;
+        self?.Dispose();
+    }
+}

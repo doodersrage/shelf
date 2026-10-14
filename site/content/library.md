@@ -8,6 +8,16 @@ description: The catalog, statuses, the library's views and filters, changing ma
 
 **Home** is the front page. When something wants you, **Needs you** comes first and names it: a book you lent that's overdue, a borrowed one due back within three days, a reader asking to borrow, new books in series you follow or by authors you follow. Otherwise it isn't there. Then the book you were last in leads, with a button straight back into it, and after it your shelf at a glance (reading, want to read, finished this year against your goal, on loan), the other books you're reading, what to read next, what you added lately, and what you finished. **Arrange Home**, at the bottom, hides any of those and puts them in the order you like, on every device. **Library** holds every book on your shelf, as covers or a compact list, with search, chips for each status and for books on loan, e-books, and audiobooks, and an order that's kept for next time. On a cover, the status is a menu: change it there without opening the book. **Reading** gathers the books you have open, each a tap from your place, with your reading log of the last weeks and what you noted on the way.
 
+## Finding your way
+
+The menu keeps the five places you go most at the top (**Home**, **Library**, **Reading**, **Loans**, **Insights**), then groups the rest: **Your books** (Add & import, want to read, up next, finished, your saved searches, collections, series, authors, the map), **Your reading** (journal, quotes, words, calendar, book clubs, the reference desk), **Discover** (finding new books, what to read next, free books, podcasts, asking your shelf, searching inside books), **Insights** (years, reading DNA, your collection over time), **Your copies**, and **Settings**. A group opens by itself on its own pages. Under **Account**, **Menu** leaves out the pages you don't use; they are still there.
+
+**Go to…** (or **Ctrl K**, **⌘ K** on a Mac, or **/** when you aren't typing) finds any page by its name or what it's for ("goodreads", "passkeys", "dark"), and any of your books, authors, series, places, and collections by a few letters of their names. The arrow keys choose, **Enter** goes. Before you type, the pages and books you opened lately on this device come first.
+
+On a phone, a bar along the bottom keeps Home, Library, Reading, and Insights a tap away, and **Add** opens a short list: scan books, type a title or ISBN, or more ways to add. In the library, more books come as you scroll.
+
+A book's page is in tabs: **Reading** (the reading log, quotes, highlights, where each device has you), **Details**, **Your copy** (the copy itself, lending, and its files), and **History**. **Account** is too: **You**, **Sign-in & security**, **Connections**, and **Notifications**. A link to a part of either page, from anywhere in Shelf, opens the tab it's in; `?tab=` in the address chooses one too.
+
 When you mark a book finished, its page offers a rating, a quote to keep, and the next book from your read-next list. Take any of them, or dismiss it.
 
 ## Statuses
@@ -61,7 +71,7 @@ A place can be **for a time**, such as a storage unit: a copy put there remember
 
 ### Up next
 
-**Up next**, under **Browse**, is the short list of books you mean to start soon, in your order: drag them, or move them a step at a time. **Read next** on a book puts it there. **Hold** keeps one waiting until a day, or for a mood ("for the winter"), without losing its place; a book in a series waits, unheld, for the one before it. When you finish a book, its page offers the next of its series first, then the queue.
+**Up next**, under **Your books**, is the short list of books you mean to start soon, in your order: drag them, or move them a step at a time. **Read next** on a book puts it there. **Hold** keeps one waiting until a day, or for a mood ("for the winter"), without losing its place; a book in a series waits, unheld, for the one before it. When you finish a book, its page offers the next of its series first, then the queue.
 
 ### Your year in books
 
@@ -71,7 +81,7 @@ Each year on **Years**, and the current one on **Insights**, links to a review o
 
 ### Saved searches
 
-A view you come back to, such as *loved, want to read, newest first*, can be kept: set the filters and order, choose **Save this search**, and give it a name. It joins **Browse** in the sidebar, and opens with the same filters and order every time. **Forget this search**, on the open search, removes it. Saved searches are yours alone; every filtered view is also a plain address you can bookmark.
+A view you come back to, such as *loved, want to read, newest first*, can be kept: set the filters and order, choose **Save this search**, and give it a name. It joins **Your books** in the sidebar, and opens with the same filters and order every time. **Forget this search**, on the open search, removes it. Saved searches are yours alone; every filtered view is also a plain address you can bookmark.
 
 ### Collections
 
@@ -95,7 +105,7 @@ Box sets and collections are left out. Open Library knows the series of many boo
 
 ## Reading DNA
 
-**Reading DNA**, under **Browse** and linked from **Insights**, is what your own shelf says about your reading: the subjects (your tags) and authors you return to, with books you loved or rated highly counting for more; what each recent year was mostly about, and which subjects you read more of lately or less than before; subjects and authors you own plenty of but have hardly read; and books you have had a year or more and not begun that fit what you read, each saying why (the next in a series you read, by an author you loved, about a subject you read often). It is worked out on the server when you open the page, from your shelf alone, and kept nowhere.
+**Reading DNA**, under **Insights** and linked from **Insights**, is what your own shelf says about your reading: the subjects (your tags) and authors you return to, with books you loved or rated highly counting for more; what each recent year was mostly about, and which subjects you read more of lately or less than before; subjects and authors you own plenty of but have hardly read; and books you have had a year or more and not begun that fit what you read, each saying why (the next in a series you read, by an author you loved, about a subject you read often). It is worked out on the server when you open the page, from your shelf alone, and kept nowhere.
 
 ## What to read next
 
@@ -146,7 +156,7 @@ Every change made here, details filled in included, can be undone at once under 
 
 ## Your collection over time
 
-**Your collection over time**, under **Browse**, follows the shelf itself rather than the reading: year by year, the copies that came (by the day acquired, or added), were finished, and left, how many were kept at each year's end, and what was spent and got back. Beneath, what waits to be read, by how long, format, subject, and series; the books never opened in two years or more, the longest waiting first; and the books read again and again.
+**Your collection over time**, under **Insights**, follows the shelf itself rather than the reading: year by year, the copies that came (by the day acquired, or added), were finished, and left, how many were kept at each year's end, and what was spent and got back. Beneath, what waits to be read, by how long, format, subject, and series; the books never opened in two years or more, the longest waiting first; and the books read again and again.
 
 **Price paid**, among a copy's details, counts toward what was spent, in the currency set by `Shelf:Currency`. **Let this copy go**, on a book's page, records that it was donated, sold, given away, discarded, or lost, when, to whom, and for how much: the copy leaves the library and the queue, and keeps its record and your reading. **It's back on the shelf** undoes it. Goals for reading what was already on the shelf when the year began, and for letting copies go, are under **Insights**.
 
@@ -158,7 +168,7 @@ Every change made here, details filled in included, can be undone at once under 
 
 ## Ask your shelf
 
-**Ask your shelf**, under **Browse**, answers questions in everyday words from your own books, notes, and quotes, each with a link: "Which unread books do I own about Roman history?", "Find the mystery novel my friend recommended last year", "Which books in the Discworld series have I not read?", "Show my favourite quotes about creativity". It says how it understood the question. The words are read by simple rules, in English; when an admin has set an Anthropic key (`Recap:ApiKey`), the question alone is read by the model, in any language, to say what it asks, and the answer still comes only from your shelf. Nothing from your shelf is sent. `Ask:UseModel` set to `false` keeps the question on the server too.
+**Ask your shelf**, under **Discover**, answers questions in everyday words from your own books, notes, and quotes, each with a link: "Which unread books do I own about Roman history?", "Find the mystery novel my friend recommended last year", "Which books in the Discworld series have I not read?", "Show my favourite quotes about creativity". It says how it understood the question. The words are read by simple rules, in English; when an admin has set an Anthropic key (`Recap:ApiKey`), the question alone is read by the model, in any language, to say what it asks, and the answer still comes only from your shelf. Nothing from your shelf is sent. `Ask:UseModel` set to `false` keeps the question on the server too.
 
 ## Your library's future
 
@@ -182,7 +192,7 @@ A book out on loan can't be merged away until it's back.
 
 ## Changing many books at once
 
-In the list view, tick books to change their status, add or remove a tag, mark them loved, or delete them, up to a thousand at a time. Each change is kept as one, to be [undone](#trash-and-undo) at once.
+In the list view, tick books to change their status, add or remove a tag, mark them loved, put them at a place, or delete them, up to a thousand at a time. **Choose all shown** ticks the books on screen; **Choose all that match** ticks every book the search and filters find. Each change is kept as one, undone from **Undo** beside the message that reports it, or later [under Trash & undo](#trash-and-undo).
 
 ## Trash and undo
 
@@ -220,11 +230,11 @@ Under **Goals of your own**, beside those, aim for books of a kind you want to m
 
 ## The reference desk
 
-**Reference desk**, under **Browse**, is for questions you look into across books. Start one, write your thinking so far, and add notes under it: a quotation, your own words, a link, each citing a book of yours and where in it (a page, a chapter, a time in an audiobook). A quote already kept on a book comes across with its page. The notes are grouped by book, and the books cited make a bibliography in Chicago, APA, or MLA style. **Download the research packet** gives the question, the notes, and the bibliography as Markdown.
+**Reference desk**, under **Your reading**, is for questions you look into across books. Start one, write your thinking so far, and add notes under it: a quotation, your own words, a link, each citing a book of yours and where in it (a page, a chapter, a time in an audiobook). A quote already kept on a book comes across with its page. The notes are grouped by book, and the books cited make a bibliography in Chicago, APA, or MLA style. **Download the research packet** gives the question, the notes, and the bibliography as Markdown.
 
 ## Reading in other languages
 
-Reading a book in another language, select a word and choose **Look up**, then **Keep this word**: it is kept with its meaning and the sentence it came in, under the book's language. **Words and passages**, under **Browse**, brings up a few at a time to practise: the word, then its meaning when you ask, and whether you knew it. A word you know comes back after longer each time (a day, then two, four, nine, three weeks, two months) until it is learned; one you don't comes back tomorrow. **Download as flashcards** gives them tab-separated, for Anki or any flashcard app.
+Reading a book in another language, select a word and choose **Look up**, then **Keep this word**: it is kept with its meaning and the sentence it came in, under the book's language. **Words and passages**, under **Your reading**, brings up a few at a time to practise: the word, then its meaning when you ask, and whether you knew it. A word you know comes back after longer each time (a day, then two, four, nine, three weeks, two months) until it is learned; one you don't comes back tomorrow. **Download as flashcards** gives them tab-separated, for Anki or any flashcard app.
 
 **Passages** keeps lines beside their translation, from one edition or two, with the languages and where they are. A book's languages, its translator, and its original title are among its [details](#the-catalog), and [connections](#connections-and-the-map) link an edition to its translation.
 

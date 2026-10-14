@@ -24,7 +24,7 @@ test("a passkey signs in without the password or the authenticator code", async 
   await addAuthenticator(page);
 
   // Two-step sign-in is on, and the passkey still goes straight in.
-  await page.goto("/account");
+  await page.goto("/account#two-step");
   await ready(page);
   await page.click('button:text-is("Set up two-step sign-in")');
   const secret = (await page.locator("code.key").innerText()).trim();
@@ -43,7 +43,7 @@ test("a passkey signs in without the password or the authenticator code", async 
   await expect(page.locator(".reader-name").first()).toHaveText(name);
 
   // A passkey removed from the shelf no longer opens it.
-  await page.goto("/account");
+  await page.goto("/account#passkeys");
   await ready(page);
   await page.click('button[aria-label="Remove the passkey Test laptop"]');
   await expect(page.locator("section:has(h2:text('Passkeys')) li")).toHaveCount(0);

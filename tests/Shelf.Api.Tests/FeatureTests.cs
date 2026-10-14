@@ -665,7 +665,7 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         var sessions = await phone.GetFromJsonAsync<SessionSummary[]>("/account/sessions", JsonOptions);
         Assert.Equal(3, sessions!.Length);
         Assert.Single(sessions, session => session.Current);
-        Assert.Contains("Signed-in devices", await phone.GetStringAsync("/account"));
+        Assert.Contains("Signed-in devices", await phone.GetStringAsync("/account?tab=tab-security"));
         foreach (var other in sessions.Where(session => !session.Current))
         {
             Assert.Equal(HttpStatusCode.NoContent, (await phone.DeleteAsync($"/account/sessions/{other.Id}")).StatusCode);
@@ -887,10 +887,10 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         var mine = await CreateAsync(new CreateBookRequest("the tombs of atuan", "Ursula K. Le Guin", BookStatus.Want, null));
 
         // A closed shelf is never mentioned.
-        Assert.DoesNotContain("Before uploading", await _client.GetStringAsync($"/library/{mine.Id}"));
+        Assert.DoesNotContain("Before uploading", await _client.GetStringAsync($"/library/{mine.Id}?tab=tab-copy"));
 
         await lender.PutAsJsonAsync("/books/shelves/open", new ShelfOpenChange(true), JsonOptions);
-        var page = WebUtility.HtmlDecode(await _client.GetStringAsync($"/library/{mine.Id}"));
+        var page = WebUtility.HtmlDecode(await _client.GetStringAsync($"/library/{mine.Id}?tab=tab-copy"));
         Assert.Contains("Before uploading", page);
         Assert.Contains("Open Lender's open shelf", page);
         Assert.Contains("with an e-book", page);

@@ -203,7 +203,10 @@ public sealed class ImportTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
             await File.WriteAllBytesAsync(epub, Epub("Converted Title", "Converted Author", null, "en", cover: false));
             var converter = Path.Combine(folder, "ebook-convert");
             await File.WriteAllTextAsync(converter, $"#!/bin/sh\ncp '{epub}' \"$2\"\n");
-            File.SetUnixFileMode(converter, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(converter, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
 
             EbookStore Store(string tool) => new(
                 factory.Services.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>(),

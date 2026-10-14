@@ -6,6 +6,8 @@ description: Add books by hand, from files, from free public-domain catalogs, fr
 
 # Bringing books in
 
+**Add & import**, at the top of **Your books** in the menu, has every way to bring books in on one page: a book at a time (by hand, or files), a shelf at a time (scanning), from another app (Goodreads, StoryGraph, any spreadsheet, Calibre, Audiobookshelf, Hardcover, Readwise, a Shelf backup), and something new (Open Library, free books). A new, empty shelf shows the main ones on **Home**.
+
 Books come in five ways, and Shelf keeps out what you already have.
 
 A new shelf opens on a welcome with a card for each way below, so the first step is bringing what you already have.
@@ -120,7 +122,7 @@ Name it to keep it as a **recipe**: the next export from the same place comes in
 
 ## Finding new books
 
-**Find new books**, under **Browse** (and linked from **Authors**), searches [Open Library](https://openlibrary.org) for a book you don't have yet, by its title, its author, or its ISBN. Each book found shows its cover, author, and year, and those on your shelf already say so. **Want to read** puts it on your want list with what Open Library knows of it (ISBN, pages, cover, year); with finding and fetching set up (below), **Fetch it** then takes you to the book's page to search your indexers. The page's address keeps the search, to come back to or share.
+**Find new books**, under **Discover** (and linked from **Authors**), searches [Open Library](https://openlibrary.org) for a book you don't have yet, by its title, its author, or its ISBN. Each book found shows its cover, author, and year, and those on your shelf already say so. **Want to read** puts it on your want list with what Open Library knows of it (ISBN, pages, cover, year); with finding and fetching set up (below), **Fetch it** then takes you to the book's page to search your indexers. The page's address keeps the search, to come back to or share.
 
 ### Following an author
 
@@ -167,7 +169,7 @@ services:
 
 On a book's page, **Search your indexers** looks for an e-book or an audiobook of it. The releases come best first: those that are this book (its title words and author's last name are in the release's name, and it is the kind of file asked for), in the format you like most, with the most seeders. Each that isn't a match says why. **Fetch** sends it to the download client; the page follows it there and, once it finishes, the file is on the book.
 
-**Wanted**, under **Browse**, lists your want-to-read books with no file yet, what is being fetched, and what was fetched lately. **Look for all of them now** searches for each and fetches the best match, a few seconds apart, up to the number set under Downloads; **Activity** shows it going. Ticking **Every day, look for want-to-read books** under Downloads does that once a day for every reader. A book already being fetched isn't searched again.
+**Wanted**, under **Discover**, lists your want-to-read books with no file yet, what is being fetched, and what was fetched lately. **Look for all of them now** searches for each and fetches the best match, a few seconds apart, up to the number set under Downloads; **Activity** shows it going. Ticking **Every day, look for want-to-read books** under Downloads does that once a day for every reader. A book already being fetched isn't searched again.
 
 Children's accounts can't search or fetch.
 

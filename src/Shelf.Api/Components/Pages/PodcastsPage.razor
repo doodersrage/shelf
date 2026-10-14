@@ -57,10 +57,7 @@ else
         </label>
         <p><a href="/books/podcasts/opml" download>@T("Save the podcasts you follow as OPML")</a></p>
     </details>
-    @if (note is not null)
-    {
-        <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
-    }
+    <StatusNote Text="@note" Problem="problem" />
 </section>
 }
 

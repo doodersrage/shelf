@@ -1,0 +1,16 @@
+@* Shown while a page that works something out from the whole shelf is still at it: the page streams, so its
+   heading and this come at once, and the rest replaces this when it's ready. *@
+<div class="loading" role="status">
+    <span class="loading-dot" aria-hidden="true"></span>
+    <span>@(Text ?? T("Working it out from your shelf…"))</span>
+</div>
+<div class="loading-lines" aria-hidden="true">
+    <span></span>
+    <span></span>
+    <span></span>
+</div>
+
+@code {
+    [Parameter]
+    public string? Text { get; set; }
+}

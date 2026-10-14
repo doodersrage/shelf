@@ -807,6 +807,7 @@ public class ShelfDb : DbContext
             reader.Property(r => r.CalendarTokenHash).HasMaxLength(64);
             reader.Property(r => r.PublicToken).HasMaxLength(40);
             reader.Property(r => r.DismissedRelease).HasMaxLength(32);
+            reader.Property(r => r.HiddenNav).HasMaxLength(4000);
             reader.HasIndex(r => r.PublicToken).IsUnique();
             reader.Property(r => r.NtfyToken).HasMaxLength(1000);
             reader.Property(r => r.GotifyUrl).HasMaxLength(500);

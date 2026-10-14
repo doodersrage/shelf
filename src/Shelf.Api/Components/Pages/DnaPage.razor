@@ -1,5 +1,5 @@
 @page "/dna"
-@rendermode InteractiveServer
+@attribute [StreamRendering]
 @inject IDbContextFactory<ShelfDb> DbFactory
 
 <PageTitle>@T("Reading DNA") · Shelf</PageTitle>
@@ -9,6 +9,7 @@
 
 @if (dna is null)
 {
+    <Loading />
 }
 else if (dna.Read < 5)
 {

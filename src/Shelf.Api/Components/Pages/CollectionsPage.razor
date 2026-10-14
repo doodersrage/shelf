@@ -1,5 +1,4 @@
 @page "/collections"
-@rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject NavigationManager Navigation
 
@@ -8,10 +7,11 @@
 <h1>@T("Collections")</h1>
 <p class="hint">@T("Lists you make by hand, in the order you choose: a book club's year, summer reading, books to lend a friend. Add a book from its page.")</p>
 
-<form class="save-search" @onsubmit="Make" @onsubmit:preventDefault>
+<form class="save-search" method="post" @formname="make-collection" @onsubmit="Make" data-enhance>
+    <AntiforgeryToken />
     <label>
         @T("New collection")
-        <input @bind="name" maxlength="@Collection.MaxNameLength" placeholder="@T("Book club")" required />
+        <input name="Name" value="@Name" maxlength="@Collection.MaxNameLength" placeholder="@T("Book club")" required />
     </label>
     <button type="submit" class="primary">@T("Make it")</button>
 </form>
@@ -47,7 +47,8 @@ else
 
 @code {
     private CollectionSummary[] collections = [];
-    private string name = "";
+    [SupplyParameterFromForm(FormName = "make-collection")]
+    private string? Name { get; set; }
     private string? problem;
 
     protected override async Task OnInitializedAsync()
@@ -59,7 +60,7 @@ else
     private async Task Make()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        var (made, trouble) = await Collections.CreateAsync(db, name, null);
+        var (made, trouble) = await Collections.CreateAsync(db, Name ?? "", null);
         problem = trouble;
         if (made is not null)
         {

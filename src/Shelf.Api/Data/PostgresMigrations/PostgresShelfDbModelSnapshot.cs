@@ -3263,6 +3263,10 @@ namespace Shelf.Api.Data.PostgresMigrations
                         .HasMaxLength(6000)
                         .HasColumnType("character varying(6000)");
 
+                    b.Property<string>("HiddenNav")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
                     b.Property<bool>("IsAdmin")
                         .HasColumnType("boolean");
 

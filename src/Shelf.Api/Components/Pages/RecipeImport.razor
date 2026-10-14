@@ -7,10 +7,7 @@
 <h1>@T("Bring in a spreadsheet")</h1>
 <p class="hint">@T("A CSV file from any app or service: say which column holds what once, see the first rows as they would come in, and keep it as a recipe for the next export from the same place. Books already on your shelf are skipped, and the whole import can be undone under Trash & undo.")</p>
 
-@if (note is not null)
-{
-    <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
-}
+<StatusNote Text="@note" Problem="problem" />
 
 <section class="panel">
     <h2>@T("The file")</h2>

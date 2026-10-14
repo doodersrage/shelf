@@ -1,5 +1,4 @@
 @page "/clubs"
-@rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject NavigationManager Navigation
 
@@ -8,10 +7,11 @@
 <h1>@T("Book clubs")</h1>
 <p class="hint">@T("Read the same books as other readers on this shelf, and talk about each one. Start a club and invite them, or open one you were invited to.")</p>
 
-<form class="save-search" @onsubmit="Start" @onsubmit:preventDefault>
+<form class="save-search" method="post" @formname="start-club" @onsubmit="Start" data-enhance>
+    <AntiforgeryToken />
     <label>
         @T("New club")
-        <input @bind="name" maxlength="@Club.MaxNameLength" placeholder="@T("Book club")" required />
+        <input name="Name" maxlength="@Club.MaxNameLength" placeholder="@T("Book club")" required />
     </label>
     <button type="submit" class="primary">@T("Start it")</button>
 </form>
@@ -41,7 +41,8 @@ else
 
 @code {
     private ClubSummary[] clubs = [];
-    private string name = "";
+    [SupplyParameterFromForm(FormName = "start-club")]
+    private string? Name { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -52,7 +53,7 @@ else
     private async Task Start()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        if ((await Clubs.CreateAsync(db, name, null)).Id is int id)
+        if ((await Clubs.CreateAsync(db, Name ?? "", null)).Id is int id)
         {
             Navigation.NavigateTo($"/clubs/{id}");
         }

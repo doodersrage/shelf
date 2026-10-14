@@ -295,12 +295,12 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
             null,
             Notes: "Second of Earthsea"));
 
-        var library = await _client.GetAsync($"/library/{book.Id}");
+        var library = await _client.GetAsync($"/library/{book.Id}?tab=tab-details");
         Assert.Equal(HttpStatusCode.OK, library.StatusCode);
         var libraryHtml = await library.Content.ReadAsStringAsync();
         Assert.Contains("The Tombs of Atuan", libraryHtml);
         Assert.Contains("Second of Earthsea", libraryHtml);
-        Assert.Contains("Add quote", libraryHtml);
+        Assert.Contains("Add quote", await _client.GetStringAsync($"/library/{book.Id}"));
 
         var missing = await _client.GetAsync("/library/999999");
         var missingHtml = await missing.Content.ReadAsStringAsync();
@@ -1064,7 +1064,7 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         var people = await _client.GetFromJsonAsync<LoanCount[]>("/books/loans", JsonOptions);
         Assert.Contains(people!, person => person.Name == "Shevek" && person.Overdue >= 1);
 
-        var page = await _client.GetAsync($"/library/{book.Id}");
+        var page = await _client.GetAsync($"/library/{book.Id}?tab=tab-copy");
         var html = await page.Content.ReadAsStringAsync();
         Assert.Contains("overdue", html);
         Assert.Contains(due.ToString("MMM d, yyyy"), html);
@@ -1113,7 +1113,7 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
             Acquisition: Acquisition.Gift));
         Assert.Equal(Acquisition.Gift, book.Acquisition);
 
-        var page = await _client.GetAsync($"/library/{book.Id}");
+        var page = await _client.GetAsync($"/library/{book.Id}?tab=tab-copy");
         var html = await page.Content.ReadAsStringAsync();
         Assert.Contains("A gift", html);
 

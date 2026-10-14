@@ -8,7 +8,7 @@ test("a reader lends a book to another, who gives it back", async ({ browser }) 
   const borrower = await signUp(browser, borrowerName);
   const book = await createBook(owner, { title: unique("The Farthest Shore"), author: "Ursula K. Le Guin" });
 
-  await owner.goto(`/library/${book.id}`);
+  await owner.goto(`/library/${book.id}#lending`);
   await ready(owner);
   await owner.selectOption('select:has(option:text("Choose a reader"))', { label: borrowerName });
   await owner.click('button:text-is("Lend")');
@@ -31,7 +31,7 @@ test("a reader lends a book to another, who gives it back", async ({ browser }) 
 test("two-step sign-in is set up from the account page and asked for at the next sign-in", async ({ browser }) => {
   const name = unique("Careful");
   const page = await signUp(browser, name);
-  await page.goto("/account");
+  await page.goto("/account#two-step");
   await ready(page);
   await page.click('button:text-is("Set up two-step sign-in")');
   const secret = (await page.locator("code.key").innerText()).trim();
@@ -81,7 +81,7 @@ test("adding a book another reader has on an open shelf offers to borrow it", as
 test("an API token made on the account page opens the books API", async ({ browser, playwright, baseURL }) => {
   const page = await signUp(browser, unique("Scripted"));
   const book = await createBook(page, { title: unique("The Lathe of Heaven"), author: "Ursula K. Le Guin" });
-  await page.goto("/account");
+  await page.goto("/account#tokens");
   await ready(page);
   const tokens = page.locator("#tokens");
   await tokens.getByLabel("What will use it").fill("Home Assistant");

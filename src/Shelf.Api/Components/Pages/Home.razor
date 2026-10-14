@@ -24,6 +24,7 @@
 {
     <section id="add" class="panel" aria-labelledby="add-heading">
         <h2 id="add-heading">@T("Add a book")</h2>
+        <p class="hint">@T("Many at once? Scan a shelf, or bring a library from Goodreads, Calibre, or a spreadsheet:") <a href="/add">@T("Add & import")</a></p>
         @if (books.Count == 0)
         {
             <p class="hint">@T("Your shelf is empty. Start with a title and an author; an ISBN lets Shelf fill in the rest from Open Library.")</p>
@@ -336,6 +337,17 @@ else if (visible.Count > 0)
                 <button type="button" disabled="@string.IsNullOrWhiteSpace(bulkTag)" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], RemoveTag: bulkTag))">@T("Remove tag")</button>
                 <button type="button" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Loved: true))">@T("Love")</button>
                 <button type="button" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Loved: false))">@T("Unlove")</button>
+                <label>
+                    <span class="visually-hidden">@T("Place for the chosen books")</span>
+                    <input list="bulk-places" @bind="bulkPlace" @bind:event="oninput" placeholder="@T("A place")" maxlength="80" />
+                </label>
+                <datalist id="bulk-places">
+                    @foreach (var known in placeNames)
+                    {
+                        <option value="@known"></option>
+                    }
+                </datalist>
+                <button type="button" disabled="@string.IsNullOrWhiteSpace(bulkPlace)" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Location: bulkPlace))">@T("Put there")</button>
                 @if (!confirmingBulkDelete)
                 {
                     <button type="button" class="danger" @onclick="() => confirmingBulkDelete = true">@T("Delete…")</button>
@@ -347,10 +359,13 @@ else if (visible.Count > 0)
                     <button type="button" @onclick="() => confirmingBulkDelete = false">@T("Cancel")</button>
                 }
             }
-            @if (bulkNote is not null)
+            @if (matching.Count > visible.Count && !matching.Take(Bulk.MaxBooks).All(book => chosen.Contains(book.Id)))
             {
-                <span class="saved" role="status">@bulkNote</span>
+                <button type="button" class="quiet" @onclick="() => chosen.UnionWith(matching.Take(Bulk.MaxBooks).Select(book => book.Id))">
+                    @(matching.Count > Bulk.MaxBooks ? T("Choose the first {0} that match", Bulk.MaxBooks) : T("Choose all {0} that match", matching.Count))
+                </button>
             }
+            <StatusNote Text="@bulkNote" UndoBatch="bulkBatch" Undone="LoadAsync" />
         </div>
         <ul class="book-list">
         @foreach (var book in visible)
@@ -499,7 +514,7 @@ else if (visible.Count > 0)
     @if (matching.Count > visible.Count)
     {
         <p>
-            <button type="button" @onclick="() => shown += PageSize">@T("Show {0} more", Math.Min(PageSize, matching.Count - visible.Count))</button>
+            <button type="button" data-more @onclick="() => shown += PageSize">@T("Show {0} more", Math.Min(PageSize, matching.Count - visible.Count))</button>
             <span class="hint">@T("Not shown yet: {0}", matching.Count - visible.Count)</span>
         </p>
     }
@@ -534,6 +549,9 @@ else if (visible.Count > 0)
     private string bulkStatus = "";
     private string bulkTag = "";
     private string? bulkNote;
+    private int? bulkBatch;
+    private string bulkPlace = "";
+    private string[] placeNames = [];
     private bool confirmingBulkDelete;
     private bool listView;
     private string? addedTitle;
@@ -850,7 +868,7 @@ else if (visible.Count > 0)
 
     private void Choose(int id, bool on)
     {
-        bulkNote = null;
+        (bulkNote, bulkBatch) = (null, null);
         if (on)
         {
             chosen.Add(id);
@@ -863,7 +881,7 @@ else if (visible.Count > 0)
 
     private void ChooseAll(IEnumerable<Book> shown, bool on)
     {
-        bulkNote = null;
+        (bulkNote, bulkBatch) = (null, null);
         foreach (var book in shown)
         {
             Choose(book.Id, on);
@@ -876,8 +894,9 @@ else if (visible.Count > 0)
         {
             var result = await Bulk.ApplyAsync(db, Ebooks, Audio, Covers, request);
             bulkNote = request.Delete
-                ? T("Deleted: {0}. Undo it under Trash & undo.", Localization.Counts.Books(result.Changed))
-                : T("Changed: {0}. Undo it under Trash & undo.", Localization.Counts.Books(result.Changed));
+                ? T("Deleted: {0}.", Localization.Counts.Books(result.Changed))
+                : T("Changed: {0}.", Localization.Counts.Books(result.Changed));
+            bulkBatch = result.BatchId;
         }
 
         if (request.Delete)
@@ -887,6 +906,7 @@ else if (visible.Count > 0)
 
         confirmingBulkDelete = false;
         bulkStatus = "";
+        bulkPlace = "";
         await LoadAsync();
         chosen.IntersectWith(books.Select(book => book.Id));
     }
@@ -1080,6 +1100,7 @@ else if (visible.Count > 0)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         readerId = db.ReaderId;
+        placeNames = await Scanning.PlacesAsync(db);
         // Only what the library shows, searches, and sorts by, with tags, and quotes for their count and for search: a
         // big shelf's books also carry chapter lists, reviews, and places in their files, slow to read by the thousand.
         books = await db.Books.AsNoTracking()

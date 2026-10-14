@@ -557,8 +557,55 @@ details.nav-group > summary:hover {
         height: 1.3rem;
     }
 
-    /* Adding is the one action, so it stands out from the places. */
-    .bottom-nav a.add svg {
+    /* Adding is the one action, so it stands out from the places; it opens a short list above the bar. */
+    .add-sheet {
+        position: relative;
+    }
+
+    .add-sheet > summary {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 3.5rem;
+        gap: 2px;
+        padding: 0;
+        color: var(--color-muted);
+        font-size: var(--text-xs);
+        cursor: pointer;
+    }
+
+    .add-sheet > summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .add-sheet-items {
+        position: absolute;
+        bottom: calc(100% + var(--space-2));
+        left: 50%;
+        transform: translateX(-50%);
+        width: max-content;
+        max-width: calc(100vw - 2 * var(--space-4));
+        display: grid;
+        padding: var(--space-2);
+        background: var(--color-surface);
+        border: 1px solid var(--color-rule);
+        border-radius: var(--radius-card);
+        box-shadow: var(--shadow-card);
+    }
+
+    .bottom-nav .add-sheet-items a {
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: var(--space-3);
+        min-height: var(--touch);
+        padding: 0 var(--space-3);
+        color: var(--color-ink);
+        font-size: var(--text-md);
+    }
+
+    .bottom-nav .add-sheet > summary.add svg {
         width: 2.5rem;
         height: 2.5rem;
         padding: 0.55rem;
@@ -1943,14 +1990,6 @@ dialog.scanner p {
 
 .status-actions button {
     margin: 0;
-}
-
-.section-nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-1) var(--space-4);
-    font-size: var(--text-sm);
-    margin: 0 0 var(--space-4);
 }
 
 details > summary {
@@ -3920,24 +3959,6 @@ blockquote mark {
     text-decoration: underline;
 }
 
-.reader-menu .menu-items {
-    left: auto;
-    right: 0;
-    width: min(22rem, calc(100vw - 2rem));
-    padding: var(--space-4);
-    gap: var(--space-3);
-}
-
-.reader-menu .reader-settings {
-    flex-direction: column;
-    align-items: stretch;
-    margin: 0;
-}
-
-.reader-menu .reader-settings label {
-    min-width: 0;
-}
-
 .reader-where {
     align-self: center;
     margin-left: auto;
@@ -5642,5 +5663,202 @@ html.reading-full body {
 @media print {
     .legacy-print .label-controls {
         display: none !important;
+    }
+}
+
+/* Quick jump: a box at the top of the window, with what it finds below it. */
+.jump-open {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    min-height: var(--touch);
+    justify-content: flex-start;
+    color: var(--color-muted);
+    font-weight: 400;
+}
+
+.jump-open svg {
+    width: 1.1rem;
+    height: 1.1rem;
+    flex: none;
+}
+
+.jump-open kbd {
+    margin-left: auto;
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--color-muted);
+    border: 1px solid var(--color-rule);
+    border-radius: 4px;
+    padding: 0 var(--space-1);
+}
+
+.topbar .jump-open.icon-only {
+    width: auto;
+    margin-left: auto;
+}
+
+dialog.jump {
+    width: min(36rem, calc(100vw - 2 * var(--space-4)));
+    max-height: min(32rem, calc(100vh - 4rem));
+    margin: 4rem auto auto;
+    padding: var(--space-3);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-card);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    display: none;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+dialog.jump[open] {
+    display: flex;
+}
+
+dialog.jump::backdrop {
+    background: rgb(0 0 0 / 0.45);
+}
+
+dialog.jump input {
+    width: 100%;
+    font-size: var(--text-lg);
+}
+
+#jump-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+}
+
+#jump-list [role=option] {
+    display: grid;
+    grid-template-columns: 5.5rem 1fr;
+    column-gap: var(--space-3);
+    align-items: baseline;
+    min-height: var(--touch);
+    padding: var(--space-2);
+    border-radius: var(--radius-control);
+    cursor: pointer;
+}
+
+#jump-list [role=option][aria-selected=true],
+#jump-list [role=option]:hover {
+    background: var(--color-sunken);
+}
+
+.jump-kind {
+    color: var(--color-muted);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.jump-detail {
+    grid-column: 2;
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+}
+
+.jump-keys {
+    margin: 0;
+    font-size: var(--text-xs);
+}
+
+@media (max-width: 40rem) {
+    dialog.jump {
+        margin-top: var(--space-4);
+    }
+
+    .jump-keys,
+    .jump-open kbd {
+        display: none;
+    }
+}
+
+/* A long page's tabs: a row of links that scrolls sideways on a narrow screen. */
+.page-tabs {
+    margin: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-rule);
+    overflow-x: auto;
+}
+
+.page-tabs ul {
+    list-style: none;
+    display: flex;
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+}
+
+.page-tabs a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch);
+    padding: 0 var(--space-3);
+    border-bottom: 3px solid transparent;
+    color: var(--color-muted);
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.page-tabs a:hover {
+    color: var(--color-ink);
+}
+
+.page-tabs a[aria-current=page] {
+    border-bottom-color: var(--color-brand);
+    color: var(--color-ink);
+}
+
+/* A page still working something out: a line saying so, and a few grey lines where the answer will be. */
+.loading {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--color-muted);
+    margin: var(--space-4) 0 var(--space-3);
+}
+
+.loading-dot {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background: var(--color-accent);
+    animation: loading-pulse 1.2s ease-in-out infinite;
+}
+
+.loading-lines {
+    display: grid;
+    gap: var(--space-2);
+    max-width: 36rem;
+}
+
+.loading-lines span {
+    height: 0.9rem;
+    border-radius: 4px;
+    background: var(--color-sunken);
+}
+
+.loading-lines span:nth-child(2) {
+    width: 80%;
+}
+
+.loading-lines span:nth-child(3) {
+    width: 60%;
+}
+
+@keyframes loading-pulse {
+    50% {
+        opacity: 0.3;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loading-dot {
+        animation: none;
     }
 }

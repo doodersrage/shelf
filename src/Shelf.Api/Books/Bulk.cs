@@ -11,9 +11,11 @@ public sealed record BulkRequest(
     string? AddTag = null,
     string? RemoveTag = null,
     bool? Loved = null,
-    bool Delete = false);
+    bool Delete = false,
+    string? Location = null);
 
-public sealed record BulkResult(int Changed);
+// How many books changed, and the change to undo them by.
+public sealed record BulkResult(int Changed, int? BatchId = null);
 
 // One change to many books at once. Only the reader's own books are touched, whatever ids arrive.
 public static class Bulk
@@ -44,7 +46,7 @@ public static class Bulk
             }
 
             var deleted = await History.StartAsync(db, BatchKind.Delete, mine.Count == 1 ? T("Deleted 1 book") : T("Deleted {0} books", mine.Count), cancellationToken);
-            return new BulkResult(await Trash.DeleteBooksAsync(db, ebooks, audio, covers, mine, deleted.Id, cancellationToken));
+            return new BulkResult(await Trash.DeleteBooksAsync(db, ebooks, audio, covers, mine, deleted.Id, cancellationToken), deleted.Id);
         }
 
         var books = await db.Books.Include(book => book.Tags).Where(book => ids.Contains(book.Id)).ToListAsync(cancellationToken);
@@ -64,8 +66,16 @@ public static class Bulk
             addTag = await db.Tags.FirstOrDefaultAsync(tag => tag.Name == add, cancellationToken) ?? db.Tags.Add(new Tag { Name = add }).Entity;
         }
 
+        // A place, put as a copy is put anywhere: one for a time (a box, a storage unit) keeps where it usually lives.
+        var place = string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim() is { Length: > 80 } long_ ? long_[..80] : request.Location.Trim();
+        var temporary = place is null ? null : await PlaceTree.TemporaryPathsAsync(db, cancellationToken);
         foreach (var book in books)
         {
+            if (place is not null)
+            {
+                PlaceTree.Put(book, place, temporary!.Contains(place), temporary);
+            }
+
             if (request.Status is { } status)
             {
                 BookRules.ChangeStatus(book, status);
@@ -89,7 +99,7 @@ public static class Bulk
 
         await db.SaveChangesAsync(cancellationToken);
         await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
-        return new BulkResult(books.Count);
+        return new BulkResult(books.Count, batch.Id);
     }
 
     // What the change was, for the list of changes that can be undone.
@@ -114,6 +124,11 @@ public static class Bulk
         if (request.Loved is { } loved)
         {
             parts.Add(loved ? T("loved") : T("no longer loved"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Location))
+        {
+            parts.Add(T("put at {0}", request.Location.Trim()));
         }
 
         var what = parts.Count == 0 ? T("changed") : string.Join(", ", parts);

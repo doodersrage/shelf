@@ -9,10 +9,7 @@
 <p class="hint">@T("What you would like done with your books should you be unable to see to them: who is to have which, and a word for whoever looks after it. It is kept sealed on this server and shown to no one but you; print it or download it to keep with your papers.")</p>
 <p class="notice">@T("This is a note of your wishes, not a will. To make sure they are carried out, put them in a will or give a copy to someone you trust.")</p>
 
-@if (note is not null)
-{
-    <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
-}
+<StatusNote Text="@note" Problem="problem" />
 
 @if (view is not null)
 {

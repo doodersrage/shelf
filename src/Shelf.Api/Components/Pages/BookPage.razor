@@ -237,6 +237,10 @@ else if (book is not null)
             {
                 <p class="hint" data-keep-progress data-template="@T("Track {0} of {1}")" aria-live="polite"></p>
             }
+            @if (offlineNote is not null)
+            {
+                <p class="hint" role="status">@offlineNote</p>
+            }
             @if (kindleNote is not null)
             {
                 <p class="@(kindleSent ? "saved" : "validation-message")" role="status">@kindleNote @if (!kindleSent && kindleNeedsAddress) { <a href="/account#kindle">@T("Account")</a> }</p>
@@ -493,16 +497,10 @@ else if (book is not null)
         <p class="inscription">@book.Inscription</p>
     }
 
-    <nav class="section-nav" aria-label="@T("On this page")">
-        <a href="/library/@book.Id#reading">@T("Reading log")</a>
-        <a href="/library/@book.Id#quotes">@T("Quotes")</a>
-        <a href="/library/@book.Id#highlights">@T("Highlights")</a>
-        <a href="/library/@book.Id#files">@T("Files & lending")</a>
-        <a href="/library/@book.Id#details">@T("Details")</a>
-        <a href="/library/@book.Id#links">@T("Connections")</a>
-        <a href="/library/@book.Id#copy">@T("Your copy")</a>
-    </nav>
+    <SectionTabs Label="@T("This book")" Tabs="BookTabs" Sections="BookSections" Default="@((EbookMessage ?? AudioMessage ?? CoverMessage ?? PhotoMessage ?? HeldToken) is null ? null : "tab-copy")" @bind-Active="tab" />
 
+    @if (tab == "tab-reading")
+    {
     <section class="panel" id="reading">
     <h2>@T("Reading log")</h2>
     @if (book.Sessions.Count == 0)
@@ -705,214 +703,37 @@ else if (book is not null)
     }
     </section>
 
-    <section class="panel" id="files">
-        <h2>@T("Files")</h2>
-    <h3>@T("Cover")</h3>
-    <div class="cover-choice">
-        <BookCover Title="@book.Title" Url="@book.CoverShown" Width="5rem" />
-        <div>
-            <p class="hint">@CoverSource</p>
-            <form action="/books/@book.Id/cover" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
-                <label>
-                    @(book.CoverImage is null ? T("Use a picture of your own: JPEG, PNG, GIF, or WebP, up to 10 MB") : T("Use a different picture: JPEG, PNG, GIF, or WebP, up to 10 MB"))
-                    <input type="file" name="file" accept="image/jpeg,image/png,image/gif,image/webp" required />
-                </label>
-                <progress data-upload-progress max="100" hidden></progress>
-                <p class="hint" data-upload-status role="status" hidden></p>
-                <button type="submit">@T("Upload the picture")</button>
-                @if (book.CoverImage is not null)
-                {
-                    <button type="button" class="quiet" @onclick="RemoveCover">@T("Remove the picture")</button>
-                }
-            </form>
-        </div>
-    </div>
-    @if (borrowable.Count > 0)
+    @if (positions is { Reports.Length: > 0 } where && (where.Reports.Length > 1 || where.Reports.Any(report => !report.Current)))
     {
-        <p class="hint">@T("Before uploading: another reader has this book with a file you could borrow.")</p>
-        <OpenCopies Copies="borrowable" />
-    }
-    <h3>@T("E-book")</h3>
-    @if (offlineNote is not null)
-    {
-        <p class="hint" role="status">@offlineNote</p>
-    }
-    @if (!string.IsNullOrWhiteSpace(book.EbookFileName))
-    {
-        <p>@book.EbookFileName</p>
-        <button type="button" @onclick="RemoveEbook">@T("Remove the file")</button>
-    }
-    <form action="/books/@book.Id/ebook" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
-        <label>
-            @T("EPUB, PDF, comic (CBZ, CBR, or CB7), or Kindle file, up to {0}", Localization.Counts.Size(EbookStore.MaxBytes))
-            <input type="file" name="file" accept=".epub,.pdf,.cbz,.cbr,.cb7,.cbt,.mobi,.azw3,.azw,application/epub+zip,application/pdf" required />
-        </label>
-        <progress data-upload-progress max="100" hidden></progress>
-        <p class="hint" data-upload-status role="status" hidden></p>
-        <button type="submit">@T("Upload")</button>
-    </form>
-
-    @if (EbookStore.IsComic(book.EbookStoredName))
-    {
-        <ComicVineSearch BookId="book.Id" InitialQuery="@(book.Series is { } series ? $"{series} {book.SeriesNumber}".Trim() : book.Title)" Changed="() => LoadAsync()" />
-    }
-
-    <h3>@T("Audiobook")</h3>
-    @if (!string.IsNullOrWhiteSpace(book.AudioFileName))
-    {
-        <p>@book.AudioFileName</p>
-        <button type="button" @onclick="RemoveAudio">@T("Remove the recording")</button>
-    }
-    @if (!string.IsNullOrWhiteSpace(book.AudioStoredName) || book.Format == BookFormat.Audiobook)
-    {
-        <AudibleSearch BookId="book.Id" InitialTitle="@book.Title" InitialAuthor="@book.Author" HasChapters="book.AudioChapterNames is not null" Changed="() => LoadAsync()" />
-    }
-    <ReadAlongPanel BookId="book.Id" />
-    <M4bPanel BookId="book.Id" />
-    <form action="/books/@book.Id/audio" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
-        <label>
-            @T("Audio or a zip of tracks, up to {0}", Localization.Counts.Size(AudioStore.MaxBytes))
-            <input type="file" name="file" accept=".mp3,.m4a,.m4b,.aac,.ogg,.opus,.wav,.flac,.zip,audio/*" multiple required />
-        </label>
-        <progress data-upload-progress max="100" hidden></progress>
-        <p class="hint" data-upload-status role="status" hidden></p>
-        <button type="submit">@T("Upload")</button>
-    </form>
-    </section>
-
-    <section class="panel" id="lending">
-        <h2>@T("Lending")</h2>
-        @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
-        {
-            <p>
-                @T("Loaned to") <a href="@($"/library?loanedTo={Uri.EscapeDataString(book.LoanedTo)}")">@book.LoanedTo</a>@(book.BorrowerId is null ? "" : T(", a reader here"))
-                @if (book.LoanedOn is DateOnly loanedOn)
-                {
-                    <span> @T("since {0}", loanedOn.Medium())</span>
-                }
-                @if (book.DueOn is DateOnly due)
-                {
-                    <span class="@(due < Today ? "late" : null)"> · @T("due {0}", due.Medium())@(due < Today ? T(", overdue") : "")</span>
-                }
-            </p>
-            @if (book.BorrowerId is not null)
-            {
-                <p class="hint">@LendNote</p>
-            }
-            @if (waitingCount > 0)
-            {
-                <p class="hint">@(waitingCount == 1 ? T("1 reader is waiting for it.") : T("{0} readers are waiting for it.", waitingCount))</p>
-            }
-            <div class="pair">
-                <label>
-                    @T("Came back in")
-                    <select @bind="returnCondition">
-                        <option value="">@T("As it went out")</option>
-                        @foreach (var condition in Enum.GetValues<CopyCondition>())
-                        {
-                            <option value="@condition">@BookRules.ConditionLabel(condition)</option>
-                        }
-                    </select>
-                </label>
-                <label>
-                    @T("A note on the loan (optional)")
-                    <input maxlength="@LoanRecord.MaxNoteLength" @bind="returnNote" />
-                </label>
-            </div>
-            <button type="button" @onclick="ReturnLoan">@T("Mark returned")</button>
-            <button type="button" class="quiet" @onclick="Renew">@T("Renew")</button>
-        }
-        else if (readers.Count == 0)
-        {
-            <p class="hint">@T("Not on loan. To lend it to someone, fill in Loaned to under Details.")</p>
-        }
-    else
-    {
-        <p class="hint">@T("Lend this book to another reader here. It shows on their loans until it comes back.") @LendNote</p>
-        <div class="pair">
-            <label>
-                @T("Reader")
-                <select @bind="lendTo">
-                    <option value="0">@T("Choose a reader")</option>
-                    @foreach (var reader in readers)
-                    {
-                        <option value="@reader.Id">@reader.Name</option>
-                    }
-                </select>
-            </label>
-            <label>
-                @T("Due back")
-                <input type="date" @bind="lendDue" />
-            </label>
-        </div>
-        <button type="button" @onclick="LendBook" disabled="@(lendTo == 0)">@T("Lend")</button>
-        @if (lendProblem is not null)
-        {
-            <p class="validation-message" role="alert">@lendProblem</p>
-        }
-    }
-        @if (loans.Length > 0 && loans.Any(loan => loan.ReturnedOn is not null))
-        {
-            <details>
-                <summary>@T("Earlier loans")</summary>
+        <section class="panel" id="positions">
+            <details open="@where.Reports.Any(report => !report.Current)">
+                <summary><h2>@T("Where each device has you")</h2></summary>
+                <p class="hint">@T("Shelf keeps you at {0}. A place only moves forward by itself; if another is right, choose it here, back or forward.", where.Current)</p>
                 <ul class="plain-list">
-                    @foreach (var loan in loans.Where(loan => loan.ReturnedOn is not null))
+                    @foreach (var report in where.Reports)
                     {
                         <li>
-                            <span>@loan.Borrower</span>
-                            <span class="hint">
-                                @loan.LentOn.Medium() – @(loan.ReturnedOn?.Medium())
-                                @if (loan.Renewals > 0)
-                                {
-                                    <span> · @(loan.Renewals == 1 ? T("renewed once") : T("renewed {0} times", loan.Renewals))</span>
-                                }
-                                @if (loan.ConditionOut is CopyCondition went)
-                                {
-                                    <span> · @T("went out {0}", BookRules.ConditionLabel(went).ToLowerInvariant())</span>
-                                }
-                                @if (loan.ConditionBack is CopyCondition came)
-                                {
-                                    <span> · @T("came back {0}", BookRules.ConditionLabel(came).ToLowerInvariant())</span>
-                                }
-                            </span>
-                            @if (loan.Note is { } said)
+                            <strong>@Positions.SourceLabel(report.Source, report.Device)</strong>
+                            <span>@report.Where</span>
+                            <span class="hint">@report.At.Medium()@(report.Current ? " · " + T("where Shelf keeps you") : "")</span>
+                            @if (!report.Current)
                             {
-                                <p class="hint">@said</p>
+                                <button type="button" class="quiet" @onclick="() => UsePosition(report.Id)">@T("Go here")</button>
                             }
                         </li>
                     }
                 </ul>
+                @if (where.Chosen.Length > 0)
+                {
+                    <p class="hint">@T("Chosen before:") @string.Join("; ", where.Chosen.Select(choice => T("{0}: {1} instead of {2}", choice.At.Medium(), choice.Place, choice.Before)))</p>
+                }
             </details>
-        }
-        @if (!string.IsNullOrWhiteSpace(book.Location) || book.AcquiredOn is not null || book.Acquisition is not null || book.Condition is not null || !string.IsNullOrWhiteSpace(book.RecommendedBy))
-        {
-            <h3>@T("This copy")</h3>
-            <p class="hint">
-                @if (book.Acquisition is Acquisition arrived)
-                {
-                    <span>@BookRules.AcquisitionLabel(arrived)</span>
-                }
-                @if (!string.IsNullOrWhiteSpace(book.Location))
-                {
-                    <span>@(book.Acquisition is null ? "" : " · ")</span>
-                    <a href="@($"/library?place={Uri.EscapeDataString(book.Location)}")">@book.Location</a>
-                }
-                @if (book.AcquiredOn is DateOnly acquired)
-                {
-                    <span>@(book.Acquisition is null && string.IsNullOrWhiteSpace(book.Location) ? "" : " · ")@T("Acquired {0}", acquired.Medium())</span>
-                }
-                @if (book.Condition is CopyCondition condition)
-                {
-                    <span>@(book.Acquisition is null && string.IsNullOrWhiteSpace(book.Location) && book.AcquiredOn is null ? "" : " · ")@BookRules.ConditionLabel(condition)</span>
-                }
-            </p>
-            @if (!string.IsNullOrWhiteSpace(book.RecommendedBy))
-            {
-                <p class="hint"><a href="@($"/library?recommendedBy={Uri.EscapeDataString(book.RecommendedBy)}")">@T("Recommended by {0}", book.RecommendedBy)</a></p>
-            }
-        }
-    </section>
+        </section>
+    }
+    }
 
+    @if (tab == "tab-details")
+    {
     <section class="panel" id="details">
         <h2>@T("Details")</h2>
         @* What is known of this copy, to read at a glance; the form to change it stays folded until wanted. *@
@@ -1068,35 +889,10 @@ else if (book is not null)
             <p class="validation-message" role="alert">@linkProblem</p>
         }
     </section>
-
-    @if (positions is { Reports.Length: > 0 } where && (where.Reports.Length > 1 || where.Reports.Any(report => !report.Current)))
-    {
-        <section class="panel" id="positions">
-            <details open="@where.Reports.Any(report => !report.Current)">
-                <summary><h2>@T("Where each device has you")</h2></summary>
-                <p class="hint">@T("Shelf keeps you at {0}. A place only moves forward by itself; if another is right, choose it here, back or forward.", where.Current)</p>
-                <ul class="plain-list">
-                    @foreach (var report in where.Reports)
-                    {
-                        <li>
-                            <strong>@Positions.SourceLabel(report.Source, report.Device)</strong>
-                            <span>@report.Where</span>
-                            <span class="hint">@report.At.Medium()@(report.Current ? " · " + T("where Shelf keeps you") : "")</span>
-                            @if (!report.Current)
-                            {
-                                <button type="button" class="quiet" @onclick="() => UsePosition(report.Id)">@T("Go here")</button>
-                            }
-                        </li>
-                    }
-                </ul>
-                @if (where.Chosen.Length > 0)
-                {
-                    <p class="hint">@T("Chosen before:") @string.Join("; ", where.Chosen.Select(choice => T("{0}: {1} instead of {2}", choice.At.Medium(), choice.Place, choice.Before)))</p>
-                }
-            </details>
-        </section>
     }
 
+    @if (tab == "tab-copy")
+    {
     <section class="panel" id="copy">
         <h2>@T("Your copy")</h2>
         @if (copyNote is not null)
@@ -1183,6 +979,213 @@ else if (book is not null)
         }
     </section>
 
+    <section class="panel" id="lending">
+        <h2>@T("Lending")</h2>
+        @if (!string.IsNullOrWhiteSpace(book.LoanedTo))
+        {
+            <p>
+                @T("Loaned to") <a href="@($"/library?loanedTo={Uri.EscapeDataString(book.LoanedTo)}")">@book.LoanedTo</a>@(book.BorrowerId is null ? "" : T(", a reader here"))
+                @if (book.LoanedOn is DateOnly loanedOn)
+                {
+                    <span> @T("since {0}", loanedOn.Medium())</span>
+                }
+                @if (book.DueOn is DateOnly due)
+                {
+                    <span class="@(due < Today ? "late" : null)"> · @T("due {0}", due.Medium())@(due < Today ? T(", overdue") : "")</span>
+                }
+            </p>
+            @if (book.BorrowerId is not null)
+            {
+                <p class="hint">@LendNote</p>
+            }
+            @if (waitingCount > 0)
+            {
+                <p class="hint">@(waitingCount == 1 ? T("1 reader is waiting for it.") : T("{0} readers are waiting for it.", waitingCount))</p>
+            }
+            <div class="pair">
+                <label>
+                    @T("Came back in")
+                    <select @bind="returnCondition">
+                        <option value="">@T("As it went out")</option>
+                        @foreach (var condition in Enum.GetValues<CopyCondition>())
+                        {
+                            <option value="@condition">@BookRules.ConditionLabel(condition)</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    @T("A note on the loan (optional)")
+                    <input maxlength="@LoanRecord.MaxNoteLength" @bind="returnNote" />
+                </label>
+            </div>
+            <button type="button" @onclick="ReturnLoan">@T("Mark returned")</button>
+            <button type="button" class="quiet" @onclick="Renew">@T("Renew")</button>
+        }
+        else if (readers.Count == 0)
+        {
+            <p class="hint">@T("Not on loan. To lend it to someone, fill in Loaned to under Details.")</p>
+        }
+    else
+    {
+        <p class="hint">@T("Lend this book to another reader here. It shows on their loans until it comes back.") @LendNote</p>
+        <div class="pair">
+            <label>
+                @T("Reader")
+                <select @bind="lendTo">
+                    <option value="0">@T("Choose a reader")</option>
+                    @foreach (var reader in readers)
+                    {
+                        <option value="@reader.Id">@reader.Name</option>
+                    }
+                </select>
+            </label>
+            <label>
+                @T("Due back")
+                <input type="date" @bind="lendDue" />
+            </label>
+        </div>
+        <button type="button" @onclick="LendBook" disabled="@(lendTo == 0)">@T("Lend")</button>
+        @if (lendProblem is not null)
+        {
+            <p class="validation-message" role="alert">@lendProblem</p>
+        }
+    }
+        @if (loans.Length > 0 && loans.Any(loan => loan.ReturnedOn is not null))
+        {
+            <details>
+                <summary>@T("Earlier loans")</summary>
+                <ul class="plain-list">
+                    @foreach (var loan in loans.Where(loan => loan.ReturnedOn is not null))
+                    {
+                        <li>
+                            <span>@loan.Borrower</span>
+                            <span class="hint">
+                                @loan.LentOn.Medium() – @(loan.ReturnedOn?.Medium())
+                                @if (loan.Renewals > 0)
+                                {
+                                    <span> · @(loan.Renewals == 1 ? T("renewed once") : T("renewed {0} times", loan.Renewals))</span>
+                                }
+                                @if (loan.ConditionOut is CopyCondition went)
+                                {
+                                    <span> · @T("went out {0}", BookRules.ConditionLabel(went).ToLowerInvariant())</span>
+                                }
+                                @if (loan.ConditionBack is CopyCondition came)
+                                {
+                                    <span> · @T("came back {0}", BookRules.ConditionLabel(came).ToLowerInvariant())</span>
+                                }
+                            </span>
+                            @if (loan.Note is { } said)
+                            {
+                                <p class="hint">@said</p>
+                            }
+                        </li>
+                    }
+                </ul>
+            </details>
+        }
+        @if (!string.IsNullOrWhiteSpace(book.Location) || book.AcquiredOn is not null || book.Acquisition is not null || book.Condition is not null || !string.IsNullOrWhiteSpace(book.RecommendedBy))
+        {
+            <h3>@T("This copy")</h3>
+            <p class="hint">
+                @if (book.Acquisition is Acquisition arrived)
+                {
+                    <span>@BookRules.AcquisitionLabel(arrived)</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(book.Location))
+                {
+                    <span>@(book.Acquisition is null ? "" : " · ")</span>
+                    <a href="@($"/library?place={Uri.EscapeDataString(book.Location)}")">@book.Location</a>
+                }
+                @if (book.AcquiredOn is DateOnly acquired)
+                {
+                    <span>@(book.Acquisition is null && string.IsNullOrWhiteSpace(book.Location) ? "" : " · ")@T("Acquired {0}", acquired.Medium())</span>
+                }
+                @if (book.Condition is CopyCondition condition)
+                {
+                    <span>@(book.Acquisition is null && string.IsNullOrWhiteSpace(book.Location) && book.AcquiredOn is null ? "" : " · ")@BookRules.ConditionLabel(condition)</span>
+                }
+            </p>
+            @if (!string.IsNullOrWhiteSpace(book.RecommendedBy))
+            {
+                <p class="hint"><a href="@($"/library?recommendedBy={Uri.EscapeDataString(book.RecommendedBy)}")">@T("Recommended by {0}", book.RecommendedBy)</a></p>
+            }
+        }
+    </section>
+
+    <section class="panel" id="files">
+        <h2>@T("Files")</h2>
+    <h3>@T("Cover")</h3>
+    <div class="cover-choice">
+        <BookCover Title="@book.Title" Url="@book.CoverShown" Width="5rem" />
+        <div>
+            <p class="hint">@CoverSource</p>
+            <form action="/books/@book.Id/cover" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
+                <label>
+                    @(book.CoverImage is null ? T("Use a picture of your own: JPEG, PNG, GIF, or WebP, up to 10 MB") : T("Use a different picture: JPEG, PNG, GIF, or WebP, up to 10 MB"))
+                    <input type="file" name="file" accept="image/jpeg,image/png,image/gif,image/webp" required />
+                </label>
+                <progress data-upload-progress max="100" hidden></progress>
+                <p class="hint" data-upload-status role="status" hidden></p>
+                <button type="submit">@T("Upload the picture")</button>
+                @if (book.CoverImage is not null)
+                {
+                    <button type="button" class="quiet" @onclick="RemoveCover">@T("Remove the picture")</button>
+                }
+            </form>
+        </div>
+    </div>
+    @if (borrowable.Count > 0)
+    {
+        <p class="hint">@T("Before uploading: another reader has this book with a file you could borrow.")</p>
+        <OpenCopies Copies="borrowable" />
+    }
+    <h3>@T("E-book")</h3>
+    @if (!string.IsNullOrWhiteSpace(book.EbookFileName))
+    {
+        <p>@book.EbookFileName</p>
+        <button type="button" @onclick="RemoveEbook">@T("Remove the file")</button>
+    }
+    <form action="/books/@book.Id/ebook" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
+        <label>
+            @T("EPUB, PDF, comic (CBZ, CBR, or CB7), or Kindle file, up to {0}", Localization.Counts.Size(EbookStore.MaxBytes))
+            <input type="file" name="file" accept=".epub,.pdf,.cbz,.cbr,.cb7,.cbt,.mobi,.azw3,.azw,application/epub+zip,application/pdf" required />
+        </label>
+        <progress data-upload-progress max="100" hidden></progress>
+        <p class="hint" data-upload-status role="status" hidden></p>
+        <button type="submit">@T("Upload")</button>
+    </form>
+
+    @if (EbookStore.IsComic(book.EbookStoredName))
+    {
+        <ComicVineSearch BookId="book.Id" InitialQuery="@(book.Series is { } series ? $"{series} {book.SeriesNumber}".Trim() : book.Title)" Changed="() => LoadAsync()" />
+    }
+
+    <h3>@T("Audiobook")</h3>
+    @if (!string.IsNullOrWhiteSpace(book.AudioFileName))
+    {
+        <p>@book.AudioFileName</p>
+        <button type="button" @onclick="RemoveAudio">@T("Remove the recording")</button>
+    }
+    @if (!string.IsNullOrWhiteSpace(book.AudioStoredName) || book.Format == BookFormat.Audiobook)
+    {
+        <AudibleSearch BookId="book.Id" InitialTitle="@book.Title" InitialAuthor="@book.Author" HasChapters="book.AudioChapterNames is not null" Changed="() => LoadAsync()" />
+    }
+    <ReadAlongPanel BookId="book.Id" />
+    <M4bPanel BookId="book.Id" />
+    <form action="/books/@book.Id/audio" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
+        <label>
+            @T("Audio or a zip of tracks, up to {0}", Localization.Counts.Size(AudioStore.MaxBytes))
+            <input type="file" name="file" accept=".mp3,.m4a,.m4b,.aac,.ogg,.opus,.wav,.flac,.zip,audio/*" multiple required />
+        </label>
+        <progress data-upload-progress max="100" hidden></progress>
+        <p class="hint" data-upload-status role="status" hidden></p>
+        <button type="submit">@T("Upload")</button>
+    </form>
+    </section>
+    }
+
+    @if (tab == "tab-history")
+    {
     <section class="panel" id="history">
         <details>
             <summary><h2>@T("History")</h2></summary>
@@ -1221,9 +1224,39 @@ else if (book is not null)
         <button type="button" @onclick="() => confirmingDelete = false">@T("Cancel")</button>
     }
     </section>
+    }
+
 }
 
 @code {
+    private string tab = "";
+
+    private static IReadOnlyList<(string Key, string Label)> BookTabs =>
+    [
+        ("tab-reading", T("Reading")),
+        ("tab-details", T("Details")),
+        ("tab-copy", T("Your copy")),
+        ("tab-history", T("History")),
+    ];
+
+    // Which tab each section is in, so a link to /library/1#lending, say, opens its tab.
+    private static readonly Dictionary<string, string> BookSections = new()
+    {
+        ["reading"] = "tab-reading",
+        ["reads"] = "tab-reading",
+        ["quotes"] = "tab-reading",
+        ["highlights"] = "tab-reading",
+        ["positions"] = "tab-reading",
+        ["details"] = "tab-details",
+        ["collections"] = "tab-details",
+        ["links"] = "tab-details",
+        ["copy"] = "tab-copy",
+        ["lending"] = "tab-copy",
+        ["files"] = "tab-copy",
+        ["history"] = "tab-history",
+        ["remove"] = "tab-history",
+    };
+
     private IJSObjectReference? keepModule;
     private bool offlineSupported;
     private bool keptOffline;

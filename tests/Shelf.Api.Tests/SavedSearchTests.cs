@@ -56,7 +56,7 @@ public sealed class SavedSearchTests(ShelfApiFactory factory) : IClassFixture<Sh
             db.SavedSearches.Add(saved);
             await db.SaveChangesAsync();
             savedId = saved.Id;
-            token = await SharedLists.ShareAsync(db, saved.Id);
+            token = (await SharedLists.ShareAsync(db, saved.Id))!;
         }
 
         var anyone = factory.CreateClient();

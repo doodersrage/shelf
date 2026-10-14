@@ -4,7 +4,7 @@ import { createBook, fixture, noProblems, ready, signUp, unique, upload } from "
 test("an e-book uploads through the form with progress, and lands on the saved page", async ({ browser }) => {
   const page = await signUp(browser, unique("Uploader"));
   const book = await createBook(page, { title: "Moby-Dick", author: "Herman Melville", status: "Reading" });
-  await page.goto(`/library/${book.id}`);
+  await page.goto(`/library/${book.id}#files`);
   await ready(page);
   await page.locator('form[action$="/ebook"] input[name=file]').setInputFiles(fixture("moby.epub"));
   await Promise.all([page.waitForURL(/ebook=saved/), page.locator('form[action$="/ebook"] button[type=submit]').click()]);
@@ -25,7 +25,7 @@ test("many books change at once, the list view is remembered, and search finds w
   await page.check(`input[aria-label="Choose ${second.title}"]`);
   await page.fill('.bulk-bar input[placeholder="Tag"]', tag);
   await page.click('.bulk-bar button:text-is("Add tag")');
-  await expect(page.locator(".bulk-bar [role=status]")).toHaveText("Changed: 2 books. Undo it under Trash & undo.");
+  await expect(page.locator(".bulk-bar [role=status]")).toContainText("Changed: 2 books.");
   const books = await (await page.request.get(`/books?tag=${encodeURIComponent(tag)}`)).json();
   expect(books.map((book) => book.id).sort()).toEqual([first.id, second.id].sort());
 
@@ -53,7 +53,7 @@ test("the same file on a second book asks first, then keeps both or lets it go",
   await upload(page, first.id, "ebook", "moby.epub", "application/epub+zip");
 
   const send = async (id) => {
-    await page.goto(`/library/${id}`);
+    await page.goto(`/library/${id}#files`);
     await ready(page);
     await page.locator('form[action$="/ebook"] input[name=file]').setInputFiles(fixture("moby.epub"));
     await Promise.all([page.waitForURL(/ebook=duplicate/), page.locator('form[action$="/ebook"] button[type=submit]').click()]);
@@ -159,7 +159,7 @@ test("a collection is made, filled from books' pages, put in order, and shared",
   await expect(page.locator("h1")).toHaveText("Book club");
 
   for (const book of [first, second]) {
-    await page.goto(`/library/${book.id}`);
+    await page.goto(`/library/${book.id}#collections`);
     await ready(page);
     await page.locator("#collections select").selectOption({ label: "Book club" });
     await page.locator("#collections").getByRole("button", { name: "Add", exact: true }).click();

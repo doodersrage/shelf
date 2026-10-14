@@ -7,10 +7,7 @@
 <h1>@T("Moving house")</h1>
 <p class="hint">@T("Number a box, say where it's going, and scan each book as it goes in. Print its label with what's inside. At the other end, scan the books as they come out: they go where the box was going, or back where each lives, and any that didn't arrive are named.")</p>
 
-@if (note is not null)
-{
-    <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
-}
+<StatusNote Text="@note" Problem="problem" />
 
 <section class="panel">
     <h2>@T("A new box")</h2>

@@ -7,11 +7,6 @@
 <h1>@T("Up next")</h1>
 <p class="hint">@T("The few books you mean to start soon, in your order: shorter than everything you want to read. Hold one for a day or a mood and it keeps its place. When you finish a book, the next in its series comes first, then this queue.")</p>
 
-@if (note is not null)
-{
-    <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
-}
-
 @if (view is not null)
 {
     @if (view.Ready.Length == 0 && view.Held.Length == 0)
@@ -81,8 +76,6 @@
     private int? holding;
     private DateOnly? holdUntil;
     private string? holdNote;
-    private string? note;
-    private bool problem;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 

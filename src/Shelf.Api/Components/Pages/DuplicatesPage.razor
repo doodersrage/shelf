@@ -11,10 +11,7 @@
 <h1>@T("Duplicates")</h1>
 <p class="hint">@T("Books that look like the same book: the same ISBN, the same title and author, or titles alike but for a subtitle or an edition, by the same author. The surest come first. Keep one, and the other's details, notes, quotes, highlights, reading log, and files it lacks come across to it before the other goes.") @T("You'll see what moves and what goes before anything changes.")</p>
 
-@if (note is not null)
-{
-    <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
-}
+<StatusNote Text="@note" Problem="problem" />
 
 @if (groups is null)
 {

@@ -1,5 +1,4 @@
 @page "/shelves/linked/{LinkId:int}/{OwnerId:int}"
-@rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject Federation Federation
 
@@ -52,7 +51,11 @@ else
                     }
                     else
                     {
-                        <button type="button" @onclick="() => Ask(book.Id)" aria-label="@T("Ask to borrow {0}", book.Title)">@T("Ask to borrow")</button>
+                        <form method="post" @formname="@($"ask-{book.Id}")" @onsubmit="Ask" data-enhance>
+                            <AntiforgeryToken />
+                            <input type="hidden" name="BookId" value="@book.Id" />
+                            <button type="submit" aria-label="@T("Ask to borrow {0}", book.Title)">@T("Ask to borrow")</button>
+                        </form>
                     }
                 </li>
             }
@@ -86,8 +89,16 @@ else
         (owner, server, books, loaded) = shelf is { } found ? (found.Owner, found.Server, found.Books, true) : (null, null, [], true);
     }
 
-    private async Task Ask(int bookId)
+    [SupplyParameterFromForm]
+    private int? BookId { get; set; }
+
+    private async Task Ask()
     {
+        if (BookId is not int bookId)
+        {
+            return;
+        }
+
         await using (var db = await DbFactory.CreateDbContextAsync())
         {
             message = await Federation.AskAsync(db, LinkId, OwnerId, bookId) ? T("Asked. It shows under Loans until it is lent or declined.") : T("The other shelf could not take the ask just now.");

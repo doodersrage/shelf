@@ -1,0 +1,59 @@
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject EbookStore Ebooks
+@inject AudioStore Audio
+@inject CoverStore Covers
+
+@* What came of the last thing done on a page: done, or a problem; and, for a change to many books, a way to undo
+   it there and then (as under Trash & undo). *@
+@if (shown is not null)
+{
+    <p class="@(shownProblem ? "validation-message" : "saved")" role="status">
+        @shown
+        @if (UndoBatch is int batch && !undone)
+        {
+            <button type="button" class="link" @onclick="() => UndoAsync(batch)">@T("Undo")</button>
+        }
+    </p>
+}
+
+@code {
+    [Parameter]
+    public string? Text { get; set; }
+
+    [Parameter]
+    public bool Problem { get; set; }
+
+    // The change to many books that Undo takes back.
+    [Parameter]
+    public int? UndoBatch { get; set; }
+
+    // Told when the change has been undone, to show the books as they are again.
+    [Parameter]
+    public EventCallback Undone { get; set; }
+
+    private string? shown;
+    private bool shownProblem;
+    private bool undone;
+    private (string?, bool, int?) last;
+
+    protected override void OnParametersSet()
+    {
+        // A new message from the page replaces the one from undoing.
+        if (last != (Text, Problem, UndoBatch))
+        {
+            last = (Text, Problem, UndoBatch);
+            (shown, shownProblem, undone) = (Text, Problem, false);
+        }
+    }
+
+    private async Task UndoAsync(int batch)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var result = await History.UndoAsync(db, Ebooks, Audio, Covers, batch);
+        undone = true;
+        (shown, shownProblem) = result is null
+            ? (T("That can't be undone now. Trash & undo has what can."), true)
+            : (T("Undone."), false);
+        await Undone.InvokeAsync();
+    }
+}

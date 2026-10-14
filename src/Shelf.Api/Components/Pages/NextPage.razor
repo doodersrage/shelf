@@ -1,5 +1,5 @@
 @page "/next"
-@rendermode InteractiveServer
+@attribute [StreamRendering]
 @inject IDbContextFactory<ShelfDb> DbFactory
 
 <PageTitle>@T("What to read next") · Shelf</PageTitle>
@@ -9,7 +9,7 @@
 
 @if (next is null)
 {
-    <p role="status">@T("Looking…")</p>
+    <Loading Text="@T("Looking…")" />
 }
 else if (next.Series.Length + next.Shelf.Length + next.Borrowable.Length + next.NewInSeries.Length == 0)
 {

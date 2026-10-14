@@ -12,10 +12,7 @@
 <h1>@T("Scan books")</h1>
 <p class="hint">@T("Scan the barcodes on a pile of books one after another and add them all at once, or go along a shelf and check it against your catalog. A run is kept as you go, so you can stop and take it up again later, on this device or another.")</p>
 
-@if (note is not null)
-{
-    <p class="@(problem ? "validation-message" : "saved")" role="status">@note @if (undoBatch is not null) { <a href="/trash#changes">@T("Undo")</a> }</p>
-}
+<StatusNote Text="@note" Problem="problem" UndoBatch="undoBatch" Undone="RefreshAsync" />
 
 @if (session is null)
 {

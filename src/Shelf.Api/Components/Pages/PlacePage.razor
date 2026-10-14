@@ -60,7 +60,7 @@ else if (place is not null)
             </ul>
             @if (books.Count > shown)
             {
-                <button type="button" class="quiet" @onclick="() => shown += 200">@T("Show {0} more", Math.Min(200, books.Count - shown))</button>
+                <button type="button" class="quiet" data-more @onclick="() => shown += 200">@T("Show {0} more", Math.Min(200, books.Count - shown))</button>
             }
 
             <div class="inline-form">

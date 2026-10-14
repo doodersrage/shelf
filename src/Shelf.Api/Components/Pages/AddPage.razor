@@ -1,0 +1,23 @@
+@page "/add"
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("Add & import") · Shelf</PageTitle>
+
+@* Every way a book comes onto the shelf, in one place: a book at a time, a shelf at a time, from another app, or
+   something new. Bringing a library in never changes anything there, and Shelf skips books it already has. *@
+<div class="page-head">
+    <h1>@T("Add & import")</h1>
+</div>
+<p class="hint">@T("Bring books across from wherever they are; nothing there changes. You can do more than one, and Shelf skips books it already has.")</p>
+
+<AddWays All="true" Child="child" />
+
+@code {
+    private bool child;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        child = await Family.IsRestrictedAsync(db);
+    }
+}

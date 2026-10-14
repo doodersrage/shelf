@@ -235,7 +235,7 @@ public sealed class ShelfLifeTests(ShelfApiFactory factory) : IClassFixture<Shel
 
         // It is no one others can see, lend to, or be lent by.
         Assert.DoesNotContain((await reader.GetFromJsonAsync<ReaderResponse[]>("/readers", JsonOptions))!, other => other.Name.Contains("Sandbox"));
-        Assert.Empty((await connector.GetFromJsonAsync<ReaderResponse[]>("/readers", JsonOptions))!.Where(other => other.Name == "Connector Builder"));
+        Assert.DoesNotContain((await connector.GetFromJsonAsync<ReaderResponse[]>("/readers", JsonOptions))!, other => other.Name == "Connector Builder");
         var readerId = await factory.ReaderIdAsync("Connector Builder");
         var lend = await connector.PostAsJsonAsync($"/books/{samples[0].Id}/lend", new LendRequest(readerId), JsonOptions);
         Assert.NotEqual(HttpStatusCode.OK, lend.StatusCode);

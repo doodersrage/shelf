@@ -7,10 +7,7 @@
 <h1>@T("Rules")</h1>
 <p class="hint">@T("Small things Shelf does for you when something happens to a book: when you finish one tagged mystery, put it in a collection; when a loan is overdue, tell you. A rule acts a moment after the change, and what it changes can be undone under Trash & undo. What rules do never sets off other rules.")</p>
 
-@if (note is not null)
-{
-    <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
-}
+<StatusNote Text="@note" Problem="problem" />
 
 @if (rules.Length > 0)
 {

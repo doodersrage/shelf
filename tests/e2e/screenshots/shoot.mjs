@@ -133,8 +133,8 @@ try {
   await shot(tenar, "covers", "/library");
   await shot(tenar, "book", `/library/${moby}`);
   await shot(tenar, "reader", `/library/${moby}/read`, async (page) => {
-    // The book fills the window, the bars over it showing, and the text settings open from the top bar's Aa.
-    await page.click(".epub-top summary");
+    // The book fills the window, the bars over it showing, and the panel of contents open from the top bar.
+    await page.click('.epub-top button[aria-label="Contents"]');
     await page.waitForTimeout(400);
   });
   await shot(tenar, "listen", `/library/${moby}/listen`, async (page) => {

@@ -14,10 +14,7 @@ else if (book is not null)
     <h1>@book.Title</h1>
     <p class="by">@book.Author@(book.Location is { } at ? " · " + at : "")</p>
 
-    @if (note is not null)
-    {
-        <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
-    }
+    <StatusNote Text="@note" Problem="problem" />
 
     <section class="panel">
         @if (book.LoanedTo is { } holder)

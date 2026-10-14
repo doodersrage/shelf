@@ -3120,6 +3120,10 @@ namespace Shelf.Api.Data.Migrations
                         .HasMaxLength(6000)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("HiddenNav")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("IsAdmin")
                         .HasColumnType("INTEGER");
 

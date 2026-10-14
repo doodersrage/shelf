@@ -90,7 +90,7 @@ When ffmpeg is there, Shelf always cuts tracks into ten-minute pieces, which sho
 
 ## Podcasts
 
-**Podcasts**, under **Browse** in the sidebar, follows podcasts by their feeds. Search by name (Apple's podcast directory finds most), or paste a feed's address. To bring the podcasts you follow in another app, export them from it as an OPML file and choose it under **Bring podcasts from another app**; **Save the podcasts you follow as OPML** takes them the other way.
+**Podcasts**, under **Discover** in the sidebar, follows podcasts by their feeds. Search by name (Apple's podcast directory finds most), or paste a feed's address. To bring the podcasts you follow in another app, export them from it as an OPML file and choose it under **Bring podcasts from another app**; **Save the podcasts you follow as OPML** takes them the other way.
 
 - Shelf reads each feed every hour. When you first follow a podcast, its newest three episodes wait to be heard and the older ones count as heard, so years of back episodes don't pile up; **Mark as new** brings any back.
 - **Keep downloaded** keeps the newest unplayed episodes on the shelf (three, by default), so they play even when the podcast's own server is slow. A played episode's file goes a day later. **Download** keeps any other episode.

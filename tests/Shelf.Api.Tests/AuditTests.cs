@@ -45,7 +45,7 @@ public sealed class AuditTests(ShelfApiFactory factory) : IClassFixture<ShelfApi
         // Only an admin reads the whole log; a reader sees their own account's lines.
         var stranger = await factory.SignUpAsync("Log Stranger");
         Assert.Equal(HttpStatusCode.Forbidden, (await stranger.GetAsync("/admin/audit")).StatusCode);
-        var theirs = WebUtility.HtmlDecode(await stranger.GetStringAsync("/account"));
+        var theirs = WebUtility.HtmlDecode(await stranger.GetStringAsync("/account?tab=tab-security"));
         Assert.Contains("Recent activity", theirs);
         var section = theirs[theirs.IndexOf("Recent activity", StringComparison.Ordinal)..];
         Assert.Contains("Signed up", section);

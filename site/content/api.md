@@ -75,6 +75,7 @@ A reader with two-step sign-in is asked for a code next, at `/account/signin/cod
 | `GET /books/lookup?isbn=` | Details and a cover from Open Library. `?title=&author=` looks a book up without an ISBN. |
 | `POST /books/{id}/enrich` | Fill a book's empty fields from Open Library. |
 | `GET /books/pick` | One book from the want list. `?status=` picks from another. |
+| `GET /books/jump?q=` | Quick jump: the pages of Shelf whose name or purpose fits `q`, then your books, authors, series, places, and collections whose names hold it, each with its `kind`, `title`, `detail`, and `href`. With no `q`, the main pages. |
 | `GET /books/authors`, `/series`, `/places`, `/copies`, `/recommenders`, `/years` | The library gathered by author, series in reading order, place, condition, recommender, and year finished. |
 | `GET /books/collections` | Your collections, with how many books each holds. `POST {"name": "…", "description": "…"}` makes one; `GET`, `PUT`, and `DELETE /books/collections/{id}` read, rename, and delete one. |
 | `POST /books/collections/{id}/books` | `{"bookId": 12}` adds a book at the end; `DELETE /books/collections/{id}/books/{bookId}` takes it out; `PUT /books/collections/{id}/order` with `{"bookIds": [3, 1, 2]}` puts them in that order. `PUT /books/collections/{id}/books/{bookId}` with `{"note": "…"}` keeps a note on a book in the list. |

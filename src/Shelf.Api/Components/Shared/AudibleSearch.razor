@@ -64,10 +64,7 @@
             }
         </ul>
     }
-    @if (note is not null)
-    {
-        <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
-    }
+    <StatusNote Text="@note" Problem="problem" />
 </details>
 
 @code {

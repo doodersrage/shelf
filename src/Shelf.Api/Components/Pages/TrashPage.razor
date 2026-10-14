@@ -11,10 +11,7 @@
 <h1>@T("Trash & undo")</h1>
 <p class="hint">@T("What you delete waits here for {0} days, with all that was part of it, and can be brought back as it was. Changes made to many books at once, such as an edit to a selection, an import, a scan, or details filled in, can be undone together. A single book's own changes are under History on its page.", days)</p>
 
-@if (note is not null)
-{
-    <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
-}
+<StatusNote Text="@note" Problem="problem" />
 
 <section class="panel" id="changes">
     <h2>@T("Changes to many books")</h2>

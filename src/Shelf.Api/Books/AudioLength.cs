@@ -199,6 +199,7 @@ public static class AudioLength
 
         uint bytesPerSecond = 0;
         Span<byte> chunk = stackalloc byte[8];
+        Span<byte> format = stackalloc byte[12];
         while (file.Position + 8 <= file.Length)
         {
             file.ReadExactly(chunk);
@@ -206,7 +207,6 @@ public static class AudioLength
             var size = BinaryPrimitives.ReadUInt32LittleEndian(chunk[4..]);
             if (id == "fmt " && size >= 12)
             {
-                Span<byte> format = stackalloc byte[12];
                 file.ReadExactly(format);
                 bytesPerSecond = BinaryPrimitives.ReadUInt32LittleEndian(format[8..]);
                 file.Position += size - 12 + (size & 1);

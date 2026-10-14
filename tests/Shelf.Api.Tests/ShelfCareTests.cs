@@ -419,7 +419,7 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
     public async Task Large_uploads_report_their_progress()
     {
         var book = await CreateAsync(_admin, new CreateBookRequest("Uploaded Slowly", "Someone", BookStatus.Want, null));
-        var page = await _admin.GetStringAsync($"/library/{book.Id}");
+        var page = await _admin.GetStringAsync($"/library/{book.Id}?tab=tab-copy");
         Assert.Equal(4, System.Text.RegularExpressions.Regex.Matches(page, "data-upload(?!-)").Count);
         Assert.Contains("data-upload-progress", page);
         Assert.Contains("data-upload", await _admin.GetStringAsync("/backup"));

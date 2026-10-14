@@ -43,6 +43,7 @@ else
         <div class="content">
             <header class="topbar">
                 <a class="wordmark" href="/">@Mark shelf</a>
+                <button type="button" class="jump-open icon-only" data-jump-open aria-label="@T("Go to…")">@Icon(JumpIcon)</button>
                 <details class="drawer">
                     <summary class="button" aria-label="@T("Menu")">@T("Menu")</summary>
                     <aside class="sidebar" aria-label="@T("Shelf menu")">
@@ -92,10 +93,27 @@ else
             </main>
         </div>
 
+        @* Quick jump, opened by jump.js with Ctrl K, "/", or the Go to button. *@
+        <dialog id="jump" class="jump" aria-labelledby="jump-label" data-recent="@T("Recent")">
+            <label id="jump-label" for="jump-input" class="visually-hidden">@T("Go to a page or a book")</label>
+            <input id="jump-input" type="search" role="combobox" aria-expanded="false" aria-controls="jump-list" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="@T("Go to a page or a book")" />
+            <ul id="jump-list" role="listbox" aria-label="@T("Places to go")"></ul>
+            <p class="hint" data-jump-none hidden>@T("Nothing by that name.")</p>
+            <p class="hint jump-keys">@T("Up and down arrows to choose, Enter to go, Esc to close.")</p>
+        </dialog>
+
         <nav class="bottom-nav" aria-label="@T("Most used")">
             <a href="/" aria-current="@Current("/")">@Icon(HomeIcon) @T("Home")</a>
             <a href="/library" aria-current="@Current("/library")">@Icon(LibraryIcon) @T("Library")</a>
-            <a href="/library?add=1" class="add" aria-current="@Current("/library?add=1")">@Icon("M12 5v14M5 12h14") @T("Add")</a>
+            @* Add opens a short list, scanning first: on a phone, a shelf of books is the camera's job. *@
+            <details class="add-sheet">
+                <summary class="add">@Icon("M12 5v14M5 12h14") @T("Add")</summary>
+                <div class="add-sheet-items">
+                    <a href="/scan">@Icon(ScanIcon) @T("Scan books")</a>
+                    <a href="/library?add=1">@Icon(TypeIcon) @T("Type a title or ISBN")</a>
+                    <a href="/add">@Icon(MoreIcon) @T("More ways to add")</a>
+                </div>
+            </details>
             <a href="/reading" aria-current="@Current("/reading")">@Icon(ReadingIcon) @T("Reading")</a>
             <a href="/stats" aria-current="@Current("/stats")">@Icon(InsightsIcon) @T("Insights")</a>
         </nav>
@@ -127,6 +145,7 @@ else
     private ImportSummary? import;
     private ShelfRelease? release;
     private string importDone = "";
+    private HashSet<string> hidden = [];
 
     private string? SavedCurrent(int id) =>
         new Uri(Navigation.Uri) is { AbsolutePath: "/library" } here
@@ -151,115 +170,64 @@ else
             <input id="@SearchId" name="q" type="search" placeholder="@T("Search the library")" autocomplete="off" />
         </form>
         <a class="button primary" href="/library?add=1">@T("Add a book")</a>
+        <button type="button" class="jump-open" data-jump-open aria-keyshortcuts="Control+K /">
+            @Icon(JumpIcon) <span>@T("Go to…")</span> <kbd aria-hidden="true">Ctrl K</kbd>
+        </button>
         @* Five places to go; the rest is a click further, in groups that open by themselves on their own pages. *@
         <nav class="nav-main" aria-label="@T("Main")">
             <ul>
-                <li><a href="/" aria-current="@Current("/")">@Icon(HomeIcon) @T("Home")</a></li>
-                <li><a href="/library" aria-current="@Current("/library")">@Icon(LibraryIcon) @T("Library")</a></li>
-                <li><a href="/reading" aria-current="@Current("/reading")">@Icon(ReadingIcon) @T("Reading")</a></li>
-                <li>
-                    <a href="/loans" aria-current="@Current("/loans")">
-                        @Icon(LoansIcon) @T("Loans")
-                        @if (reminders is { Any: true } due)
-                        {
-                            <span class="badge plain" aria-label="@T("{0} waiting", Waiting(due))">@Waiting(due)</span>
-                        }
-                    </a>
-                </li>
-                <li><a href="/stats" aria-current="@Current("/stats")">@Icon(InsightsIcon) @T("Insights")</a></li>
+                @foreach (var link in NavMap.Top())
+                {
+                    <li>
+                        <a href="@link.Href" aria-current="@Current(link.Href)">
+                            @Icon(MainIcons[link.Href]) @link.Label
+                            @if (link.Href == "/loans" && reminders is { Any: true } due)
+                            {
+                                <span class="badge plain" aria-label="@T("{0} waiting", Waiting(due))">@Waiting(due)</span>
+                            }
+                        </a>
+                    </li>
+                }
             </ul>
         </nav>
-        <details class="nav-group" open="@(Within(BrowseLinks) || savedSearches.Count > 0 || seriesAlerts > 0 || authorAlerts > 0)">
-            <summary>@T("Browse")</summary>
-            <ul>
-                <li><a href="/library?status=Want" aria-current="@Current("/library?status=Want")">@T("Want to read")</a></li>
-                <li><a href="/queue" aria-current="@Current("/queue")">@T("Up next")</a></li>
-                <li><a href="/library?status=Finished" aria-current="@Current("/library?status=Finished")">@T("Finished")</a></li>
-                @foreach (var search in savedSearches)
-                {
-                    <li><a href="@($"/library?{search.Query}&saved={search.Id}")" aria-current="@SavedCurrent(search.Id)">@search.Name</a></li>
-                }
-                <li><a href="/collections" aria-current="@Current("/collections")">@T("Collections")</a></li>
-                <li><a href="/map" aria-current="@Current("/map")">@T("Map")</a></li>
-                <li>
-                    <a href="/series" aria-current="@Current("/series")">
-                        @T("Series")
-                        @if (seriesAlerts > 0)
+        @foreach (var group in NavMap.Groups())
+        {
+            var links = group.Links.Where(link => NavMap.Allowed(link, isAdmin, isChild, fetching) && !(group.Hideable && hidden.Contains(link.Href))).ToList();
+            if (links.Count == 0 && !(group.Key == "library" && savedSearches.Count > 0))
+            {
+                continue;
+            }
+
+            var badged = (group.Key == "library" && seriesAlerts > 0) || (group.Key == "discover" && authorAlerts > 0);
+            <details class="nav-group" open="@(links.Any(link => Current(link.Href) is not null) || badged || (group.Key == "library" && (savedSearches.Count > 0 || SavedOpen)))">
+                <summary>@group.Label</summary>
+                <ul>
+                    @foreach (var link in links)
+                    {
+                        <li>
+                            <a href="@link.Href" aria-current="@Current(link.Href)">
+                                @link.Label
+                                @if (link.Href == "/series" && seriesAlerts > 0)
+                                {
+                                    <span class="badge plain" aria-label="@T("{0} new", seriesAlerts)">@seriesAlerts</span>
+                                }
+                                @if (link.Href == "/find" && authorAlerts > 0)
+                                {
+                                    <span class="badge plain" aria-label="@T("{0} new", authorAlerts)">@authorAlerts</span>
+                                }
+                            </a>
+                        </li>
+                        @if (link.Href == "/library?status=Finished")
                         {
-                            <span class="badge plain" aria-label="@T("{0} new", seriesAlerts)">@seriesAlerts</span>
+                            @foreach (var search in savedSearches)
+                            {
+                                <li><a href="@($"/library?{search.Query}&saved={search.Id}")" aria-current="@SavedCurrent(search.Id)">@search.Name</a></li>
+                            }
                         }
-                    </a>
-                </li>
-                <li><a href="/authors" aria-current="@Current("/authors")">@T("Authors")</a></li>
-                <li>
-                    <a href="/find" aria-current="@Current("/find")">
-                        @T("Find new books")
-                        @if (authorAlerts > 0)
-                        {
-                            <span class="badge plain" aria-label="@T("{0} new", authorAlerts)">@authorAlerts</span>
-                        }
-                    </a>
-                </li>
-                <li><a href="/podcasts" aria-current="@Current("/podcasts")">@T("Podcasts")</a></li>
-                <li><a href="/journal" aria-current="@Current("/journal")">@T("Journal")</a></li>
-                <li><a href="/agenda" aria-current="@Current("/agenda")">@T("Calendar")</a></li>
-                <li><a href="/research" aria-current="@Current("/research")">@T("Reference desk")</a></li>
-                <li><a href="/words" aria-current="@Current("/words")">@T("Words and passages")</a></li>
-                <li><a href="/quotes" aria-current="@Current("/quotes")">@T("Quotes & highlights")</a></li>
-                <li><a href="/ask" aria-current="@Current("/ask")">@T("Ask your shelf")</a></li>
-                <li><a href="/search" aria-current="@Current("/search")">@T("Search inside books")</a></li>
-                <li><a href="/next" aria-current="@Current("/next")">@T("What to read next")</a></li>
-                <li><a href="/dna" aria-current="@Current("/dna")">@T("Reading DNA")</a></li>
-                @if (fetching)
-                {
-                    <li><a href="/wanted" aria-current="@Current("/wanted")">@T("Wanted")</a></li>
-                }
-                <li><a href="/clubs" aria-current="@Current("/clubs")">@T("Book clubs")</a></li>
-                <li><a href="/free" aria-current="@Current("/free")">@T("Free books")</a></li>
-                <li><a href="/years" aria-current="@Current("/years")">@T("Years")</a></li>
-                <li><a href="/lifecycle" aria-current="@Current("/lifecycle")">@T("Your collection over time")</a></li>
-            </ul>
-        </details>
-        <details class="nav-group" open="@Within(CopiesLinks)">
-            <summary>@T("Your copies")</summary>
-            <ul>
-                @if (!isChild)
-                {
-                    <li><a href="/shelves" aria-current="@Current("/shelves")">@T("Shelves")</a></li>
-                }
-                <li><a href="/places" aria-current="@Current("/places")">@T("Places")</a></li>
-                <li><a href="/moving" aria-current="@Current("/moving")">@T("Moving house")</a></li>
-                <li><a href="/scan" aria-current="@Current("/scan")">@T("Scan books")</a></li>
-                <li><a href="/labels" aria-current="@Current("/labels")">@T("QR labels")</a></li>
-                <li><a href="/copies" aria-current="@Current("/copies")">@T("Condition")</a></li>
-                <li><a href="/recommenders" aria-current="@Current("/recommenders")">@T("Recommenders")</a></li>
-                <li><a href="/duplicates" aria-current="@Current("/duplicates")">@T("Duplicates")</a></li>
-                <li><a href="/tidy" aria-current="@Current("/tidy")">@T("Tidy up")</a></li>
-            </ul>
-        </details>
-        <details class="nav-group" open="@Within(SettingsLinks)">
-            <summary>@T("Settings")</summary>
-            <ul>
-                <li><a href="/account" aria-current="@Current("/account")">@T("Account")</a></li>
-                <li><a href="/activity" aria-current="@Current("/activity")">@T("Activity")</a></li>
-                <li><a href="/backup" aria-current="@Current("/backup")">@T("Backup & restore")</a></li>
-                <li><a href="/trash" aria-current="@Current("/trash")">@T("Trash & undo")</a></li>
-                @if (!isChild)
-                {
-                    <li><a href="/rules" aria-current="@Current("/rules")">@T("Rules")</a></li>
-                    <li><a href="/account/legacy" aria-current="@Current("/account/legacy")">@T("Your library's future")</a></li>
-                }
-                <li><a href="/sync" aria-current="@Current("/sync")">@T("Devices")</a></li>
-                <li><a href="/offline.html">@T("Offline reading")</a></li>
-                @if (isAdmin)
-                {
-                    <li><a href="/admin" aria-current="@(new Uri(Navigation.Uri).AbsolutePath == "/admin" ? "page" : null)">@T("Readers")</a></li>
-                    <li><a href="/admin/health" aria-current="@Current("/admin/health")">@T("Server health")</a></li>
-                    <li><a href="/admin/access" aria-current="@Current("/admin/access")">@T("Who sees what")</a></li>
-                    <li><a href="/downloads" aria-current="@Current("/downloads")">@T("Downloads")</a></li>
-                }
-            </ul>
-        </details>
+                    }
+                </ul>
+            </details>
+        }
         <div class="sidebar-foot">
             <p>
                 <span class="reader-name">@readerName</span> ·
@@ -299,6 +267,7 @@ else
             seriesAlerts = await SeriesWatch.CountAsync(db);
             authorAlerts = await db.AuthorAlerts.CountAsync(item => item.ReaderId == db.ReaderId && !item.Dismissed);
             fetching = Fetcher.Ready(await FetchRules.SettingsAsync(db)) && !isChild;
+            hidden = NavMap.Hidden(await db.Readers.AsNoTracking().Where(reader => reader.Id == db.ReaderId).Select(reader => reader.HiddenNav).FirstOrDefaultAsync());
             var job = ImportJobs.Running(Services, db.ReaderId);
             import = job is null ? null : ImportJobs.Summarize(job, DateTimeOffset.UtcNow);
             importDone = job?.Title(true) ?? "";
@@ -321,6 +290,7 @@ else
             "/library?add=1" => here.AbsolutePath == "/library" && adding,
             _ when href.StartsWith("/library?status=", StringComparison.Ordinal) =>
                 here.AbsolutePath == "/library" && !adding && string.Equals(status, href["/library?status=".Length..], StringComparison.OrdinalIgnoreCase),
+            "/admin" or "/account" => here.AbsolutePath == href,
             _ => here.AbsolutePath == href || here.AbsolutePath.StartsWith(href + "/", StringComparison.Ordinal),
         };
         return matches ? "page" : null;
@@ -332,12 +302,21 @@ else
     private const string LoansIcon = "M7 7h11l-3-3M17 17H6l3 3";
     private const string InsightsIcon = "M5 19V11M12 19V5M19 19v-6";
 
-    private static readonly string[] BrowseLinks = ["/library?status=Want", "/library?status=Finished", "/collections", "/series", "/authors", "/find", "/podcasts", "/quotes", "/search", "/next", "/dna", "/journal", "/agenda", "/research", "/words", "/wanted", "/clubs", "/free", "/years", "/queue", "/ask", "/lifecycle"];
-    private static readonly string[] CopiesLinks = ["/shelves", "/places", "/moving", "/scan", "/labels", "/copies", "/recommenders", "/duplicates", "/tidy"];
-    private static readonly string[] SettingsLinks = ["/account", "/activity", "/backup", "/trash", "/sync", "/admin", "/downloads", "/rules"];
+    private const string ScanIcon = "M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8";
+    private const string TypeIcon = "M4 7V5h16v2M12 5v14M9 19h6";
+    private const string MoreIcon = "M5 12h.01M12 12h.01M19 12h.01";
+    private const string JumpIcon = "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4";
 
-    // A group opens by itself when the page shown is one of its own.
-    private bool Within(string[] links) => links.Any(link => Current(link) is not null);
+    private static readonly Dictionary<string, string> MainIcons = new()
+    {
+        ["/"] = HomeIcon,
+        ["/library"] = LibraryIcon,
+        ["/reading"] = ReadingIcon,
+        ["/loans"] = LoansIcon,
+        ["/stats"] = InsightsIcon,
+    };
+
+    private bool SavedOpen => new Uri(Navigation.Uri).Query.Contains("saved=", StringComparison.Ordinal);
 
     private static RenderFragment Icon(string path) => @<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="@path" /></svg>;
 

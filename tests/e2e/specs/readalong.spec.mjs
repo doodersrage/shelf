@@ -48,7 +48,7 @@ test("a read-along marks the word being read as the audiobook plays, and turns t
   }
 
   calls = 0;
-  await page.goto(`/library/${book.id}`);
+  await page.goto(`/library/${book.id}#files`);
   await ready(page);
   await page.getByRole("button", { name: "Make the read-along" }).click();
   await expect(page.locator("#read-along")).toContainText("Ready.", { timeout: 30_000 });

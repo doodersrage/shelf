@@ -1,5 +1,4 @@
 @page "/authors"
-@rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 
 <PageTitle>@T("Authors") · Shelf</PageTitle>
@@ -15,6 +14,9 @@
 }
 else
 {
+    @* One form for every Follow button, each sending its author's name: a plain page, no live connection. *@
+    <form method="post" @formname="follow" @onsubmit="FollowAsync" data-enhance>
+    <AntiforgeryToken />
     <ul class="tag-counts">
         @foreach (var author in authors)
         {
@@ -29,12 +31,13 @@ else
                     }
                     else
                     {
-                        <button type="button" class="quiet" @onclick="() => FollowAsync(author.Name)" aria-label="@T("Follow {0}", author.Name)">@T("Follow")</button>
+                        <button type="submit" class="quiet" name="Follow" value="@author.Name" aria-label="@T("Follow {0}", author.Name)">@T("Follow")</button>
                     }
                 }
             </li>
         }
     </ul>
+    </form>
 }
 
 @code {
@@ -49,10 +52,18 @@ else
         followed = [.. (await Finding.FollowsAsync(db)).Select(item => Tidy.AuthorKey(item.Name))];
     }
 
-    private async Task FollowAsync(string name)
+    [SupplyParameterFromForm(FormName = "follow")]
+    private string? Follow { get; set; }
+
+    private async Task FollowAsync()
     {
+        if (string.IsNullOrWhiteSpace(Follow))
+        {
+            return;
+        }
+
         await using var db = await DbFactory.CreateDbContextAsync();
-        await Finding.FollowAsync(db, name);
-        followed.Add(Tidy.AuthorKey(name));
+        await Finding.FollowAsync(db, Follow);
+        followed.Add(Tidy.AuthorKey(Follow));
     }
 }

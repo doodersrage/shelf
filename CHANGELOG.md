@@ -4,6 +4,33 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.13.0] - 2026-10-14
+
+### Added
+
+- **Go to…** (Ctrl K, ⌘ K, or "/"): any page by its name or what it's for ("goodreads", "passkeys", "dark"), and any of your books, authors, series, places, and collections by a few letters, chosen with the arrow keys. Also `GET /books/jump?q=`.
+- **Add & import**: every way to bring books in on one page, a book at a time, a shelf at a time, from another app, or something new. The add-book form and a new shelf's welcome lead there, and the welcome now offers scanning your shelves.
+- **A menu of your own**: under Account, **Menu** leaves out the pages you don't use; Go to still finds them.
+- **Undo, there and then**: a change to many books, from the library or a scanning run, is undone from the message that reports it, without going to Trash & undo.
+- **Recent places in Go to**: before anything is typed, the pages and books opened lately on this device come first.
+- **Changing many books** in the library's list can now put them at a place, and choose every book the filter matches (up to a thousand), not only those shown.
+- **Add on a phone** opens a short list: scan books, type a title or ISBN, or more ways to add.
+
+### Changed
+
+- **The menu, regrouped** around what you do: Your books, Your reading, Discover, Insights, Your copies, Settings, and Admin, in place of one long Browse.
+- **A book's page in tabs**: Reading, Details, Your copy, and History. **Account in tabs**: You, Sign-in & security, Connections, and Notifications. Links to a part of either page open the tab it's in, and `?tab=` chooses one; after uploading a file, cover, or picture, the book opens on Your copy. Only the tab shown is drawn, so the pages open faster.
+- Nine pages that only show things (years, a year, reading DNA, what to read next, the map, the calendar, shelves, condition, recommenders) are plain pages, with no live connection to start or lose.
+- The same message, done or a problem, on every page that reports one.
+- The library's **Show more** is pressed for you as you scroll near it, so a big library reads as one list; so is a place's.
+- Seven more pages work as plain pages, their buttons as forms: Authors (Follow), a shared shelf and a linked one (Ask to borrow), Book clubs, Collections, the Reference desk, and Server health.
+- Reading DNA, What to read next, a year's review, and Your collection over time show their heading and a placeholder at once, and the rest when it's worked out.
+- **Recent activity** on Account is under Sign-in & security; a book kept for offline reading says so beside the button, wherever the tab.
+
+### Fixed
+
+- Compiler warnings: a buffer allocated on the stack inside a loop when reading a WAV file's length, and two never-used fields on Up next.
+
 ## [2.12.3] - 2026-10-14
 
 ### Added
@@ -546,7 +573,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.12.3...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.13.0...HEAD
+[2.13.0]: https://github.com/doodersrage/shelf/compare/v2.12.3...v2.13.0
 [2.12.3]: https://github.com/doodersrage/shelf/compare/v2.12.2...v2.12.3
 [2.12.2]: https://github.com/doodersrage/shelf/compare/v2.12.1...v2.12.2
 [2.12.1]: https://github.com/doodersrage/shelf/compare/v2.12.0...v2.12.1

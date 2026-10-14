@@ -114,6 +114,7 @@ public static class BookEndpoints
         LoanHistory.Map(books);
         Scanning.Map(books);
         ShelfPhotos.Map(books);
+        Jump.Map(books);
         FileCheck.Map(books);
         DetailReview.Map(books);
         BackupCheck.Map(books);

@@ -24,6 +24,10 @@
 <h1>@Reader.Name</h1>
 <p class="hint">@T("Your notes, reviews, quotes, and highlights are yours alone. Other readers see a book of yours only when it is lent to them, or by its title on an open shelf.")</p>
 
+<SectionTabs Label="@T("Account")" Tabs="AccountTabs" Sections="AccountSections" @bind-Active="tab" />
+
+@if (tab == "tab-you")
+{
 @if (restricted)
 {
 <section class="panel">
@@ -99,7 +103,324 @@ else
 </section>
 }
 
-<section class="panel">
+<section class="panel" id="look">
+<h2>@T("Look")</h2>
+<label>
+    @T("Light or dark")
+    <select @bind="theme" @bind:after="SaveTheme">
+        <option value="">@T("As the device")</option>
+        <option value="light">@T("Light")</option>
+        <option value="dark">@T("Dark")</option>
+    </select>
+</label>
+<p class="hint">@T("The reader's own page, sepia among them, is set in the reader's Text settings.")</p>
+</section>
+
+<section class="panel" id="language">
+<h2>@T("Language and region")</h2>
+<label>
+    @T("Language of the pages")
+    <select @bind="language" @bind:after="SaveLanguage">
+        <option value="">@T("My browser's language")</option>
+        @foreach (var (languageCode, name) in Languages)
+        {
+            <option value="@languageCode" lang="@languageCode">@name</option>
+        }
+    </select>
+</label>
+<label>
+    @T("Write dates and numbers the way they are written in")
+    <select @bind="culture" @bind:after="SaveCulture">
+        <option value="">@T("My browser's language")</option>
+        @foreach (var (name, label) in Regions.Choices)
+        {
+            <option value="@name">@label</option>
+        }
+    </select>
+</label>
+<p class="hint">@T("Today is {0} here.", DateOnly.FromDateTime(DateTime.UtcNow).Medium())</p>
+</section>
+
+<section class="panel" id="menu">
+<h2>@T("Menu")</h2>
+<p class="hint">@T("Leave out of the menu the pages you don't use. They are still there, and Go to (Ctrl K) still finds them.")</p>
+@foreach (var group in NavMap.Groups().Where(group => group.Hideable))
+{
+    var links = group.Links.Where(link => NavMap.Allowed(link, false, restricted, true)).ToList();
+    if (links.Count == 0)
+    {
+        continue;
+    }
+
+    <fieldset class="menu-choice">
+        <legend>@group.Label</legend>
+        @foreach (var link in links)
+        {
+            <label class="check">
+                <input type="checkbox" checked="@(!hiddenNav.Contains(link.Href))" @onchange="change => ShowInMenu(link.Href, change)" />
+                @link.Label
+            </label>
+        }
+    </fieldset>
+}
+@if (menuNote is not null)
+{
+    <p class="saved" role="status">@menuNote</p>
+}
+</section>
+
+
+
+}
+
+@if (tab == "tab-security")
+{
+<section class="panel" id="activity">
+<h2>@T("Recent activity")</h2>
+<p class="hint">@T("Changes to this account, and sign-ins that failed. If something here was not you, change the password.")</p>
+<AuditList Lines="activity" />
+</section>
+
+<section class="panel" id="password">
+<h2>@(passwordUnknown ? T("Set a password") : T("Change the password"))</h2>
+<EditForm Model="form" OnValidSubmit="ChangePassword">
+    @if (passwordUnknown)
+    {
+        <p class="hint">@T("This account was made by single sign-on, so it has no password yet. Set one to sign in without it as well.")</p>
+    }
+    else
+    {
+        <label>
+            @T("Current password")
+            <InputText type="password" @bind-Value="form.Current" autocomplete="current-password" />
+        </label>
+    }
+    <label>
+        @T("New password, at least {0} characters", ReaderRules.MinPasswordLength)
+        <InputText type="password" @bind-Value="form.Password" autocomplete="new-password" />
+    </label>
+    <label>
+        @T("The new password again")
+        <InputText type="password" @bind-Value="form.Confirm" autocomplete="new-password" />
+    </label>
+    <p class="hint">@T("Changing it signs you out everywhere, here included.")</p>
+    <button type="submit">@(passwordUnknown ? T("Set it") : T("Change it"))</button>
+    @if (problem is AccountProblem shown)
+    {
+        <p class="validation-message" role="alert">@ReaderRules.Describe(shown)</p>
+    }
+</EditForm>
+
+</section>
+
+<section class="panel" id="two-step">
+<h2>@T("Two-step sign-in")</h2>
+@if (twoFactorOn)
+{
+    <p>@T("On. Signing in asks for a code from your authenticator app after the password.")</p>
+    @if (recovery is not null)
+    {
+        <p><strong>@T("Your recovery codes.")</strong> @T("Each works once, in place of a code, if you lose the authenticator. Keep them somewhere safe; they are not shown again.")</p>
+        <ul class="recovery-codes">
+            @foreach (var recoveryCode in recovery)
+            {
+                <li><code>@recoveryCode</code></li>
+            }
+        </ul>
+    }
+    <label class="inline-date">
+        @T("Code, to turn it off")
+        <input @bind="twoFactorCode" autocomplete="one-time-code" maxlength="12" />
+    </label>
+    <button type="button" class="danger" @onclick="TurnOffTwoFactor">@T("Turn off")</button>
+}
+else if (setupUri is not null)
+{
+    <p>@T("Scan this with an authenticator app, such as one from your phone's app store, then enter the code it shows.")</p>
+    <div class="qr" role="img" aria-label="@T("QR code for your authenticator app")">@((MarkupString)setupQr!)</div>
+    <p class="hint">@T("Or type this key into the app:") <code class="key">@setupSecret</code></p>
+    <label class="inline-date">
+        @T("Code from the app")
+        <input @bind="twoFactorCode" autocomplete="one-time-code" maxlength="6" inputmode="numeric" />
+    </label>
+    <button type="button" class="primary" @onclick="ConfirmTwoFactor">@T("Turn on")</button>
+    <button type="button" @onclick="() => { setupUri = null; twoFactorProblem = null; }">@T("Cancel")</button>
+}
+else
+{
+    <p class="hint">@T("Off. Turn it on to ask for a code from an authenticator app as well as the password.")</p>
+    <button type="button" @onclick="StartTwoFactor">@T("Set up two-step sign-in")</button>
+}
+@if (twoFactorProblem is AccountProblem shownTwoFactor)
+{
+    <p class="validation-message" role="alert">@ReaderRules.Describe(shownTwoFactor)</p>
+}
+</section>
+
+@if (SingleSignOn.Enabled(Configuration))
+{
+    <section class="panel" id="sso">
+    <h2>@T("Single sign-on")</h2>
+    @if (ssoConnected)
+    {
+        <p class="hint">@T("Connected. You can sign in with {0} as well as here.", SingleSignOn.Name(Configuration))</p>
+        <form method="post" action="/account/sso/unlink">
+            <AntiforgeryToken />
+            <button type="submit" class="quiet">@T("Disconnect")</button>
+        </form>
+    }
+    else
+    {
+        <p class="hint">@T("Connect your {0} account, and sign in with it instead of a password.", SingleSignOn.Name(Configuration))</p>
+        <form method="post" action="/account/sso/link">
+            <AntiforgeryToken />
+            <button type="submit">@T("Connect {0}", SingleSignOn.Name(Configuration))</button>
+        </form>
+    }
+    @if (ProblemCode is { } code && Enum.TryParse<AccountProblem>(code, out var ssoProblem) && ssoProblem is AccountProblem.SsoTaken or AccountProblem.SsoLastWay)
+    {
+        <p class="validation-message" role="alert">@ReaderRules.Describe(ssoProblem)</p>
+    }
+    </section>
+}
+
+<section class="panel" id="passkeys">
+<h2>@T("Passkeys")</h2>
+<p class="hint">@T("A passkey signs you in with this device's fingerprint, face, or PIN, or a password manager, with no password to type and no code to copy. It counts as both steps of two-step sign-in.")</p>
+@if (passkeys.Count > 0)
+{
+    <ul class="tag-counts">
+        @foreach (var key in passkeys)
+        {
+            <li>
+                <span>@key.Name</span>
+                <span class="hint">@T("added {0}", key.CreatedAt.Medium())@(key.LastUsedAt is { } used ? T(", last used {0}", used.Medium()) : T(", not used yet"))</span>
+                <button type="button" class="quiet" @onclick="() => RemovePasskey(key.Id)" aria-label="@T("Remove the passkey {0}", key.Name)">@T("Remove")</button>
+            </li>
+        }
+    </ul>
+}
+@if (passkeySupported)
+{
+    <label class="inline-date">
+        @T("Name it, to tell it apart")
+        <input @bind="passkeyName" maxlength="80" placeholder="@(passkeys.Count == 0 ? T("My phone") : T("My laptop"))" />
+    </label>
+    <button type="button" @onclick="AddPasskey" disabled="@addingPasskey">@(addingPasskey ? T("Waiting for the device…") : T("Add a passkey"))</button>
+}
+else if (passkeyChecked)
+{
+    <p class="hint">@T("This browser cannot make passkeys.")</p>
+}
+@if (passkeyProblem is not null)
+{
+    <p class="validation-message" role="alert">@passkeyProblem</p>
+}
+</section>
+
+<section class="panel" id="sessions">
+<h2>@T("Signed-in devices")</h2>
+<ul class="tag-counts">
+    @foreach (var session in sessions)
+    {
+        <li>
+            <span>
+                <strong>@(session.Device ?? T("A browser"))</strong>@(session.Current ? " · " + T("this one") : "")
+                <span class="hint"> · @T("signed in {0}", session.CreatedAt.Medium()) · @T("last used {0} UTC", session.LastSeenAt.ShortStamp())</span>
+            </span>
+            @if (!session.Current)
+            {
+                <button type="button" @onclick="() => EndSession(session.Id)">@T("Sign out")</button>
+            }
+        </li>
+    }
+</ul>
+@if (sessions.Count(session => !session.Current) > 1)
+{
+    <button type="button" @onclick="EndOtherSessions">@T("Sign out everywhere else")</button>
+}
+</section>
+
+@if (!restricted)
+{
+<section class="panel" id="tokens">
+<h2>@T("API tokens")</h2>
+<p class="hint">@T("A token lets a script or a home dashboard such as Home Assistant use your library through the API, without your password. It opens your books, never this account page.") <a href="https://doodersrage.github.io/shelf/api.html#api-tokens">@T("How to use one")</a></p>
+@if (tokens.Count > 0)
+{
+    <ul class="tag-counts">
+        @foreach (var token in tokens)
+        {
+            <li>
+                <span>@token.Name</span>
+                <span class="hint">@(token.CanChange ? T("reads and changes") : T("reads only"))@(token.Areas is { Length: > 0 } areas ? " " + T("{0} only", string.Join(", ", areas.Select(AreaName))) : "") · @(token.LastUsedAt is { } used ? T("made {0}, last used {1}", token.CreatedAt.Medium(), used.Medium()) : T("made {0}, not used yet", token.CreatedAt.Medium()))</span>
+                <button type="button" class="quiet" @onclick="() => RemoveToken(token.Id)" aria-label="@T("Remove the token {0}", token.Name)">@T("Remove")</button>
+            </li>
+        }
+    </ul>
+}
+@if (newToken is not null)
+{
+    <p><code class="key">@newToken.Token</code></p>
+    <p class="hint">@T("Copy the token now. It is not shown again.")</p>
+}
+<label class="inline-date">
+    @T("What will use it")
+    <input @bind="tokenName" maxlength="@ApiToken.MaxNameLength" placeholder="Home Assistant" />
+</label>
+<label class="check">
+    <input type="checkbox" @bind="tokenCanChange" />
+    @T("Let it change things, not only read them")
+</label>
+<fieldset class="token-areas">
+    <legend>@T("What it opens")</legend>
+    <p class="hint">@T("Leave every box clear to open everything a token can.")</p>
+    @foreach (var area in ApiTokens.Areas)
+    {
+        <label class="check">
+            <input type="checkbox" checked="@tokenAreas.Contains(area)" @onchange="change => ToggleArea(area, change)" />
+            @AreaName(area)
+        </label>
+    }
+</fieldset>
+<button type="button" @onclick="MakeToken">@T("Make a token")</button>
+@if (tokenProblem is not null)
+{
+    <p class="validation-message" role="alert">@tokenProblem</p>
+}
+</section>
+}
+
+@if (!restricted)
+{
+<section class="panel" id="delete">
+<h2>@T("Delete the account")</h2>
+@if (!confirmingRemove)
+{
+    <button type="button" class="danger" @onclick="() => confirmingRemove = true">@T("Delete my account")</button>
+}
+else
+{
+    <p>@T("This deletes your account, every book on your shelf, and their e-books and audiobooks. Books other readers have lent you go back to them. Download a full backup first if you may want any of it.") <a href="/books/export/full">@T("Download everything")</a></p>
+    <label>
+        @T("Your password")
+        <input type="password" @bind="removePassword" autocomplete="current-password" />
+    </label>
+    <button type="button" class="danger" @onclick="RemoveAccount">@T("Yes, delete everything")</button>
+    <button type="button" @onclick="() => confirmingRemove = false">@T("Cancel")</button>
+    @if (removeProblem is AccountProblem shownRemove)
+    {
+        <p class="validation-message" role="alert">@ReaderRules.Describe(shownRemove)</p>
+    }
+}
+</section>
+}
+
+}
+
+@if (tab == "tab-connections")
+{
+<section class="panel" id="email">
 <h2>@T("Email")</h2>
 @if (!Email.Enabled)
 {
@@ -222,6 +543,117 @@ else
 </section>
 }
 
+@if (WebhookSender.Enabled && !restricted)
+{
+<section class="panel" id="webhooks">
+<h2>@T("Webhooks")</h2>
+<p class="hint">@T("Shelf can post to an address of yours when something happens to your books, loans, clubs, or series: for Home Assistant, n8n, Discord, Slack, or a script of your own. JSON bodies are signed with the webhook's secret, in the X-Shelf-Signature header.")</p>
+@if (webhooks.Length > 0)
+{
+    <ul class="tag-counts">
+        @foreach (var hook in webhooks)
+        {
+            <li>
+                <span>
+                    @hook.Url
+                    <span class="hint">
+                        @hook.Format · @(hook.Events.Length == EventKinds.All.Count ? T("every event") : string.Join(", ", hook.Events.Select(EventName)))
+                        @(hook.LastStatus is int status ? " · " + T("last answered {0}", status) : hook.LastSentAt is not null ? " · " + T("last could not be reached") : "")
+                        @(hook.Enabled ? "" : " · " + T("off"))
+                    </span>
+                </span>
+                <span>
+                    <button type="button" class="quiet" @onclick="() => TestWebhook(hook.Id)">@T("Test")</button>
+                    <button type="button" class="quiet" @onclick="() => ToggleWebhook(hook)">@(hook.Enabled ? T("Turn off") : T("Turn on"))</button>
+                    <button type="button" class="quiet" @onclick="() => RemoveWebhook(hook.Id)" aria-label="@T("Remove the webhook to {0}", hook.Url)">@T("Remove")</button>
+                </span>
+            </li>
+        }
+    </ul>
+}
+@if (newWebhook is not null)
+{
+    <p role="status">@T("The webhook's secret, shown only now:") <code>@newWebhook.Secret</code></p>
+}
+<details class="edit">
+    <summary>@T("Add a webhook")</summary>
+    <label>
+        @T("Address")
+        <input type="url" @bind="webhookUrl" @bind:event="oninput" placeholder="https://homeassistant.local:8123/api/webhook/shelf" maxlength="1000" />
+    </label>
+    <label>
+        @T("Send it as")
+        <select @bind="webhookFormat">
+            <option value="@WebhookFormat.Json">@T("JSON, signed")</option>
+            <option value="@WebhookFormat.Discord">Discord</option>
+            <option value="@WebhookFormat.Slack">Slack, Mattermost</option>
+        </select>
+    </label>
+    <fieldset class="audible-take">
+        <legend>@T("For")</legend>
+        @foreach (var kind in EventKinds.All)
+        {
+            <label class="check">
+                <input type="checkbox" checked="@webhookEvents.Contains(kind)" @onchange="change => ToggleEvent(kind, change)" />
+                @EventName(kind)
+            </label>
+        }
+    </fieldset>
+    <button type="button" class="primary" @onclick="AddWebhook" disabled="@(string.IsNullOrWhiteSpace(webhookUrl) || webhookEvents.Count == 0)">@T("Add")</button>
+</details>
+@if (webhookNote is not null)
+{
+    <p class="@(webhookProblem ? "validation-message" : "saved")" role="status">@webhookNote</p>
+}
+</section>
+}
+
+<section class="panel" id="devices">
+<h2>@T("Devices")</h2>
+<p class="hint">@T("Another shelf trades e-books and audiobooks with yours using a key.") <a href="/sync">@T("Make a key")</a></p>
+
+</section>
+
+@if (!restricted)
+{
+<section class="panel" id="sandbox">
+<h2>@T("Sandbox")</h2>
+<p class="hint">@T("A shelf of a dozen sample books to try a connector, a script, or a webhook on before giving it yours. A sandbox token reads and changes only the samples; no other reader sees them, and they lend to no one. Its webhooks and event feed work like yours.")</p>
+@if (sandbox is not null)
+{
+    <p>@T("{0} in the sandbox.", Localization.Counts.Books(sandbox.Books))</p>
+    @if (sandbox.Tokens.Length > 0)
+    {
+        <ul class="tag-counts">
+            @foreach (var token in sandbox.Tokens)
+            {
+                <li><span>@token.Name</span> <span class="hint">@(token.LastUsedAt is { } used ? T("last used {0}", used.Medium()) : T("not used yet"))</span></li>
+            }
+        </ul>
+    }
+}
+@if (sandboxToken is not null)
+{
+    <p><code class="key">@sandboxToken.Token</code></p>
+    <p class="hint">@T("Copy the token now. It is not shown again.")</p>
+}
+<label class="inline-date">
+    @T("What will use it")
+    <input @bind="sandboxTokenName" maxlength="@ApiToken.MaxNameLength" placeholder="@T("A connector to try")" />
+</label>
+<button type="button" @onclick="MakeSandboxToken">@T("Make a sandbox token")</button>
+@if (sandbox is not null)
+{
+    <button type="button" class="quiet" @onclick="ResetSandbox">@T("Put the samples back as they were")</button>
+    <button type="button" class="quiet danger" @onclick="RemoveSandbox">@T("Remove the sandbox")</button>
+}
+</section>
+}
+
+}
+
+@if (tab == "tab-notices")
+{
 <section class="panel" id="notices">
 <h2>@T("Notifications")</h2>
 <p class="hint">@T("Shelf can tell you when someone lends you a book or asks to borrow one, when a loan is due, about new books in your series, and about your book clubs: on this device, or by ntfy or Gotify.")</p>
@@ -334,391 +766,66 @@ else if (pushState is not null)
 }
 </section>
 
-@if (WebhookSender.Enabled && !restricted)
-{
-<section class="panel" id="webhooks">
-<h2>@T("Webhooks")</h2>
-<p class="hint">@T("Shelf can post to an address of yours when something happens to your books, loans, clubs, or series: for Home Assistant, n8n, Discord, Slack, or a script of your own. JSON bodies are signed with the webhook's secret, in the X-Shelf-Signature header.")</p>
-@if (webhooks.Length > 0)
-{
-    <ul class="tag-counts">
-        @foreach (var hook in webhooks)
-        {
-            <li>
-                <span>
-                    @hook.Url
-                    <span class="hint">
-                        @hook.Format · @(hook.Events.Length == EventKinds.All.Count ? T("every event") : string.Join(", ", hook.Events.Select(EventName)))
-                        @(hook.LastStatus is int status ? " · " + T("last answered {0}", status) : hook.LastSentAt is not null ? " · " + T("last could not be reached") : "")
-                        @(hook.Enabled ? "" : " · " + T("off"))
-                    </span>
-                </span>
-                <span>
-                    <button type="button" class="quiet" @onclick="() => TestWebhook(hook.Id)">@T("Test")</button>
-                    <button type="button" class="quiet" @onclick="() => ToggleWebhook(hook)">@(hook.Enabled ? T("Turn off") : T("Turn on"))</button>
-                    <button type="button" class="quiet" @onclick="() => RemoveWebhook(hook.Id)" aria-label="@T("Remove the webhook to {0}", hook.Url)">@T("Remove")</button>
-                </span>
-            </li>
-        }
-    </ul>
-}
-@if (newWebhook is not null)
-{
-    <p role="status">@T("The webhook's secret, shown only now:") <code>@newWebhook.Secret</code></p>
-}
-<details class="edit">
-    <summary>@T("Add a webhook")</summary>
-    <label>
-        @T("Address")
-        <input type="url" @bind="webhookUrl" @bind:event="oninput" placeholder="https://homeassistant.local:8123/api/webhook/shelf" maxlength="1000" />
-    </label>
-    <label>
-        @T("Send it as")
-        <select @bind="webhookFormat">
-            <option value="@WebhookFormat.Json">@T("JSON, signed")</option>
-            <option value="@WebhookFormat.Discord">Discord</option>
-            <option value="@WebhookFormat.Slack">Slack, Mattermost</option>
-        </select>
-    </label>
-    <fieldset class="audible-take">
-        <legend>@T("For")</legend>
-        @foreach (var kind in EventKinds.All)
-        {
-            <label class="check">
-                <input type="checkbox" checked="@webhookEvents.Contains(kind)" @onchange="change => ToggleEvent(kind, change)" />
-                @EventName(kind)
-            </label>
-        }
-    </fieldset>
-    <button type="button" class="primary" @onclick="AddWebhook" disabled="@(string.IsNullOrWhiteSpace(webhookUrl) || webhookEvents.Count == 0)">@T("Add")</button>
-</details>
-@if (webhookNote is not null)
-{
-    <p class="@(webhookProblem ? "validation-message" : "saved")" role="status">@webhookNote</p>
-}
-</section>
 }
 
-<section class="panel" id="look">
-<h2>@T("Look")</h2>
-<label>
-    @T("Light or dark")
-    <select @bind="theme" @bind:after="SaveTheme">
-        <option value="">@T("As the device")</option>
-        <option value="light">@T("Light")</option>
-        <option value="dark">@T("Dark")</option>
-    </select>
-</label>
-<p class="hint">@T("The reader's own page, sepia among them, is set in the reader's Text settings.")</p>
-</section>
-
-<section class="panel">
-<h2>@T("Language and region")</h2>
-<label>
-    @T("Language of the pages")
-    <select @bind="language" @bind:after="SaveLanguage">
-        <option value="">@T("My browser's language")</option>
-        @foreach (var (languageCode, name) in Languages)
-        {
-            <option value="@languageCode" lang="@languageCode">@name</option>
-        }
-    </select>
-</label>
-<label>
-    @T("Write dates and numbers the way they are written in")
-    <select @bind="culture" @bind:after="SaveCulture">
-        <option value="">@T("My browser's language")</option>
-        @foreach (var (name, label) in Regions.Choices)
-        {
-            <option value="@name">@label</option>
-        }
-    </select>
-</label>
-<p class="hint">@T("Today is {0} here.", DateOnly.FromDateTime(DateTime.UtcNow).Medium())</p>
-</section>
-
-<section class="panel">
-<h2>@(passwordUnknown ? T("Set a password") : T("Change the password"))</h2>
-<EditForm Model="form" OnValidSubmit="ChangePassword">
-    @if (passwordUnknown)
-    {
-        <p class="hint">@T("This account was made by single sign-on, so it has no password yet. Set one to sign in without it as well.")</p>
-    }
-    else
-    {
-        <label>
-            @T("Current password")
-            <InputText type="password" @bind-Value="form.Current" autocomplete="current-password" />
-        </label>
-    }
-    <label>
-        @T("New password, at least {0} characters", ReaderRules.MinPasswordLength)
-        <InputText type="password" @bind-Value="form.Password" autocomplete="new-password" />
-    </label>
-    <label>
-        @T("The new password again")
-        <InputText type="password" @bind-Value="form.Confirm" autocomplete="new-password" />
-    </label>
-    <p class="hint">@T("Changing it signs you out everywhere, here included.")</p>
-    <button type="submit">@(passwordUnknown ? T("Set it") : T("Change it"))</button>
-    @if (problem is AccountProblem shown)
-    {
-        <p class="validation-message" role="alert">@ReaderRules.Describe(shown)</p>
-    }
-</EditForm>
-
-</section>
-
-<section class="panel">
-<h2>@T("Two-step sign-in")</h2>
-@if (twoFactorOn)
-{
-    <p>@T("On. Signing in asks for a code from your authenticator app after the password.")</p>
-    @if (recovery is not null)
-    {
-        <p><strong>@T("Your recovery codes.")</strong> @T("Each works once, in place of a code, if you lose the authenticator. Keep them somewhere safe; they are not shown again.")</p>
-        <ul class="recovery-codes">
-            @foreach (var recoveryCode in recovery)
-            {
-                <li><code>@recoveryCode</code></li>
-            }
-        </ul>
-    }
-    <label class="inline-date">
-        @T("Code, to turn it off")
-        <input @bind="twoFactorCode" autocomplete="one-time-code" maxlength="12" />
-    </label>
-    <button type="button" class="danger" @onclick="TurnOffTwoFactor">@T("Turn off")</button>
-}
-else if (setupUri is not null)
-{
-    <p>@T("Scan this with an authenticator app, such as one from your phone's app store, then enter the code it shows.")</p>
-    <div class="qr" role="img" aria-label="@T("QR code for your authenticator app")">@((MarkupString)setupQr!)</div>
-    <p class="hint">@T("Or type this key into the app:") <code class="key">@setupSecret</code></p>
-    <label class="inline-date">
-        @T("Code from the app")
-        <input @bind="twoFactorCode" autocomplete="one-time-code" maxlength="6" inputmode="numeric" />
-    </label>
-    <button type="button" class="primary" @onclick="ConfirmTwoFactor">@T("Turn on")</button>
-    <button type="button" @onclick="() => { setupUri = null; twoFactorProblem = null; }">@T("Cancel")</button>
-}
-else
-{
-    <p class="hint">@T("Off. Turn it on to ask for a code from an authenticator app as well as the password.")</p>
-    <button type="button" @onclick="StartTwoFactor">@T("Set up two-step sign-in")</button>
-}
-@if (twoFactorProblem is AccountProblem shownTwoFactor)
-{
-    <p class="validation-message" role="alert">@ReaderRules.Describe(shownTwoFactor)</p>
-}
-</section>
-
-@if (SingleSignOn.Enabled(Configuration))
-{
-    <section class="panel" id="sso">
-    <h2>@T("Single sign-on")</h2>
-    @if (ssoConnected)
-    {
-        <p class="hint">@T("Connected. You can sign in with {0} as well as here.", SingleSignOn.Name(Configuration))</p>
-        <form method="post" action="/account/sso/unlink">
-            <AntiforgeryToken />
-            <button type="submit" class="quiet">@T("Disconnect")</button>
-        </form>
-    }
-    else
-    {
-        <p class="hint">@T("Connect your {0} account, and sign in with it instead of a password.", SingleSignOn.Name(Configuration))</p>
-        <form method="post" action="/account/sso/link">
-            <AntiforgeryToken />
-            <button type="submit">@T("Connect {0}", SingleSignOn.Name(Configuration))</button>
-        </form>
-    }
-    @if (ProblemCode is { } code && Enum.TryParse<AccountProblem>(code, out var ssoProblem) && ssoProblem is AccountProblem.SsoTaken or AccountProblem.SsoLastWay)
-    {
-        <p class="validation-message" role="alert">@ReaderRules.Describe(ssoProblem)</p>
-    }
-    </section>
-}
-
-<section class="panel">
-<h2>@T("Passkeys")</h2>
-<p class="hint">@T("A passkey signs you in with this device's fingerprint, face, or PIN, or a password manager, with no password to type and no code to copy. It counts as both steps of two-step sign-in.")</p>
-@if (passkeys.Count > 0)
-{
-    <ul class="tag-counts">
-        @foreach (var key in passkeys)
-        {
-            <li>
-                <span>@key.Name</span>
-                <span class="hint">@T("added {0}", key.CreatedAt.Medium())@(key.LastUsedAt is { } used ? T(", last used {0}", used.Medium()) : T(", not used yet"))</span>
-                <button type="button" class="quiet" @onclick="() => RemovePasskey(key.Id)" aria-label="@T("Remove the passkey {0}", key.Name)">@T("Remove")</button>
-            </li>
-        }
-    </ul>
-}
-@if (passkeySupported)
-{
-    <label class="inline-date">
-        @T("Name it, to tell it apart")
-        <input @bind="passkeyName" maxlength="80" placeholder="@(passkeys.Count == 0 ? T("My phone") : T("My laptop"))" />
-    </label>
-    <button type="button" @onclick="AddPasskey" disabled="@addingPasskey">@(addingPasskey ? T("Waiting for the device…") : T("Add a passkey"))</button>
-}
-else if (passkeyChecked)
-{
-    <p class="hint">@T("This browser cannot make passkeys.")</p>
-}
-@if (passkeyProblem is not null)
-{
-    <p class="validation-message" role="alert">@passkeyProblem</p>
-}
-</section>
-
-<section class="panel">
-<h2>@T("Signed-in devices")</h2>
-<ul class="tag-counts">
-    @foreach (var session in sessions)
-    {
-        <li>
-            <span>
-                <strong>@(session.Device ?? T("A browser"))</strong>@(session.Current ? " · " + T("this one") : "")
-                <span class="hint"> · @T("signed in {0}", session.CreatedAt.Medium()) · @T("last used {0} UTC", session.LastSeenAt.ShortStamp())</span>
-            </span>
-            @if (!session.Current)
-            {
-                <button type="button" @onclick="() => EndSession(session.Id)">@T("Sign out")</button>
-            }
-        </li>
-    }
-</ul>
-@if (sessions.Count(session => !session.Current) > 1)
-{
-    <button type="button" @onclick="EndOtherSessions">@T("Sign out everywhere else")</button>
-}
-</section>
-
-<section class="panel">
-<h2>@T("Devices")</h2>
-<p class="hint">@T("Another shelf trades e-books and audiobooks with yours using a key.") <a href="/sync">@T("Make a key")</a></p>
-
-</section>
-
-@if (!restricted)
-{
-<section class="panel" id="tokens">
-<h2>@T("API tokens")</h2>
-<p class="hint">@T("A token lets a script or a home dashboard such as Home Assistant use your library through the API, without your password. It opens your books, never this account page.") <a href="https://doodersrage.github.io/shelf/api.html#api-tokens">@T("How to use one")</a></p>
-@if (tokens.Count > 0)
-{
-    <ul class="tag-counts">
-        @foreach (var token in tokens)
-        {
-            <li>
-                <span>@token.Name</span>
-                <span class="hint">@(token.CanChange ? T("reads and changes") : T("reads only"))@(token.Areas is { Length: > 0 } areas ? " " + T("{0} only", string.Join(", ", areas.Select(AreaName))) : "") · @(token.LastUsedAt is { } used ? T("made {0}, last used {1}", token.CreatedAt.Medium(), used.Medium()) : T("made {0}, not used yet", token.CreatedAt.Medium()))</span>
-                <button type="button" class="quiet" @onclick="() => RemoveToken(token.Id)" aria-label="@T("Remove the token {0}", token.Name)">@T("Remove")</button>
-            </li>
-        }
-    </ul>
-}
-@if (newToken is not null)
-{
-    <p><code class="key">@newToken.Token</code></p>
-    <p class="hint">@T("Copy the token now. It is not shown again.")</p>
-}
-<label class="inline-date">
-    @T("What will use it")
-    <input @bind="tokenName" maxlength="@ApiToken.MaxNameLength" placeholder="Home Assistant" />
-</label>
-<label class="check">
-    <input type="checkbox" @bind="tokenCanChange" />
-    @T("Let it change things, not only read them")
-</label>
-<fieldset class="token-areas">
-    <legend>@T("What it opens")</legend>
-    <p class="hint">@T("Leave every box clear to open everything a token can.")</p>
-    @foreach (var area in ApiTokens.Areas)
-    {
-        <label class="check">
-            <input type="checkbox" checked="@tokenAreas.Contains(area)" @onchange="change => ToggleArea(area, change)" />
-            @AreaName(area)
-        </label>
-    }
-</fieldset>
-<button type="button" @onclick="MakeToken">@T("Make a token")</button>
-@if (tokenProblem is not null)
-{
-    <p class="validation-message" role="alert">@tokenProblem</p>
-}
-</section>
-
-<section class="panel" id="sandbox">
-<h2>@T("Sandbox")</h2>
-<p class="hint">@T("A shelf of a dozen sample books to try a connector, a script, or a webhook on before giving it yours. A sandbox token reads and changes only the samples; no other reader sees them, and they lend to no one. Its webhooks and event feed work like yours.")</p>
-@if (sandbox is not null)
-{
-    <p>@T("{0} in the sandbox.", Localization.Counts.Books(sandbox.Books))</p>
-    @if (sandbox.Tokens.Length > 0)
-    {
-        <ul class="tag-counts">
-            @foreach (var token in sandbox.Tokens)
-            {
-                <li><span>@token.Name</span> <span class="hint">@(token.LastUsedAt is { } used ? T("last used {0}", used.Medium()) : T("not used yet"))</span></li>
-            }
-        </ul>
-    }
-}
-@if (sandboxToken is not null)
-{
-    <p><code class="key">@sandboxToken.Token</code></p>
-    <p class="hint">@T("Copy the token now. It is not shown again.")</p>
-}
-<label class="inline-date">
-    @T("What will use it")
-    <input @bind="sandboxTokenName" maxlength="@ApiToken.MaxNameLength" placeholder="@T("A connector to try")" />
-</label>
-<button type="button" @onclick="MakeSandboxToken">@T("Make a sandbox token")</button>
-@if (sandbox is not null)
-{
-    <button type="button" class="quiet" @onclick="ResetSandbox">@T("Put the samples back as they were")</button>
-    <button type="button" class="quiet danger" @onclick="RemoveSandbox">@T("Remove the sandbox")</button>
-}
-</section>
-
-}
-
-<section class="panel">
-<h2>@T("Recent activity")</h2>
-<p class="hint">@T("Changes to this account, and sign-ins that failed. If something here was not you, change the password.")</p>
-<AuditList Lines="activity" />
-</section>
-
-@if (!restricted)
-{
-<section class="panel">
-<h2>@T("Delete the account")</h2>
-@if (!confirmingRemove)
-{
-    <button type="button" class="danger" @onclick="() => confirmingRemove = true">@T("Delete my account")</button>
-}
-else
-{
-    <p>@T("This deletes your account, every book on your shelf, and their e-books and audiobooks. Books other readers have lent you go back to them. Download a full backup first if you may want any of it.") <a href="/books/export/full">@T("Download everything")</a></p>
-    <label>
-        @T("Your password")
-        <input type="password" @bind="removePassword" autocomplete="current-password" />
-    </label>
-    <button type="button" class="danger" @onclick="RemoveAccount">@T("Yes, delete everything")</button>
-    <button type="button" @onclick="() => confirmingRemove = false">@T("Cancel")</button>
-    @if (removeProblem is AccountProblem shownRemove)
-    {
-        <p class="validation-message" role="alert">@ReaderRules.Describe(shownRemove)</p>
-    }
-}
-</section>
-}
 
 @code {
+    private string tab = "";
+    private HashSet<string> hiddenNav = [];
+    private string? menuNote;
+
+    private static IReadOnlyList<(string Key, string Label)> AccountTabs =>
+    [
+        ("tab-you", T("You")),
+        ("tab-security", T("Sign-in & security")),
+        ("tab-connections", T("Connections")),
+        ("tab-notices", T("Notifications")),
+    ];
+
+    // Which tab each section is in, so a link to /account#readwise, say, opens its tab.
+    private static readonly Dictionary<string, string> AccountSections = new()
+    {
+        ["children"] = "tab-you",
+        ["look"] = "tab-you",
+        ["language"] = "tab-you",
+        ["menu"] = "tab-you",
+        ["activity"] = "tab-security",
+        ["password"] = "tab-security",
+        ["two-step"] = "tab-security",
+        ["sso"] = "tab-security",
+        ["passkeys"] = "tab-security",
+        ["sessions"] = "tab-security",
+        ["tokens"] = "tab-security",
+        ["delete"] = "tab-security",
+        ["email"] = "tab-connections",
+        ["kindle"] = "tab-connections",
+        ["readwise"] = "tab-connections",
+        ["hardcover"] = "tab-connections",
+        ["webhooks"] = "tab-connections",
+        ["devices"] = "tab-connections",
+        ["sandbox"] = "tab-connections",
+        ["notices"] = "tab-notices",
+        ["feeds"] = "tab-notices",
+    };
+
+    private async Task ShowInMenu(string href, ChangeEventArgs change)
+    {
+        if (change.Value is true)
+        {
+            hiddenNav.Remove(href);
+        }
+        else
+        {
+            hiddenNav.Add(href);
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var me = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
+        me.HiddenNav = NavMap.Store(hiddenNav);
+        await db.SaveChangesAsync();
+        menuNote = T("Saved. The menu shows it from the next page you open.");
+    }
+
     private readonly PasswordForm form = new();
     private AccountProblem? problem;
     private bool shelfOpen;
@@ -883,6 +990,7 @@ else
         hardcoverAddMissing = me.HardcoverAddMissing;
         readwiseAutoImport = me.ReadwiseAutoImport;
         readwiseAuto = me.ReadwiseAuto;
+        hiddenNav = NavMap.Hidden(me.HiddenNav);
         await LoadNoticesAsync(db);
         webhooks = await Webhooks.ListAsync(db);
         restricted = me.Restricted;
