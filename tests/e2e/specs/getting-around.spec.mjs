@@ -70,3 +70,31 @@ test("following an author and starting a club work as plain pages", async ({ bro
   await Promise.all([page.waitForURL(/\/clubs\/\d+$/), page.getByRole("button", { name: "Start it" }).click()]);
   noProblems(page);
 });
+
+test("the compact table holds every book, drawing only those in view, with the columns chosen", async ({ browser }) => {
+  const page = await signUp(browser, unique("Tabulator"));
+  const many = Array.from({ length: 400 }, (_, at) => ({ title: `Row Book ${String(at).padStart(3, "0")}`, author: "Someone", location: at % 2 ? "Attic" : "Hall", tags: [] }));
+  for (const book of many) {
+    await page.request.post("/books", { data: { status: "Want", ...book } });
+  }
+  await page.goto("/library?q=Row%20Book");
+  await ready(page);
+  await page.getByRole("button", { name: "Compact" }).click();
+  const rows = page.locator(".book-table tbody tr:not([style])");
+  await expect(rows.first()).toContainText("Row Book 000");
+  // Far fewer than 400 drawn, and the rest come as it scrolls.
+  expect(await page.locator(".book-table tbody tr td a[href^='/library/']").count()).toBeLessThan(150);
+  await page.mouse.wheel(0, 40_000);
+  await expect(page.locator(".book-table").getByRole("link", { name: "Row Book 399" })).toBeVisible();
+
+  // A column taken away is gone, and the choice is kept.
+  await expect(page.locator(".book-table th", { hasText: "Place" })).toHaveCount(1);
+  await page.locator(".columns-pick summary").click();
+  await page.locator(".columns-pick").getByLabel("Place").uncheck();
+  await expect(page.locator(".book-table th", { hasText: "Place" })).toHaveCount(0);
+  await page.goto("/library?q=Row%20Book");
+  await ready(page);
+  await expect(page.getByRole("button", { name: "Compact" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".book-table th", { hasText: "Place" })).toHaveCount(0);
+  noProblems(page);
+});

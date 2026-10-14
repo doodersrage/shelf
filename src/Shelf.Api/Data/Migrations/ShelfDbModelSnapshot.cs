@@ -2609,6 +2609,12 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<bool>("LibraryAsList")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("LibraryColumns")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("LibraryCompact")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("LibrarySort")
                         .HasColumnType("TEXT");
 

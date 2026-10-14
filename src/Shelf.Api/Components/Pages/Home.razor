@@ -121,9 +121,25 @@
     </div>
     <div class="toolbar">
         <div class="segmented" role="group" aria-label="@T("Show books as")">
-            <button type="button" aria-pressed="@(!listView ? "true" : "false")" @onclick="() => ShowAsList(false)">@T("Covers")</button>
-            <button type="button" aria-pressed="@(listView ? "true" : "false")" @onclick="() => ShowAsList(true)">@T("List")</button>
+            <button type="button" aria-pressed="@(!listView ? "true" : "false")" @onclick="() => ShowAs(false, false)">@T("Covers")</button>
+            <button type="button" aria-pressed="@(listView && !compact ? "true" : "false")" @onclick="() => ShowAs(true, false)">@T("List")</button>
+            <button type="button" aria-pressed="@(compact ? "true" : "false")" @onclick="() => ShowAs(true, true)">@T("Compact")</button>
         </div>
+        @if (compact)
+        {
+            <details class="columns-pick">
+                <summary>@T("Columns")</summary>
+                <div class="checks">
+                    @foreach (var column in LibraryColumns.All)
+                    {
+                        <label class="check">
+                            <input type="checkbox" checked="@columns.Contains(column)" @onchange="change => ToggleColumn(column, change.Value is true)" />
+                            @LibraryColumns.Label(column)
+                        </label>
+                    }
+                </div>
+            </details>
+        }
         <details>
             <summary>@T("More filters")@(MoreOn > 0 ? $" ({MoreOn})" : "")</summary>
             <div class="checks">
@@ -242,7 +258,8 @@
 
 @{
     var matching = Visible.ToList();
-    var visible = matching.Take(shown).ToList();
+    // The compact table draws only the rows in view, so it holds every match; the others grow as they're scrolled.
+    var visible = compact ? matching : matching.Take(shown).ToList();
 }
 
 @if (books.Count > 0 && matching.Count == 0)
@@ -367,6 +384,37 @@ else if (visible.Count > 0)
             }
             <StatusNote Text="@bulkNote" UndoBatch="bulkBatch" Undone="LoadAsync" />
         </div>
+        @if (compact)
+        {
+            <table class="book-table">
+                <thead>
+                    <tr>
+                        <th scope="col"><span class="visually-hidden">@T("Choose")</span></th>
+                        <th scope="col">@T("Title")</th>
+                        <th scope="col">@T("Author")</th>
+                        @foreach (var column in columns)
+                        {
+                            <th scope="col">@LibraryColumns.Label(column)</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    <Virtualize Items="matching" ItemSize="44" OverscanCount="30" SpacerElement="tr" Context="book">
+                        <tr @key="book.Id">
+                            <td><input type="checkbox" checked="@chosen.Contains(book.Id)" @onchange="change => Choose(book.Id, change.Value is true)" aria-label="@T("Choose {0}", book.Title)" /></td>
+                            <td class="title-cell"><a href="/library/@book.Id" title="@book.Title">@book.Title</a></td>
+                            <td><a href="@($"/library?author={Uri.EscapeDataString(book.Author)}")">@book.Author</a></td>
+                            @foreach (var column in columns)
+                            {
+                                <td>@Cell(book, column)</td>
+                            }
+                        </tr>
+                    </Virtualize>
+                </tbody>
+            </table>
+        }
+        else
+        {
         <ul class="book-list">
         @foreach (var book in visible)
         {
@@ -510,6 +558,7 @@ else if (visible.Count > 0)
             </li>
         }
         </ul>
+        }
     }
     @if (matching.Count > visible.Count)
     {
@@ -554,6 +603,8 @@ else if (visible.Count > 0)
     private string[] placeNames = [];
     private bool confirmingBulkDelete;
     private bool listView;
+    private bool compact;
+    private string[] columns = LibraryColumns.Default;
     private string? addedTitle;
 
     [SupplyParameterFromQuery(Name = "q")]
@@ -823,11 +874,14 @@ else if (visible.Count > 0)
         if (View is null)
         {
             await using var db = await DbFactory.CreateDbContextAsync();
-            listView = await BookRules.GetLibraryAsListAsync(db);
+            (listView, compact, columns) = await BookRules.GetLibraryLookAsync(db);
         }
         else
         {
-            listView = string.Equals(View, "list", StringComparison.OrdinalIgnoreCase);
+            compact = string.Equals(View, "compact", StringComparison.OrdinalIgnoreCase);
+            listView = compact || string.Equals(View, "list", StringComparison.OrdinalIgnoreCase);
+            await using var db = await DbFactory.CreateDbContextAsync();
+            columns = (await BookRules.GetLibraryLookAsync(db)).Columns;
         }
     }
 
@@ -911,12 +965,45 @@ else if (visible.Count > 0)
         chosen.IntersectWith(books.Select(book => book.Id));
     }
 
-    private async Task ShowAsList(bool asList)
+    private async Task ShowAs(bool asList, bool asTable)
     {
-        listView = asList;
+        (listView, compact) = (asList || asTable, asTable);
         await using var db = await DbFactory.CreateDbContextAsync();
-        await BookRules.SetLibraryAsListAsync(db, asList);
+        await BookRules.SetLibraryLookAsync(db, listView, compact);
     }
+
+    private async Task ToggleColumn(string column, bool on)
+    {
+        var chosenColumns = columns.ToHashSet();
+        if (on)
+        {
+            chosenColumns.Add(column);
+        }
+        else
+        {
+            chosenColumns.Remove(column);
+        }
+
+        columns = [.. LibraryColumns.All.Where(chosenColumns.Contains)];
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await BookRules.SetLibraryLookAsync(db, listView, compact, columns);
+    }
+
+    // One cell of the compact table: the book's value for the column, plain, on one line.
+    private RenderFragment Cell(Book book, string column) => column switch
+    {
+        "status" => @<span data-status="@book.Status">@BookRules.StatusLabel(book.Status)</span>,
+        "series" => @<span>@book.Series@(book.SeriesNumber is int number ? $" {number}" : "")</span>,
+        "year" => @<span>@book.Year</span>,
+        "format" => @<span>@book.Format</span>,
+        "place" => book.Location is { Length: > 0 } place ? @<a href="@($"/library?place={Uri.EscapeDataString(place)}")">@place</a> : @<span></span>,
+        "rating" => @<span>@(book.Rating is int stars ? $"{stars}/5" : "")</span>,
+        "pages" => @<span>@book.Pages</span>,
+        "added" => @<span>@DateOnly.FromDateTime(book.AddedAt.UtcDateTime).Medium()</span>,
+        "finished" => @<span>@book.FinishedOn?.Medium()</span>,
+        "loan" => @<span>@book.LoanedTo</span>,
+        _ => @<span></span>,
+    };
 
     private RenderFragment Removable(string? label, string value, Action clear) =>
         @<button type="button" class="chip removable" aria-label="@T("Take away the filter {0}", label is null ? value : $"{label} {value}")" @onclick="() => { clear(); shown = PageSize; }">
@@ -992,7 +1079,7 @@ else if (visible.Count > 0)
         lovedOnly = loanedOnly = queuedOnly = fileOnly = audioOnly = goneOnly = false;
         if (new Uri(Navigation.Uri).Query.Length > 0)
         {
-            Navigation.NavigateTo(listView ? "/library?view=list" : "/library");
+            Navigation.NavigateTo(compact ? "/library?view=compact" : listView ? "/library?view=list" : "/library");
         }
     }
 

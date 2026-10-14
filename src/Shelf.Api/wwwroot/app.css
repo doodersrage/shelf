@@ -296,6 +296,42 @@ h1:focus {
     width: 100%;
 }
 
+/* The menu's one box: a magnifier at its start and the key that opens it at its end. */
+.search-box {
+    position: relative;
+    display: block;
+}
+
+.search-box svg {
+    position: absolute;
+    left: var(--space-3);
+    top: 50%;
+    width: 1rem;
+    height: 1rem;
+    transform: translateY(-50%);
+    color: var(--color-muted);
+    pointer-events: none;
+}
+
+.search-box input {
+    padding-left: 2.25rem;
+    padding-right: 3.75rem;
+}
+
+.search-box kbd {
+    position: absolute;
+    right: var(--space-2);
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--color-muted);
+    border: 1px solid var(--color-rule);
+    border-radius: 4px;
+    padding: 0 var(--space-1);
+    pointer-events: none;
+}
+
 /* The five main places, larger and with their icons; the groups below fold away. */
 .nav-main ul {
     list-style: none;
@@ -5861,4 +5897,128 @@ dialog.jump input {
     .loading-dot {
         animation: none;
     }
+}
+
+/* A big library: what is off screen is not laid out or painted until it comes near, each card and line keeping the
+   size it last had so the scroll doesn't jump. */
+.book-grid > .book-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 22rem;
+}
+
+.book-list > .book {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 9rem;
+}
+
+/* The compact table: one line a book, every line the same height, so only those in view are drawn. */
+.columns-pick .checks {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: var(--space-1) var(--space-3);
+    padding: var(--space-2) 0;
+}
+
+/* No scrolling box of its own, as rows are drawn as the page scrolls: the columns share the width, and long words
+   end in an ellipsis. */
+.book-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+}
+
+.book-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--color-canvas);
+    text-align: left;
+    font-weight: 600;
+    color: var(--color-muted);
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--color-rule);
+    white-space: nowrap;
+}
+
+.book-table td {
+    height: 44px;
+    padding: 0 var(--space-2);
+    border-bottom: 1px solid var(--color-rule);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.book-table th {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.book-table td.title-cell {
+    font-weight: 500;
+}
+
+.book-table th:first-child {
+    width: 2.5rem;
+}
+
+.book-table th:nth-child(2) {
+    width: 30%;
+}
+
+.book-table tbody tr:hover {
+    background: var(--color-sunken);
+}
+
+/* Every key Shelf answers to, in a box over the page. */
+dialog.shortcuts {
+    width: min(34rem, calc(100vw - 2 * var(--space-4)));
+    max-height: calc(100vh - 4rem);
+    padding: var(--space-6);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-card);
+    background: var(--color-surface);
+    color: var(--color-ink);
+}
+
+dialog.shortcuts::backdrop {
+    background: rgb(0 0 0 / 0.45);
+}
+
+dialog.shortcuts h2 {
+    margin-top: 0;
+}
+
+dialog.shortcuts h3 {
+    font-size: var(--text-sm);
+    color: var(--color-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: var(--space-4) 0 var(--space-2);
+}
+
+dialog.shortcuts dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: var(--space-2) var(--space-4);
+    margin: 0;
+}
+
+dialog.shortcuts dd {
+    margin: 0;
+}
+
+dialog.shortcuts kbd {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    border: 1px solid var(--color-rule);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 0 var(--space-1);
+    background: var(--color-canvas);
+}
+
+dialog.shortcuts form {
+    margin-top: var(--space-4);
 }

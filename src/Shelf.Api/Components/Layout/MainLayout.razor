@@ -31,6 +31,7 @@ else if (Focused)
             @Body
         </main>
     </div>
+    @Shortcuts
 }
 else
 {
@@ -93,8 +94,10 @@ else
             </main>
         </div>
 
+        @Shortcuts
+
         @* Quick jump, opened by jump.js with Ctrl K, "/", or the Go to button. *@
-        <dialog id="jump" class="jump" aria-labelledby="jump-label" data-recent="@T("Recent")">
+        <dialog id="jump" class="jump" aria-labelledby="jump-label" data-recent="@T("Recent")" data-search-kind="@T("Search")" data-search="@T("Search the library for “{0}”")">
             <label id="jump-label" for="jump-input" class="visually-hidden">@T("Go to a page or a book")</label>
             <input id="jump-input" type="search" role="combobox" aria-expanded="false" aria-controls="jump-list" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="@T("Go to a page or a book")" />
             <ul id="jump-list" role="listbox" aria-label="@T("Places to go")"></ul>
@@ -165,14 +168,17 @@ else
 
     private RenderFragment Sidebar => @<text>
         <a class="wordmark" href="/">@Mark shelf</a>
-        <form class="search" action="/library" method="get" role="search" aria-label="@T("Search the library")" data-enhance>
-            <label class="visually-hidden" for="@SearchId">@T("Search the library")</label>
-            <input id="@SearchId" name="q" type="search" placeholder="@T("Search the library")" autocomplete="off" />
+        @* One box: without scripts it searches the library; with them it opens Go to, which still searches the library
+           on Enter, and finds pages and books as you type. *@
+        <form class="search" action="/library" method="get" role="search" aria-label="@T("Search or go to")" data-enhance>
+            <label class="visually-hidden" for="@SearchId">@T("Search or go to")</label>
+            <span class="search-box">
+                @Icon(JumpIcon)
+                <input id="@SearchId" name="q" type="search" placeholder="@T("Search or go to…")" autocomplete="off" data-jump-input aria-keyshortcuts="Control+K /" />
+                <kbd aria-hidden="true">Ctrl K</kbd>
+            </span>
         </form>
         <a class="button primary" href="/library?add=1">@T("Add a book")</a>
-        <button type="button" class="jump-open" data-jump-open aria-keyshortcuts="Control+K /">
-            @Icon(JumpIcon) <span>@T("Go to…")</span> <kbd aria-hidden="true">Ctrl K</kbd>
-        </button>
         @* Five places to go; the rest is a click further, in groups that open by themselves on their own pages. *@
         <nav class="nav-main" aria-label="@T("Main")">
             <ul>
@@ -236,6 +242,7 @@ else
                     <button type="submit" class="link">@T("Sign out")</button>
                 </form>
             </p>
+            <p><button type="button" class="link" data-shortcuts-open>@T("Keyboard shortcuts")</button></p>
             <p><span title="@(ShelfVersion.Commit is null ? null : T("Built from {0}", ShelfVersion.Commit))">Shelf @ShelfVersion.Number</span> · <a href="@ShelfVersion.SourceUrl(Configuration)">@T("Source code")</a></p>
             <p>
                 <a href="/books">JSON</a>
@@ -246,6 +253,32 @@ else
             </p>
         </div>
     </text>;
+
+    // Every key Shelf answers to, shown by "?" (jump.js).
+    private RenderFragment Shortcuts => @<dialog id="shortcuts" class="shortcuts" aria-labelledby="shortcuts-heading">
+        <h2 id="shortcuts-heading">@T("Keyboard shortcuts")</h2>
+        <h3>@T("Anywhere")</h3>
+        <dl>
+            <dt><kbd>Ctrl</kbd> <kbd>K</kbd> · <kbd>/</kbd></dt><dd>@T("Go to a page or a book, or search the library")</dd>
+            <dt><kbd>?</kbd></dt><dd>@T("These shortcuts")</dd>
+            <dt><kbd>Esc</kbd></dt><dd>@T("Close a box or a menu")</dd>
+        </dl>
+        <h3>@T("Reading")</h3>
+        <dl>
+            <dt><kbd>→</kbd> <kbd>←</kbd> · <kbd>PgDn</kbd> <kbd>PgUp</kbd></dt><dd>@T("Next and previous page")</dd>
+            <dt><kbd>Space</kbd> · <kbd>Shift</kbd> <kbd>Space</kbd></dt><dd>@T("Next and previous page, when the book turns pages")</dd>
+            <dt><kbd>F</kbd></dt><dd>@T("The book fills the window, or stops")</dd>
+        </dl>
+        <h3>@T("Listening")</h3>
+        <dl>
+            <dt><kbd>Space</kbd> · <kbd>K</kbd></dt><dd>@T("Play or pause")</dd>
+            <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>@T("Back and forward a little")</dd>
+            <dt><kbd>Shift</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>@T("Previous and next chapter")</dd>
+            <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>@T("Slower and faster")</dd>
+            <dt><kbd>M</kbd></dt><dd>@T("Mute")</dd>
+        </dl>
+        <form method="dialog"><button type="submit">@T("Close")</button></form>
+    </dialog>;
 
     // The sidebar is drawn twice, once for wide screens and once in the phone drawer, so ids stay unique.
     private int searchCount;

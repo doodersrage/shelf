@@ -4,6 +4,18 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-10-14
+
+### Added
+
+- **Compact library**: a third way to see the library, beside covers and the list: a table, one line a book, holding every book that matches with only the lines in view drawn, so 70,000 books scroll as easily as 70. **Columns** chooses what it shows beside the title and author (status, series, year, format, place, rating, pages, added, finished, on loan), kept for next time; `?view=compact` opens it.
+- **Keyboard shortcuts**: "?" lists every key Shelf answers to, anywhere, the reader and player included; so does **Keyboard shortcuts** at the foot of the menu.
+
+### Changed
+
+- **One box to search or go to**: the menu's search box and Go to are one. Typing there opens Go to, whose first answer, and Enter, searches the library, unless what was typed is the very name of a page or book; the arrows reach the pages and books it finds. Without scripts it still searches the library.
+- In the covers and the list, books far off screen are no longer laid out or painted until they come near, so a long scroll stays quick.
+
 ## [2.13.0] - 2026-10-14
 
 ### Added
@@ -573,7 +585,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.13.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.14.0...HEAD
+[2.14.0]: https://github.com/doodersrage/shelf/compare/v2.13.0...v2.14.0
 [2.13.0]: https://github.com/doodersrage/shelf/compare/v2.12.3...v2.13.0
 [2.12.3]: https://github.com/doodersrage/shelf/compare/v2.12.2...v2.12.3
 [2.12.2]: https://github.com/doodersrage/shelf/compare/v2.12.1...v2.12.2

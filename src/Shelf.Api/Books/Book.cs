@@ -212,6 +212,10 @@ public sealed class ShelfSetting
     public bool ComicSpread { get; set; }
     public bool LibraryAsList { get; set; }
 
+    // The list as a compact table, one line a book, and which columns it shows (LibraryColumns), comma separated.
+    public bool LibraryCompact { get; set; }
+    public string? LibraryColumns { get; set; }
+
     // The library's order when an address does not give one; null for by title.
     public string? LibrarySort { get; set; }
 

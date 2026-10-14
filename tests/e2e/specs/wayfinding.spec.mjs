@@ -13,6 +13,10 @@ test("quick jump goes to a page or a book from the keyboard", async ({ browser }
   await expect(box).toBeFocused();
   await box.fill("trash");
   await expect(page.getByRole("option", { name: /Trash & undo/ })).toBeVisible();
+  // Enter would search the library; the arrow goes down to the page.
+  await expect(page.locator("#jump-list").getByRole("option").first()).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#jump-list").getByRole("option").first()).toContainText("Search the library for “trash”");
+  await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/trash$/);
   await expect(page.locator("dialog.jump")).not.toBeVisible();
@@ -23,16 +27,28 @@ test("quick jump goes to a page or a book from the keyboard", async ({ browser }
   await box.fill("piran");
   const option = page.getByRole("option", { name: /Piranesi/ });
   await expect(option).toBeVisible();
-  await expect(option).toHaveAttribute("aria-selected", "true");
   await option.click();
   await expect(page).toHaveURL(new RegExp(`/library/${book.id}$`));
 
-  // And the button in the menu, which Escape closes again.
+  // The menu's search box opens it too, and Enter there searches the library.
   await ready(page);
-  await page.getByRole("button", { name: /Go to…/ }).first().click();
+  await page.getByRole("searchbox", { name: "Search or go to" }).first().click();
   await expect(box).toBeFocused();
+  await box.fill("melville whale");
+  await expect(page.locator("#jump-list").getByRole("option").first()).toContainText("Search the library");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/library\?q=melville%20whale$/);
+
+  // Escape closes it again.
+  await ready(page);
+  await page.keyboard.press("Control+k");
   await page.keyboard.press("Escape");
   await expect(page.locator("dialog.jump")).not.toBeVisible();
+
+  // "?" lists the keys.
+  await page.keyboard.press("?");
+  await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
+  await page.keyboard.press("Escape");
   noProblems(page);
 });
 

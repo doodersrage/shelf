@@ -418,6 +418,31 @@ public static class BookRules
     public static async Task<bool> GetLibraryAsListAsync(ShelfDb db, CancellationToken cancellationToken = default) =>
         await db.Settings.AsNoTracking().AnyAsync(item => item.Id == db.ReaderId && item.LibraryAsList, cancellationToken);
 
+    // The library's look: covers, a list, or a compact table, with the table's columns.
+    public static async Task<(bool AsList, bool Compact, string[] Columns)> GetLibraryLookAsync(ShelfDb db, CancellationToken cancellationToken = default)
+    {
+        var setting = await db.Settings.AsNoTracking().FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
+        return (setting?.LibraryAsList == true, setting?.LibraryCompact == true, LibraryColumns.Parse(setting?.LibraryColumns));
+    }
+
+    public static async Task SetLibraryLookAsync(ShelfDb db, bool asList, bool compact, IEnumerable<string>? columns = null, CancellationToken cancellationToken = default)
+    {
+        var setting = await db.Settings.FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);
+        if (setting is null)
+        {
+            setting = new ShelfSetting { Id = SettingId(db) };
+            db.Settings.Add(setting);
+        }
+
+        (setting.LibraryAsList, setting.LibraryCompact) = (asList || compact, compact);
+        if (columns is not null)
+        {
+            setting.LibraryColumns = LibraryColumns.Store(columns);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public static async Task SetLibraryAsListAsync(ShelfDb db, bool asList, CancellationToken cancellationToken = default)
     {
         var setting = await db.Settings.FirstOrDefaultAsync(item => item.Id == db.ReaderId, cancellationToken);

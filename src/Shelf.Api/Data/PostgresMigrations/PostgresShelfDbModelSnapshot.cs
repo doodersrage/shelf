@@ -2730,6 +2730,12 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Property<bool>("LibraryAsList")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("LibraryColumns")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("LibraryCompact")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("LibrarySort")
                         .HasColumnType("text");
 

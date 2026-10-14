@@ -105,7 +105,10 @@
           const seen = new Set(lately.map((item) => item.href));
           show([...lately, ...found.filter((hit) => !seen.has(hit.href))]);
         } else {
-          show(found);
+          // Enter searches the library, unless what was typed is exactly the name of a page or book.
+          const search = { kind: box().dataset.searchKind, title: box().dataset.search.replace("{0}", typed), href: `/library?q=${encodeURIComponent(typed)}` };
+          const exact = found.findIndex((hit) => hit.title.toLowerCase() === typed.toLowerCase());
+          show(exact >= 0 ? [found[exact], search, ...found.filter((_, at) => at !== exact)] : [search, ...found]);
         }
       }
     } catch {
@@ -122,12 +125,12 @@
     }
   }
 
-  function open() {
+  function open(typed = "") {
     const dialog = box();
     if (!dialog || dialog.open) {
       return;
     }
-    input().value = "";
+    input().value = typed;
     dialog.showModal();
     input().focus();
     search();
@@ -142,6 +145,18 @@
     } else if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey && !typing(event.target) && box() && !document.querySelector("dialog[open]")) {
       event.preventDefault();
       open();
+    }
+  });
+
+  // The menu's search box opens the box instead, taking with it whatever was typed there.
+  document.addEventListener("focusin", (event) => {
+    const field = event.target;
+    if (field instanceof HTMLInputElement && field.matches("[data-jump-input]") && box()) {
+      const typed = field.value;
+      field.value = "";
+      field.blur();
+      field.closest("details.drawer")?.removeAttribute("open");
+      open(typed);
     }
   });
 
@@ -202,3 +217,29 @@ window.shelfWatchHash = (page) => {
     });
   }
 };
+
+// "?" (or the menu's Keyboard shortcuts) shows every key Shelf answers to.
+(() => {
+  const typing = (target) =>
+    target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+  const show = () => {
+    const dialog = document.getElementById("shortcuts");
+    if (dialog && !dialog.open) {
+      dialog.showModal();
+    }
+  };
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey && !typing(event.target) && !document.querySelector("dialog[open]")) {
+      event.preventDefault();
+      show();
+    }
+  });
+  document.addEventListener("click", (event) => {
+    if (event.target instanceof Element && event.target.closest("[data-shortcuts-open]")) {
+      event.target.closest("details.drawer")?.removeAttribute("open");
+      show();
+    } else if (event.target instanceof HTMLDialogElement && event.target.id === "shortcuts") {
+      event.target.close();
+    }
+  });
+})();
