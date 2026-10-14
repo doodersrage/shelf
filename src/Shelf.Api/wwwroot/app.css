@@ -5140,3 +5140,127 @@ html.reading-full body {
         break-inside: avoid;
     }
 }
+
+/* Lists of plain rows: a title, a line of detail, and an action or two at the end. */
+.plain-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.plain-list > li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-rule);
+}
+
+.plain-list > li:last-child {
+    border-bottom: 0;
+}
+
+.plain-list > li > p {
+    flex-basis: 100%;
+    margin: 0;
+}
+
+.plain-list > li > button:first-of-type {
+    margin-inline-start: auto;
+}
+
+.inline-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: var(--space-2);
+    max-width: 40rem;
+}
+
+/* Scanning: the camera in the page, the last code read said under it. */
+.scan-camera {
+    display: grid;
+    gap: var(--space-2);
+    justify-items: start;
+    margin-bottom: var(--space-4);
+}
+
+.scan-camera video {
+    width: min(100%, 28rem);
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: var(--radius-card);
+    background: var(--color-sunken);
+}
+
+.scan-last {
+    font-weight: 600;
+}
+
+/* Catalog answers side by side, the reader's choice marked. */
+.proposal-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: var(--space-3);
+}
+
+.proposal-table th,
+.proposal-table td {
+    text-align: start;
+    vertical-align: top;
+    padding: var(--space-1) var(--space-2);
+    border-bottom: 1px solid var(--color-rule);
+    overflow-wrap: anywhere;
+}
+
+.proposal-table .disagree {
+    color: var(--color-danger);
+}
+
+/* QR labels: a grid that prints edge to edge on A4 or Letter label sheets. */
+.label-sheet {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+    gap: var(--space-3);
+    list-style: none;
+    padding: 0;
+}
+
+.label-sheet li {
+    display: grid;
+    grid-template-columns: 5.5rem 1fr;
+    gap: var(--space-2);
+    align-items: center;
+    padding: var(--space-2);
+    border: 1px dashed var(--color-rule);
+    border-radius: var(--radius-control);
+    break-inside: avoid;
+}
+
+.label-sheet svg {
+    width: 5.5rem;
+    height: 5.5rem;
+}
+
+.label-sheet p {
+    margin: 0;
+    font-size: var(--text-xs);
+    overflow-wrap: anywhere;
+}
+
+@media print {
+    .label-controls {
+        display: none !important;
+    }
+
+    .label-sheet {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0;
+    }
+
+    .label-sheet li {
+        border-color: #bbb;
+        border-radius: 0;
+    }
+}

@@ -14,7 +14,9 @@ public static class AdminEndpoints
         admin.MapPut("/readers/{id:int}/admin", SetAdmin);
         admin.MapDelete("/readers/{id:int}", Remove);
         admin.MapGet("/snapshot", Snapshot);
-        admin.MapGet("/backups", (BackupSchedule schedule) => TypedResults.Ok(schedule.List()));
+        admin.MapGet("/backups", (BackupCheck check) => TypedResults.Ok(check.List()));
+        admin.MapPost("/backups/{name}/drill", async Task<IResult> (string name, BackupCheck check, CancellationToken cancellationToken) =>
+            await check.DrillAsync(name, cancellationToken) is { } verdict ? TypedResults.Ok(verdict) : TypedResults.NotFound());
         admin.MapPost("/backups", async (BackupSchedule schedule, ShelfDb db, CancellationToken cancellationToken) =>
         {
             var taken = await schedule.TakeAsync(cancellationToken);

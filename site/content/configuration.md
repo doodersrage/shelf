@@ -129,6 +129,14 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 | `Backup:S3:PathStyle` | `true` with an endpoint | Address the bucket as part of the path, as most S3-compatible services want. |
 | `Backup:S3:PartSizeMegabytes` | `64` | Larger backups go up in parts of this size, at least 5. |
 
+## Trash, history, and file checks
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `Trash:Days` | `30` | How long deleted books, quotes, sessions, and highlights wait in the trash, with their files, before they go for good. |
+| `History:Days` | `365` | How long each change to a book's details, and each change to many books, is kept. |
+| `FileCheck:Days` | `7` | How often every stored file is read through and checked. `0` turns the check off. |
+
 ## Calibre
 
 | Setting | Default | What it does |

@@ -1,6 +1,7 @@
 @page "/backup"
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
+@inject BackupCheck Backups
 
 <PageTitle>@T("Backup & restore") · Shelf</PageTitle>
 
@@ -9,11 +10,59 @@
 
 <section class="panel" aria-labelledby="download-heading">
     <h2 id="download-heading">@T("Download a backup")</h2>
-    <p>@T("Everything on your shelf in one zip: the catalog, notes, reviews, quotes, reading log, highlights, e-books, audiobooks, and covers.")</p>
+    <p>@T("Everything on your shelf in one zip: the catalog, notes, reviews, quotes, reading log, highlights, e-books, audiobooks, and covers.") @T("It also holds your books as a spreadsheet, your collections, the loans of your books, and what you marked in books you borrowed, with a README saying what each file is. Only your own records are in it, never another reader's.")</p>
     <a class="button primary" href="/books/export/full">@T("Download everything")</a>
     <p class="hint">@T("Only the catalog, without files:") <a href="/books/export">@T("download JSON")</a>.</p>
     <p class="hint">@T("Your quotes, highlights, notes, and reviews as Markdown, one file a book, for a notes app:") <a href="/books/notes.zip" download>@T("download notes")</a>.</p>
 </section>
+
+@if (nightly.Count > 0)
+{
+    <section class="panel" id="from-backup" aria-labelledby="from-backup-heading">
+        <h2 id="from-backup-heading">@T("Bring back a book from a nightly backup")</h2>
+        <p>@T("For a book deleted longer ago than the trash keeps things: find it in one of the shelf's nightly backups and bring it back with its notes, reading log, and the files the backup has. Nothing else on your shelf changes.")</p>
+        <div class="inline-form">
+            <label>
+                @T("Backup")
+                <select @bind="chosenBackup">
+                    @foreach (var backup in nightly)
+                    {
+                        <option value="@backup.Name">@backup.TakenAt.Medium()@(backup.Verdict is { Ok: false } ? " · " + T("failed its check") : "")</option>
+                    }
+                </select>
+            </label>
+            <label>
+                @T("Title or author (optional)")
+                <input @bind="backupSearch" maxlength="100" />
+            </label>
+            <button type="button" @onclick="LookInBackup" disabled="@looking">@T("Look")</button>
+        </div>
+        @if (backupNote is not null)
+        {
+            <p class="@(backupProblem ? "validation-message" : "saved")" role="status">@backupNote</p>
+        }
+        @if (gone is not null)
+        {
+            @if (gone.Length == 0)
+            {
+                <p class="hint">@T("Every book of yours in that backup is on your shelf now.")</p>
+            }
+            else
+            {
+                <ul class="plain-list">
+                    @foreach (var book in gone)
+                    {
+                        <li>
+                            <strong>@book.Title</strong>
+                            <span class="hint">@book.Author · @T("added {0}", book.AddedAt.Medium())</span>
+                            <button type="button" @onclick="() => BringBack(book)" disabled="@looking">@T("Bring back")</button>
+                        </li>
+                    }
+                </ul>
+            }
+        }
+    </section>
+}
 
 <section class="panel" aria-labelledby="restore-heading">
     <h2 id="restore-heading">@T("Restore from a backup")</h2>
@@ -92,6 +141,69 @@
 
     // A backup holds every book, quote, and session, so a large shelf runs well past a megabyte.
     private const long MaxBackupBytes = 50L * 1024 * 1024;
+
+    private List<BackupWithVerdict> nightly = [];
+    private string? chosenBackup;
+    private string? backupSearch;
+    private BackupBook[]? gone;
+    private string? backupNote;
+    private bool backupProblem;
+    private bool looking;
+
+    protected override void OnInitialized()
+    {
+        nightly = [.. Backups.List()];
+        chosenBackup = nightly.FirstOrDefault(backup => backup.Verdict is not { Ok: false })?.Name ?? nightly.FirstOrDefault()?.Name;
+    }
+
+    private async Task LookInBackup()
+    {
+        if (chosenBackup is null)
+        {
+            return;
+        }
+
+        looking = true;
+        backupNote = null;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            gone = await Backups.GoneBooksAsync(db, chosenBackup, backupSearch);
+            if (gone is null)
+            {
+                (backupProblem, backupNote) = (true, T("That backup cannot be looked in here. Only a backup of a shelf kept in SQLite can be."));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            (backupProblem, backupNote, gone) = (true, T("That backup could not be opened."), null);
+        }
+        finally
+        {
+            looking = false;
+        }
+    }
+
+    private async Task BringBack(BackupBook book)
+    {
+        looking = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var result = await Backups.RestoreBookAsync(db, chosenBackup!, book.Id);
+            (backupProblem, backupNote) = result switch
+            {
+                { Restored: true } => (false, T("{0} is back on your shelf.", book.Title)),
+                { Problem: { } why } => (true, why),
+                _ => (true, T("That book is not in this backup.")),
+            };
+            gone = gone?.Where(item => item.Id != book.Id).ToArray();
+        }
+        finally
+        {
+            looking = false;
+        }
+    }
 
     private string? importMessage;
     private bool imported;

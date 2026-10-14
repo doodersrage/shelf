@@ -1392,8 +1392,17 @@ else if (book is not null)
             return;
         }
 
-        db.Highlights.Remove(existing);
-        await db.SaveChangesAsync();
+        // The owner's go to the trash; a borrower's own are theirs to delete outright.
+        if (open.Borrowed)
+        {
+            db.Highlights.Remove(existing);
+            await db.SaveChangesAsync();
+        }
+        else
+        {
+            await Trash.DeleteRowAsync(db, existing, TrashKind.Highlight, open.Book.Id, existing.Text, open.Book.Title);
+        }
+
         if (editingId == id)
         {
             ClearSelection();

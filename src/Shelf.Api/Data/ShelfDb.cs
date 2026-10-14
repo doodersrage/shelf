@@ -24,6 +24,8 @@ public class ShelfDb : DbContext
         SavingChanges += (_, _) =>
         {
             StampOwners();
+            History.Note(this);
+            LoanHistory.Note(this);
             NoteEvents();
         };
         SavedChanges += (_, _) => TellEvents();
@@ -92,6 +94,14 @@ public class ShelfDb : DbContext
     public DbSet<ClubQuestion> ClubQuestions => Set<ClubQuestion>();
     public DbSet<ReadingGoal> ReadingGoals => Set<ReadingGoal>();
     public DbSet<EventRecord> EventRecords => Set<EventRecord>();
+    public DbSet<TrashItem> TrashItems => Set<TrashItem>();
+    public DbSet<ChangeBatch> ChangeBatches => Set<ChangeBatch>();
+    public DbSet<BookChange> BookChanges => Set<BookChange>();
+    public DbSet<LoanRecord> LoanRecords => Set<LoanRecord>();
+    public DbSet<ScanSession> ScanSessions => Set<ScanSession>();
+    public DbSet<FileRecord> FileRecords => Set<FileRecord>();
+    public DbSet<NotDuplicate> NotDuplicates => Set<NotDuplicate>();
+    public DbSet<DetailProposal> DetailProposals => Set<DetailProposal>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -187,6 +197,95 @@ public class ShelfDb : DbContext
             link.HasIndex(item => item.FromBookId);
             link.HasIndex(item => item.ToBookId);
             link.HasQueryFilter(item => item.From!.OwnerId == ReaderId);
+        });
+
+        // Kept by the reader whose it was; the purge reaches every reader's by ignoring the filter.
+        modelBuilder.Entity<TrashItem>(item =>
+        {
+            item.Property(row => row.Kind).HasConversion<string>().HasMaxLength(16);
+            item.Property(row => row.Title).HasMaxLength(TrashItem.MaxTitleLength).IsRequired();
+            item.Property(row => row.Detail).HasMaxLength(TrashItem.MaxDetailLength);
+            item.Property(row => row.Payload).IsRequired();
+            item.HasIndex(row => new { row.OwnerId, row.DeletedAt });
+            item.HasIndex(row => row.BatchId);
+            item.HasOne<Reader>().WithMany().HasForeignKey(row => row.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            item.HasOne<ChangeBatch>().WithMany().HasForeignKey(row => row.BatchId).OnDelete(DeleteBehavior.SetNull);
+            item.HasQueryFilter(row => row.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<ChangeBatch>(batch =>
+        {
+            batch.Property(item => item.Kind).HasConversion<string>().HasMaxLength(16);
+            batch.Property(item => item.Summary).HasMaxLength(ChangeBatch.MaxSummaryLength).IsRequired();
+            batch.HasIndex(item => new { item.OwnerId, item.Id });
+            batch.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // A change outlives its book while the book is in the trash, pointing nowhere until it comes back.
+        modelBuilder.Entity<BookChange>(change =>
+        {
+            change.Property(item => item.Field).HasMaxLength(40).IsRequired();
+            change.HasIndex(item => new { item.BookId, item.Id });
+            change.HasIndex(item => item.BatchId);
+            change.HasIndex(item => item.At);
+            change.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.SetNull);
+            change.HasOne<ChangeBatch>().WithMany().HasForeignKey(item => item.BatchId).OnDelete(DeleteBehavior.SetNull);
+            change.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            change.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<LoanRecord>(record =>
+        {
+            record.Property(item => item.Borrower).HasMaxLength(120).IsRequired();
+            record.Property(item => item.Note).HasMaxLength(LoanRecord.MaxNoteLength);
+            record.Property(item => item.ConditionOut).HasConversion<string>().HasMaxLength(16);
+            record.Property(item => item.ConditionBack).HasConversion<string>().HasMaxLength(16);
+            record.HasIndex(item => new { item.BookId, item.ReturnedOn });
+            record.HasIndex(item => new { item.OwnerId, item.ReturnedOn });
+            record.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
+            record.HasOne<Reader>().WithMany().HasForeignKey(item => item.BorrowerId).OnDelete(DeleteBehavior.SetNull);
+            record.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<ScanSession>(session =>
+        {
+            session.Property(item => item.Kind).HasConversion<string>().HasMaxLength(16);
+            session.Property(item => item.Location).HasMaxLength(80);
+            session.HasIndex(item => item.OwnerId);
+            session.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            session.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        // The server's own: what each stored file was when first seen, and how it stood when last looked at.
+        modelBuilder.Entity<FileRecord>(record =>
+        {
+            record.Property(item => item.Kind).HasConversion<string>().HasMaxLength(16);
+            record.Property(item => item.StoredName).HasMaxLength(100).IsRequired();
+            record.Property(item => item.Sha256).HasMaxLength(64);
+            record.Property(item => item.Problem).HasConversion<string>().HasMaxLength(16);
+            record.HasIndex(item => new { item.Kind, item.StoredName }).IsUnique();
+            record.HasIndex(item => item.Problem);
+        });
+
+        modelBuilder.Entity<NotDuplicate>(pair =>
+        {
+            pair.HasIndex(item => new { item.OwnerId, item.BookId, item.OtherId }).IsUnique();
+            pair.HasOne<Book>().WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
+            pair.HasOne<Book>().WithMany().HasForeignKey(item => item.OtherId).OnDelete(DeleteBehavior.Cascade);
+            pair.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            pair.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<DetailProposal>(proposal =>
+        {
+            proposal.Property(item => item.Field).HasMaxLength(24).IsRequired();
+            proposal.Property(item => item.Current).HasMaxLength(500);
+            proposal.Property(item => item.OpenLibrary).HasMaxLength(500);
+            proposal.Property(item => item.Google).HasMaxLength(500);
+            proposal.HasIndex(item => new { item.OwnerId, item.BookId });
+            proposal.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
+            proposal.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            proposal.HasQueryFilter(item => item.OwnerId == ReaderId);
         });
 
         // Reached by reader id, as the event handlers write every concerned reader's.

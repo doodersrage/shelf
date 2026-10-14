@@ -54,7 +54,7 @@ Measured contrast on the canvas: ink 12.9:1, green 10.2:1, muted 4.5:1, danger 8
 
 | Main | Browse (folds) | Your copies (folds) | Settings (folds) |
 | --- | --- | --- | --- |
-| Home, Library, Reading, Loans, Insights | Want to read, Finished, saved searches, Collections, Series, Authors, Podcasts, Quotes & highlights, Search inside books, What to read next, Book clubs, Free books, Years | Shelves, Places, Condition, Recommenders, Duplicates | Account, Backup & restore, Devices, Offline reading, Readers (admins) |
+| Home, Library, Reading, Loans, Insights | Want to read, Finished, saved searches, Collections, Series, Authors, Podcasts, Quotes & highlights, Search inside books, What to read next, Book clubs, Free books, Years | Shelves, Places, Scan books, QR labels, Condition, Recommenders, Duplicates, Tidy up | Account, Activity, Backup & restore, Trash & undo, Devices, Offline reading, Readers (admins) |
 
 A folded group opens by itself on one of its own pages, and Browse while there are saved searches or series news. The current link is marked with `aria-current="page"`. The library's views share `/library` and differ by `?status=`, so their links are matched on that query. Addresses from before 2.0 (`/?status=…`) redirect to `/library`.
 
@@ -90,6 +90,8 @@ A folded group opens by itself on one of its own pages, and Browse while there a
 - **Search inside books:** results group by book, each match shown in context with the words marked in tan, and an *Open here* link into the reader.
 - **Player:** speed and a sleep timer sit under the audio controls, in the same settings row as the reader's text settings; the timer says when it will stop, and says so again when it has.
 - **Backup & restore:** downloading is a solid green action that changes nothing. Restoring is a quiet action, says plainly that it only adds books, and reports exactly what it did.
+- **Trash & undo:** deleting says where things go and for how long; bringing back is a quiet button, letting go for good is a red outline, and emptying the trash asks again. An undo for many books says what it will and won't set back before it does it.
+- **Scanning:** the camera sits in the page, not a dialog, with the last code read said under it in words and announced politely; typing an ISBN is always beside it.
 
 ## Accessibility
 

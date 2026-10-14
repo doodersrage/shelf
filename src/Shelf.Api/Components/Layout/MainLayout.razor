@@ -203,6 +203,8 @@ else
                     <li><a href="/shelves" aria-current="@Current("/shelves")">@T("Shelves")</a></li>
                 }
                 <li><a href="/places" aria-current="@Current("/places")">@T("Places")</a></li>
+                <li><a href="/scan" aria-current="@Current("/scan")">@T("Scan books")</a></li>
+                <li><a href="/labels" aria-current="@Current("/labels")">@T("QR labels")</a></li>
                 <li><a href="/copies" aria-current="@Current("/copies")">@T("Condition")</a></li>
                 <li><a href="/recommenders" aria-current="@Current("/recommenders")">@T("Recommenders")</a></li>
                 <li><a href="/duplicates" aria-current="@Current("/duplicates")">@T("Duplicates")</a></li>
@@ -215,6 +217,7 @@ else
                 <li><a href="/account" aria-current="@Current("/account")">@T("Account")</a></li>
                 <li><a href="/activity" aria-current="@Current("/activity")">@T("Activity")</a></li>
                 <li><a href="/backup" aria-current="@Current("/backup")">@T("Backup & restore")</a></li>
+                <li><a href="/trash" aria-current="@Current("/trash")">@T("Trash & undo")</a></li>
                 <li><a href="/sync" aria-current="@Current("/sync")">@T("Devices")</a></li>
                 <li><a href="/offline.html">@T("Offline reading")</a></li>
                 @if (isAdmin)
@@ -296,8 +299,8 @@ else
     private const string InsightsIcon = "M5 19V11M12 19V5M19 19v-6";
 
     private static readonly string[] BrowseLinks = ["/library?status=Want", "/library?status=Finished", "/collections", "/series", "/authors", "/find", "/podcasts", "/quotes", "/search", "/next", "/wanted", "/clubs", "/free", "/years"];
-    private static readonly string[] CopiesLinks = ["/shelves", "/places", "/copies", "/recommenders", "/duplicates", "/tidy"];
-    private static readonly string[] SettingsLinks = ["/account", "/activity", "/backup", "/sync", "/admin", "/downloads"];
+    private static readonly string[] CopiesLinks = ["/shelves", "/places", "/scan", "/labels", "/copies", "/recommenders", "/duplicates", "/tidy"];
+    private static readonly string[] SettingsLinks = ["/account", "/activity", "/backup", "/trash", "/sync", "/admin", "/downloads"];
 
     // A group opens by itself when the page shown is one of its own.
     private bool Within(string[] links) => links.Any(link => Current(link) is not null);

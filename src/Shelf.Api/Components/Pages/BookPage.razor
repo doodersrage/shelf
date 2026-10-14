@@ -799,7 +799,28 @@ else if (book is not null)
             {
                 <p class="hint">@LendNote</p>
             }
+            @if (waitingCount > 0)
+            {
+                <p class="hint">@(waitingCount == 1 ? T("1 reader is waiting for it.") : T("{0} readers are waiting for it.", waitingCount))</p>
+            }
+            <div class="pair">
+                <label>
+                    @T("Came back in")
+                    <select @bind="returnCondition">
+                        <option value="">@T("As it went out")</option>
+                        @foreach (var condition in Enum.GetValues<CopyCondition>())
+                        {
+                            <option value="@condition">@BookRules.ConditionLabel(condition)</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    @T("A note on the loan (optional)")
+                    <input maxlength="@LoanRecord.MaxNoteLength" @bind="returnNote" />
+                </label>
+            </div>
             <button type="button" @onclick="ReturnLoan">@T("Mark returned")</button>
+            <button type="button" class="quiet" @onclick="Renew">@T("Renew")</button>
         }
         else if (readers.Count == 0)
         {
@@ -830,6 +851,39 @@ else if (book is not null)
             <p class="validation-message" role="alert">@lendProblem</p>
         }
     }
+        @if (loans.Length > 0 && loans.Any(loan => loan.ReturnedOn is not null))
+        {
+            <details>
+                <summary>@T("Earlier loans")</summary>
+                <ul class="plain-list">
+                    @foreach (var loan in loans.Where(loan => loan.ReturnedOn is not null))
+                    {
+                        <li>
+                            <span>@loan.Borrower</span>
+                            <span class="hint">
+                                @loan.LentOn.Medium() – @(loan.ReturnedOn?.Medium())
+                                @if (loan.Renewals > 0)
+                                {
+                                    <span> · @(loan.Renewals == 1 ? T("renewed once") : T("renewed {0} times", loan.Renewals))</span>
+                                }
+                                @if (loan.ConditionOut is CopyCondition went)
+                                {
+                                    <span> · @T("went out {0}", BookRules.ConditionLabel(went).ToLowerInvariant())</span>
+                                }
+                                @if (loan.ConditionBack is CopyCondition came)
+                                {
+                                    <span> · @T("came back {0}", BookRules.ConditionLabel(came).ToLowerInvariant())</span>
+                                }
+                            </span>
+                            @if (loan.Note is { } said)
+                            {
+                                <p class="hint">@said</p>
+                            }
+                        </li>
+                    }
+                </ul>
+            </details>
+        }
         @if (!string.IsNullOrWhiteSpace(book.Location) || book.AcquiredOn is not null || book.Acquisition is not null || book.Condition is not null || !string.IsNullOrWhiteSpace(book.RecommendedBy))
         {
             <h3>@T("This copy")</h3>
@@ -1064,6 +1118,31 @@ else if (book is not null)
         }
     </section>
 
+    <section class="panel" id="history">
+        <details>
+            <summary><h2>@T("History")</h2></summary>
+            <p class="hint">@T("Every change to this book's details, newest first. Put back sets a detail as it was before that change, whatever it is now.")</p>
+            @if (changes.Length == 0)
+            {
+                <p class="hint">@T("No changes yet.")</p>
+            }
+            else
+            {
+                <ul class="plain-list">
+                    @foreach (var change in changes)
+                    {
+                        <li>
+                            <strong>@change.Label</strong>
+                            <span>@(change.Field == BookChange.Tag ? (change.After is not null ? T("{0} put on", change.After) : T("{0} taken off", change.Before ?? "")) : T("{0} → {1}", change.Before ?? T("(empty)"), change.After ?? T("(empty)")))</span>
+                            <span class="hint">@change.At.Medium()@(change.Batch is { } batch ? " · " + batch : "")</span>
+                            <button type="button" class="quiet" @onclick="() => PutBack(change.Id)">@T("Put back")</button>
+                        </li>
+                    }
+                </ul>
+            }
+        </details>
+    </section>
+
     <section class="panel" id="remove">
         <h2>@T("Remove")</h2>
     @if (!confirmingDelete)
@@ -1072,7 +1151,7 @@ else if (book is not null)
     }
     else
     {
-        <p>@T("This deletes the book, its quotes, its highlights, its reading log, its e-book, and its audiobook.")</p>
+        <p>@T("This deletes the book, its quotes, its highlights, its reading log, its e-book, and its audiobook.") @T("They wait in the trash for {0} days, and can be brought back from there.", Trash.Days(Configuration))</p>
         <button type="button" class="danger" @onclick="Delete">@T("Yes, delete it")</button>
         <button type="button" @onclick="() => confirmingDelete = false">@T("Cancel")</button>
     }
@@ -1467,6 +1546,11 @@ else if (book is not null)
     private NextVolume? nextVolume;
     private List<ReaderResponse> readers = [];
     private int lendTo;
+    private int waitingCount;
+    private CopyCondition? returnCondition;
+    private string? returnNote;
+    private LoanRecordItem[] loans = [];
+    private BookChangeItem[] changes = [];
     private DateOnly? lendDue;
     private string? lendProblem;
     private Dictionary<string, string[]>? formErrors;
@@ -1809,6 +1893,12 @@ else if (book is not null)
             alongReady = await db.ReadAlongs.AsNoTracking().AnyAsync(row => row.BookId == book.Id && row.State == ReadAlongState.Ready);
         }
         readers = book is null ? [] : (await ReaderRules.OthersAsync(db, db.ReaderId)).ToList();
+        if (book is not null)
+        {
+            loans = await LoanHistory.ForBookAsync(db, Id);
+            changes = await History.ForBookAsync(db, Id);
+            waitingCount = await db.LoanAsks.CountAsync(ask => ask.BookId == Id);
+        }
         borrowable = book is null ? [] : Asking.Matching(await Asking.OpenCopiesAsync(db, book.Title, book.Isbn), book.Isbn, book.Title, book.Author)
             .Where(copy => (copy.HasEbook && book.EbookStoredName is null) || (copy.HasAudio && book.AudioStoredName is null))
             .ToList();
@@ -1910,8 +2000,7 @@ else if (book is not null)
             return;
         }
 
-        db.Quotes.Remove(quote);
-        await db.SaveChangesAsync();
+        await Trash.DeleteRowAsync(db, quote, TrashKind.Quote, Id, quote.Text, book?.Title);
         saved = false;
         await LoadAsync(replaceDraft: false);
     }
@@ -1919,20 +2008,8 @@ else if (book is not null)
     private async Task Delete()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        var existing = await db.Books.FirstOrDefaultAsync(item => item.Id == Id);
-        if (existing is not null)
-        {
-            var photos = await CopyPhotos.StoredForAsync(db, existing.Id);
-            Ebooks.Delete(existing.EbookStoredName);
-            Audio.Delete(existing.AudioStoredName);
-            Covers.Delete(existing.CoverImage);
-            db.Books.Remove(existing);
-            await db.SaveChangesAsync();
-            photos.ForEach(Covers.Delete);
-            await BookRules.RemoveUnusedTagsAsync(db, CancellationToken.None);
-        }
-
-        Navigation.NavigateTo("/");
+        await Trash.DeleteBooksAsync(db, Ebooks, Audio, Covers, [Id]);
+        Navigation.NavigateTo("/trash");
     }
 
     private async Task RemoveEbook()
@@ -1993,8 +2070,7 @@ else if (book is not null)
             return;
         }
 
-        db.Highlights.Remove(highlight);
-        await db.SaveChangesAsync();
+        await Trash.DeleteRowAsync(db, highlight, TrashKind.Highlight, Id, highlight.Text, book?.Title);
         await LoadAsync(replaceDraft: false);
     }
 
@@ -2101,8 +2177,23 @@ else if (book is not null)
             return;
         }
 
-        BookRules.ReturnLoan(existing);
-        await db.SaveChangesAsync();
+        await LoanHistory.ReturnAsync(db, Id, returnCondition, returnNote);
+        (returnCondition, returnNote, saved) = (null, null, false);
+        await LoadAsync();
+    }
+
+    private async Task Renew()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await LoanHistory.RenewAsync(db, Id, null);
+        saved = false;
+        await LoadAsync();
+    }
+
+    private async Task PutBack(long changeId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await History.PutBackAsync(db, Id, changeId);
         saved = false;
         await LoadAsync();
     }
@@ -2116,8 +2207,7 @@ else if (book is not null)
             return;
         }
 
-        db.Sessions.Remove(session);
-        await db.SaveChangesAsync();
+        await Trash.DeleteRowAsync(db, session, TrashKind.Session, Id, book?.Title ?? "", session.Date.Medium());
         saved = false;
         await LoadAsync(replaceDraft: false);
     }

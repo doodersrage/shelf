@@ -14,6 +14,12 @@ public enum DetailsKind
 
     // Only books with no cover at all: no picture of their own, none in their file, and no address for one.
     Covers,
+
+    // The books missing details, asked of each catalog apart; nothing changes until the reader looks the answers over.
+    Review,
+
+    // Every book, for details that may have gone stale, looked over the same way.
+    ReviewAll,
 }
 
 // Filling in the details a shelf lacks, a book at a time, from Open Library (and Google Books after it): run in the
@@ -31,12 +37,15 @@ public sealed class DetailsJob(Guid id, int readerId, DetailsKind kind, IReadOnl
     public bool Finished { get; set; }
     public bool Stopping { get; private set; }
 
-    public string Page => "/activity";
+    // A review's answers wait on Tidy up; a fill's work is told on Activity.
+    public string Page => Kind is DetailsKind.Review or DetailsKind.ReviewAll ? "/tidy" : "/activity";
 
     public string Title(bool finished) => (Kind, finished) switch
     {
         (DetailsKind.Covers, false) => T("Finding covers"),
         (DetailsKind.Covers, true) => T("Covers looked for"),
+        (DetailsKind.Review or DetailsKind.ReviewAll, false) => T("Asking the catalogs"),
+        (DetailsKind.Review or DetailsKind.ReviewAll, true) => T("Details ready to look over"),
         (_, false) => T("Filling in details"),
         _ => T("Details filled in"),
     };
@@ -65,7 +74,12 @@ public sealed class DetailsFiller(IServiceScopeFactory scopes, ShelfJobs registe
     public async Task<IReadOnlyList<Book>> WantingAsync(ShelfDb db, DetailsKind kind, CancellationToken cancellationToken = default)
     {
         var books = await db.Books.AsNoTracking().OrderBy(book => book.Title).ToListAsync(cancellationToken);
-        return kind == DetailsKind.Covers ? [.. books.Where(LacksCover)] : [.. books.Where(NeedsDetails)];
+        return kind switch
+        {
+            DetailsKind.Covers => [.. books.Where(LacksCover)],
+            DetailsKind.ReviewAll => books,
+            _ => [.. books.Where(NeedsDetails)],
+        };
     }
 
     // One at a time for a reader: asking again while one runs gives back the one running.
@@ -100,6 +114,18 @@ public sealed class DetailsFiller(IServiceScopeFactory scopes, ShelfJobs registe
     public async Task RunAsync(DetailsJob job, CancellationToken cancellationToken)
     {
         System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(job.Language);
+        var reviewing = job.Kind is DetailsKind.Review or DetailsKind.ReviewAll;
+
+        // What a fill changes is gathered under one change, to be undone at once; a review changes nothing yet.
+        int? batchId = null;
+        if (!reviewing)
+        {
+            using var start = scopes.CreateScope();
+            start.ServiceProvider.GetRequiredService<ShelfReader>().Use(job.ReaderId);
+            batchId = (await History.StartAsync(start.ServiceProvider.GetRequiredService<ShelfDb>(), BatchKind.Details, job.Title(finished: true), cancellationToken)).Id;
+        }
+
+        using var _ = History.Use(batchId);
         var first = true;
         foreach (var (id, title) in job.Books)
         {
@@ -136,7 +162,7 @@ public sealed class DetailsFiller(IServiceScopeFactory scopes, ShelfJobs registe
         using var scope = scopes.CreateScope();
         scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(job.ReaderId);
         var filled = job.Entries.Values.Count(line => line.State == ImportLineState.Done);
-        await Audit.NoteAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), Say("Filled in details"), detail: Localization.Counts.Books(filled), cancellationToken: cancellationToken);
+        await Audit.NoteAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), reviewing ? Say("Asked the catalogs about details") : Say("Filled in details"), detail: Localization.Counts.Books(filled), cancellationToken: cancellationToken);
     }
 
     private async Task<ImportLine> FillAsync(DetailsJob job, int id, string title, CancellationToken cancellationToken)
@@ -149,6 +175,20 @@ public sealed class DetailsFiller(IServiceScopeFactory scopes, ShelfJobs registe
         if (book is null)
         {
             return new ImportLine(title, ImportLineState.Skipped, T("No longer on the shelf."), null, 0);
+        }
+
+        if (job.Kind is DetailsKind.Review or DetailsKind.ReviewAll)
+        {
+            var (openLibrary, google) = await scope.ServiceProvider.GetRequiredService<ICatalogSources>().BothAsync(book.Isbn, book.Title, book.Author, cancellationToken);
+            if (openLibrary is null && google is null)
+            {
+                return new ImportLine(title, ImportLineState.Skipped, T("Nothing matched."), id, 0);
+            }
+
+            var proposed = await DetailReview.ProposeAsync(db, book, openLibrary, google, cancellationToken);
+            return proposed == 0
+                ? new ImportLine(title, ImportLineState.Skipped, T("Nothing new turned up."), id, 0)
+                : new ImportLine(title, ImportLineState.Done, proposed == 1 ? T("1 change to look over") : T("{0} changes to look over", proposed), id, 0);
         }
 
         var match = await lookup.FindAsync(book.Isbn, book.Title, book.Author, cancellationToken);

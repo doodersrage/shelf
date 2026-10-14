@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Shelf.Api.Data;
 
@@ -108,6 +109,13 @@ public static class BookEndpoints
         ChapterEditing.Map(books);
         Recaps.Map(books);
         M4bService.Map(books);
+        History.Map(books);
+        Trash.Map(books);
+        LoanHistory.Map(books);
+        Scanning.Map(books);
+        FileCheck.Map(books);
+        DetailReview.Map(books);
+        BackupCheck.Map(books);
 
         // Another shelf reaches these with a device key; the rest of the API needs a signed-in reader.
         var sync = app.MapGroup("/books/sync").WithTags("Shelf").RequireAuthorization(SyncEndpoints.Policy);
@@ -225,6 +233,7 @@ public static class BookEndpoints
         return TypedResults.Ok(BookResponse.From(book));
     }
 
+    // Into the trash, with all that is the book's, to be brought back for a while.
     private static async Task<Results<NoContent, NotFound>> DeleteBook(
         int id,
         ShelfDb db,
@@ -233,21 +242,9 @@ public static class BookEndpoints
         CoverStore covers,
         CancellationToken cancellationToken)
     {
-        var book = await db.Books.FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
-        if (book is null)
-        {
-            return TypedResults.NotFound();
-        }
-
-        var photos = await CopyPhotos.StoredForAsync(db, id, cancellationToken);
-        store.Delete(book.EbookStoredName);
-        audio.Delete(book.AudioStoredName);
-        covers.Delete(book.CoverImage);
-        db.Books.Remove(book);
-        await db.SaveChangesAsync(cancellationToken);
-        photos.ForEach(covers.Delete);
-        await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
-        return TypedResults.NoContent();
+        return await Trash.DeleteBooksAsync(db, store, audio, covers, [id], cancellationToken: cancellationToken) > 0
+            ? TypedResults.NoContent()
+            : TypedResults.NotFound();
     }
 
     private static async Task<Results<Ok<QuoteResponse[]>, NotFound>> ListQuotes(
@@ -316,8 +313,7 @@ public static class BookEndpoints
             return TypedResults.NotFound();
         }
 
-        db.Quotes.Remove(quote);
-        await db.SaveChangesAsync(cancellationToken);
+        await Trash.DeleteRowAsync(db, quote, TrashKind.Quote, id, quote.Text, await TitleAsync(db, id, cancellationToken), cancellationToken);
         return TypedResults.NoContent();
     }
 
@@ -489,10 +485,12 @@ public static class BookEndpoints
             return TypedResults.NotFound();
         }
 
-        db.Sessions.Remove(session);
-        await db.SaveChangesAsync(cancellationToken);
+        await Trash.DeleteRowAsync(db, session, TrashKind.Session, id, await TitleAsync(db, id, cancellationToken) ?? "", session.Date.Medium(), cancellationToken);
         return TypedResults.NoContent();
     }
+
+    private static Task<string?> TitleAsync(ShelfDb db, int id, CancellationToken cancellationToken) =>
+        db.Books.Where(book => book.Id == id).Select(book => book.Title).FirstOrDefaultAsync(cancellationToken);
 
     private static async Task<Ok<ShelfSettingsResponse>> GetSettings(ShelfDb db, CancellationToken cancellationToken)
     {
@@ -548,19 +546,20 @@ public static class BookEndpoints
         return TypedResults.Ok(BookResponse.From(book));
     }
 
+    // Marked back, with the state it came back in and a note for the loan's record, when given.
     private static async Task<Results<Ok<BookResponse>, NotFound>> ReturnBook(
         int id,
+        [FromBody] ReturnRequest? request,
         ShelfDb db,
         CancellationToken cancellationToken)
     {
-        var book = await db.Books.WithDetails().FirstOrDefaultAsync(existing => existing.Id == id, cancellationToken);
-        if (book is null)
+        if (!await db.Books.AnyAsync(existing => existing.Id == id, cancellationToken))
         {
             return TypedResults.NotFound();
         }
 
-        BookRules.ReturnLoan(book);
-        await db.SaveChangesAsync(cancellationToken);
+        await LoanHistory.ReturnAsync(db, id, request?.Condition, request?.Note, cancellationToken);
+        var book = await db.Books.AsNoTracking().WithDetails().FirstAsync(existing => existing.Id == id, cancellationToken);
         return TypedResults.Ok(BookResponse.From(book));
     }
 

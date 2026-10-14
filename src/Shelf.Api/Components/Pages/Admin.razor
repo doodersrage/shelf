@@ -5,6 +5,7 @@
 @inject AudioStore Audio
 @inject CoverStore Covers
 @inject BackupSchedule Schedule
+@inject BackupCheck Checks
 @inject FolderImport ImportFolder
 @inject OffsiteBackup Offsite
 @inject Federation Federation
@@ -81,6 +82,7 @@ else
 
     <section class="panel">
     <h2>@T("Nightly backups")</h2>
+    <p class="hint">@T("Each is proved after it is taken: read through, its database opened and checked, and brought up to this version, as a restore would.")</p>
     @if (!Schedule.Enabled)
     {
         <p class="hint">@T("Nightly backups are off (Backup:Enabled is false).")</p>
@@ -103,6 +105,18 @@ else
                 <li>
                     <a href="/admin/backups/@backup.Name">@backup.TakenAt.Stamp() UTC</a>
                     <span class="hint">@Localization.Counts.Size(backup.Bytes)</span>
+                    @switch (backup.Verdict)
+                    {
+                        case { Ok: true } proved:
+                            <span class="hint">@T("Restores: {0} books, {1} readers, checked {2}", proved.Books.ToString("N0"), proved.Readers, proved.CheckedAt.Medium())</span>
+                            break;
+                        case { } failed:
+                            <span class="late">@T("Would not restore: {0}", failed.Problem ?? "")</span>
+                            break;
+                        default:
+                            <button type="button" class="quiet" @onclick="() => Drill(backup.Name)" disabled="@backingUp">@T("Check it restores")</button>
+                            break;
+                    }
                 </li>
             }
         </ul>
@@ -223,7 +237,22 @@ else
     private readonly Dictionary<int, string> passwords = [];
     private AccountProblem? problem;
     private int? removing;
-    private IReadOnlyList<AutomaticBackup> backups = [];
+    private IReadOnlyList<BackupWithVerdict> backups = [];
+
+    // A restore drill, for a backup taken before drills were made after each one.
+    private async Task Drill(string name)
+    {
+        backingUp = true;
+        try
+        {
+            await Checks.DrillAsync(name);
+        }
+        finally
+        {
+            backingUp = false;
+            backups = Checks.List();
+        }
+    }
     private bool backingUp;
 
     private async Task BackUpNow()
@@ -242,7 +271,7 @@ else
         finally
         {
             backingUp = false;
-            backups = Schedule.List();
+            backups = Checks.List();
         }
     }
 
@@ -254,7 +283,7 @@ else
         me = db.ReaderId;
         allowed = await ReaderRules.IsAdminAsync(db, me);
         readers = allowed ? (await ReaderRules.SummariesAsync(db)).ToList() : [];
-        backups = allowed ? Schedule.List() : [];
+        backups = allowed ? Checks.List() : [];
         activity = allowed ? await Audit.RecentAsync(db, take: 100) : [];
         links = allowed ? await Federation.ListAsync(db) : [];
     }

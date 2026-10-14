@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Shelf.Api.Data;
+using static Shelf.Api.Localization.Words;
 
 namespace Shelf.Api.Books;
 
@@ -33,23 +34,27 @@ public static class Bulk
             return new BulkResult(0);
         }
 
-        var books = await db.Books.Include(book => book.Tags).Where(book => ids.Contains(book.Id)).ToListAsync(cancellationToken);
+        // Into the trash together, to come back together.
         if (request.Delete)
         {
-            var photos = await db.CopyPhotos.AsNoTracking().Where(photo => ids.Contains(photo.BookId)).Select(photo => photo.StoredName).ToListAsync(cancellationToken);
-            foreach (var book in books)
+            var mine = await db.Books.Where(book => ids.Contains(book.Id)).Select(book => book.Id).ToListAsync(cancellationToken);
+            if (mine.Count == 0)
             {
-                ebooks.Delete(book.EbookStoredName);
-                audio.Delete(book.AudioStoredName);
-                covers.Delete(book.CoverImage);
+                return new BulkResult(0);
             }
 
-            db.Books.RemoveRange(books);
-            await db.SaveChangesAsync(cancellationToken);
-            photos.ForEach(covers.Delete);
-            await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
-            return new BulkResult(books.Count);
+            var deleted = await History.StartAsync(db, BatchKind.Delete, mine.Count == 1 ? T("Deleted 1 book") : T("Deleted {0} books", mine.Count), cancellationToken);
+            return new BulkResult(await Trash.DeleteBooksAsync(db, ebooks, audio, covers, mine, deleted.Id, cancellationToken));
         }
+
+        var books = await db.Books.Include(book => book.Tags).Where(book => ids.Contains(book.Id)).ToListAsync(cancellationToken);
+        if (books.Count == 0)
+        {
+            return new BulkResult(0);
+        }
+
+        var batch = await History.StartAsync(db, BatchKind.Edit, Summary(request, books.Count), cancellationToken);
+        using var _ = History.Use(batch.Id);
 
         var add = BookRules.CanonicalTag(request.AddTag) is { Length: <= BookRules.MaxTagLength } addName ? addName : null;
         var remove = BookRules.CanonicalTag(request.RemoveTag);
@@ -85,6 +90,34 @@ public static class Bulk
         await db.SaveChangesAsync(cancellationToken);
         await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
         return new BulkResult(books.Count);
+    }
+
+    // What the change was, for the list of changes that can be undone.
+    private static string Summary(BulkRequest request, int count)
+    {
+        var parts = new List<string>();
+        if (request.Status is { } status)
+        {
+            parts.Add(T("marked {0}", BookRules.StatusLabel(status)));
+        }
+
+        if (BookRules.CanonicalTag(request.AddTag) is { } add)
+        {
+            parts.Add(T("tagged {0}", add));
+        }
+
+        if (BookRules.CanonicalTag(request.RemoveTag) is { } remove)
+        {
+            parts.Add(T("{0} taken off", remove));
+        }
+
+        if (request.Loved is { } loved)
+        {
+            parts.Add(loved ? T("loved") : T("no longer loved"));
+        }
+
+        var what = parts.Count == 0 ? T("changed") : string.Join(", ", parts);
+        return count == 1 ? T("1 book {0}", what) : T("{0} books {1}", count, what);
     }
 
     public static async Task<Results<Ok<BulkResult>, ValidationProblem>> Apply(

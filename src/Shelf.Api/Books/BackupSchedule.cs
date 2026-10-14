@@ -73,9 +73,18 @@ public sealed class BackupSchedule(
         foreach (var old in List().Skip(Keep))
         {
             File.Delete(Path.Combine(Folder, old.Name));
+            File.Delete(Path.Combine(Folder, old.Name + ".check.json"));
         }
 
         logger.LogInformation("Took the nightly backup {Name}.", name);
+
+        // Proved before it is sent anywhere: a backup that cannot be restored is worse than knowing there is none.
+        var verdict = await BackupCheck.DrillAndKeepAsync(path, cancellationToken);
+        if (!verdict.Ok)
+        {
+            logger.LogWarning("The backup {Name} did not pass its restore drill: {Problem}", name, verdict.Problem);
+        }
+
         await offsite.SendAsync(path, Keep, cancellationToken);
         return List().First(backup => backup.Name == name);
     }

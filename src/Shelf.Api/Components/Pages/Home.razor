@@ -334,7 +334,7 @@ else if (visible.Count > 0)
                 }
                 else
                 {
-                    <span class="hint">@T("Delete these with their quotes, highlights, reading logs, and files? {0}", Localization.Counts.Books(chosen.Count))</span>
+                    <span class="hint">@T("Delete these with their quotes, highlights, reading logs, and files? {0}", Localization.Counts.Books(chosen.Count)) @T("They can be brought back together from the trash.")</span>
                     <button type="button" class="danger" @onclick="() => ApplyBulk(new BulkRequest([.. chosen], Delete: true))">@T("Yes, delete")</button>
                     <button type="button" @onclick="() => confirmingBulkDelete = false">@T("Cancel")</button>
                 }
@@ -858,8 +858,8 @@ else if (visible.Count > 0)
         {
             var result = await Bulk.ApplyAsync(db, Ebooks, Audio, Covers, request);
             bulkNote = request.Delete
-                ? T("Deleted: {0}.", Localization.Counts.Books(result.Changed))
-                : T("Changed: {0}.", Localization.Counts.Books(result.Changed));
+                ? T("Deleted: {0}. Undo it under Trash & undo.", Localization.Counts.Books(result.Changed))
+                : T("Changed: {0}. Undo it under Trash & undo.", Localization.Counts.Books(result.Changed));
         }
 
         if (request.Delete)

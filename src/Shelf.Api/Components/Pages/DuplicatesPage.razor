@@ -4,11 +4,12 @@
 @inject EbookStore Ebooks
 @inject AudioStore Audio
 @inject CoverStore Covers
+@inject IConfiguration Configuration
 
 <PageTitle>@T("Duplicates") · Shelf</PageTitle>
 
 <h1>@T("Duplicates")</h1>
-<p class="hint">@T("Books that look like the same book: the same ISBN, or the same title and author. Keep one, and the other's details, notes, quotes, highlights, reading log, and files it lacks come across to it before the other goes.") @T("You'll see what moves and what goes before anything changes.")</p>
+<p class="hint">@T("Books that look like the same book: the same ISBN, the same title and author, or titles alike but for a subtitle or an edition, by the same author. The surest come first. Keep one, and the other's details, notes, quotes, highlights, reading log, and files it lacks come across to it before the other goes.") @T("You'll see what moves and what goes before anything changes.")</p>
 
 @if (note is not null)
 {
@@ -28,7 +29,15 @@ else
     {
         <section class="panel duplicate-group">
             <h2>@group.Books[0].Title</h2>
-            <p class="hint">@(group.Reason == "isbn" ? T("The same ISBN, {0}.", group.Books[0].Isbn ?? "") : T("The same title and author."))</p>
+            <p class="hint">
+                @(group.Reason switch
+                {
+                    "isbn" => T("The same ISBN, {0}.", group.Books[0].Isbn ?? ""),
+                    "title" => T("The same title and author."),
+                    _ => T("Titles alike, by the same author."),
+                })
+                <span class="badge">@T("{0}% sure", group.Score)</span>
+            </p>
             <ul class="duplicate-books">
                 @foreach (var book in group.Books)
                 {
@@ -46,7 +55,11 @@ else
                     </li>
                 }
             </ul>
-            @* What a merge would do, said before it is done: it can't be undone. *@
+            @if (choice?.Group != group)
+            {
+                <button type="button" class="quiet" @onclick="() => NotSame(group)" disabled="@busy">@T("These are different books")</button>
+            }
+            @* What a merge would do, said before it is done. *@
             @if (choice is var (chosenGroup, keepId) && chosenGroup == group)
             {
                 var kept = group.Books.First(book => book.Id == keepId);
@@ -58,7 +71,7 @@ else
                             <li>@line</li>
                         }
                     </ul>
-                    <p class="hint">@T("The other entry then goes. This can't be undone.")</p>
+                    <p class="hint">@T("The other entry then goes to the trash, where it can be brought back for {0} days.", Trash.Days(Configuration))</p>
                     <button type="button" class="primary" @onclick="() => Keep(group, keepId)" disabled="@busy">@T("Merge")</button>
                     <button type="button" class="quiet" @onclick="() => choice = null" disabled="@busy">@T("Cancel")</button>
                 </div>
@@ -110,7 +123,7 @@ else
             yield return T("From the copy added {0}: {1}.", other.AddedAt.Medium(), string.Join(", ", comes));
             if (goes.Count > 0)
             {
-                yield return T("Deleted, as the one kept has its own: {0}.", string.Join(", ", goes));
+                yield return T("Kept with the other entry in the trash, as the one kept has its own: {0}.", string.Join(", ", goes));
             }
         }
     }
@@ -121,6 +134,15 @@ else
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         groups = await Merging.FindAsync(db);
+    }
+
+    // Not the same book after all: the pair is not shown together again.
+    private async Task NotSame(DuplicateGroup group)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Merging.DismissAsync(db, [.. group.Books.Select(book => book.Id)]);
+        (problem, note) = (false, T("They won't be shown together again."));
+        await LoadAsync();
     }
 
     // The others in the group merge into the one chosen.

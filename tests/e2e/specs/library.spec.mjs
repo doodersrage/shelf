@@ -25,7 +25,7 @@ test("many books change at once, the list view is remembered, and search finds w
   await page.check(`input[aria-label="Choose ${second.title}"]`);
   await page.fill('.bulk-bar input[placeholder="Tag"]', tag);
   await page.click('.bulk-bar button:text-is("Add tag")');
-  await expect(page.locator(".bulk-bar [role=status]")).toHaveText("Changed: 2 books.");
+  await expect(page.locator(".bulk-bar [role=status]")).toHaveText("Changed: 2 books. Undo it under Trash & undo.");
   const books = await (await page.request.get(`/books?tag=${encodeURIComponent(tag)}`)).json();
   expect(books.map((book) => book.id).sort()).toEqual([first.id, second.id].sort());
 
@@ -195,11 +195,13 @@ test("two entries for one book are found and merged into the one kept", async ({
   // Nothing changes until what merging does has been seen and agreed to.
   const preview = page.getByRole("region", { name: "What merging does" });
   await expect(preview).toContainText("From the copy added");
-  await expect(preview).toContainText("This can't be undone.");
+  await expect(preview).toContainText("The other entry then goes to the trash");
   await preview.getByRole("button", { name: "Merge" }).click();
   await expect(page.getByText("Merged into one book.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "No duplicates" })).toBeVisible();
   const kept = await (await page.request.get(`/books/${first.id}`)).json();
   expect([kept.status, kept.rating, kept.year]).toEqual(["Finished", 5, 1971]);
+  const trash = await (await page.request.get("/books/trash")).json();
+  expect(trash.map((item) => item.kind)).toEqual(["Book"]);
   noProblems(page);
 });

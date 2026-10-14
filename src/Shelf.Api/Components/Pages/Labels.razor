@@ -1,0 +1,99 @@
+@page "/labels"
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject NavigationManager Navigation
+
+<PageTitle>@T("QR labels") · Shelf</PageTitle>
+
+<div class="label-controls">
+    <h1>@T("QR labels")</h1>
+    <p class="hint">@T("Labels to stick inside your copies. Scanning one with a phone's camera opens the copy's lending page on this shelf, to lend it or mark it back in a moment. The page opens only for you.")</p>
+    <form method="get" class="inline-form">
+        <label>
+            @T("Which copies")
+            <select name="place">
+                <option value="" selected="@(Place is null)">@T("Choose")</option>
+                <option value="@OnLoan" selected="@(Place == OnLoan)">@T("On loan now")</option>
+                <option value="@NoPlace" selected="@(Place == NoPlace)">@T("Paper copies with no place noted")</option>
+                @foreach (var known in places)
+                {
+                    <option value="@known" selected="@(Place == known)">@known</option>
+                }
+            </select>
+        </label>
+        <button type="submit">@T("Show the labels")</button>
+    </form>
+    @if (books.Count > 0)
+    {
+        <p>
+            @(books.Count == MaxLabels ? T("The first {0} labels; choose a place to narrow it.", MaxLabels) : books.Count == 1 ? T("1 label.") : T("{0} labels.", books.Count))
+            <button type="button" class="primary" onclick="window.print()">@T("Print")</button>
+        </p>
+    }
+    else if (Place is not null)
+    {
+        <p class="hint">@T("No copies there.")</p>
+    }
+</div>
+
+@if (books.Count > 0)
+{
+    <ul class="label-sheet">
+        @foreach (var book in books)
+        {
+            <li>
+                @((MarkupString)Qr(new Uri(new Uri(Navigation.BaseUri), $"c/{book.Id}").AbsoluteUri))
+                <div>
+                    <p><strong>@book.Title</strong></p>
+                    <p>@book.Author</p>
+                    @if (book.Location is { } at)
+                    {
+                        <p>@at</p>
+                    }
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private const string OnLoan = "*loan";
+    private const string NoPlace = "*none";
+    private const int MaxLabels = 600;
+
+    [SupplyParameterFromQuery(Name = "place")]
+    public string? Place { get; set; }
+
+    private string[] places = [];
+    private List<LabelBook> books = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Place = string.IsNullOrWhiteSpace(Place) ? null : Place;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        places = await Scanning.PlacesAsync(db);
+        if (Place is null)
+        {
+            return;
+        }
+
+        var query = db.Books.AsNoTracking();
+        query = Place switch
+        {
+            OnLoan => query.Where(book => book.LoanedTo != null),
+            NoPlace => query.Where(book => book.Location == null && book.EbookStoredName == null && book.AudioStoredName == null),
+            var at => query.Where(book => book.Location == at),
+        };
+        books = await query.OrderBy(book => book.Author).ThenBy(book => book.Title).Take(MaxLabels)
+            .Select(book => new LabelBook(book.Id, book.Title, book.Author, book.Location)).ToListAsync();
+    }
+
+    // Drawn to its box, so it prints sharp at whatever size the sheet gives it.
+    private static string Qr(string address)
+    {
+        using var generator = new QRCoder.QRCodeGenerator();
+        using var data = generator.CreateQrCode(address, QRCoder.QRCodeGenerator.ECCLevel.M);
+        return new QRCoder.SvgQRCode(data).GetGraphic(4, "#000000", "#ffffff", drawQuietZones: true, sizingMode: QRCoder.SvgQRCode.SizingMode.ViewBoxAttribute);
+    }
+
+    private sealed record LabelBook(int Id, string Title, string Author, string? Location);
+}

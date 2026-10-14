@@ -590,6 +590,9 @@ public static class BookRules
         CancellationToken cancellationToken = default,
         Book?[]? added = null)
     {
+        // The books brought in are gathered under one change, so a bad import can be undone at once.
+        var batch = await History.StartAsync(db, BatchKind.Import, T("Books brought in from a Shelf backup"), cancellationToken);
+        using var _ = History.Use(batch.Id);
         var readers = await db.Readers.AsNoTracking()
             .Where(reader => reader.Id != db.ReaderId)
             .ToDictionaryAsync(reader => reader.NormalizedName, reader => reader.Id, cancellationToken);
@@ -754,6 +757,8 @@ public static class BookRules
     // Books from another service's export: skipped when invalid or already on the shelf, as a backup restore is.
     public static async Task<ImportResult> ImportCsvAsync(ShelfDb db, CsvLibrary library, CancellationToken cancellationToken = default)
     {
+        var batch = await History.StartAsync(db, BatchKind.Import, T("Books brought in from a spreadsheet"), cancellationToken);
+        using var _ = History.Use(batch.Id);
         var existing = await db.Books.AsNoTracking()
             .Select(book => new ExistingBook(book.Title, book.Author, book.Isbn))
             .ToListAsync(cancellationToken);

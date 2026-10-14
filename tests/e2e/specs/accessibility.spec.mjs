@@ -27,9 +27,13 @@ test("every page passes an accessibility audit in both themes", async ({ browser
   const clubBook = (await (await page.request.get(`/books/clubs/${club.id}`)).json()).books[0];
   await page.request.post(`/books/clubs/${club.id}/meetings`, { data: { clubBookId: clubBook.id, at: new Date(Date.now() + 7 * 86400000).toISOString(), through: "Chapters 1–20", agenda: "Ishmael and Queequeg." } });
   await page.request.post(`/books/clubs/${club.id}/books/${clubBook.id}/posts`, { data: { text: "The whale wins.", spoiler: true } });
+  const paper = await createBook(page, { title: "Two Years Before the Mast", author: "Richard Henry Dana", status: "Want", location: "Study", loanedTo: "Ishmael" });
+  const kept = await (await page.request.post(`/books/${paper.id}/quotes`, { data: { text: "The sea, the sea." } })).json();
+  await page.request.delete(`/books/${paper.id}/quotes/${kept.id}`);
+  await page.request.post("/books/scans", { data: { kind: "Check", location: "Study" } });
 
   const pages = ["/", "/library", "/reading", "/insights", "/library?view=list", "/library?add=1", `/library/${book.id}`, `/library/${book.id}/read`, `/library/${book.id}/listen`, "/quotes", "/search?q=ishmael",
-    "/free", "/import/audiobookshelf", "/import/calibre", "/authors", "/series", "/places", "/copies", "/recommenders", "/years", `/years/${year}`, "/loans", "/shelves", "/collections", `/collections/${collection.id}`, "/duplicates", "/clubs", `/clubs/${club.id}`, "/stats", "/backup", "/sync", "/account", "/admin", "/next", "/podcasts", "/downloads", "/wanted", "/find", "/find?q=Harbour", "/tidy", "/activity", "/journal", "/map", `/map?book=${book.id}`];
+    "/free", "/import/audiobookshelf", "/import/calibre", "/authors", "/series", "/places", "/copies", "/recommenders", "/years", `/years/${year}`, "/loans", "/shelves", "/collections", `/collections/${collection.id}`, "/duplicates", "/clubs", `/clubs/${club.id}`, "/stats", "/backup", "/sync", "/account", "/admin", "/next", "/podcasts", "/downloads", "/wanted", "/find", "/find?q=Harbour", "/tidy", "/activity", "/journal", "/map", `/map?book=${book.id}`, "/scan", "/trash", "/labels?place=Study", `/c/${paper.id}`];
   const failures = [];
   for (const scheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: scheme });

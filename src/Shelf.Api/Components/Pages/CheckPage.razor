@@ -1,0 +1,182 @@
+@page "/c/{Id:int}"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+@* Where a copy's QR label leads: lend it or mark it back, standing at the shelf with a phone. *@
+<PageTitle>@(book?.Title ?? T("Lending")) · Shelf</PageTitle>
+
+@if (missing)
+{
+    <EmptyState Title="@T("Not one of your copies")" Text="@T("This label is for a book that is not on your shelf, or no longer is.")" ActionHref="/trash" ActionLabel="@T("Look in the trash")" />
+}
+else if (book is not null)
+{
+    <h1>@book.Title</h1>
+    <p class="by">@book.Author@(book.Location is { } at ? " · " + at : "")</p>
+
+    @if (note is not null)
+    {
+        <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
+    }
+
+    <section class="panel">
+        @if (book.LoanedTo is { } holder)
+        {
+            <h2>@T("On loan to {0}", holder)</h2>
+            <p class="hint">
+                @(book.LoanedOn is DateOnly since ? T("since {0}", since.Medium()) : "")
+                @if (book.DueOn is DateOnly due)
+                {
+                    <span class="@(due < Today ? "late" : null)"> · @T("due {0}", due.Medium())@(due < Today ? T(", overdue") : "")</span>
+                }
+            </p>
+            <label>
+                @T("Came back in")
+                <select @bind="condition">
+                    <option value="">@T("As it went out")</option>
+                    @foreach (var state in Enum.GetValues<CopyCondition>())
+                    {
+                        <option value="@state">@BookRules.ConditionLabel(state)</option>
+                    }
+                </select>
+            </label>
+            <label>
+                @T("A note on the loan (optional)")
+                <input maxlength="@LoanRecord.MaxNoteLength" @bind="loanNote" />
+            </label>
+            <button type="button" class="primary" @onclick="Back" disabled="@busy">@T("It's back")</button>
+            <button type="button" @onclick="Renew" disabled="@busy">@T("Renew")</button>
+        }
+        else
+        {
+            <h2>@T("On the shelf")</h2>
+            @if (readers.Count > 0)
+            {
+                <label>
+                    @T("Lend it to a reader here")
+                    <select @bind="readerId">
+                        <option value="0">@T("Someone else")</option>
+                        @foreach (var reader in readers)
+                        {
+                            <option value="@reader.Id">@reader.Name</option>
+                        }
+                    </select>
+                </label>
+            }
+            @if (readerId == 0)
+            {
+                <label>
+                    @T("Who is borrowing it")
+                    <input maxlength="120" @bind="borrower" />
+                </label>
+            }
+            <label>
+                @T("Due back")
+                <input type="date" @bind="due" />
+            </label>
+            <button type="button" class="primary" @onclick="Lend" disabled="@(busy || (readerId == 0 && string.IsNullOrWhiteSpace(borrower)))">@T("Lend it")</button>
+        }
+
+        @if (waiting.Count > 0)
+        {
+            <p class="hint">@T("Waiting for it: {0}", string.Join(", ", waiting))</p>
+        }
+    </section>
+
+    <p><a href="/library/@book.Id">@T("Open the book")</a></p>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+
+    private Book? book;
+    private bool missing;
+    private List<ReaderResponse> readers = [];
+    private List<string> waiting = [];
+    private int readerId;
+    private string? borrower;
+    private DateOnly? due = Today.AddDays(LoanHistory.DefaultRenewDays);
+    private CopyCondition? condition;
+    private string? loanNote;
+    private string? note;
+    private bool problem;
+    private bool busy;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        book = await db.Books.AsNoTracking().FirstOrDefaultAsync(item => item.Id == Id);
+        missing = book is null;
+        if (book is null)
+        {
+            return;
+        }
+
+        readers = (await ReaderRules.OthersAsync(db, db.ReaderId)).ToList();
+        waiting = await (
+                from ask in db.LoanAsks.AsNoTracking()
+                join reader in db.Readers on ask.ReaderId equals reader.Id
+                where ask.BookId == Id
+                orderby ask.Id
+                select reader.Name)
+            .ToListAsync();
+    }
+
+    private async Task Lend()
+    {
+        busy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            if (readerId != 0)
+            {
+                var result = await Lending.LendAsync(db, Id, readerId, due);
+                (problem, note) = result == LendResult.Lent ? (false, T("Lent.")) : (true, Lending.Describe(result));
+            }
+            else
+            {
+                var copy = await db.Books.FirstAsync(item => item.Id == Id);
+                var name = borrower!.Trim();
+                (copy.LoanedTo, copy.LoanedOn, copy.DueOn, copy.BorrowerId) = (name.Length > 120 ? name[..120] : name, Today, due, null);
+                await db.SaveChangesAsync();
+                (problem, note) = (false, T("Lent to {0}.", copy.LoanedTo));
+            }
+
+            borrower = null;
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task Back()
+    {
+        busy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            await LoanHistory.ReturnAsync(db, Id, condition, loanNote);
+            (problem, note, condition, loanNote) = (false, waiting.Count > 0 ? T("Back on the shelf. {0} is first in line for it.", waiting[0]) : T("Back on the shelf."), null, null);
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task Renew()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var until = await LoanHistory.RenewAsync(db, Id, null);
+        (problem, note) = until is DateOnly date ? (false, T("Renewed until {0}.", date.Medium())) : (true, T("It is not on loan."));
+        await LoadAsync();
+    }
+}

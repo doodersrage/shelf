@@ -238,7 +238,9 @@ public static class Asking
         }
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var soon = today.AddDays(3);
+        var days = await db.Readers.AsNoTracking().Where(reader => reader.Id == me).Select(reader => reader.DueSoonDays).FirstOrDefaultAsync(cancellationToken);
+        days = days is >= 1 and <= 30 ? days : Reader.DefaultDueSoonDays;
+        var soon = today.AddDays(days);
         var lentDue = await db.Books.AsNoTracking()
             .Where(book => book.LoanedTo != null && book.DueOn != null)
             .Select(book => book.DueOn!.Value)
@@ -258,7 +260,8 @@ public static class Asking
             lentDue.Count(due => due < today),
             borrowedDue.Count(due => due < today),
             borrowedDue.Count(due => due >= today && due <= soon),
-            asks);
+            asks,
+            days);
     }
 
     public static async Task<Ok<OpenShelf[]>> Shelves(ShelfDb db, CancellationToken cancellationToken) =>

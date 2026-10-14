@@ -1,0 +1,585 @@
+@page "/scan"
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject IBookLookup Lookup
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+<PageTitle>@T("Scan books") · Shelf</PageTitle>
+
+<h1>@T("Scan books")</h1>
+<p class="hint">@T("Scan the barcodes on a pile of books one after another and add them all at once, or go along a shelf and check it against your catalog. A run is kept as you go, so you can stop and take it up again later, on this device or another.")</p>
+
+@if (note is not null)
+{
+    <p class="@(problem ? "validation-message" : "saved")" role="status">@note @if (undoBatch is not null) { <a href="/trash#changes">@T("Undo")</a> }</p>
+}
+
+@if (session is null)
+{
+    @if (open.Length > 0)
+    {
+        <section class="panel">
+            <h2>@T("Runs to take up again")</h2>
+            <ul class="plain-list">
+                @foreach (var run in open)
+                {
+                    <li>
+                        <strong>@Describe(run)</strong>
+                        <span class="hint">@T("started {0}", run.StartedAt.Medium()) · @(run.Kind == ScanKind.Add ? Localization.Counts.Books(run.Codes.Length) : T("{0} seen", run.Seen.Length))</span>
+                        <button type="button" @onclick="() => Resume(run)">@T("Carry on")</button>
+                        <button type="button" class="quiet danger" @onclick="() => Drop(run.Id)">@T("Drop")</button>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    <section class="panel">
+        <h2>@T("Start a run")</h2>
+        <fieldset class="audible-take">
+            <legend>@T("What are you doing?")</legend>
+            <label class="check"><input type="radio" name="kind" checked="@(kind == ScanKind.Add)" @onchange="() => kind = ScanKind.Add" /> @T("Adding books: each barcode read is a book to add")</label>
+            <label class="check"><input type="radio" name="kind" checked="@(kind == ScanKind.Check)" @onchange="() => kind = ScanKind.Check" /> @T("Checking a shelf: see what is there, what is missing, and what belongs elsewhere")</label>
+        </fieldset>
+        <label>
+            @(kind == ScanKind.Add ? T("Where they are going (optional)") : T("The place you are checking"))
+            <input list="scan-places" maxlength="80" @bind="place" placeholder="@T("A room, a shelf, a box")" />
+        </label>
+        <datalist id="scan-places">
+            @foreach (var known in places)
+            {
+                <option value="@known"></option>
+            }
+        </datalist>
+        @if (kind == ScanKind.Check && string.IsNullOrWhiteSpace(place))
+        {
+            <p class="hint">@T("With no place, the check expects your paper books that have no place noted.")</p>
+        }
+        <button type="button" class="primary" @onclick="Start" disabled="@busy">@T("Start")</button>
+    </section>
+}
+else
+{
+    <section class="panel scan-run">
+        <h2>@Describe(session)</h2>
+
+        <div class="scan-camera">
+            <video @ref="video" aria-hidden="true" hidden="@(!watching)"></video>
+            @if (watching)
+            {
+                <button type="button" @onclick="StopCamera">@T("Stop the camera")</button>
+            }
+            else if (canWatch)
+            {
+                <button type="button" class="primary" @onclick="StartCamera">@T("Start the camera")</button>
+            }
+            else
+            {
+                <label class="button">
+                    @T("Take a photo of a barcode")
+                    <input type="file" accept="image/*" capture="environment" @ref="photoInput" @onchange="ReadPhoto" hidden />
+                </label>
+            }
+        </div>
+
+        <form class="inline-form" @onsubmit="Typed" @onsubmit:preventDefault>
+            <label>
+                @T("Or type an ISBN")
+                <input inputmode="numeric" maxlength="20" @bind="typed" />
+            </label>
+            <button type="submit">@T("Read it")</button>
+        </form>
+
+        @if (lastRead is { } read)
+        {
+            <p class="scan-last" role="status" aria-live="polite">@Said(read)</p>
+        }
+    </section>
+
+    @if (session.Kind == ScanKind.Add)
+    {
+        <section class="panel">
+            <h2>@T("Read so far")</h2>
+            @if (codes.Count == 0)
+            {
+                <p class="hint">@T("Nothing read yet.")</p>
+            }
+            else
+            {
+                <ul class="plain-list">
+                    @foreach (var entry in codes)
+                    {
+                        <li>
+                            <label class="check">
+                                <input type="checkbox" checked="@chosen.Contains(entry.Isbn)" @onchange="change => Choose(entry.Isbn, change)" />
+                                <span>@entry.Isbn</span>
+                            </label>
+                            @if (entry.OnShelf is { } title)
+                            {
+                                <span class="hint">@T("Already on your shelf as {0}.", title)</span>
+                            }
+                            <button type="button" class="quiet" @onclick="() => Unread(entry.Isbn)" aria-label="@T("Take {0} off the list", entry.Isbn)">@T("Take off")</button>
+                        </li>
+                    }
+                </ul>
+                <label>
+                    @T("Add them as")
+                    <select @bind="addStatus">
+                        @foreach (var status in Enum.GetValues<BookStatus>())
+                        {
+                            <option value="@status">@BookRules.StatusLabel(status)</option>
+                        }
+                    </select>
+                </label>
+                <p class="hint">@T("Each is looked up in the catalogs. One they do not know stays on the list, to be added by hand.")</p>
+                <button type="button" class="primary" @onclick="AddChosen" disabled="@(busy || chosen.Count == 0)">
+                    @(chosen.Count == 1 ? T("Add 1 book") : T("Add {0} books", chosen.Count))
+                </button>
+            }
+        </section>
+    }
+    else if (expected is not null)
+    {
+        var seen = expected.Count(book => book.Seen);
+        <section class="panel">
+            <h2>@T("{0} of {1} seen", seen, expected.Length)</h2>
+            @if (elsewhere.Count > 0)
+            {
+                <h3>@T("Found here, but noted elsewhere")</h3>
+                <ul class="plain-list">
+                    @foreach (var stray in elsewhere)
+                    {
+                        <li>
+                            <a href="/library/@stray.BookId">@stray.Title</a>
+                            <span class="hint">@(stray.Location is { } at ? T("noted at {0}", at) : T("no place noted"))</span>
+                            <button type="button" class="quiet" @onclick="() => MoveHere(stray)">@T("It lives here now")</button>
+                        </li>
+                    }
+                </ul>
+            }
+
+            @if (unknown.Count > 0)
+            {
+                <h3>@T("Not in your catalog")</h3>
+                <ul class="plain-list">
+                    @foreach (var stranger in unknown)
+                    {
+                        <li>@stranger <a href="@($"/library?add=1&isbn={stranger}")">@T("Add it")</a></li>
+                    }
+                </ul>
+            }
+
+            <h3>@T("Not seen yet")</h3>
+            @if (seen == expected.Length)
+            {
+                <p class="hint">@T("Every book noted here has been seen.")</p>
+            }
+            else
+            {
+                <ul class="plain-list">
+                    @foreach (var book in expected.Where(book => !book.Seen).Take(300))
+                    {
+                        <li>
+                            <a href="/library/@book.Id">@book.Title</a> <span class="hint">@book.Author</span>
+                            <button type="button" class="quiet" @onclick="() => Tick(book.Id)">@T("Seen")</button>
+                        </li>
+                    }
+                </ul>
+            }
+
+            <label class="check">
+                <input type="checkbox" @bind="tagMissing" />
+                @T("Tag the books not seen \"{0}\", so they can be found later", Scanning.MissingTag)
+            </label>
+            <button type="button" class="primary" @onclick="Finish" disabled="@busy">@T("Finish the check")</button>
+        </section>
+    }
+
+    <p>
+        <button type="button" class="quiet" @onclick="Pause">@T("Stop for now")</button>
+        <button type="button" class="quiet danger" @onclick="() => Drop(session.Id)">@T("Drop this run")</button>
+    </p>
+}
+
+@code {
+    private ScanSessionView[] open = [];
+    private string[] places = [];
+    private ScanKind kind = ScanKind.Add;
+    private string? place;
+    private ScanSessionView? session;
+    private List<(string Isbn, string? OnShelf)> codes = [];
+    private HashSet<string> chosen = [];
+    private BookStatus addStatus = BookStatus.Want;
+    private CheckedBook[]? expected;
+    private List<ScanCheck> elsewhere = [];
+    private List<string> unknown = [];
+    private bool tagMissing;
+    private ScanCheck? lastRead;
+    private string? typed;
+    private string? note;
+    private bool problem;
+    private int? undoBatch;
+    private bool busy;
+
+    private ElementReference video;
+    private ElementReference photoInput;
+    private IJSObjectReference? module;
+    private IJSObjectReference? watcher;
+    private DotNetObjectReference<ScanPage>? self;
+    private bool canWatch = true;
+    private bool watching;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        open = await Scanning.OpenAsync(db);
+        places = await Scanning.PlacesAsync(db);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            module = await JS.InvokeAsync<IJSObjectReference>("import", "/scan.js");
+            canWatch = await module.InvokeAsync<bool>("canWatch");
+            self = DotNetObjectReference.Create(this);
+            StateHasChanged();
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
+        {
+            canWatch = false;
+        }
+    }
+
+    private string Describe(ScanSessionView run) => (run.Kind, run.Location) switch
+    {
+        (ScanKind.Add, null) => T("Adding books"),
+        (ScanKind.Add, var at) => T("Adding books at {0}", at),
+        (_, null) => T("Checking the books with no place"),
+        (_, var at) => T("Checking {0}", at),
+    };
+
+    private string Said(ScanCheck read) => (session?.Kind, read.Finding) switch
+    {
+        (ScanKind.Add, ScanFinding.Unknown) => T("{0} read.", read.Isbn),
+        (ScanKind.Add, _) => T("{0} read. You have it already: {1}.", read.Isbn, read.Title ?? ""),
+        (_, ScanFinding.Here) => T("{0}: here, as it should be.", read.Title ?? ""),
+        (_, ScanFinding.Again) => T("{0}: seen already.", read.Title ?? ""),
+        (_, ScanFinding.Elsewhere) => read.Location is { } at ? T("{0}: noted at {1}.", read.Title ?? "", at) : T("{0}: no place noted.", read.Title ?? ""),
+        _ => T("{0} is not in your catalog.", read.Isbn),
+    };
+
+    private async Task Start()
+    {
+        busy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var started = await Scanning.StartAsync(db, kind, place);
+            await ShowAsync(Scanning.View(started));
+            note = null;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task Resume(ScanSessionView run) => await ShowAsync(run);
+
+    private async Task ShowAsync(ScanSessionView run)
+    {
+        session = run;
+        lastRead = null;
+        elsewhere = [];
+        unknown = [];
+        await RefreshAsync();
+    }
+
+    // The run as the server keeps it, so another device's reads show too.
+    private async Task RefreshAsync()
+    {
+        if (session is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        session = (await Scanning.OpenAsync(db)).FirstOrDefault(run => run.Id == session.Id) ?? session;
+        if (session.Kind == ScanKind.Add)
+        {
+            var isbns = session.Codes.ToList();
+            var owned = await db.Books.AsNoTracking().Where(book => book.Isbn != null && isbns.Contains(book.Isbn))
+                .Select(book => new { Isbn = book.Isbn!, book.Title }).ToListAsync();
+            var titles = owned.GroupBy(book => book.Isbn).ToDictionary(group => group.Key, group => group.First().Title);
+            var before = codes.Select(code => code.Isbn).ToHashSet();
+            codes = [.. isbns.Select(isbn => (isbn, titles.GetValueOrDefault(isbn)))];
+            foreach (var code in codes.Where(code => !before.Contains(code.Isbn) && code.OnShelf is null))
+            {
+                chosen.Add(code.Isbn);
+            }
+
+            chosen.IntersectWith(isbns);
+        }
+        else
+        {
+            expected = await Scanning.ExpectedAsync(db, session.Id);
+        }
+    }
+
+    [JSInvokable]
+    public async Task Scanned(string code)
+    {
+        await InvokeAsync(async () =>
+        {
+            await ReadAsync(code);
+            StateHasChanged();
+        });
+    }
+
+    [JSInvokable]
+    public async Task CameraFailed()
+    {
+        await InvokeAsync(() =>
+        {
+            (watching, canWatch, problem) = (false, false, true);
+            note = T("The camera could not be opened here. Take a photo of each barcode instead, or type the numbers in.");
+            StateHasChanged();
+        });
+    }
+
+    private async Task ReadAsync(string code)
+    {
+        if (session is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var read = await Scanning.ReadAsync(db, session.Id, code);
+        if (read is null)
+        {
+            (problem, note) = (true, T("{0} is not an ISBN.", code));
+            return;
+        }
+
+        (lastRead, note) = (read, null);
+        if (session.Kind == ScanKind.Check)
+        {
+            if (read.Finding == ScanFinding.Elsewhere && elsewhere.All(item => item.BookId != read.BookId))
+            {
+                elsewhere.Add(read);
+            }
+            else if (read.Finding == ScanFinding.Unknown && !unknown.Contains(read.Isbn))
+            {
+                unknown.Add(read.Isbn);
+            }
+        }
+
+        await RefreshAsync();
+    }
+
+    private async Task Typed()
+    {
+        if (!string.IsNullOrWhiteSpace(typed))
+        {
+            await ReadAsync(typed);
+            typed = null;
+        }
+    }
+
+    private async Task ReadPhoto()
+    {
+        if (module is null)
+        {
+            return;
+        }
+
+        var code = await module.InvokeAsync<string?>("readPhoto", photoInput);
+        if (code is null)
+        {
+            (problem, note) = (true, T("No ISBN barcode was found. Try again closer, with more light, or type the number in."));
+            return;
+        }
+
+        await ReadAsync(code);
+    }
+
+    private async Task StartCamera()
+    {
+        if (module is null || self is null)
+        {
+            return;
+        }
+
+        watching = true;
+        StateHasChanged();
+        watcher = await module.InvokeAsync<IJSObjectReference>("watch", video, self);
+    }
+
+    private async Task StopCamera()
+    {
+        watching = false;
+        if (watcher is not null)
+        {
+            await watcher.InvokeVoidAsync("stop");
+            await watcher.DisposeAsync();
+            watcher = null;
+        }
+    }
+
+    private void Choose(string isbn, ChangeEventArgs change)
+    {
+        if (change.Value is true)
+        {
+            chosen.Add(isbn);
+        }
+        else
+        {
+            chosen.Remove(isbn);
+        }
+    }
+
+    private async Task Unread(string isbn)
+    {
+        if (session is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Scanning.UnreadAsync(db, session.Id, isbn);
+        chosen.Remove(isbn);
+        await RefreshAsync();
+    }
+
+    private async Task AddChosen()
+    {
+        if (session is null)
+        {
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var result = await Scanning.AddAsync(db, Lookup, session.Id, new ScanAddRequest([.. chosen], null, addStatus));
+            if (result is null)
+            {
+                return;
+            }
+
+            problem = false;
+            undoBatch = result.BatchId;
+            note = (result.Added, result.Skipped) switch
+            {
+                (_, 0) => result.Added == 1 ? T("Added 1 book.") : T("Added {0} books.", result.Added),
+                (0, _) => T("The catalogs knew none of them; they stay on the list to add by hand."),
+                _ => T("Added {0}; the catalogs did not know {1}, which stay on the list to add by hand.", result.Added, result.Skipped),
+            };
+            chosen.Clear();
+            await LoadAsync();
+            if (open.All(run => run.Id != session.Id))
+            {
+                await StopCamera();
+                session = null;
+            }
+            else
+            {
+                await RefreshAsync();
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task Tick(int bookId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Scanning.MarkSeenAsync(db, session!.Id, bookId, moveHere: false);
+        await RefreshAsync();
+    }
+
+    private async Task MoveHere(ScanCheck stray)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Scanning.MarkSeenAsync(db, session!.Id, stray.BookId!.Value, moveHere: true);
+        elsewhere.Remove(stray);
+        await RefreshAsync();
+    }
+
+    private async Task Finish()
+    {
+        busy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var finished = await Scanning.FinishAsync(db, session!.Id, tagMissing);
+            await StopCamera();
+            session = null;
+            if (finished is not null)
+            {
+                problem = false;
+                undoBatch = finished.BatchId;
+                note = finished.Missing == 0
+                    ? T("Checked: all {0} were there.", finished.Seen)
+                    : finished.BatchId is null
+                        ? T("Checked: {0} seen, {1} not found.", finished.Seen, finished.Missing)
+                        : T("Checked: {0} seen; {1} not found, tagged \"{2}\".", finished.Seen, finished.Missing, Scanning.MissingTag);
+            }
+
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task Pause()
+    {
+        await StopCamera();
+        session = null;
+        (problem, note, undoBatch) = (false, T("Kept. Carry on whenever you like."), null);
+        await LoadAsync();
+    }
+
+    private async Task Drop(int id)
+    {
+        await StopCamera();
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Scanning.DropAsync(db, id);
+        session = null;
+        (problem, note, undoBatch) = (false, null, null);
+        await LoadAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await StopCamera();
+            if (module is not null)
+            {
+                await module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        self?.Dispose();
+    }
+}

@@ -9,8 +9,20 @@ namespace Shelf.Api.Books;
 
 public sealed record DuplicateBook(int Id, string Title, string Author, int? Year, string? Isbn, BookStatus Status, BookFormat? Format, bool HasEbook, bool HasAudio, string? CoverUrl, int Quotes, int Sessions, DateTimeOffset AddedAt);
 
-// Books on one shelf that look like the same book: the same ISBN, or the same title and author.
-public sealed record DuplicateGroup(string Reason, DuplicateBook[] Books);
+// Books on one shelf that look like the same book: the same ISBN, the same title and author, or by the same author
+// with titles alike but for a subtitle, an edition, or a word or two. Score says how sure, out of 100.
+public sealed record DuplicateGroup(string Reason, DuplicateBook[] Books, int Score = 100);
+
+// Two books the reader has said are not the same, so they are not shown together again.
+public sealed class NotDuplicate
+{
+    public int Id { get; set; }
+    public int OwnerId { get; set; }
+    public int BookId { get; set; }
+    public int OtherId { get; set; }
+}
+
+public sealed record NotDuplicateRequest(int[] Ids);
 
 public sealed record MergeRequest(int OtherId);
 
@@ -32,6 +44,34 @@ public static partial class Merging
     {
         books.MapGet("/duplicates", async (ShelfDb db, CancellationToken cancellationToken) => TypedResults.Ok(await FindAsync(db, cancellationToken)));
         books.MapPost("/{id:int}/merge", Merge);
+        books.MapPost("/duplicates/dismiss", async Task<IResult> (NotDuplicateRequest request, ShelfDb db, CancellationToken cancellationToken) =>
+            await DismissAsync(db, request.Ids ?? [], cancellationToken) ? TypedResults.NoContent() : TypedResults.NotFound());
+    }
+
+    // Each pair among these books is not the same book.
+    public static async Task<bool> DismissAsync(ShelfDb db, IReadOnlyCollection<int> ids, CancellationToken cancellationToken = default)
+    {
+        var mine = await db.Books.Where(book => ids.Contains(book.Id)).Select(book => book.Id).OrderBy(id => id).ToListAsync(cancellationToken);
+        if (mine.Count < 2 || mine.Count > 50)
+        {
+            return false;
+        }
+
+        var known = (await db.NotDuplicates.Where(pair => mine.Contains(pair.BookId)).Select(pair => new { pair.BookId, pair.OtherId }).ToListAsync(cancellationToken))
+            .Select(pair => (pair.BookId, pair.OtherId)).ToHashSet();
+        for (var first = 0; first < mine.Count; first++)
+        {
+            for (var second = first + 1; second < mine.Count; second++)
+            {
+                if (known.Add((mine[first], mine[second])))
+                {
+                    db.NotDuplicates.Add(new NotDuplicate { OwnerId = db.ReaderId, BookId = mine[first], OtherId = mine[second] });
+                }
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public static async Task<DuplicateGroup[]> FindAsync(ShelfDb db, CancellationToken cancellationToken = default)
@@ -49,21 +89,133 @@ public static partial class Merging
 
         var groups = new List<DuplicateGroup>();
         var seen = new HashSet<string>();
+        var together = new HashSet<(int, int)>();
+        void Note(IEnumerable<int> ids)
+        {
+            var list = ids.Order().ToList();
+            for (var first = 0; first < list.Count; first++)
+            {
+                for (var second = first + 1; second < list.Count; second++)
+                {
+                    together.Add((list[first], list[second]));
+                }
+            }
+        }
+
         foreach (var group in books.Where(book => !string.IsNullOrWhiteSpace(book.Isbn)).GroupBy(book => book.Isbn!).Where(group => group.Count() > 1))
         {
             seen.Add(Key(group.Select(book => book.Id)));
-            groups.Add(new DuplicateGroup("isbn", group.OrderBy(book => book.AddedAt).Select(book => shown[book.Id]).ToArray()));
+            Note(group.Select(book => book.Id));
+            groups.Add(new DuplicateGroup("isbn", group.OrderBy(book => book.AddedAt).Select(book => shown[book.Id]).ToArray(), 100));
         }
 
         foreach (var group in books.GroupBy(book => (Simple(book.Title), Simple(book.Author))).Where(group => group.Key.Item1.Length > 0 && group.Count() > 1))
         {
             if (seen.Add(Key(group.Select(book => book.Id))))
             {
-                groups.Add(new DuplicateGroup("title", group.OrderBy(book => book.AddedAt).Select(book => shown[book.Id]).ToArray()));
+                Note(group.Select(book => book.Id));
+                groups.Add(new DuplicateGroup("title", group.OrderBy(book => book.AddedAt).Select(book => shown[book.Id]).ToArray(), 90));
             }
         }
 
-        return groups.OrderBy(group => group.Books[0].Title, StringComparer.CurrentCultureIgnoreCase).ToArray();
+        // By the same author however written, titles alike: the same but for a subtitle or what is in brackets, or
+        // sharing most of their words. Pairs found join into groups; a group is as sure as its least sure pair.
+        var parent = new Dictionary<int, int>();
+        int Find(int id) => parent.TryGetValue(id, out var up) && up != id ? parent[id] = Find(up) : id;
+        var pairScores = new Dictionary<(int, int), int>();
+        foreach (var author in books.Where(book => book.Author != BookImport.UnknownAuthor).GroupBy(book => Tidy.AuthorKey(book.Author)).Where(group => group.Key.Length > 0 && group.Count() is > 1 and <= MaxAuthorBooks))
+        {
+            var titles = author.Select(book => (book.Id, Base: BaseTitle(book.Title))).Where(item => item.Base.Words.Length > 0).ToList();
+            for (var first = 0; first < titles.Count; first++)
+            {
+                for (var second = first + 1; second < titles.Count; second++)
+                {
+                    var (one, other) = (titles[first], titles[second]);
+                    var pair = one.Id < other.Id ? (one.Id, other.Id) : (other.Id, one.Id);
+                    if (together.Contains(pair) || Likeness(one.Base, other.Base) is not int score)
+                    {
+                        continue;
+                    }
+
+                    pairScores[pair] = score;
+                    parent.TryAdd(pair.Item1, pair.Item1);
+                    parent.TryAdd(pair.Item2, pair.Item2);
+                    parent[Find(pair.Item1)] = Find(pair.Item2);
+                }
+            }
+        }
+
+        foreach (var component in parent.Keys.GroupBy(Find).Where(group => group.Count() > 1))
+        {
+            var ids = component.ToHashSet();
+            var score = pairScores.Where(pair => ids.Contains(pair.Key.Item1)).Min(pair => pair.Value);
+            if (seen.Add(Key(ids)))
+            {
+                groups.Add(new DuplicateGroup("similar", ids.Select(id => shown[id]).OrderBy(book => book.AddedAt).ToArray(), score));
+            }
+        }
+
+        // Pairs the reader said are different come apart; a book left with no one to match leaves its group.
+        var apart = (await db.NotDuplicates.AsNoTracking().Select(pair => new { pair.BookId, pair.OtherId }).ToListAsync(cancellationToken))
+            .Select(pair => (pair.BookId, pair.OtherId)).ToHashSet();
+        bool Apart(int one, int other) => apart.Contains(one < other ? (one, other) : (other, one));
+        return groups
+            .Select(group => group with { Books = group.Books.Where(book => group.Books.Any(other => other.Id != book.Id && !Apart(book.Id, other.Id))).ToArray() })
+            .Where(group => group.Books.Length > 1)
+            .OrderByDescending(group => group.Score)
+            .ThenBy(group => group.Books[0].Title, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+    }
+
+    // An author with more books than this (often a catch-all such as "Various") is not compared title by title.
+    private const int MaxAuthorBooks = 800;
+
+    private static readonly HashSet<string> Articles = ["the", "a", "an", "le", "la", "les", "l", "el", "los", "las", "der", "die", "das", "il", "lo"];
+    private static readonly HashSet<string> EditionWords = ["edition", "unabridged", "abridged", "illustrated", "annotated", "novel", "book", "volume", "vol"];
+
+    // A title's words without its subtitle, what is in brackets, a leading article, or words that only say which
+    // edition it is.
+    public static (string Joined, string[] Words) BaseTitle(string title)
+    {
+        var main = BracketsPattern().Replace(title, " ");
+        var cut = main.IndexOfAny([':', ';']);
+        if (cut > 2)
+        {
+            main = main[..cut];
+        }
+
+        var dash = main.IndexOf(" - ", StringComparison.Ordinal);
+        if (dash > 2)
+        {
+            main = main[..dash];
+        }
+
+        var words = Tidy.Plain(main).Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(word => !EditionWords.Contains(word)).ToList();
+        if (words.Count > 1 && Articles.Contains(words[0]))
+        {
+            words.RemoveAt(0);
+        }
+
+        return (string.Join(' ', words), [.. words]);
+    }
+
+    // How alike two titles are, out of 100, or null when not alike enough to show.
+    public static int? Likeness((string Joined, string[] Words) one, (string Joined, string[] Words) other)
+    {
+        if (one.Joined == other.Joined)
+        {
+            return 85;
+        }
+
+        var (first, second) = (one.Words.ToHashSet(), other.Words.ToHashSet());
+        if (first.Count < 3 || second.Count < 3)
+        {
+            return null;
+        }
+
+        var shared = first.Count(second.Contains);
+        var likeness = (double)shared / (first.Count + second.Count - shared);
+        return likeness >= 0.75 ? (int)Math.Round(likeness * 80) : null;
     }
 
     public static async Task<MergeProblem> MergeAsync(ShelfDb db, EbookStore ebooks, AudioStore audio, CoverStore covers, int keepId, int otherId, CancellationToken cancellationToken = default)
@@ -96,16 +248,11 @@ public static partial class Merging
         var ebookMoves = keep.EbookStoredName is null && other.EbookStoredName is not null;
         var audioMoves = keep.AudioStoredName is null && other.AudioStoredName is not null;
         var coverMoves = keep.CoverImage is null && other.CoverImage is not null;
-        string? dropEbook = null, dropAudio = null, dropCover = null;
         if (ebookMoves)
         {
             (keep.EbookStoredName, keep.EbookFileName, keep.EbookChapter, keep.FileCover, keep.KoreaderDigest) = (other.EbookStoredName, other.EbookFileName, other.EbookChapter, other.FileCover, other.KoreaderDigest);
             await db.OcrScans.Where(scan => scan.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(scan => scan.BookId, keepId), cancellationToken);
             await db.BookTexts.Where(text => text.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(text => text.BookId, keepId), cancellationToken);
-        }
-        else
-        {
-            dropEbook = other.EbookStoredName;
         }
 
         if (audioMoves)
@@ -113,18 +260,10 @@ public static partial class Merging
             (keep.AudioStoredName, keep.AudioFileName, keep.AudioTrack, keep.AudioSeconds) = (other.AudioStoredName, other.AudioFileName, other.AudioTrack, other.AudioSeconds);
             (keep.AudioChapterNames, keep.Asin) = (other.AudioChapterNames, keep.Asin ?? other.Asin);
         }
-        else
-        {
-            dropAudio = other.AudioStoredName;
-        }
 
         if (coverMoves)
         {
             keep.CoverImage = other.CoverImage;
-        }
-        else
-        {
-            dropCover = other.CoverImage;
         }
 
         // Everything written about the book, by the owner and by anyone it was lent to.
@@ -157,18 +296,14 @@ public static partial class Merging
             .ExecuteUpdateAsync(set => set.SetProperty(entry => entry.BookId, keepId), cancellationToken);
         await MoveDaysAsync(db, keepId, otherId, cancellationToken);
 
-        // The other book's files left behind go, so the database only names files it still has.
+        // The other entry goes to the trash with what is left of it and the files it kept, should the merge have been
+        // a mistake; a file that came across is the kept book's now and no longer the other's.
         other.EbookStoredName = ebookMoves ? null : other.EbookStoredName;
         other.AudioStoredName = audioMoves ? null : other.AudioStoredName;
         other.CoverImage = coverMoves ? null : other.CoverImage;
-        db.Books.Remove(other);
         await db.SaveChangesAsync(cancellationToken);
+        await Trash.DeleteBooksAsync(db, ebooks, audio, covers, [otherId], cancellationToken: cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-
-        ebooks.Delete(dropEbook);
-        audio.Delete(dropAudio);
-        covers.Delete(dropCover);
-        await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
         await Audit.NoteAsync(db, Say("Merged two entries for one book"), detail: keep.Title, cancellationToken: cancellationToken);
         return MergeProblem.None;
     }
@@ -293,4 +428,7 @@ public static partial class Merging
 
     [GeneratedRegex(@"[^\p{L}\p{N}]+")]
     private static partial Regex Letters();
+
+    [GeneratedRegex(@"[\(\[][^\)\]]*[\)\]]")]
+    private static partial Regex BracketsPattern();
 }

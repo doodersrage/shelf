@@ -233,6 +233,10 @@ else
             @T(label)
         </label>
     }
+    <label>
+        @T("Speak of a loan as due soon this many days ahead")
+        <input type="number" min="1" max="30" value="@dueSoonDays" @onchange="ChangeDueSoonDays" style="width: 5em" />
+    </label>
 </fieldset>
 
 <h3>@T("This device")</h3>
@@ -934,6 +938,7 @@ else
     {
         noticeSettings = await Notices.SettingsAsync(db);
         noticeKinds = noticeSettings.Kinds;
+        dueSoonDays = noticeSettings.DueSoonDays;
         ntfyUrl = noticeSettings.NtfyUrl ?? "";
         gotifyUrl = noticeSettings.GotifyUrl ?? "";
     }
@@ -954,6 +959,20 @@ else
         {
             pushState = "unsupported";
         }
+    }
+
+    private int dueSoonDays = Shelf.Api.Readers.Reader.DefaultDueSoonDays;
+
+    private async Task ChangeDueSoonDays(ChangeEventArgs change)
+    {
+        if (!int.TryParse(change.Value?.ToString(), out var days) || days is < 1 or > 30)
+        {
+            return;
+        }
+
+        dueSoonDays = days;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Notices.SetDueSoonDaysAsync(db, days);
     }
 
     private async Task ChangeNoticeKind(NoticeKinds kind, ChangeEventArgs change)

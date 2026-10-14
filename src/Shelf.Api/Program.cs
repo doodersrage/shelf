@@ -107,6 +107,7 @@ builder.Services.AddHttpClient<IBookSearch, OpenLibrarySearch>(client =>
 builder.Services.AddSingleton<AuthorWatch>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<AuthorWatch>());
 builder.Services.AddTransient<IBookLookup, CatalogLookup>();
+builder.Services.AddTransient<ICatalogSources, CatalogSources>();
 // Series alerts: once a day, for readers who ask, new books in their series (SeriesAlerts:Enabled).
 builder.Services.AddHttpClient<ISeriesCatalog, OpenLibrarySeries>(client =>
 {
@@ -245,8 +246,12 @@ builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 builder.Services.AddSingleton<OffsiteBackup>();
 builder.Services.AddSingleton<BackupSchedule>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<BackupSchedule>());
+builder.Services.AddSingleton<BackupCheck>();
 builder.Services.AddSingleton<OcrTools>();
 builder.Services.AddHostedService<FileSweep>();
+// Every stored file read through once a week and checked against what it was (FileCheck:Days).
+builder.Services.AddSingleton<FileChecker>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<FileChecker>());
 builder.Services.AddSingleton<BookImport>();
 // Calibre libraries, read from the server's disk by an admin.
 builder.Services.AddSingleton<CalibreImporter>();

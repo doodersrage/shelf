@@ -35,6 +35,22 @@ else
     </ul>
 }
 
+<p class="hint"><a href="/labels">@T("Print QR labels")</a> @T("for your copies: scanning one opens a page to lend it or mark it back.")</p>
+
+@if (waiting.Length > 0)
+{
+    <h2>@T("Waiting for your books")</h2>
+    <ul class="plain-list">
+        @foreach (var line in waiting)
+        {
+            <li>
+                <a href="/library/@line.BookId">@line.Title</a>
+                <span class="hint">@(line.OnLoan ? T("on loan; then ") : "")@string.Join(", ", line.Readers.Select((name, at) => $"{at + 1}. {name}"))</span>
+            </li>
+        }
+    </ul>
+}
+
 @if (asks.Incoming.Length > 0)
 {
     <h2>@T("Asked of you")</h2>
@@ -149,11 +165,45 @@ else
             <li>
                 <strong>@ask.Title</strong>
                 <span class="hint"> · @T("from {0}, asked {1}", ask.Reader, ask.AskedAt.Medium())</span>
+                @if (places.GetValueOrDefault(ask.BookId) is int place)
+                {
+                    <span class="hint"> · @LoanHistory.Ordinal(place)</span>
+                }
                 <button type="button" @onclick="() => DropAsk(ask.Id)">@T("Take it back")</button>
             </li>
         }
     </ul>
 }
+}
+
+@if (returned.Length > 0)
+{
+    <details class="panel">
+        <summary>@T("Loans that have ended") (@returned.Length)</summary>
+        <ul class="plain-list">
+            @foreach (var loan in returned)
+            {
+                <li>
+                    <a href="/library/@loan.BookId">@loan.Title</a>
+                    <span class="hint">
+                        @loan.Borrower · @loan.LentOn.Medium() – @(loan.ReturnedOn?.Medium())
+                        @if (loan.Renewals > 0)
+                        {
+                            <span> · @(loan.Renewals == 1 ? T("renewed once") : T("renewed {0} times", loan.Renewals))</span>
+                        }
+                        @if (loan.ConditionBack is CopyCondition back && back != loan.ConditionOut)
+                        {
+                            <span> · @T("came back {0}", BookRules.ConditionLabel(back).ToLowerInvariant())</span>
+                        }
+                    </span>
+                    @if (loan.Note is { } said)
+                    {
+                        <p class="hint">@said</p>
+                    }
+                </li>
+            }
+        </ul>
+    </details>
 }
 
 @code {
@@ -163,7 +213,7 @@ else
     private readonly Dictionary<int, DateOnly?> dueDates = [];
     private string? askProblem;
 
-    private bool Quiet => people.Count == 0 && borrowed.Count == 0 && asks.Incoming.Length == 0 && asks.Outgoing.Length == 0 && remoteAsks.Length == 0 && linkedAsks.Length == 0;
+    private bool Quiet => returned.Length == 0 && people.Count == 0 && borrowed.Count == 0 && asks.Incoming.Length == 0 && asks.Outgoing.Length == 0 && remoteAsks.Length == 0 && linkedAsks.Length == 0;
 
     private RemoteAskRow[] remoteAsks = [];
     private LinkedAskRow[] linkedAsks = [];
@@ -171,6 +221,9 @@ else
     private bool synced;
 
     private List<LoanCount> people = [];
+    private WaitingLine[] waiting = [];
+    private LoanRecordItem[] returned = [];
+    private Dictionary<int, int?> places = [];
     private List<BorrowedBook> borrowed = [];
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
@@ -200,6 +253,13 @@ else
             Today).ToList();
         borrowed = (await Lending.BorrowedAsync(db)).ToList();
         asks = await Asking.AsksAsync(db);
+        waiting = await LoanHistory.WaitingAsync(db);
+        returned = await LoanHistory.ReturnedAsync(db, take: 100);
+        places = [];
+        foreach (var ask in asks.Outgoing)
+        {
+            places[ask.BookId] = await LoanHistory.PlaceInLineAsync(db, ask.BookId);
+        }
         foreach (var ask in asks.Incoming)
         {
             dueDates.TryAdd(ask.Id, null);

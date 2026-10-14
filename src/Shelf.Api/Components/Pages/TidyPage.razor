@@ -3,6 +3,8 @@
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject DetailsFiller Filler
 @inject ShelfJobs Jobs
+@inject FileChecker Checker
+@inject BackupCheck Backups
 
 <PageTitle>@T("Tidy up") · Shelf</PageTitle>
 
@@ -11,7 +13,7 @@
 <div class="page-head">
     <h1>@T("Tidy up")</h1>
 </div>
-<p class="hint">@T("Books brought in from files and other servers often come with authors written several ways, series inside their titles, and no cover. Each change below is made only when you choose it.")</p>
+<p class="hint">@T("Books brought in from files and other servers often come with authors written several ways, series inside their titles, and no cover. Each change below is made only when you choose it.") @T("Changes made here can be undone under Trash & undo.")</p>
 
 @if (note is not null)
 {
@@ -30,6 +32,95 @@
         <p class="hint">@T("Shelf looks each book up in Open Library, and Google Books after it, a book at a time in the background. A shelf of thousands takes hours; the Activity page shows how far it has got.")</p>
         <button type="button" disabled="@(missingCovers == 0)" @onclick="() => Look(DetailsKind.Covers)">@T("Find covers")</button>
         <button type="button" class="quiet" disabled="@(missingDetails == 0)" @onclick="() => Look(DetailsKind.Everything)">@T("Fill in all missing details")</button>
+        <p class="hint">@T("Or ask both catalogs and look over what each says before anything changes: for the books missing details, or for every book, to find details gone stale.")</p>
+        <button type="button" class="quiet" disabled="@(missingDetails == 0)" @onclick="() => Look(DetailsKind.Review)">@T("Look over details for books missing some")</button>
+        <button type="button" class="quiet" @onclick="() => Look(DetailsKind.ReviewAll)">@T("Look over details for every book")</button>
+    }
+</section>
+
+@if (proposals.Length > 0)
+{
+    <section class="panel" aria-labelledby="proposals-heading">
+        <h2 id="proposals-heading">@T("Details to look over")</h2>
+        <p class="hint">@T("What the catalogs say where it differs from your book. Choose for each, or take every answer they agree on. Where they disagree, it is marked, and nothing is taken until you choose.")</p>
+        @foreach (var proposed in proposals.Take(shownProposals))
+        {
+            <h3><a href="/library/@proposed.BookId">@proposed.Title</a> <span class="hint">@proposed.Author</span></h3>
+            <table class="proposal-table">
+                <thead>
+                    <tr><th scope="col">@T("Detail")</th><th scope="col">@T("Now")</th><th scope="col">Open Library</th><th scope="col">Google Books</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var change in proposed.Changes)
+                    {
+                        var picked = picks.GetValueOrDefault(change.Id);
+                        <tr class="@(change.Disagree ? "disagree" : null)">
+                            <th scope="row">@change.Label@(change.Disagree ? " · " + T("they disagree") : "")</th>
+                            <td><label class="check"><input type="radio" name="@($"p{change.Id}")" checked="@(picked == DetailSource.Keep)" @onchange="() => picks[change.Id] = DetailSource.Keep" /> @(change.Current ?? T("(empty)"))</label></td>
+                            <td>
+                                @if (change.OpenLibrary is { } fromOpen)
+                                {
+                                    <label class="check"><input type="radio" name="@($"p{change.Id}")" checked="@(picked == DetailSource.OpenLibrary)" @onchange="() => picks[change.Id] = DetailSource.OpenLibrary" /> @fromOpen</label>
+                                }
+                            </td>
+                            <td>
+                                @if (change.Google is { } fromGoogle)
+                                {
+                                    <label class="check"><input type="radio" name="@($"p{change.Id}")" checked="@(picked == DetailSource.Google)" @onchange="() => picks[change.Id] = DetailSource.Google" /> @fromGoogle</label>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        @if (proposals.Length > shownProposals)
+        {
+            <button type="button" class="quiet" @onclick="() => shownProposals += 25">@T("Show {0} more", Math.Min(25, proposals.Length - shownProposals))</button>
+        }
+        <p>
+            <button type="button" class="primary" disabled="@(picks.Count == 0)" @onclick="() => ApplyProposals(false)">@T("Use what I chose")</button>
+            <button type="button" @onclick="() => ApplyProposals(true)">@T("Also take everything they agree on")</button>
+            <button type="button" class="quiet danger" @onclick="ClearProposals">@T("Clear the list")</button>
+        </p>
+    </section>
+}
+
+<section class="panel" aria-labelledby="files-heading">
+    <h2 id="files-heading">@T("Files")</h2>
+    @if (health is not null)
+    {
+        <p>
+            @(health.CheckedAt is DateTimeOffset at ? T("Every stored file was last read through and checked on {0}.", at.Medium()) : T("The stored files have not been checked yet."))
+            @(health.Running ? T("A check is running now.") : "")
+        </p>
+        @if (health.Problems.Length == 0)
+        {
+            <p class="hint">@T("Nothing missing, changed, or unreadable among your books' files.")</p>
+        }
+        else
+        {
+            <ul class="plain-list">
+                @foreach (var issue in health.Problems)
+                {
+                    <li>
+                        <a href="/library/@issue.BookId">@issue.Title</a>
+                        <span class="late">@FileWords(issue)</span>
+                        <span class="hint">@T("since {0}", issue.Since.Medium())</span>
+                    </li>
+                }
+            </ul>
+            <p class="hint">@T("A missing or damaged file can be uploaded again on the book's page, or brought back from a backup that has it.")</p>
+        }
+        <p class="hint">
+            @(health.LastGoodBackup is DateTimeOffset good
+                ? health.BackupHasFiles ? T("The newest backup proved to restore is from {0}, with e-books and audiobooks.", good.Medium()) : T("The newest backup proved to restore is from {0}. It holds the catalog and covers; e-books and audiobooks are not in it unless the admin turns on Backup:IncludeFiles.", good.Medium())
+                : T("No backup has been proved to restore yet."))
+        </p>
+        @if (isAdmin && !health.Running)
+        {
+            <button type="button" class="quiet" @onclick="CheckFiles">@T("Check every file now")</button>
+        }
     }
 </section>
 
@@ -113,6 +204,25 @@
     private string? note;
     private int readerId;
 
+    private ProposedBook[] proposals = [];
+    private readonly Dictionary<int, DetailSource> picks = [];
+    private int shownProposals = 25;
+    private FileHealth? health;
+    private bool isAdmin;
+
+    private static string FileWords(FileIssue issue) => (issue.Kind, issue.Problem) switch
+    {
+        (FileKind.Ebook, FileProblem.Missing) => T("The e-book file is missing."),
+        (FileKind.Ebook, FileProblem.Changed) => T("The e-book file has changed since it was saved, and may be damaged."),
+        (FileKind.Ebook, _) => T("The e-book file cannot be read."),
+        (FileKind.Audio, FileProblem.Missing) => T("The audiobook's tracks are missing."),
+        (FileKind.Audio, FileProblem.Changed) => T("The audiobook's tracks have changed since they were saved, and may be damaged."),
+        (FileKind.Audio, _) => T("The audiobook's tracks cannot be read."),
+        (_, FileProblem.Missing) => T("A picture is missing."),
+        (_, FileProblem.Changed) => T("A picture has changed since it was saved."),
+        _ => T("A picture cannot be read."),
+    };
+
     private DetailsJob? running => Jobs.Of(readerId).OfType<DetailsJob>().FirstOrDefault(job => !job.Finished);
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
@@ -126,6 +236,38 @@
         var books = await db.Books.AsNoTracking().ToListAsync();
         missingCovers = books.Count(DetailsFiller.LacksCover);
         missingDetails = books.Count(DetailsFiller.NeedsDetails);
+        proposals = await DetailReview.ListAsync(db);
+        var showing = proposals.SelectMany(book => book.Changes).Select(change => change.Id).ToHashSet();
+        foreach (var gone in picks.Keys.Where(id => !showing.Contains(id)).ToList())
+        {
+            picks.Remove(gone);
+        }
+
+        health = await FileCheck.HealthAsync(db, Checker, Backups);
+        isAdmin = await ReaderRules.IsAdminAsync(db, db.ReaderId);
+    }
+
+    private async Task ApplyProposals(bool allAgreeing)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var applied = await DetailReview.ApplyAsync(db, [.. picks.Select(pick => new ProposalChoice(pick.Key, pick.Value))], allAgreeing);
+        picks.Clear();
+        note = T("Changed: {0}.", applied.Changed == 1 ? T("1 detail") : T("{0} details", applied.Changed));
+        await LoadAsync();
+    }
+
+    private async Task ClearProposals()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.DetailProposals.ExecuteDeleteAsync();
+        picks.Clear();
+        await LoadAsync();
+    }
+
+    private void CheckFiles()
+    {
+        Checker.Nudge();
+        note = T("Checking every file in the background. It may take a while on a big shelf.");
     }
 
     private async Task Look(DetailsKind kind)
@@ -137,7 +279,10 @@
     private async Task UseSpelling(AuthorGroup group)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        var changed = await Tidy.UseSpellingAsync(db, [.. group.Spellings.Select(item => item.Name)], keep.GetValueOrDefault(group.Key, group.Usual));
+        var spelling = keep.GetValueOrDefault(group.Key, group.Usual);
+        var batch = await History.StartAsync(db, BatchKind.Edit, T("Authors written as {0}", spelling));
+        using var _ = History.Use(batch.Id);
+        var changed = await Tidy.UseSpellingAsync(db, [.. group.Spellings.Select(item => item.Name)], spelling);
         note = T("Changed: {0}.", Localization.Counts.Books(changed));
         await LoadAsync();
     }
@@ -145,6 +290,8 @@
     private async Task UseUsualSpellings()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
+        var batch = await History.StartAsync(db, BatchKind.Edit, T("Each author written the most common way"));
+        using var _ = History.Use(batch.Id);
         var changed = 0;
         foreach (var group in authors)
         {
@@ -158,6 +305,8 @@
     private async Task ApplySeries(IEnumerable<SeriesInTitle> items)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
+        var batch = await History.StartAsync(db, BatchKind.Edit, T("Series taken out of titles"));
+        using var _ = History.Use(batch.Id);
         var changed = await Tidy.ApplySeriesAsync(db, items);
         note = T("Changed: {0}.", Localization.Counts.Books(changed));
         await LoadAsync();

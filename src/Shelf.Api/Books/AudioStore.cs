@@ -181,6 +181,13 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
         return await Fingerprint.ReadOrComputeAsync(OpenDirectory(storedName)! + Fingerprint.Extension, () => ComputeAsync(files, cancellationToken), cancellationToken);
     }
 
+    // The tracks' SHA-256 as they are now, for the file check.
+    public async Task<string?> HashNowAsync(string? storedName, CancellationToken cancellationToken)
+    {
+        var files = TrackFiles(storedName);
+        return files.Count == 0 ? null : await ComputeAsync(files, cancellationToken);
+    }
+
     private static async Task<string?> ComputeAsync(IReadOnlyList<string> files, CancellationToken cancellationToken)
     {
         using var incremental = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);

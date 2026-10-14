@@ -6,7 +6,7 @@ using Shelf.Api.Data;
 
 namespace Shelf.Api.Books;
 
-// A reader's whole shelf in one zip: the JSON backup, plus every uploaded e-book and audiobook.
+// A reader's whole shelf in one zip: the JSON backup, the same in plainer forms, plus every uploaded e-book and audiobook.
 // A snapshot is the admin's copy of the server itself: the database and both file folders.
 public static class Backup
 {
@@ -37,6 +37,8 @@ public static class Backup
         {
             await JsonSerializer.SerializeAsync(stream, export, JsonOptions, cancellationToken);
         }
+
+        await PortableExport.WriteAsync(db, zip, books, JsonOptions, cancellationToken);
 
         for (var index = 0; index < books.Count; index++)
         {

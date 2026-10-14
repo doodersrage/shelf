@@ -76,6 +76,11 @@ public sealed class Reader
     public string? GotifyToken { get; set; }
     public DateOnly? LastNoticeOn { get; set; }
 
+    // How many days before a loan is due the reminder speaks of it.
+    public int DueSoonDays { get; set; } = DefaultDueSoonDays;
+
+    public const int DefaultDueSoonDays = 3;
+
     // The most space this reader's files may take, set by an admin; null for no limit.
     public int? StorageLimitMegabytes { get; set; }
 
@@ -155,7 +160,7 @@ public sealed record LoanAsks(LoanAsk[] Incoming, LoanAsk[] Outgoing);
 
 public sealed record LendAskRequest(DateOnly? DueOn = null);
 
-public sealed record Reminders(int LentOverdue, int BorrowedOverdue, int BorrowedDueSoon, int Asks)
+public sealed record Reminders(int LentOverdue, int BorrowedOverdue, int BorrowedDueSoon, int Asks, int SoonDays = Reader.DefaultDueSoonDays)
 {
     public bool Any => LentOverdue + BorrowedOverdue + BorrowedDueSoon + Asks > 0;
 }

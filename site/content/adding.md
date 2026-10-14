@@ -16,6 +16,18 @@ A new shelf opens on a welcome with a card for each way below, so the first step
 
 **Scan the barcode** reads the ISBN from the back of a book with a phone's camera, then looks the book up. Where Shelf is opened over `https://` (or on the computer it runs on), the camera shows live and reads the code as soon as it is in view. Over plain `http://` on your network, browsers keep the camera to themselves, so the button takes a photo of the barcode instead, which works just as well. The barcode is read in the browser; the picture never leaves the phone.
 
+## Scanning a pile of books
+
+Under **Your copies**, **Scan books** keeps the phone's camera open and reads each barcode as it comes into view, so a pile of books goes in without a form for each. Choose **Adding books**, and where they're going if you like, then **Start the camera**. Each ISBN read joins the list, saying when you have the book already; uncheck any you don't want, choose the status to give them, and **Add**. Each is looked up in the catalogs and added with its details, all together, so a mistaken batch can be [undone at once](library.md#trash-and-undo). A code no catalog knows stays on the list to be added by hand.
+
+Where the page isn't secure (plain `http` to another computer), browsers keep the camera to themselves; take a photo of each barcode instead, or type the numbers.
+
+### Checking a shelf
+
+Choose **Checking a shelf** and the place, such as a room or a box, and go along it scanning each book. Each code read says whether the book belongs there, is noted somewhere else (**It lives here now** moves it), or isn't in your catalog at all (**Add it**). The books noted there and not yet seen are listed, to tick off by hand when one has no barcode. **Finish the check** can tag the books not seen `missing`, together, so they're easy to find and the tag comes off at once if they turn up.
+
+A run, either kind, is kept as you go: stop, and take it up again later on any device, from the same page.
+
 ## From files
 
 Under **Add a book**, **Or add from files** takes as many files as you like at once, up to 1 GB in total (`Uploads:MaxAudioMegabytes` changes it), and makes a book of each:

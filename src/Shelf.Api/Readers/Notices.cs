@@ -52,7 +52,7 @@ public enum PushOutcome
 
 public sealed record PushDevice(int Id, string? Label, DateTimeOffset CreatedAt);
 
-public sealed record NoticeSettings(NoticeKinds Kinds, string? NtfyUrl, bool NtfyToken, string? GotifyUrl, bool GotifyToken, PushDevice[] Devices);
+public sealed record NoticeSettings(NoticeKinds Kinds, string? NtfyUrl, bool NtfyToken, string? GotifyUrl, bool GotifyToken, PushDevice[] Devices, int DueSoonDays = Reader.DefaultDueSoonDays);
 
 public interface INoticeChannels
 {
@@ -284,8 +284,12 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
         var reader = await db.Readers.AsNoTracking().FirstAsync(item => item.Id == db.ReaderId, cancellationToken);
         var devices = (await db.PushSubscriptions.AsNoTracking().Where(item => item.ReaderId == db.ReaderId).ToListAsync(cancellationToken))
             .OrderByDescending(item => item.CreatedAt).Select(item => new PushDevice(item.Id, item.Label, item.CreatedAt)).ToArray();
-        return new NoticeSettings((NoticeKinds)reader.NoticeKinds, reader.NtfyUrl, reader.NtfyToken is not null, reader.GotifyUrl, reader.GotifyToken is not null, devices);
+        return new NoticeSettings((NoticeKinds)reader.NoticeKinds, reader.NtfyUrl, reader.NtfyToken is not null, reader.GotifyUrl, reader.GotifyToken is not null, devices,
+            reader.DueSoonDays is >= 1 and <= 30 ? reader.DueSoonDays : Reader.DefaultDueSoonDays);
     }
+
+    public static async Task SetDueSoonDaysAsync(ShelfDb db, int days, CancellationToken cancellationToken = default) =>
+        await db.Readers.Where(item => item.Id == db.ReaderId).ExecuteUpdateAsync(set => set.SetProperty(item => item.DueSoonDays, Math.Clamp(days, 1, 30)), cancellationToken);
 
     public static async Task SetKindsAsync(ShelfDb db, NoticeKinds kinds, CancellationToken cancellationToken = default)
     {
@@ -461,9 +465,22 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
                 var lender = await NameAsync(book.OwnerId);
                 await SendAsync(borrower, NoticeKinds.Loans, _ => new Notice(T("{0} lent you a book", lender), book.Title, "/loans", $"loan-{book.Id}"), cancellationToken);
                 break;
-            case EventKinds.BookReturned when book?.OwnerId is int owner && shelfEvent.ActorId != owner && shelfEvent.ReaderId is int returner:
-                var returnerName = await NameAsync(returner);
-                await SendAsync(owner, NoticeKinds.Loans, _ => new Notice(T("{0} returned a book", returnerName), book.Title, $"/library/{book.Id}", $"loan-{book.Id}"), cancellationToken);
+            case EventKinds.BookReturned when book?.OwnerId is int owner:
+                if (shelfEvent.ActorId != owner && shelfEvent.ReaderId is int returner)
+                {
+                    var returnerName = await NameAsync(returner);
+                    await SendAsync(owner, NoticeKinds.Loans, _ => new Notice(T("{0} returned a book", returnerName), book.Title, $"/library/{book.Id}", $"loan-{book.Id}"), cancellationToken);
+                }
+
+                // Whoever asked first, other than the one who had it, hears it is free again.
+                var next = await db.LoanAsks.AsNoTracking().Where(ask => ask.BookId == book.Id && ask.ReaderId != shelfEvent.ReaderId)
+                    .OrderBy(ask => ask.Id).Select(ask => (int?)ask.ReaderId).FirstOrDefaultAsync(cancellationToken);
+                if (next is int waiting)
+                {
+                    var ownerName = await NameAsync(owner);
+                    await SendAsync(waiting, NoticeKinds.Asks, _ => new Notice(T("A book you asked for is back"), T("{0}, from {1}. You are first in line.", book.Title, ownerName), "/loans", $"ask-{book.Id}"), cancellationToken);
+                }
+
                 break;
             case EventKinds.LoanAsked when book?.OwnerId is int asked && shelfEvent.ReaderId is int asker:
                 var askerName = await NameAsync(asker);
@@ -566,7 +583,7 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
                 {
                     reminders.LentOverdue == 0 ? null : reminders.LentOverdue == 1 ? T("1 book you lent is overdue.") : T("{0} books you lent are overdue.", reminders.LentOverdue),
                     reminders.BorrowedOverdue == 0 ? null : reminders.BorrowedOverdue == 1 ? T("1 book you borrowed is overdue.") : T("{0} books you borrowed are overdue.", reminders.BorrowedOverdue),
-                    reminders.BorrowedDueSoon == 0 ? null : reminders.BorrowedDueSoon == 1 ? T("1 borrowed book is due within three days.") : T("{0} borrowed books are due within three days.", reminders.BorrowedDueSoon),
+                    reminders.BorrowedDueSoon == 0 ? null : reminders.BorrowedDueSoon == 1 ? T("1 borrowed book is due within {0} days.", reminders.SoonDays) : T("{0} borrowed books are due within {1} days.", reminders.BorrowedDueSoon, reminders.SoonDays),
                 }.OfType<string>()), "/loans", "loans-due"), cancellationToken) > 0 ? 1 : 0;
             }
 

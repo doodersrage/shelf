@@ -4,6 +4,22 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-10-13
+
+### Added
+
+- **A trash**: a deleted book waits 30 days with everything that was part of it and its files, and comes back as it was, under its own id; so does a deleted quote, reading session, or highlight. Merging duplicates sends the other entry there too, so a wrong merge can be taken back. **Trash & undo** is under Settings; `Trash:Days` sets how long.
+- **Undo for changes to many books**: an edit to a selection, books deleted together, an import from a backup or a spreadsheet, books scanned in, details filled in, and the changes made under Tidy up are each kept as one, and undone as one. Undoing leaves alone anything changed by hand since.
+- **A book's history**: every change to its details for a year, what it was and what it became, each one able to be put back.
+- **Scanning a pile of books**: **Scan books** keeps the camera open and reads barcodes one after another, then adds them all at once, a book at a time from the catalogs. **Checking a shelf** goes along a place and says what is there, what is noted elsewhere, and what is missing, and can tag the missing. A run is kept, to take up again on any device.
+- **More lending**: renewals, the state a copy came back in and a note on the loan, a record of every loan after it ends, readers waiting in line for a book with the first told when it comes back, how many days ahead a loan counts as due soon, and **QR labels** to stick inside copies that open a page to lend or mark back the copy.
+- **Backups proved**: each nightly backup is read back, its database opened and checked, and brought up to the running version before it is sent anywhere; Readers shows what each would restore. A reader can **bring one book back from a nightly backup**, with its notes, log, and files, without rolling back anything else.
+- **A weekly file check**: every stored e-book, audiobook, cover, and picture is read through and compared with what it was when saved; a missing, damaged, or unreadable file shows on Tidy up, beside the newest backup proved to restore.
+- **Details looked over before they change**: Tidy up can ask Open Library and Google Books apart, for books missing details or for every book, and lists each difference with what each says and where they disagree, to choose from.
+- **Duplicates by likeness**: titles alike but for a subtitle, an edition, or a word or two, by the same author however written, with how sure each group is; **These are different books** keeps a pair from being shown again.
+- **A download in plain formats**: a reader's zip now has the books as a spreadsheet, their collections, the loans of their books, and what they marked in borrowed books, with a README describing each file. Only their own records, never another reader's.
+
+
 ## [2.9.0] - 2026-10-13
 
 ### Added
@@ -457,7 +473,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.9.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.10.0...HEAD
+[2.10.0]: https://github.com/doodersrage/shelf/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/doodersrage/shelf/compare/v2.8.0...v2.9.0
 [2.8.0]: https://github.com/doodersrage/shelf/compare/v2.7.3...v2.8.0
 [2.7.3]: https://github.com/doodersrage/shelf/compare/v2.7.2...v2.7.3

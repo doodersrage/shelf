@@ -235,6 +235,18 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
         }, cancellationToken);
     }
 
+    // The SHA-256 of the bytes as they are now, never the copy kept beside them: the file check asks whether they changed.
+    public async Task<string?> HashNowAsync(string? storedName, CancellationToken cancellationToken)
+    {
+        if (OpenPath(storedName) is not { } path)
+        {
+            return null;
+        }
+
+        await using var stream = File.OpenRead(path);
+        return Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellationToken)).ToLowerInvariant();
+    }
+
     // Where an upload waits while the reader decides whether to keep a second copy of a file.
     public string HeldRoot => Path.Combine(Root, "held");
 

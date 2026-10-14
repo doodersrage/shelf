@@ -1,0 +1,188 @@
+@page "/trash"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject IConfiguration Configuration
+@inject EbookStore Ebooks
+@inject AudioStore Audio
+@inject CoverStore Covers
+
+<PageTitle>@T("Trash & undo") · Shelf</PageTitle>
+
+<h1>@T("Trash & undo")</h1>
+<p class="hint">@T("What you delete waits here for {0} days, with all that was part of it, and can be brought back as it was. Changes made to many books at once, such as an edit to a selection, an import, a scan, or details filled in, can be undone together. A single book's own changes are under History on its page.", days)</p>
+
+@if (note is not null)
+{
+    <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
+}
+
+<section class="panel" id="changes">
+    <h2>@T("Changes to many books")</h2>
+    @if (batches.Length == 0)
+    {
+        <p class="hint">@T("No changes to many books yet.")</p>
+    }
+    else
+    {
+        <ul class="plain-list">
+            @foreach (var batch in batches)
+            {
+                <li>
+                    <strong>@batch.Summary</strong>
+                    <span class="hint">
+                        @History.Describe(batch.Kind) · @batch.At.Medium() · @Localization.Counts.Books(batch.Books)
+                        @if (batch.UndoneAt is DateTimeOffset undone)
+                        {
+                            <span> · @T("undone {0}", undone.Medium())</span>
+                        }
+                    </span>
+                    @if (batch.CanUndo)
+                    {
+                        @if (confirmUndo == batch.Id)
+                        {
+                            <span class="hint">@(batch.Kind == BatchKind.Delete ? T("The books come back.") : batch.Kind is BatchKind.Import or BatchKind.Scan ? T("The books it brought go to the trash; anything else it changed is set back where you haven't changed it since.") : T("Each change is set back where you haven't changed it since."))</span>
+                            <button type="button" class="primary" @onclick="() => Undo(batch)" disabled="@busy">@T("Undo it")</button>
+                            <button type="button" class="quiet" @onclick="() => confirmUndo = null">@T("Cancel")</button>
+                        }
+                        else
+                        {
+                            <button type="button" @onclick="() => confirmUndo = batch.Id" disabled="@busy">@T("Undo")</button>
+                        }
+                    }
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+<section class="panel" id="trash">
+    <h2>@T("Deleted")</h2>
+    @if (items.Length == 0)
+    {
+        <p class="hint">@T("The trash is empty.")</p>
+    }
+    else
+    {
+        <ul class="plain-list">
+            @foreach (var item in items)
+            {
+                <li>
+                    <strong>@item.Title</strong>
+                    <span class="hint">
+                        @Kind(item.Kind)@(item.Detail is { } detail ? " · " + detail : "") · @T("deleted {0}", item.DeletedAt.Medium()) ·
+                        @(item.DaysLeft == 1 ? T("goes tomorrow") : T("{0} days left", item.DaysLeft))
+                    </span>
+                    <button type="button" @onclick="() => Restore(item)" disabled="@busy">@T("Bring back")</button>
+                    <button type="button" class="quiet danger" @onclick="() => Forget(item)" disabled="@busy">@T("Delete for good")</button>
+                </li>
+            }
+        </ul>
+        @if (confirmEmpty)
+        {
+            <p>@T("Everything here, and the files only it keeps, will be gone for good.")</p>
+            <button type="button" class="danger" @onclick="Empty" disabled="@busy">@T("Empty the trash")</button>
+            <button type="button" class="quiet" @onclick="() => confirmEmpty = false">@T("Cancel")</button>
+        }
+        else
+        {
+            <button type="button" class="quiet danger" @onclick="() => confirmEmpty = true">@T("Empty the trash")</button>
+        }
+    }
+</section>
+
+<p class="hint">@T("Deleted longer ago than that? A book may still be in one of the nightly backups.") <a href="/backup#from-backup">@T("Look in a backup")</a></p>
+
+@code {
+    private TrashView[] items = [];
+    private BatchItem[] batches = [];
+    private int days;
+    private string? note;
+    private bool problem;
+    private bool busy;
+    private bool confirmEmpty;
+    private int? confirmUndo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        days = Trash.Days(Configuration);
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        items = await Trash.ListAsync(db, days);
+        batches = await History.BatchesAsync(db);
+    }
+
+    private static string Kind(TrashKind kind) => kind switch
+    {
+        TrashKind.Book => T("Book"),
+        TrashKind.Quote => T("Quote"),
+        TrashKind.Session => T("Reading session"),
+        _ => T("Highlight"),
+    };
+
+    private async Task Restore(TrashView item)
+    {
+        busy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var result = await Trash.RestoreAsync(db, item.Id);
+            (problem, note) = result switch
+            {
+                { Restored: true } => (false, T("{0} is back.", item.Title)),
+                { Problem: { } why } => (true, why),
+                _ => (true, T("It is no longer in the trash.")),
+            };
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task Forget(TrashView item)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Trash.ForgetAsync(db, Ebooks, Audio, Covers, db.TrashItems.Where(row => row.Id == item.Id));
+        (problem, note) = (false, T("{0} is gone for good.", item.Title));
+        await LoadAsync();
+    }
+
+    private async Task Empty()
+    {
+        busy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var gone = await Trash.ForgetAsync(db, Ebooks, Audio, Covers, db.TrashItems);
+            (problem, note, confirmEmpty) = (false, gone == 1 ? T("1 thing is gone for good.") : T("{0} things are gone for good.", gone), false);
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task Undo(BatchItem batch)
+    {
+        busy = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var result = await History.UndoAsync(db, Ebooks, Audio, Covers, batch.Id);
+            (problem, note, confirmUndo) = result is null
+                ? (true, T("That can no longer be undone."), null)
+                : (false, T("Undone: {0}.", batch.Summary), (int?)null);
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

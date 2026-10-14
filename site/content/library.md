@@ -115,8 +115,12 @@ Answers are kept for a day. `Availability:Enabled` turns it off; it follows `Fre
 Under **Your copies**, **Tidy up** puts a shelf brought in from files and other servers in order. Nothing changes until you choose it:
 
 - **Covers and details**: how many books have no cover, and how many lack a year, pages, publisher, or language. **Find covers** looks up a cover for each book with none (and changes nothing else); **Fill in all missing details** fills every gap. Both run in the background, a book at a time.
+- **Details to look over**: to see before anything changes, **Look over details** asks Open Library and Google Books apart, for the books missing details or for every book (to find details gone stale). Each difference from your book is listed with what each catalog says, the ones where they disagree marked. Choose for each, or take everything they agree on; nothing they disagree on is taken until you choose.
+- **Files**: whether any of your books' e-books, audiobooks, or pictures is missing, has changed since it was saved (which means damage, as Shelf never writes a stored file twice), or can't be read, as the weekly file check found them; and the newest nightly backup proved to restore. An admin can run the check at once.
 - **Authors written more than one way**: "Le Guin, Ursula K.", "Ursula K Le Guin", and "URSULA K. LE GUIN" are the same person. Each group lists its spellings with how many books use each; choose the one to keep, or use the most common spelling for every group at once.
 - **Series inside titles**: titles like *The Tombs of Atuan (Earthsea Cycle, #2)* or *Discworld 08 - Guards! Guards!* name their series. Taking it out leaves the title alone and sets the series and number, so the book shows with the rest of its series.
+
+Every change made here, details filled in included, can be undone at once under [Trash & undo](#trash-and-undo).
 
 ## Activity
 
@@ -124,17 +128,31 @@ Under **Your copies**, **Tidy up** puts a shelf brought in from files and other 
 
 ## Duplicates
 
-Under **Your copies**, **Duplicates** lists books that look like the same book: the same ISBN, or the same title and author (case and punctuation aside). Choose **Keep this one** on the entry to keep, and Shelf first says what merging will do: what comes across from each of the others, and which of their files will be deleted because the one kept has its own. Nothing changes until you choose **Merge**, and it can't be undone. The others merge into it:
+Under **Your copies**, **Duplicates** lists books that look like the same book: the same ISBN, the same title and author (case and punctuation aside), or, by the same author however written, titles alike but for a subtitle, what is in brackets, a word saying which edition, or a word or two. Each group says how sure it is, the surest first. **These are different books** keeps a group from being shown again.
+
+Choose **Keep this one** on the entry to keep, and Shelf first says what merging will do: what comes across from each of the others, and which of their files stay behind because the one kept has its own. Nothing changes until you choose **Merge**. The others merge into it, and then go to the [trash](#trash-and-undo) with the files left behind, so a wrong merge can be taken back:
 
 - its empty details are filled from them, the further status wins (finished over reading over wanting to read), with the earliest start and the latest finish;
 - tags, notes, reviews, quotes, highlights, the reading log, time spent reading and listening, and collections come across;
-- an e-book, audiobook, or cover picture it has none of comes across with everything that belongs to it. Where both have a file of one kind, the one kept stays, and the other's goes, with the bookmarks in its recording.
+- an e-book, audiobook, or cover picture it has none of comes across with everything that belongs to it. Where both have a file of one kind, the one kept stays, and the other's goes to the trash with it, with the bookmarks in its recording.
 
 A book out on loan can't be merged away until it's back.
 
 ## Changing many books at once
 
-In the list view, tick books to change their status, add or remove a tag, mark them loved, or delete them, up to a thousand at a time.
+In the list view, tick books to change their status, add or remove a tag, mark them loved, or delete them, up to a thousand at a time. Each change is kept as one, to be [undone](#trash-and-undo) at once.
+
+## Trash and undo
+
+What you delete isn't gone at once. A book goes to the trash with everything that was part of it (quotes, highlights, the reading log, earlier reads, pictures of the copy, its place in collections) and its files stay where they are; a quote, a reading session, or a highlight goes there alone. **Trash & undo**, under **Settings**, lists them with the days each has left, 30 by default (`Trash:Days`). **Bring back** puts one back as it was, a book under its own id when no other has taken it, so links and devices that knew it find it again. After that the trash lets things go for good, with the files only they kept; **Empty the trash** does it at once.
+
+Changes to many books at once are kept together: an edit to a selection, books deleted together, an import from a backup or a spreadsheet, books scanned in, details filled in, a missing tag after a shelf check, and the changes made under Tidy up. Each is listed with how many books it touched and can be undone as one. Undoing sets each change back only where the book is still as it left it, so anything you've changed by hand since stays; books it brought go to the trash, and books it deleted come back.
+
+A book deleted longer ago than the trash keeps things may still be in a [nightly backup](backups.md#bringing-back-one-book).
+
+### A book's history
+
+On a book's page, **History** lists every change to its details, newest first, a year back (`History:Days`): what each was and what it became, and which change to many books it was part of. **Put back** sets a detail as it was before a change, whatever it is now. Where a copy sits, progress, and files are left out; they change often and have their own ways back.
 
 ## Covers
 

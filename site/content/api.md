@@ -15,7 +15,7 @@ A script or a home dashboard signs in with an API token. Make one on **Account**
 curl -s -H "Authorization: Bearer $SHELF_TOKEN" https://shelf.example.org/books?status=Reading
 ```
 
-A token opens the calls on this page under `/books`, `/settings`, and `/readers`. Under **What it opens**, a token can be kept to some of them: the library (books, reading, lending, collections, goals, and settings), files (e-books, recordings, covers, pictures of a copy, and backups), the journal, book clubs, and the event feed. Leave every box clear for all of them; a call outside a token's parts is refused with 403, and `/version` is open to every token. Send `"areas": ["journal", "events"]` to make one through the API. It never opens the account (passwords, keys, other tokens) or the admin pages, so a token that leaks cannot take the account over; remove it on **Account** and it stops working at once. A read-only token is refused anything but `GET`, with 403. Account shows when each token was last used.
+A token opens the calls on this page under `/books`, `/settings`, and `/readers`. Under **What it opens**, a token can be kept to some of them: the library (books, reading, lending, collections, goals, and settings), files (e-books, recordings, covers, pictures of a copy, backups, and the file check), the journal, book clubs, and the event feed. Leave every box clear for all of them; a call outside a token's parts is refused with 403, and `/version` is open to every token. Send `"areas": ["journal", "events"]` to make one through the API. It never opens the account (passwords, keys, other tokens) or the admin pages, so a token that leaks cannot take the account over; remove it on **Account** and it stops working at once. A read-only token is refused anything but `GET`, with 403. Account shows when each token was last used.
 
 ### Home Assistant
 
@@ -133,7 +133,10 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | --- | --- |
 | `GET /readers` | The other readers on this shelf. |
 | `POST /books/{id}/lend` | Lend a book: `{"readerId": 2, "dueOn": "2026-11-01"}`. |
-| `POST /books/{id}/return` | End a loan. |
+| `POST /books/{id}/return` | End a loan. `{"condition": "Good", "note": "…"}`, both optional, keeps the state it came back in and a note with the loan's record. |
+| `POST /books/{id}/renew` | Make a loan longer: `{"days": 14}`, or as long again as it first ran when left out. Answers with the new due date. |
+| `GET /books/{id}/loans` | Every loan of a book, the latest first: to whom, when it went and came back, renewals, and the state it went out and came back in. `GET /books/loans/history` lists the latest 100 that have ended, any book. |
+| `GET /books/loans/waiting` | Your books with readers waiting for them, each line in the order they asked. |
 | `GET /books/loans` | Who has which of your books, and how many are overdue. |
 | `GET /books/borrowed` | Books lent to you. `POST /books/borrowed/{id}/return` gives one back. |
 | `GET /books/shelves` | Open shelves. `GET /books/shelves/{id}` lists one. `PUT /books/shelves/open {"open": true}` opens yours. |
@@ -148,6 +151,35 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | `GET /books/export` | Your shelf as JSON, with quotes, sessions, highlights, earlier reads, journal entries, and the links between books. `POST /books/import` restores one, skipping books already there and journal entries already kept. |
 | `GET /books/export/full` | A zip of the JSON with every e-book, audiobook, and cover picture. `POST /books/import/full` with `file` restores one. |
 | `POST /books/import/csv` | A Goodreads or StoryGraph CSV export as `file`. |
+
+`GET /books/export/full` also carries `README.md`, `books.csv`, `collections.json`, `loans.json`, and `borrowed-highlights.json`; the README says what each holds.
+
+## Trash, history, and undo
+
+| Call | What it does |
+| --- | --- |
+| `GET /books/trash` | What waits in the trash: kind (`Book`, `Quote`, `Session`, `Highlight`), title, when it was deleted, and the days it has left. `POST /books/trash/{id}/restore` brings one back; `DELETE /books/trash/{id}` lets one go for good; `DELETE /books/trash` empties it. |
+| `GET /books/{id}/history` | Every change to a book's details, newest first, with the value before and after. `POST /books/{id}/history/{changeId}/undo` puts one back. |
+| `GET /books/changes` | Changes to many books at once, newest first: kind (`Edit`, `Delete`, `Import`, `Scan`, `Details`, `Undo`), how many books, and whether it can still be undone. `POST /books/changes/{id}/undo` undoes one. |
+| `GET /books/backups` | The nightly backups and whether each was proved to restore. `GET /books/backups/{name}/books?q=` lists your books in one that aren't on your shelf now; `POST /books/backups/{name}/books/{id}/restore` brings one back. |
+
+## Scanning
+
+| Call | What it does |
+| --- | --- |
+| `POST /books/scans` | Starts a run: `{"kind": "Add", "location": "Attic"}`, or `"kind": "Check"` to check a place. `GET /books/scans` lists the runs not finished; `DELETE /books/scans/{id}` drops one. |
+| `POST /books/scans/{id}/codes` | `{"isbn": "9780441478125"}` reads a code. A check answers with `Here`, `Again`, `Elsewhere` (with the place it's noted at), or `Unknown`. `DELETE /books/scans/{id}/codes/{isbn}` takes a code off the list. |
+| `POST /books/scans/{id}/add` | `{"isbns": […], "status": "Want"}` adds the books read in an adding run, together. Answers with how many were added and skipped, and the change to undo them by. |
+| `GET /books/scans/{id}/books` | The books a check expects at its place, and whether each has been seen. `POST /books/scans/{id}/seen/{bookId}` ticks one off by hand, `?moveHere=true` noting it at this place. |
+| `POST /books/scans/{id}/finish` | `{"tagMissing": true}` ends a check, tagging the books not seen `missing`. `GET /books/scans/places` lists the places your books are kept. |
+
+## Tidying
+
+| Call | What it does |
+| --- | --- |
+| `GET /books/duplicates` | Books that look like the same book, each group with its reason (`isbn`, `title`, or `similar`) and how sure, out of 100. `POST /books/duplicates/dismiss` with `{"ids": [3, 9]}` says they differ. `POST /books/{id}/merge` with `{"otherId": 9}` merges, the other entry going to the trash. |
+| `POST /books/details/review` | Asks Open Library and Google Books about the books missing details, or `{"everything": true}` every book, in the background. `GET /books/details/proposals` lists what they said where it differs; `POST /books/details/proposals/apply` with `{"choices": [{"id": 4, "source": "Google"}], "allAgreeing": true}` takes answers (`OpenLibrary`, `Google`, or `Keep`); `DELETE` clears the list. |
+| `GET /books/files/health` | Your books with a missing, changed, or unreadable file, when the files were last checked, and the newest backup proved to restore. `POST /books/files/check` starts a check, for an admin. |
 
 ## Book clubs
 
@@ -196,7 +228,7 @@ done
 | --- | --- |
 | `GET /admin/readers` | Every reader. `POST /admin/readers/{id}/password` gives a new password; `PUT /admin/readers/{id}/admin {"isAdmin": true}` changes admin; `DELETE /admin/readers/{id}` deletes a reader. |
 | `GET /admin/audit` | The newest 500 lines of the activity log. |
-| `GET /admin/backups` | The nightly copies. `POST` takes one now; `GET /admin/backups/{name}` downloads one. |
+| `GET /admin/backups` | The nightly copies, each with what its restore drill found. `POST` takes one now; `GET /admin/backups/{name}` downloads one; `POST /admin/backups/{name}/drill` checks one restores. |
 | `GET /admin/snapshot` | The whole server as a zip. |
 
 ## Devices

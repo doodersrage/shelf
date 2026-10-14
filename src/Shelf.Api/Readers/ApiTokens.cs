@@ -55,7 +55,8 @@ public static class ApiTokens
     public const string Events = "events";
     public static readonly IReadOnlyList<string> Areas = [Library, Files, Journal, Clubs, Events];
 
-    // Which area a path is in. Files are a book's e-book, recording, cover, and pictures, and whole-shelf backups.
+    // Which area a path is in. Files are a book's e-book, recording, cover, and pictures, whole-shelf backups and the
+    // nightly ones, and the file check.
     public static string AreaOf(PathString path)
     {
         if (path.StartsWithSegments("/books/journal", StringComparison.OrdinalIgnoreCase))
@@ -74,7 +75,7 @@ public static class ApiTokens
         }
 
         var parts = (path.Value ?? "").Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (parts is ["books", _, "ebook" or "audio" or "cover" or "photos" or "notes.md", ..] || parts is ["books", "export" or "import" or "notes.zip", ..])
+        if (parts is ["books", _, "ebook" or "audio" or "cover" or "photos" or "notes.md", ..] || parts is ["books", "export" or "import" or "notes.zip" or "backups" or "files", ..])
         {
             return Files;
         }

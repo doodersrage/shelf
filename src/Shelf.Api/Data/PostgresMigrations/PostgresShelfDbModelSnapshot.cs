@@ -485,6 +485,50 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.ToTable("Books");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.BookChange", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("After")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("BatchId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Before")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("BookId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Field")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("At");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("OwnerId");
+
+                    b.HasIndex("BookId", "Id");
+
+                    b.ToTable("BookChanges");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.BookLink", b =>
                 {
                     b.Property<int>("Id")
@@ -548,6 +592,40 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("BookId", "Part");
 
                     b.ToTable("BookTexts");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.ChangeBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTimeOffset?>("UndoneAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId", "Id");
+
+                    b.ToTable("ChangeBatches");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Club", b =>
@@ -851,6 +929,49 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.ToTable("CopyPhotos");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.DetailProposal", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Current")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Field")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<DateTimeOffset>("FoundAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Google")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("OpenLibrary")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("OwnerId", "BookId");
+
+                    b.ToTable("DetailProposals");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.EventRecord", b =>
                 {
                     b.Property<long>("Id")
@@ -1031,6 +1152,51 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasKey("Id");
 
                     b.ToTable("FetchSettings");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.FileRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CheckedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Problem")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset?>("ProblemSince")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Sha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("StoredName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Problem");
+
+                    b.HasIndex("Kind", "StoredName")
+                        .IsUnique();
+
+                    b.ToTable("FileRecords");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Highlight", b =>
@@ -1338,6 +1504,92 @@ namespace Shelf.Api.Data.PostgresMigrations
                         .IsUnique();
 
                     b.ToTable("LoanPlaces");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.LoanRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Borrower")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int?>("BorrowerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ConditionBack")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("ConditionOut")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateOnly?>("DueOn")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("LentOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Renewals")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("ReturnedOn")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BorrowerId");
+
+                    b.HasIndex("BookId", "ReturnedOn");
+
+                    b.HasIndex("OwnerId", "ReturnedOn");
+
+                    b.ToTable("LoanRecords");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.NotDuplicate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OtherId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("OtherId");
+
+                    b.HasIndex("OwnerId", "BookId", "OtherId")
+                        .IsUnique();
+
+                    b.ToTable("NotDuplicates");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.OcrPage", b =>
@@ -1858,6 +2110,47 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.ToTable("SavedSearches");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.ScanSession", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Codes")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("FinishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Location")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Seen")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("ScanSessions");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.SeriesAlert", b =>
                 {
                     b.Property<int>("Id")
@@ -2077,6 +2370,56 @@ namespace Shelf.Api.Data.PostgresMigrations
                         .IsUnique();
 
                     b.ToTable("Tags");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.TrashItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BatchId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("BookId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Files")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("OwnerId", "DeletedAt");
+
+                    b.ToTable("TrashItems");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Webhook", b =>
@@ -2312,6 +2655,9 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Property<string>("Culture")
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
+
+                    b.Property<int>("DueSoonDays")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Email")
                         .HasMaxLength(254)
@@ -2668,6 +3014,27 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Navigation("RemoteBorrower");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.BookChange", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.ChangeBatch", null)
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Shelf.Api.Books.Book", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Book");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.BookLink", b =>
                 {
                     b.HasOne("Shelf.Api.Books.Book", "From")
@@ -2692,6 +3059,15 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasOne("Shelf.Api.Books.OcrScan", null)
                         .WithMany()
                         .HasForeignKey("ScanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.ChangeBatch", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -2819,6 +3195,23 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasOne("Shelf.Api.Books.Book", "Book")
                         .WithMany()
                         .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Book");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.DetailProposal", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -2961,6 +3354,43 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasOne("Shelf.Api.Readers.Reader", null)
                         .WithMany()
                         .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.LoanRecord", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("BorrowerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Book");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.NotDuplicate", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", null)
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Books.Book", null)
+                        .WithMany()
+                        .HasForeignKey("OtherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -3115,6 +3545,15 @@ namespace Shelf.Api.Data.PostgresMigrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.ScanSession", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.SeriesAlert", b =>
                 {
                     b.HasOne("Shelf.Api.Readers.Reader", null)
@@ -3129,6 +3568,20 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasOne("Shelf.Api.Books.Book", null)
                         .WithMany()
                         .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.TrashItem", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.ChangeBatch", null)
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

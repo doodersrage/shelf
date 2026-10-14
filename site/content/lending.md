@@ -41,6 +41,20 @@ While it's out, the borrower can:
 
 Your own place, highlights, notes, review, and reading log stay private and unmoved; the **Lending** section says so as you lend. A paper copy lent this way just notes who has it and when it's due back. Either of you can end the loan: you with **Mark returned**, they with **Give it back**.
 
+### Renewals, condition, and the record of loans
+
+While a book is out, **Renew** moves its due date on by as long again as the loan first ran (two weeks if it had no due date), from the due date or from today if that has passed. **Mark returned** asks the state it came back in, the same *Fine*, *Good*, *Fair*, or *Poor* as the copy's condition, and a note if there's something to remember.
+
+Every loan is kept after it ends: who had it, when it went and came back, how often it was renewed, and the state it went out and came back in. A book's page lists its earlier loans under **Lending**, and **Loans** lists the loans that have ended.
+
+### Waiting in line
+
+When more than one reader asks for the same book, they wait in the order they asked. **Loans** shows the owner who is waiting for which book, and each reader who asked sees their place in line. When the book comes back, the first in line is told it's free.
+
+### QR labels
+
+**QR labels**, under **Your copies**, prints a label for each copy at a place, each one on loan, or each paper copy with no place noted. Stick one inside the cover: scanning it with a phone's camera opens that copy's page on your shelf, to lend it (to a reader here or anyone else, with a due date) or mark it back with its condition, standing at the shelf. The page opens only for you, signed in.
+
 ## Lending to someone else
 
 For a friend who isn't a reader on your shelf, type their name in the book's **Loaned to** field, with a due date if you like. It shows on **Loans** like any other loan.
@@ -79,7 +93,7 @@ What a linked shelf sees is what an open shelf shows anyone here: titles, author
 A notice under the header points to **Loans** when:
 
 - a loan of yours is overdue;
-- a book lent to you is due within three days;
+- a book lent to you is due soon, within three days unless you choose another number of days on **Account**, under **Notifications**;
 - someone has asked to borrow from you.
 
 With [email set up](configuration.md#email), a reader can add their address on **Account** to get these as one email a day, and to reset a forgotten password from the sign-in page.

@@ -180,3 +180,72 @@ export function attach(root, form) {
     }
   });
 }
+
+// Whether a live camera can be asked for here.
+export function canWatch() {
+  return Boolean(window.isSecureContext && navigator.mediaDevices?.getUserMedia);
+}
+
+// Keeps the camera open in the page and hands each new code to it, for scanning a pile of books one after another
+// or a whole shelf. A barcode stays in view for a moment, so the same code is passed on again only once another has
+// been seen or a few seconds have gone. The page is told if the camera cannot be had.
+export function watch(video, page) {
+  let stream;
+  let stopped = false;
+  let last = null;
+  let lastAt = 0;
+  const stop = () => {
+    stopped = true;
+    stream?.getTracks().forEach((track) => track.stop());
+    video.srcObject = null;
+  };
+
+  (async () => {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      if (stopped) {
+        stop();
+        return;
+      }
+      video.muted = true;
+      video.playsInline = true;
+      video.srcObject = stream;
+      await video.play();
+      const scanner = await reader();
+      while (!stopped) {
+        if (video.readyState >= 2) {
+          const found = isbn(await scanner.detect(video).catch(() => []));
+          const now = Date.now();
+          if (found && (found !== last || now - lastAt > 4000)) {
+            last = found;
+            lastAt = now;
+            navigator.vibrate?.(60);
+            await page.invokeMethodAsync("Scanned", found);
+          } else if (found) {
+            lastAt = now;
+          }
+        }
+        await new Promise((wait) => setTimeout(wait, 200));
+      }
+    } catch {
+      stop();
+      await page.invokeMethodAsync("CameraFailed").catch(() => {});
+    }
+  })();
+
+  return { stop };
+}
+
+// A photo of a barcode, for where the camera cannot stay open: the code in it, or null.
+export async function readPhoto(input) {
+  const file = input.files?.[0];
+  input.value = "";
+  if (!file) {
+    return null;
+  }
+  try {
+    return await photo(file);
+  } catch {
+    return null;
+  }
+}

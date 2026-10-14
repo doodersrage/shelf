@@ -301,10 +301,12 @@ public sealed class ImportTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
         var restoredSrc = System.Text.RegularExpressions.Regex.Match(restoredPage, $"src=\"(/books/{restored.Id}/cover\\?v=[0-9a-f]{{8}})\"").Groups[1].Value;
         Assert.Equal(PngNamed("second"), await other.GetByteArrayAsync(restoredSrc));
 
-        // Removing it, or the book, removes the file.
+        // Removing it removes the file; a deleted book's waits in the trash, and goes when the trash is emptied.
         Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/books/{book.Id}/cover")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/books/{book.Id}/cover")).StatusCode);
         await other.DeleteAsync($"/books/{restored.Id}");
+        Assert.Contains(Directory.GetFiles(covers.Root), path => File.ReadAllBytes(path).SequenceEqual(PngNamed("second")));
+        await other.DeleteAsync("/books/trash");
         Assert.DoesNotContain(Directory.GetFiles(covers.Root), path => File.ReadAllBytes(path).SequenceEqual(PngNamed("second")));
     }
 

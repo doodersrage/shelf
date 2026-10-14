@@ -279,8 +279,17 @@ public static class EbookEndpoints
             return TypedResults.NotFound();
         }
 
-        db.Highlights.Remove(highlight);
-        await db.SaveChangesAsync(cancellationToken);
+        // The owner's go to the trash; a borrower's own are theirs to delete outright.
+        if (open!.Borrowed)
+        {
+            db.Highlights.Remove(highlight);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        else
+        {
+            await Trash.DeleteRowAsync(db, highlight, TrashKind.Highlight, id, highlight.Text, open.Book.Title, cancellationToken);
+        }
+
         return TypedResults.NoContent();
     }
 

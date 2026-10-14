@@ -1604,6 +1604,8 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
 
     public StubRecapWriter Writer { get; } = new();
 
+    public StubCatalogSources Sources { get; } = new();
+
     // Whether these tests run against PostgreSQL (SHELF_TEST_POSTGRES), where a few SQLite-only things are not.
     public static bool OnPostgres => Environment.GetEnvironmentVariable("SHELF_TEST_POSTGRES") is { Length: > 0 };
 
@@ -1690,6 +1692,8 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
         builder.UseSetting("AuthorWatch:PauseMilliseconds", "0");
         builder.UseSetting("Hardcover:PauseMilliseconds", "0");
         builder.UseSetting("Backup:Folder", Path.Combine(_keysRoot, "backups"));
+        builder.UseSetting("FileCheck:Days", "0");
+        builder.UseSetting("Details:PauseMilliseconds", "0");
         if (PublicAddress is not null)
         {
             builder.UseSetting("Email:PublicAddress", PublicAddress);
@@ -1711,6 +1715,7 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
             services.AddSingleton<IAudioCutter, StubCutter>();
             services.AddSingleton<IPodcastClient>(PodcastFeeds);
             services.AddSingleton<IRecapWriter>(Writer);
+            services.AddSingleton<ICatalogSources>(Sources);
             if (LinkHandler is not null)
             {
                 services.AddHttpClient(LinkClient.ClientName).ConfigurePrimaryHttpMessageHandler(() => LinkHandler);
@@ -1818,6 +1823,15 @@ file sealed class StubBookLookup : IBookLookup
             "English",
             "https://covers.openlibrary.org/b/id/1-M.jpg"));
     }
+}
+
+// Open Library's and Google's answers, set by a test, by ISBN.
+public sealed class StubCatalogSources : ICatalogSources
+{
+    public System.Collections.Concurrent.ConcurrentDictionary<string, (CatalogMatch? OpenLibrary, CatalogMatch? Google)> Answers { get; } = new();
+
+    public Task<(CatalogMatch? OpenLibrary, CatalogMatch? Google)> BothAsync(string? isbn, string? title, string? author, CancellationToken cancellationToken) =>
+        Task.FromResult(BookRules.NormalizeIsbn(isbn) is { } key && Answers.TryGetValue(key, out var answer) ? answer : (null, null));
 }
 
 public sealed class CapturedMail : Shelf.Api.Readers.IEmailSender
