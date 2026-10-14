@@ -133,9 +133,11 @@ else
                     <option value="@GoalKind.Author">@T("by the author")</option>
                     <option value="@GoalKind.Series">@T("in the series")</option>
                     <option value="@GoalKind.NewAuthors">@T("by authors new to you")</option>
+                    <option value="@GoalKind.Backlog">@T("already on the shelf when the year began")</option>
+                    <option value="@GoalKind.LetGo">@T("let go: donated, sold, or given away")</option>
                 </select>
             </label>
-            @if (aimKind != GoalKind.NewAuthors)
+            @if (aimKind is not (GoalKind.NewAuthors or GoalKind.Backlog or GoalKind.LetGo))
             {
                 <label>
                     @T("Name")

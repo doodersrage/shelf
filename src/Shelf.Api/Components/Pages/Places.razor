@@ -5,31 +5,224 @@
 <PageTitle>@T("Places") · Shelf</PageTitle>
 
 <h1>@T("Places")</h1>
+<p class="hint">@T("Rooms, the bookcases in them, their shelves, and boxes: where each paper copy is, so it can be found. Drag a place onto another to put it there; a copy's place follows. A place for a time, such as a box in a move or a storage unit, keeps where its copies usually live.")</p>
+<p>
+    <a class="button" href="/moving">@T("Moving house")</a>
+    <a class="button quiet" href="/places/labels">@T("Shelf labels")</a>
+</p>
 
-@if (places.Count == 0)
+@if (note is not null)
 {
-    <EmptyState Title="@T("No places yet")" Text="@T("Note where a copy sits, such as a room or a box, in its details, and the places gather here.")" ActionHref="/" ActionLabel="@T("Open the library")" />
+    <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
 }
-else
+
+@if (map is not null)
 {
-    <ul class="tag-counts">
-        @foreach (var place in places)
+    @if (map.Places.Length == 0 && map.Loose.Length == 0)
+    {
+        <EmptyState Title="@T("No places yet")" Text="@T("Add a room below, then the bookcases and shelves in it.")" ActionHref="#new-place" ActionLabel="@T("Add a place")" />
+    }
+
+    @if (map.Places.Length > 0)
+    {
+        <section class="panel">
+            <h2>@T("Your places")</h2>
+            <ul class="place-tree" role="tree" aria-label="@T("Your places")">
+                @foreach (var node in Children(null))
+                {
+                    @Node(node)
+                }
+            </ul>
+            @if (dragging is not null)
+            {
+                <p class="drop-root" @ondragover:preventDefault @ondrop="() => DropOn(null)" dropzone="move">@T("Drop here to make it a place of its own")</p>
+            }
+        </section>
+    }
+
+    @if (map.Loose.Length > 0)
+    {
+        <section class="panel">
+            <h2>@T("Places your books name")</h2>
+            <p class="hint">@T("Copies name these places, but they aren't places here yet. Making them places keeps every copy where it is; a place written “Study › Shelf 3” becomes Shelf 3 within Study.")</p>
+            <ul class="tag-counts">
+                @foreach (var loose in map.Loose)
+                {
+                    <li><a href="@($"/library?place={Uri.EscapeDataString(loose.Name)}")">@loose.Name</a> <span class="hint">@Localization.Counts.Books(loose.Count)</span></li>
+                }
+            </ul>
+            <button type="button" @onclick="Adopt">@T("Make them places")</button>
+        </section>
+    }
+
+    <section class="panel" id="new-place">
+        <h2>@(editing is null ? T("Add a place") : T("Change {0}", editing.Name))</h2>
+        <div class="recipe-grid">
+            <label>
+                @T("Name")
+                <input maxlength="@StoragePlace.MaxNameLength" @bind="name" placeholder="@T("Study, Oak bookcase, Shelf 3")" />
+            </label>
+            <label>
+                @T("What it is")
+                <select @bind="kind">
+                    @foreach (var choice in Enum.GetValues<PlaceKind>())
+                    {
+                        <option value="@choice">@PlaceTree.KindLabel(choice)</option>
+                    }
+                </select>
+            </label>
+            <label>
+                @T("Within")
+                <select @bind="parentId">
+                    <option value="0">@T("Nowhere: a place of its own")</option>
+                    @foreach (var place in map.Places.Where(place => editing is null || (place.Id != editing.Id && !place.Path.StartsWith(editing.Path + PlaceTree.Separator, StringComparison.Ordinal))))
+                    {
+                        <option value="@place.Id">@place.Path</option>
+                    }
+                </select>
+            </label>
+            @if (kind == PlaceKind.Box)
+            {
+                <label>
+                    @T("Going to")
+                    <select @bind="destinationId">
+                        <option value="0">@T("Back where each book lives")</option>
+                        @foreach (var place in map.Places.Where(place => place.Kind != PlaceKind.Box))
+                        {
+                            <option value="@place.Id">@place.Path</option>
+                        }
+                    </select>
+                </label>
+            }
+            <label>
+                @T("Note")
+                <input maxlength="@StoragePlace.MaxNoteLength" @bind="placeNote" />
+            </label>
+        </div>
+        @if (kind != PlaceKind.Box)
         {
-            <li>
-                <a href="@($"/library?place={Uri.EscapeDataString(place.Name)}")">@place.Name</a>
-                <span class="hint">@Localization.Counts.Books(place.Count)</span>
-            </li>
+            <label class="check"><input type="checkbox" @bind="temporary" /> @T("Books are only here for a time")</label>
         }
-    </ul>
+        <button type="button" class="primary" @onclick="Save">@(editing is null ? T("Add it") : T("Save"))</button>
+        @if (editing is not null)
+        {
+            <button type="button" class="quiet" @onclick="ClearForm">@T("Cancel")</button>
+        }
+    </section>
 }
 
 @code {
-    private List<PlaceCount> places = [];
+    private PlaceMap? map;
+    private PlaceNode? editing;
+    private string? name;
+    private PlaceKind kind = PlaceKind.Room;
+    private int parentId;
+    private int destinationId;
+    private bool temporary;
+    private string? placeNote;
+    private string? note;
+    private bool problem;
+    private PlaceNode? dragging;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        var locations = await db.Books.AsNoTracking().Select(book => book.Location).ToListAsync();
-        places = BookRules.Places(locations).ToList();
+        map = await PlaceTree.MapAsync(db);
+    }
+
+    private IEnumerable<PlaceNode> Children(int? parent) =>
+        map!.Places.Where(place => place.ParentId == parent).OrderBy(place => place.Kind == PlaceKind.Box).ThenBy(place => place.Number ?? 0).ThenBy(place => place.Name, StringComparer.CurrentCultureIgnoreCase);
+
+    private RenderFragment Node(PlaceNode node) => @<li role="treeitem" aria-expanded="@(Children(node.Id).Any() ? "true" : null)">
+        <div class="place-row @(dragging?.Id == node.Id ? "dragging" : null)" draggable="true"
+             @ondragstart="() => dragging = node" @ondragend="() => dragging = null"
+             @ondragover:preventDefault @ondrop="() => DropOn(node)">
+            <a href="/places/@node.Id"><strong>@node.Name</strong></a>
+            <span class="hint">@PlaceTree.KindLabel(node.Kind)@(node.Temporary && node.Kind != PlaceKind.Box ? " · " + T("for a time") : "") · @Localization.Counts.Books(node.Within)@(node.Destination is { } to ? " · " + T("going to {0}", to) : "")</span>
+            <button type="button" class="quiet" @onclick="() => Edit(node)" aria-label="@T("Change {0}", node.Name)">@T("Change")</button>
+            @if (!Children(node.Id).Any())
+            {
+                <button type="button" class="quiet danger" @onclick="() => Remove(node)" aria-label="@T("Remove {0}", node.Name)">@T("Remove")</button>
+            }
+        </div>
+        @if (Children(node.Id).Any())
+        {
+            <ul role="group">
+                @foreach (var child in Children(node.Id))
+                {
+                    @Node(child)
+                }
+            </ul>
+        }
+    </li>;
+
+    private void Edit(PlaceNode node)
+    {
+        editing = node;
+        (name, kind, parentId, destinationId, temporary, placeNote) = (node.Name, node.Kind, node.ParentId ?? 0, node.DestinationId ?? 0, node.Temporary, node.Note);
+    }
+
+    private void ClearForm()
+    {
+        editing = null;
+        (name, kind, parentId, destinationId, temporary, placeNote) = (null, PlaceKind.Room, 0, 0, false, null);
+    }
+
+    private StoragePlaceRequest Request() =>
+        new(name ?? "", kind, parentId == 0 ? null : parentId, temporary, kind == PlaceKind.Box && destinationId != 0 ? destinationId : null, placeNote);
+
+    private async Task Save()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        string? said;
+        if (editing is null)
+        {
+            (_, said) = await PlaceTree.CreateAsync(db, Request());
+        }
+        else
+        {
+            said = await PlaceTree.ChangeAsync(db, editing.Id, Request());
+        }
+
+        (note, problem) = said is null ? (T("Saved."), false) : (said, true);
+        if (said is null)
+        {
+            ClearForm();
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task DropOn(PlaceNode? target)
+    {
+        if (dragging is not { } moving || target?.Id == moving.Id)
+        {
+            dragging = null;
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var said = await PlaceTree.ChangeAsync(db, moving.Id, new StoragePlaceRequest(moving.Name, moving.Kind, target?.Id, moving.Temporary, moving.DestinationId, moving.Note));
+        (note, problem) = said is null ? (target is null ? T("{0} is a place of its own now.", moving.Name) : T("{0} is within {1} now.", moving.Name, target.Name), false) : (said, true);
+        dragging = null;
+        await LoadAsync();
+    }
+
+    private async Task Remove(PlaceNode node)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var said = await PlaceTree.RemoveAsync(db, node.Id);
+        (note, problem) = said is null ? (T("{0} is no longer a place. Its copies keep it as their place until moved.", node.Name), false) : (said, true);
+        await LoadAsync();
+    }
+
+    private async Task Adopt()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var made = await PlaceTree.AdoptAsync(db);
+        (note, problem) = (made == 1 ? T("1 place made.") : T("{0} places made.", made), false);
+        await LoadAsync();
     }
 }

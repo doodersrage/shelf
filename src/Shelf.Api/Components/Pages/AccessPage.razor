@@ -1,0 +1,151 @@
+@page "/admin/access"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("Who sees what") · Shelf</PageTitle>
+
+<h1>@T("Who sees what")</h1>
+
+@if (!allowed)
+{
+    <p>@T("Only an admin of this shelf can look at what each reader sees.")</p>
+}
+else
+{
+    <p class="hint">@T("What one reader can see of the shelf, and why, from the same rules the pages keep: to look at before sharing anything, and to answer why someone can see something. Nothing here changes what anyone sees.")</p>
+
+    <section class="panel">
+        <label>
+            @T("Reader")
+            <select @bind="readerId" @bind:after="LoadAsync">
+                <option value="0">@T("Choose")</option>
+                @foreach (var reader in readers)
+                {
+                    <option value="@reader.Id">@reader.Name</option>
+                }
+            </select>
+        </label>
+    </section>
+
+    @if (view is not null)
+    {
+        <section class="panel">
+            <h2>@T("What {0} sees", view.Reader)@(view.Child ? " · " + T("a child's account") : "")@(view.Admin ? " · " + T("admin") : "")</h2>
+            <ul class="health-list">
+                @foreach (var line in view.Lines)
+                {
+                    <li>
+                        <span class="health-state">@Localization.Counts.Books(line.Count)</span>
+                        <div>
+                            <strong>@line.What</strong>
+                            <p>@line.Shows</p>
+                            <p class="hint">@T("Why:") @line.Why</p>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </section>
+
+        @if (view.Tokens.Length > 0)
+        {
+            <section class="panel">
+                <h2>@T("Their API tokens")</h2>
+                <p class="hint">@T("Each token sees what its reader sees, kept to the parts named.")</p>
+                <ul class="plain-list">
+                    @foreach (var token in view.Tokens)
+                    {
+                        <li><strong>@token.Name</strong> <span class="hint">@(token.CanChange ? T("reads and changes") : T("reads only")) · @string.Join(", ", token.Areas) · @(token.LastUsedAt is { } used ? T("last used {0}", used.Medium()) : T("never used"))</span></li>
+                    }
+                </ul>
+            </section>
+        }
+
+        <section class="panel">
+            <h2>@T("What anyone with a link sees")</h2>
+            @if (view.Public.Length == 0)
+            {
+                <p class="hint">@T("Nothing of theirs is open to people who aren't signed in.")</p>
+            }
+            else
+            {
+                <ul class="health-list">
+                    @foreach (var line in view.Public)
+                    {
+                        <li>
+                            <span class="health-state">@line.Count.ToString("N0")</span>
+                            <div><strong>@line.What</strong><p>@line.Shows</p><p class="hint">@T("Why:") @line.Why</p></div>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+
+        <section class="panel">
+            <h2>@T("Why can they see this book?")</h2>
+            <form class="inline-form" @onsubmit="Explain" @onsubmit:preventDefault>
+                <label>@T("Book number, from its address (/library/123)") <input type="number" min="1" @bind="bookId" /></label>
+                <button type="submit">@T("Explain")</button>
+            </form>
+            @if (explained is { } why)
+            {
+                @if (!why.Visible)
+                {
+                    <p>@T("{0} can't see it.", view.Reader)</p>
+                }
+                else
+                {
+                    <ul class="plain-list">
+                        @foreach (var reason in why.Reasons)
+                        {
+                            <li>@reason</li>
+                        }
+                    </ul>
+                }
+            }
+            else if (explainMissing)
+            {
+                <p class="hint">@T("There is no book with that number.")</p>
+            }
+        </section>
+    }
+}
+
+@code {
+    private bool allowed;
+    private (int Id, string Name)[] readers = [];
+    private int readerId;
+    private AccessView? view;
+    private int? bookId;
+    private BookAccess? explained;
+    private bool explainMissing;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        allowed = await ReaderRules.IsAdminAsync(db, db.ReaderId);
+        if (allowed)
+        {
+            readers = [.. (await db.Readers.AsNoTracking().Where(reader => reader.SandboxOf == null).OrderBy(reader => reader.Name).Select(reader => new { reader.Id, reader.Name }).ToListAsync())
+                .Select(reader => (reader.Id, reader.Name))];
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        (explained, explainMissing) = (null, false);
+        await using var db = await DbFactory.CreateDbContextAsync();
+        view = allowed && readerId != 0 ? await AccessPreview.ForReaderAsync(db, readerId) : null;
+    }
+
+    private async Task Explain()
+    {
+        if (bookId is not int id || !allowed)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        explained = await AccessPreview.ExplainAsync(db, readerId, id);
+        explainMissing = explained is null;
+    }
+}

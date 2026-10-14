@@ -4,12 +4,38 @@
 <PageTitle>@T("Search inside books") · Shelf</PageTitle>
 
 <h1>@T("Search inside books")</h1>
-<p class="hint">@T("Searches the words of your e-books, and of books lent to you. Each book is read for searching in the background after it is uploaded, scanned PDFs included when OCR is installed.")</p>
+<p class="hint">@T("Searches the words of your e-books, and of books lent to you, and everything you wrote yourself: notes, reviews, quotes, highlights, the reading log, the journal, and the reference desk. Each book is read for searching in the background after it is uploaded, scanned PDFs included when OCR is installed.")</p>
 
 <form class="filters" action="/search" method="get" role="search" aria-label="@T("Search inside your e-books")">
     <label>
         @T("Words to find")
         <input type="search" name="q" value="@Q" minlength="@Search.MinLength" autofocus />
+    </label>
+    <label>
+        @T("Look in")
+        <select name="in">
+            <option value="" selected="@(In is null)">@T("Books and your own words")</option>
+            <option value="books" selected="@(In == "books")">@T("The books alone")</option>
+            <option value="mine" selected="@(In == "mine")">@T("Your own words alone")</option>
+            @foreach (var kind in Enum.GetValues<NoteKind>())
+            {
+                <option value="@kind" selected="@(In == kind.ToString())">@NoteSearch.KindLabel(kind)</option>
+            }
+        </select>
+    </label>
+    <label>
+        @T("Books")
+        <select name="status">
+            <option value="">@T("Any")</option>
+            @foreach (var status in Enum.GetValues<BookStatus>())
+            {
+                <option value="@status" selected="@(Status == status.ToString())">@BookRules.StatusLabel(status)</option>
+            }
+        </select>
+    </label>
+    <label>
+        @T("By")
+        <input name="author" value="@Author" maxlength="200" />
     </label>
     <div><button type="submit">@T("Search")</button></div>
 </form>
@@ -17,12 +43,40 @@
 @if (string.IsNullOrWhiteSpace(Q))
 {
 }
-else if (hits.Length == 0)
+else if (hits.Length == 0 && notes.Length == 0)
 {
     <EmptyState Title="@T("No book says that")" Text="@T("Nothing in your e-books matches those words. A book uploaded a moment ago may still be being read.")" ActionHref="@($"/library?q={Uri.EscapeDataString(Q)}")" ActionLabel="@T("Search the catalog instead")" />
 }
 else
 {
+    @if (notes.Length > 0)
+    {
+        <section class="panel search-notes" aria-labelledby="notes-heading">
+            <h2 id="notes-heading">@T("In your own words")</h2>
+            <ul class="quotes">
+                @foreach (var hit in notes)
+                {
+                    <li>
+                        <blockquote><p>@hit.Before<mark>@hit.Match</mark>@hit.After</p></blockquote>
+                        <p class="hint">
+                            @NoteSearch.KindLabel(hit.Kind)
+                            @if (hit.Title is not null)
+                            {
+                                <span> · @hit.Title</span>
+                            }
+                            @if (hit.At is { } at)
+                            {
+                                <span> · @at.Medium()</span>
+                            }
+                            · <a href="@hit.Link">@T("Open")</a>
+                        </p>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+    @if (hits.Length > 0)
+    {
     <p class="count">@Localization.Counts.Books(hits.Select(hit => hit.BookId).Distinct().Count())</p>
     @foreach (var book in hits.GroupBy(hit => hit.BookId))
     {
@@ -41,17 +95,41 @@ else
             </ul>
         </section>
     }
+    }
 }
 
 @code {
     private SearchHit[] hits = [];
+    private NoteHit[] notes = [];
 
     [SupplyParameterFromQuery]
     public string? Q { get; set; }
 
+    [SupplyParameterFromQuery]
+    public string? In { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? Status { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? Author { get; set; }
+
     protected override async Task OnParametersSetAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        hits = await Search.FindAsync(db, Q);
+        In = string.IsNullOrWhiteSpace(In) ? null : In;
+        var kind = Enum.TryParse<NoteKind>(In, out var only) ? only : (NoteKind?)null;
+        var status = Enum.TryParse<BookStatus>(Status, out var chosen) ? chosen : (BookStatus?)null;
+        hits = In is null or "books" ? await Search.FindAsync(db, Q) : [];
+        if (hits.Length > 0 && (status is not null || !string.IsNullOrWhiteSpace(Author)))
+        {
+            var ids = hits.Select(hit => hit.BookId).Distinct().ToList();
+            var author = Author?.Trim().ToLower() ?? "";
+            var kept = (await db.Books.AsNoTracking().Where(book => ids.Contains(book.Id) && (status == null || book.Status == status) && book.Author.ToLower().Contains(author))
+                .Select(book => book.Id).ToListAsync()).ToHashSet();
+            hits = [.. hits.Where(hit => kept.Contains(hit.BookId))];
+        }
+
+        notes = In is "books" ? [] : await NoteSearch.FindAsync(db, Q, new NoteFilter(kind, status, Author));
     }
 }

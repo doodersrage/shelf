@@ -4,6 +4,29 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-10-14
+
+### Added
+
+- **Places**: rooms, the bookcases in them, their shelves, and boxes, nested as deep as you like and moved by dragging one onto another, a copy's place following. Places your books already name become places at a word. A place for a time, such as a storage unit, keeps where each copy usually lives, and puts it back. Each place has a page of its copies, and a label to print with a QR code that opens it.
+- **Moving house**: numbered boxes with where each is going, packed by scanning each book as it goes in, with a label of what's inside; unpacked by scanning them out, when they go where the box was going and any that didn't arrive are named.
+- **Your collection over time**: copies that came, were finished, and left each year, how many were kept, what they cost and brought back; what waits to be read by age, format, subject, and series; books never opened; books read again and again. A copy can be let go (donated, sold, given away, discarded, lost), keeping its record and reading, and a price paid noted. Goals for reading what was already on the shelf, and for letting copies go.
+- **Up next**: a short queue in your order, dragged into place; holds until a day or for a mood; a book in a series waiting for the one before it. Finishing a book offers the next of its series, then the queue.
+- **Where each device has you**: each source's last place in a book (Shelf's reader and player, offline reading, KOReader, the Audiobookshelf apps), and a choice of the right one, back or forward, with the choices kept.
+- **Search your own words**: notes, reviews, quotes, highlights, the reading log, the journal, and the reference desk, searched beside the books' own text, narrowed by kind, status, and author.
+- **Rules**: when a book is added, started, finished, read again, lent, or back, or a loan is overdue, and the book is as asked, tag it, put it in a collection, queue it, note its place, or tell you. A dry run first; each run listed and undone like any change; rules never set off rules.
+- **Server health**, for admins: backups and their proof, copies elsewhere, stored files, disk space, imports, webhooks, linked shelves, email, OCR, and each background job, what needs you first with what to do.
+- **Who sees what**, for admins: what one reader can see and why, their tokens, what anyone with their links sees, and why they can or can't see a given book.
+- **Ask your shelf**: questions in everyday words answered from your own books, notes, and quotes, with links. With an Anthropic key, the question alone may be read by the model; nothing from the shelf is sent.
+- **Downloads that prove themselves**: every file in a download listed with its SHA-256 in `manifest.json`, with `SCHEMA.md` describing each file, and a restore says if any file no longer matches. Tidy up names files in formats that may not last, or locked by a shop.
+- **Your library's future**: who is to have which books and a word for whoever looks after them, kept sealed and private, printed or downloaded as a list. A note of wishes, not a will.
+- **Tidy up** finds paper copies with no ISBN, series books with no number, books with no author, page counts that look wrong, and publishers written more than one way.
+- **A newer Shelf**: admins are told at the top of each page when a new release is out, with what's new and how to update, until they update or say not now. `Updates:Check` turns it off.
+
+### Fixed
+
+- **Goodreads imports find more audiobooks and lecture courses already on the shelf**: a title with a series in front ("The Modern Scholar: Heavens Above: …"), one by the same author whose words are all in the other's, a long title the same word for word whoever Goodreads says wrote it, and a narrator or co-author Goodreads lists under Additional Authors. One volume of a course is never taken for another.
+
 ## [2.11.1] - 2026-10-14
 
 ### Fixed
@@ -496,7 +519,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.11.1...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.12.0...HEAD
+[2.12.0]: https://github.com/doodersrage/shelf/compare/v2.11.1...v2.12.0
 [2.11.1]: https://github.com/doodersrage/shelf/compare/v2.11.0...v2.11.1
 [2.11.0]: https://github.com/doodersrage/shelf/compare/v2.10.0...v2.11.0
 [2.10.0]: https://github.com/doodersrage/shelf/compare/v2.9.0...v2.10.0

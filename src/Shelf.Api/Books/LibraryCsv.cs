@@ -4,7 +4,8 @@ using System.Text.RegularExpressions;
 
 namespace Shelf.Api.Books;
 
-public sealed record CsvBook(BookWrite Write, DateTimeOffset? AddedAt);
+// A row as a book, with the other people it names (co-authors, translators, narrators), to know it by on the shelf.
+public sealed record CsvBook(BookWrite Write, DateTimeOffset? AddedAt, IReadOnlyList<string>? OtherAuthors = null);
 
 public sealed record CsvLibrary(string Source, IReadOnlyList<CsvBook> Books);
 
@@ -93,7 +94,8 @@ public static partial class LibraryCsv
             false,
             null,
             null);
-        return new CsvBook(write, Moment(Cell("Date Added")));
+        var others = (Cell("Additional Authors") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return new CsvBook(write, Moment(Cell("Date Added")), others);
     }
 
     private static CsvBook? StoryGraph(string[] row, Func<string, int> column)

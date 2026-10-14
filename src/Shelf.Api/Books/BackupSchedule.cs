@@ -47,9 +47,12 @@ public sealed class BackupSchedule(
                 {
                     await TakeAsync(stoppingToken);
                 }
+
+                Heartbeats.Beat(nameof(BackupSchedule));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                Heartbeats.Beat(nameof(BackupSchedule), ex.Message);
                 logger.LogWarning(ex, "The nightly backup failed; it will try again shortly.");
             }
         }
@@ -112,7 +115,7 @@ public sealed class BackupSchedule(
             : null;
     }
 
-    private static string DataFolder(IConfiguration configuration)
+    public static string DataFolder(IConfiguration configuration)
     {
         var connection = configuration.GetConnectionString("sqlite") ?? configuration.GetConnectionString("Shelf") ?? "Data Source=shelf.db";
         var source = new SqliteConnectionStringBuilder(connection).DataSource;

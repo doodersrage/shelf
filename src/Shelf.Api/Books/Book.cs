@@ -34,6 +34,16 @@ public enum CopyCondition
     Poor,
 }
 
+// How a copy left the shelf: its record stays, with its reading, as a book once owned.
+public enum Departure
+{
+    Donated,
+    Sold,
+    Given,
+    Discarded,
+    Lost,
+}
+
 public sealed class Book
 {
     public int Id { get; set; }
@@ -128,6 +138,24 @@ public sealed class Book
     // The copy's own history: who had it before, and whether the author signed it.
     public string? PreviousOwners { get; set; }
     public bool Signed { get; set; }
+
+    // What the copy cost, in the shelf's own currency.
+    public decimal? PricePaid { get; set; }
+
+    // A copy let go: when, how, to whom or where, and what it sold for.
+    public DateOnly? LeftOn { get; set; }
+    public Departure? LeftHow { get; set; }
+    public string? LeftTo { get; set; }
+    public decimal? SoldFor { get; set; }
+
+    // In the queue: its order (lowest first), and a hold until a day or a mood ("for the winter").
+    public int? QueueOrder { get; set; }
+    public DateOnly? HeldUntil { get; set; }
+    public string? HoldNote { get; set; }
+
+    // Where the copy usually lives while it is somewhere for a time, such as a moving box.
+    public string? HomeLocation { get; set; }
+
     public DateTimeOffset AddedAt { get; set; }
     public List<Tag> Tags { get; set; } = [];
     public List<Quote> Quotes { get; set; } = [];
@@ -339,12 +367,13 @@ public sealed record CreateBookRequest(
     CopyCondition? Condition = null,
     [MaxLength(200)] string? Narrator = null,
     [MaxLength(500)] string? PreviousOwners = null,
-    bool Signed = false)
+    bool Signed = false,
+    [Range(0, 1000000)] decimal? PricePaid = null)
 {
     public BookWrite ToWrite() => BookWrite.From(
         Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
         Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn,
-        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition, Condition, Narrator) with { PreviousOwners = PreviousOwners, Signed = Signed };
+        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition, Condition, Narrator) with { PreviousOwners = PreviousOwners, Signed = Signed, PricePaid = PricePaid };
 }
 
 public sealed record UpdateBookRequest(
@@ -383,12 +412,13 @@ public sealed record UpdateBookRequest(
     CopyCondition? Condition = null,
     [MaxLength(200)] string? Narrator = null,
     [MaxLength(500)] string? PreviousOwners = null,
-    bool Signed = false)
+    bool Signed = false,
+    [Range(0, 1000000)] decimal? PricePaid = null)
 {
     public BookWrite ToWrite() => BookWrite.From(
         Title, Author, Status, Rating, Year, Isbn, Pages, CurrentPage, Notes, StartedOn, FinishedOn, LoanedTo, Tags,
         Subtitle, Publisher, Language, Format, Series, SeriesNumber, CoverUrl, Review, Loved, LoanedOn,
-        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition, Condition, Narrator) with { PreviousOwners = PreviousOwners, Signed = Signed };
+        Location, AcquiredOn, Translator, RecommendedBy, OriginalTitle, Inscription, DueOn, Queued, Acquisition, Condition, Narrator) with { PreviousOwners = PreviousOwners, Signed = Signed, PricePaid = PricePaid };
 }
 
 public sealed record BookWrite(
@@ -427,7 +457,9 @@ public sealed record BookWrite(
     CopyCondition? Condition,
     string? Narrator = null,
     string? PreviousOwners = null,
-    bool Signed = false)
+    bool Signed = false,
+    decimal? PricePaid = null,
+    CopyLife? Life = null)
 {
     public static BookWrite From(
         string title,
@@ -473,7 +505,25 @@ public sealed record BookWrite(
         book.StartedOn, book.FinishedOn, book.LoanedTo, book.Tags, book.Subtitle, book.Publisher, book.Language, book.Format,
         book.Series, book.SeriesNumber, book.CoverUrl, book.Review, book.Loved, book.LoanedOn,
         book.Location, book.AcquiredOn, book.Translator, book.RecommendedBy, book.OriginalTitle, book.Inscription, book.DueOn, book.Queued, book.Acquisition, book.Condition, book.Narrator)
-        with { PreviousOwners = book.PreviousOwners, Signed = book.Signed };
+        with { PreviousOwners = book.PreviousOwners, Signed = book.Signed, PricePaid = book.PricePaid, Life = book.Life };
+}
+
+// A copy's life beyond its catalog details: whether and how it left, its place in the queue and any hold, and the
+// place it usually lives. Kept in backups; an edit of the details leaves it as it is.
+public sealed record CopyLife(
+    DateOnly? LeftOn = null,
+    Departure? LeftHow = null,
+    string? LeftTo = null,
+    decimal? SoldFor = null,
+    int? QueueOrder = null,
+    DateOnly? HeldUntil = null,
+    string? HoldNote = null,
+    string? HomeLocation = null)
+{
+    public static CopyLife? Of(Book book) =>
+        book.LeftOn is null && book.LeftHow is null && book.QueueOrder is null && book.HeldUntil is null && book.HoldNote is null && book.HomeLocation is null
+            ? null
+            : new(book.LeftOn, book.LeftHow, book.LeftTo, book.SoldFor, book.QueueOrder, book.HeldUntil, book.HoldNote, book.HomeLocation);
 }
 
 public sealed record BookResponse(
@@ -521,7 +571,9 @@ public sealed record BookResponse(
     string? Narrator = null,
     string? PreviousOwners = null,
     bool Signed = false,
-    PastReadResponse[]? PastReads = null)
+    PastReadResponse[]? PastReads = null,
+    decimal? PricePaid = null,
+    CopyLife? Life = null)
 {
     public static BookResponse From(Book book) => new(
         book.Id,
@@ -567,7 +619,9 @@ public sealed record BookResponse(
         book.Highlights.OrderBy(mark => mark.ChapterIndex).ThenBy(mark => mark.Id).Select(HighlightResponse.From).ToArray(),
         book.Narrator,
         book.PreviousOwners,
-        book.Signed);
+        book.Signed,
+        PricePaid: book.PricePaid,
+        Life: CopyLife.Of(book));
 }
 
 public sealed record ShelfCopy(int Id, string Title, Acquisition? Acquisition);

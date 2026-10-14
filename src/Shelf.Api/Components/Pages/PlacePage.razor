@@ -1,0 +1,167 @@
+@page "/places/{Id:int}"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@(place?.Name ?? T("Place")) · Shelf</PageTitle>
+
+@if (missing)
+{
+    <EmptyState Title="@T("No such place")" Text="@T("It may have been removed.")" ActionHref="/places" ActionLabel="@T("See your places")" />
+}
+else if (place is not null)
+{
+    <p class="hint"><a href="/places">@T("Places")</a>@foreach (var part in place.Path.Split(PlaceTree.Separator).SkipLast(1)) { <span> › @part</span> }</p>
+    <h1>@place.Name</h1>
+    <p class="hint">
+        @PlaceTree.KindLabel(place.Kind)@(place.Temporary && place.Kind != PlaceKind.Box ? " · " + T("for a time") : "")
+        @if (place.Destination is { } to)
+        {
+            <span> · @T("going to {0}", to)</span>
+        }
+        @if (place.Note is { } said)
+        {
+            <span> · @said</span>
+        }
+    </p>
+    <p>
+        <a class="button quiet" href="/places/labels?id=@place.Id">@T("Print its label")</a>
+        <a class="button quiet" href="/scan?check=@place.Id">@T("Check it against the catalog")</a>
+        @if (place.Kind == PlaceKind.Box)
+        {
+            <a class="button quiet" href="/scan?pack=@place.Id">@T("Pack it")</a>
+            <a class="button quiet" href="/scan?unpack=@place.Id">@T("Unpack it")</a>
+        }
+    </p>
+
+    @if (note is not null)
+    {
+        <p class="saved" role="status">@note</p>
+    }
+
+    <section class="panel">
+        <h2>@(books.Count == 1 ? T("1 copy here") : T("{0} copies here", books.Count.ToString("N0")))</h2>
+        @if (books.Count == 0)
+        {
+            <p class="hint">@T("Nothing is noted here. Put a copy here from its details, or scan the shelf.")</p>
+        }
+        else
+        {
+            <ul class="plain-list">
+                @foreach (var book in books.Take(shown))
+                {
+                    <li>
+                        <label class="check">
+                            <input type="checkbox" checked="@chosen.Contains(book.Id)" @onchange="change => Choose(book.Id, change)" />
+                            <a href="/library/@book.Id">@book.Title</a>
+                        </label>
+                        <span class="hint">@book.Author@(book.Location != place.Path ? " · " + book.Location![(place.Path.Length + PlaceTree.Separator.Length)..] : "")@(book.HomeLocation is { } home ? " · " + T("usually {0}", home) : "")</span>
+                    </li>
+                }
+            </ul>
+            @if (books.Count > shown)
+            {
+                <button type="button" class="quiet" @onclick="() => shown += 200">@T("Show {0} more", Math.Min(200, books.Count - shown))</button>
+            }
+
+            <div class="inline-form">
+                <button type="button" class="quiet" @onclick="ChooseAll">@(chosen.Count == books.Count ? T("Choose none") : T("Choose all"))</button>
+                <label>
+                    @T("Move the {0} chosen to", chosen.Count)
+                    <select @bind="target">
+                        <option value="0">@T("Choose a place")</option>
+                        @foreach (var other in places.Where(other => other.Id != place.Id))
+                        {
+                            <option value="@other.Id">@other.Path</option>
+                        }
+                    </select>
+                </label>
+                <button type="button" @onclick="Move" disabled="@(chosen.Count == 0 || target == 0)">@T("Move them")</button>
+                @if (books.Any(book => chosen.Contains(book.Id) && book.HomeLocation is not null))
+                {
+                    <button type="button" @onclick="PutBack">@T("Put them back where they live")</button>
+                }
+            </div>
+        }
+    </section>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private PlaceNode? place;
+    private PlaceNode[] places = [];
+    private List<Book> books = [];
+    private readonly HashSet<int> chosen = [];
+    private int target;
+    private int shown = 200;
+    private bool missing;
+    private string? note;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var map = await PlaceTree.MapAsync(db);
+        places = map.Places;
+        place = places.FirstOrDefault(item => item.Id == Id);
+        missing = place is null;
+        if (place is null)
+        {
+            return;
+        }
+
+        var path = place.Path;
+        var within = path + PlaceTree.Separator;
+        books = await db.Books.AsNoTracking().Where(book => book.Location == path || (book.Location != null && book.Location.StartsWith(within)))
+            .OrderBy(book => book.Location).ThenBy(book => book.Author).ThenBy(book => book.Title).ToListAsync();
+        chosen.IntersectWith(books.Select(book => book.Id));
+    }
+
+    private void Choose(int id, ChangeEventArgs change)
+    {
+        if (change.Value is true)
+        {
+            chosen.Add(id);
+        }
+        else
+        {
+            chosen.Remove(id);
+        }
+    }
+
+    private void ChooseAll()
+    {
+        if (chosen.Count == books.Count)
+        {
+            chosen.Clear();
+        }
+        else
+        {
+            chosen.UnionWith(books.Select(book => book.Id));
+        }
+    }
+
+    private async Task Move()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var batch = await History.StartAsync(db, BatchKind.Edit, T("Moved from {0}", place!.Path));
+        using var _ = History.Use(batch.Id);
+        var moved = await PlaceTree.MoveBooksAsync(db, chosen.ToList(), target) ?? 0;
+        note = T("Moved: {0}.", Localization.Counts.Books(moved));
+        chosen.Clear();
+        await LoadAsync();
+    }
+
+    private async Task PutBack()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var batch = await History.StartAsync(db, BatchKind.Edit, T("Put back from {0}", place!.Path));
+        using var _ = History.Use(batch.Id);
+        var moved = await PlaceTree.PutBackAsync(db, chosen.ToList());
+        note = T("Put back: {0}.", Localization.Counts.Books(moved));
+        chosen.Clear();
+        await LoadAsync();
+    }
+}

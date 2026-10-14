@@ -1,0 +1,186 @@
+@page "/account/legacy"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject Legacy Plans
+
+<PageTitle>@T("Your library's future") · Shelf</PageTitle>
+
+<h1>@T("Your library's future")</h1>
+<p class="hint">@T("What you would like done with your books should you be unable to see to them: who is to have which, and a word for whoever looks after it. It is kept sealed on this server and shown to no one but you; print it or download it to keep with your papers.")</p>
+<p class="notice">@T("This is a note of your wishes, not a will. To make sure they are carried out, put them in a will or give a copy to someone you trust.")</p>
+
+@if (note is not null)
+{
+    <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
+}
+
+@if (view is not null)
+{
+    <section class="panel">
+        <h2>@T("For whoever looks after it")</h2>
+        <label>
+            @T("Who that is")
+            <input maxlength="200" @bind="keeper" placeholder="@T("A name, and how to reach them")" />
+        </label>
+        <label>
+            @T("What you would like done")
+            <textarea rows="6" maxlength="@LegacyPlan.MaxInstructionsLength" @bind="instructions" placeholder="@T("Signed copies to the town library; the rest to whoever wants them; the e-books and audiobooks are on this server.")"></textarea>
+        </label>
+        <button type="button" class="primary" @onclick="SavePlan">@T("Save")</button>
+        @if (view.UpdatedAt is { } updated)
+        {
+            <span class="hint">@T("Last changed {0}.", updated.Medium())</span>
+        }
+    </section>
+
+    <section class="panel">
+        <h2>@T("Who is to have which books")</h2>
+        @if (view.Recipients.Length == 0)
+        {
+            <p class="hint">@T("No one named yet.")</p>
+        }
+        else
+        {
+            <ul class="plain-list">
+                @foreach (var person in view.Recipients)
+                {
+                    <li>
+                        <strong>@person.Name</strong>
+                        <span class="hint">@(person.Rest ? T("everything no one else is to have") : person.Tag is { } tag ? T("books tagged {0}", tag) : T("the collection {0}", person.Collection ?? "")) · @Localization.Counts.Books(person.Books)@(person.Contact is { } contact ? " · " + contact : "")</span>
+                        @if (person.Note is { } said)
+                        {
+                            <p class="hint">@said</p>
+                        }
+                        <button type="button" class="quiet" @onclick="() => Edit(person)">@T("Change")</button>
+                        <button type="button" class="quiet danger" @onclick="() => Remove(person.Id)">@T("Remove")</button>
+                    </li>
+                }
+            </ul>
+            @if (view.Unassigned > 0)
+            {
+                <p class="hint">@T("{0} not yet given to anyone.", Localization.Counts.Books(view.Unassigned))</p>
+            }
+        }
+
+        <h3>@(editingId is null ? T("Name someone") : T("Change {0}", name ?? ""))</h3>
+        <div class="recipe-grid">
+            <label>@T("Name") <input maxlength="200" @bind="name" /></label>
+            <label>@T("How to reach them") <input maxlength="300" @bind="contact" /></label>
+            <label>
+                @T("Their books")
+                <select @bind="which">
+                    <option value="tag">@T("Those with a tag")</option>
+                    <option value="collection">@T("Those in a collection")</option>
+                    <option value="rest">@T("Everything no one else is to have")</option>
+                </select>
+            </label>
+            @if (which == "tag")
+            {
+                <label>@T("Tag") <input maxlength="@BookRules.MaxTagLength" @bind="tag" /></label>
+            }
+            else if (which == "collection")
+            {
+                <label>
+                    @T("Collection")
+                    <select @bind="collectionId">
+                        <option value="0">@T("Choose")</option>
+                        @foreach (var list in collections)
+                        {
+                            <option value="@list.Id">@list.Name</option>
+                        }
+                    </select>
+                </label>
+            }
+        </div>
+        <label>@T("A word for them") <textarea rows="2" maxlength="@LegacyRecipient.MaxNoteLength" @bind="personNote"></textarea></label>
+        <button type="button" @onclick="SavePerson">@(editingId is null ? T("Add them") : T("Save"))</button>
+        @if (editingId is not null)
+        {
+            <button type="button" class="quiet" @onclick="ClearPerson">@T("Cancel")</button>
+        }
+    </section>
+
+    <section class="panel">
+        <h2>@T("Keep a copy")</h2>
+        <p class="hint">@T("The plan and the list of books, as they stand today, to print or keep with your papers.")</p>
+        <a class="button" href="/account/legacy/print" target="_blank" rel="noopener">@T("Print the plan")</a>
+        <a class="button quiet" href="/books/legacy/inventory.csv" download>@T("Download the list of books")</a>
+        <p class="hint">@T("Forget the plan to remove all of it from this server.") <button type="button" class="quiet danger" @onclick="Forget">@T("Forget the plan")</button></p>
+    </section>
+}
+
+@code {
+    private LegacyView? view;
+    private (int Id, string Name)[] collections = [];
+    private string? keeper;
+    private string? instructions;
+    private int? editingId;
+    private string? name;
+    private string? contact;
+    private string which = "tag";
+    private string? tag;
+    private int collectionId;
+    private string? personNote;
+    private string? note;
+    private bool problem;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        view = await Plans.ViewAsync(db);
+        (keeper, instructions) = (view.Keeper, view.Instructions);
+        collections = [.. (await db.Collections.AsNoTracking().OrderBy(list => list.Name).Select(list => new { list.Id, list.Name }).ToListAsync()).Select(list => (list.Id, list.Name))];
+    }
+
+    private async Task SavePlan()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var said = await Plans.SavePlanAsync(db, instructions, keeper);
+        (note, problem) = said is null ? (T("Saved."), false) : (said, true);
+        await LoadAsync();
+    }
+
+    private void Edit(LegacyRecipientView person)
+    {
+        editingId = person.Id;
+        (name, contact, personNote) = (person.Name, person.Contact, person.Note);
+        (which, tag, collectionId) = person.Rest ? ("rest", null, 0) : person.Tag is not null ? ("tag", person.Tag, 0) : ("collection", null, person.CollectionId ?? 0);
+    }
+
+    private void ClearPerson()
+    {
+        editingId = null;
+        (name, contact, personNote, which, tag, collectionId) = (null, null, null, "tag", null, 0);
+    }
+
+    private async Task SavePerson()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var said = await Plans.SaveRecipientAsync(db, editingId, new LegacyRecipientRequest(name ?? "", contact, personNote,
+            which == "tag" ? tag : null, which == "collection" && collectionId != 0 ? collectionId : null, which == "rest"));
+        (note, problem) = said is null ? (T("Saved."), false) : (said, true);
+        if (said is null)
+        {
+            ClearPerson();
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task Remove(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Legacy.RemoveRecipientAsync(db, id);
+        await LoadAsync();
+    }
+
+    private async Task Forget()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Legacy.ForgetAsync(db);
+        (note, problem) = (T("The plan is forgotten."), false);
+        await LoadAsync();
+    }
+}

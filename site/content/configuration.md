@@ -193,6 +193,16 @@ Without a mail server, an admin resets forgotten passwords and reminders stay in
 
 The text of the chapters a reader has read is sent to Anthropic to be summed up; see [Previously in this book](reading.md#previously-in-this-book).
 
+| `Ask:UseModel` | `true` | With a key set, lets **Ask your shelf** send the question alone to the model to understand it. `false` keeps questions on the server, read by simple rules. |
+
+## Money and updates
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `Shelf:Currency` | the reader's language's | The currency prices paid and got are shown in, as an ISO code such as `EUR` or `USD`. |
+| `Updates:Check` | `true` | Ask GitHub twice a day whether a newer Shelf is out, and tell admins. |
+| `Updates:Url` | Shelf's releases on GitHub | Where to ask, for a changed copy with releases of its own. |
+
 ## Read-along
 
 | Setting | Default | What it does |

@@ -681,7 +681,10 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
             track++;
         }
 
-        await Lending.KeepPlaceAsync(db, found.Open, place => (place.AudioTrack, place.AudioSeconds) = (track, (int)Math.Max(0, currentTime - before)), cancellationToken);
+        using (Positions.Reporting("Audiobookshelf"))
+        {
+            await Lending.KeepPlaceAsync(db, found.Open, place => (place.AudioTrack, place.AudioSeconds) = (track, (int)Math.Max(0, currentTime - before)), cancellationToken);
+        }
         if (listened >= 1)
         {
             await AudioPlayback.NoteListeningAsync(db, bookId, null, listened, cancellationToken);
@@ -780,6 +783,7 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
             && await Lending.OpenAsync(db, id, cancellationToken) is { } open)
         {
             var share = body["ebookProgress"] is JsonValue given && given.TryGetValue<double>(out var part) ? Math.Clamp(part, 0, 1) : (double?)null;
+            using var _ = Positions.Reporting("Audiobookshelf");
             await Lending.KeepPlaceAsync(db, open, place =>
             {
                 place.EbookCfi = location;

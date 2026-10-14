@@ -106,9 +106,11 @@ public sealed partial class SeriesWatch(IServiceScopeFactory scopes, IConfigurat
             try
             {
                 await CheckDueAsync(stoppingToken);
+                Heartbeats.Beat(nameof(SeriesWatch));
             }
             catch (Exception ex) when (ex is DbUpdateException or InvalidOperationException or HttpRequestException)
             {
+                Heartbeats.Beat(nameof(SeriesWatch), ex.Message);
                 logger.LogWarning(ex, "Could not look for new books in series; it will try again.");
             }
         }

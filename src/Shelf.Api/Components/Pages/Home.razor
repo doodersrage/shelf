@@ -134,6 +134,10 @@
                     <input type="checkbox" @bind="queuedOnly" />
                     @T("Read next")
                 </label>
+                <label class="check">
+                    <input type="checkbox" @bind="goneOnly" />
+                    @T("Let go")
+                </label>
             </div>
         </details>
         @if (FillingJob is { } filling)
@@ -222,6 +226,10 @@
             @if (lovedOnly)
             {
                 <li>@Removable(null, T("Loved"), () => lovedOnly = false)</li>
+            }
+            @if (goneOnly)
+            {
+                <li>@Removable(null, T("Let go"), () => goneOnly = false)</li>
             }
             @if (queuedOnly)
             {
@@ -512,6 +520,7 @@ else if (visible.Count > 0)
     private bool lovedOnly;
     private bool loanedOnly;
     private bool queuedOnly;
+    private bool goneOnly;
     private bool fileOnly;
     private bool audioOnly;
     private Dictionary<string, string[]>? formErrors;
@@ -642,6 +651,9 @@ else if (visible.Count > 0)
     [SupplyParameterFromQuery(Name = "queued")]
     public string? Queued { get; set; }
 
+    [SupplyParameterFromQuery(Name = "gone")]
+    public string? Gone { get; set; }
+
     [SupplyParameterFromQuery(Name = "file")]
     public string? WithFile { get; set; }
 
@@ -673,6 +685,7 @@ else if (visible.Count > 0)
             ["loved"] = lovedOnly ? "1" : null,
             ["loaned"] = loanedOnly ? "1" : null,
             ["queued"] = queuedOnly ? "1" : null,
+            ["gone"] = goneOnly ? "1" : null,
             ["file"] = fileOnly ? "1" : null,
             ["audio"] = audioOnly ? "1" : null,
         };
@@ -759,6 +772,7 @@ else if (visible.Count > 0)
         lovedOnly = Loved == "1";
         loanedOnly = Loaned == "1";
         queuedOnly = Queued == "1";
+        goneOnly = Gone == "1";
         fileOnly = WithFile == "1";
         audioOnly = WithAudio == "1";
         adding = Add == "1";
@@ -797,10 +811,10 @@ else if (visible.Count > 0)
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
 
-    private int ChecksOn => new[] { lovedOnly, loanedOnly, queuedOnly, fileOnly, audioOnly }.Count(on => on);
+    private int ChecksOn => new[] { lovedOnly, loanedOnly, queuedOnly, fileOnly, audioOnly, goneOnly }.Count(on => on);
 
     // Those under More filters; the rest are chips in view.
-    private int MoreOn => new[] { lovedOnly, queuedOnly }.Count(on => on);
+    private int MoreOn => new[] { lovedOnly, queuedOnly, goneOnly }.Count(on => on);
 
     private static string Pressed(bool on) => on ? "true" : "false";
 
@@ -951,7 +965,7 @@ else if (visible.Count > 0)
         shown = PageSize;
         query = "";
         statusFilter = "";
-        lovedOnly = loanedOnly = queuedOnly = fileOnly = audioOnly = false;
+        lovedOnly = loanedOnly = queuedOnly = fileOnly = audioOnly = goneOnly = false;
         if (new Uri(Navigation.Uri).Query.Length > 0)
         {
             Navigation.NavigateTo(listView ? "/library?view=list" : "/library");
@@ -962,7 +976,8 @@ else if (visible.Count > 0)
     {
         get
         {
-            IEnumerable<Book> result = books;
+            // A copy let go keeps its record, out of the way unless asked for.
+            IEnumerable<Book> result = goneOnly ? books.Where(book => book.LeftOn != null) : books.Where(book => book.LeftOn == null);
             if (!string.IsNullOrWhiteSpace(query))
             {
                 var term = query.Trim();
@@ -1006,7 +1021,8 @@ else if (visible.Count > 0)
 
             if (!string.IsNullOrWhiteSpace(placeFilter))
             {
-                result = result.Where(book => book.Location != null && book.Location.Equals(placeFilter, StringComparison.OrdinalIgnoreCase));
+                result = result.Where(book => book.Location != null && (book.Location.Equals(placeFilter, StringComparison.OrdinalIgnoreCase)
+                    || book.Location.StartsWith(placeFilter + PlaceTree.Separator, StringComparison.OrdinalIgnoreCase)));
             }
 
             if (!string.IsNullOrWhiteSpace(recommendedFilter))

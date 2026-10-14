@@ -158,6 +158,7 @@ public static partial class Kosync
             kept.DeviceId = Fit(progress.DeviceId);
             kept.UpdatedAt = now;
             await db.SaveChangesAsync(cancellationToken);
+            using var _ = Positions.Reporting("KOReader", kept.Device);
             await Lending.KeepPlaceAsync(db, open, place =>
             {
                 // On, never back: a later chapter, or further into the same one.

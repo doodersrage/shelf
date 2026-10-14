@@ -47,7 +47,21 @@ The library shows covers or a list, and remembers your choice. Search, status, a
 
 The address keeps up with what you choose, so a filtered library can be bookmarked, and opening a book then going back finds the same books, as far down the page as you were.
 
-Pages gathered from the catalog give other ways in: **Authors**, **Series** in reading order, **Places** where books sit, **Condition**, **Recommenders**, and **Years** of finished books.
+Pages gathered from the catalog give other ways in: **Authors**, **Series** in reading order, **Places** where books sit, **Condition**, **Recommenders**, and **Years** of finished books. A copy you let go (see [Your collection over time](#your-collection-over-time)) is kept out of the library until you tick **Let go** under **More filters**.
+
+### Places
+
+**Places**, under **Your copies**, holds where your paper copies are: rooms, the bookcases in them, their shelves, and boxes, as deep as you like. Drag a place onto another to put it inside; every copy's place follows, as it does when you rename one. A copy's place is written out in full on its page (`Study › Oak bookcase › Shelf 3`), and filtering the library by a place takes in everything within it. **Make them places** turns the places your books already name into places, a place written with `›` becoming one within another.
+
+A place can be **for a time**, such as a storage unit: a copy put there remembers where it usually lives, its page says so, and **Put it back** takes it home. Each place's page lists its copies, to move together, check against the catalog with a [scan](adding.md#checking-a-shelf), or put back. **Shelf labels** prints a label for any place, with a QR code that opens its page.
+
+### Moving house
+
+**Moving house** treats a move as a run of numbered boxes. **Number a new box**, saying where it is packed and where it is going, then **Pack** it: scan each book as it goes in, and it is noted in the box, keeping where it lived. Print the box's label, with its number large, where it is going, and what is inside. At the other end, **Unpack** it: scan the books as they come out, and when you're done they go where the box was going (or back where each lived), and the books not seen are named, and can be tagged `missing`. **Put them all back where they live** ends a stay anywhere at once.
+
+### Up next
+
+**Up next**, under **Browse**, is the short list of books you mean to start soon, in your order: drag them, or move them a step at a time. **Read next** on a book puts it there. **Hold** keeps one waiting until a day, or for a mood ("for the winter"), without losing its place; a book in a series waits, unheld, for the one before it. When you finish a book, its page offers the next of its series first, then the queue.
 
 ### Your year in books
 
@@ -124,7 +138,31 @@ Under **Your copies**, **Tidy up** puts a shelf brought in from files and other 
 - **Authors written more than one way**: "Le Guin, Ursula K.", "Ursula K Le Guin", and "URSULA K. LE GUIN" are the same person. Each group lists its spellings with how many books use each; choose the one to keep, or use the most common spelling for every group at once.
 - **Series inside titles**: titles like *The Tombs of Atuan (Earthsea Cycle, #2)* or *Discworld 08 - Guards! Guards!* name their series. Taking it out leaves the title alone and sets the series and number, so the book shows with the rest of its series.
 
+- **Gaps and oddities**: paper copies with no ISBN, books in a series with no number, books with no author known, and page counts that look wrong (past 5,000, or far from the other copies of the same book), listed to open one by one. Nothing changes from here.
+- **Formats that may not last**: files in formats few programs will open in years to come (Mobipocket, Kindle's own, `.lit`, a comic in RAR, Audible's `.aax`) or locked by the shop they came from, each with what would last better.
+- **Publishers written more than one way**: "Penguin Books", "Penguin", and "PENGUIN BOOKS LTD" are one publisher; choose the spelling to keep.
+
 Every change made here, details filled in included, can be undone at once under [Trash & undo](#trash-and-undo).
+
+## Your collection over time
+
+**Your collection over time**, under **Browse**, follows the shelf itself rather than the reading: year by year, the copies that came (by the day acquired, or added), were finished, and left, how many were kept at each year's end, and what was spent and got back. Beneath, what waits to be read, by how long, format, subject, and series; the books never opened in two years or more, the longest waiting first; and the books read again and again.
+
+**Price paid**, among a copy's details, counts toward what was spent, in the currency set by `Shelf:Currency`. **Let this copy go**, on a book's page, records that it was donated, sold, given away, discarded, or lost, when, to whom, and for how much: the copy leaves the library and the queue, and keeps its record and your reading. **It's back on the shelf** undoes it. Goals for reading what was already on the shelf when the year began, and for letting copies go, are under **Insights**.
+
+## Rules
+
+**Rules**, under **Settings**, do small things for you when something happens to one of your books: when a book is added, started, finished, read again, lent, or comes back, or when a loan is overdue. A rule can ask that the book have a tag, author, series, format, rating, place, or be loved, and then tags it, takes a tag off, puts it in a collection or takes it out, puts it in your queue or takes it out, marks it loved, notes it at a place, or tells you, by every way you set up [notifications](notifications.md).
+
+**Try it** shows what a rule would do to your books as they are now, and changes nothing. A rule acts a moment after the change that set it off; each run is listed under **What rules did**, and what it changed can be undone under [Trash & undo](#trash-and-undo). What rules do never sets off rules, so two can't keep answering each other.
+
+## Ask your shelf
+
+**Ask your shelf**, under **Browse**, answers questions in everyday words from your own books, notes, and quotes, each with a link: "Which unread books do I own about Roman history?", "Find the mystery novel my friend recommended last year", "Which books in the Discworld series have I not read?", "Show my favourite quotes about creativity". It says how it understood the question. The words are read by simple rules, in English; when an admin has set an Anthropic key (`Recap:ApiKey`), the question alone is read by the model, in any language, to say what it asks, and the answer still comes only from your shelf. Nothing from your shelf is sent. `Ask:UseModel` set to `false` keeps the question on the server too.
+
+## Your library's future
+
+**Your library's future**, under **Settings**, keeps what you would like done with your books should you be unable to see to them: a word for whoever looks after it, and who is to have which books, by a tag, a collection, or everything no one else is to have. It is sealed with the server's keys where it is kept, and shown to no one but you. **Print the plan** and **Download the list of books** give it to keep with your papers. It is a note of wishes, not a will.
 
 ## Activity
 

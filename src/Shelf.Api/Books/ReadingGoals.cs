@@ -12,6 +12,12 @@ public enum GoalKind
     Author,
     Series,
     NewAuthors,
+
+    // Books finished that were already on the shelf when the year began.
+    Backlog,
+
+    // Copies let go in the year: donated, sold, given away.
+    LetGo,
 }
 
 // A goal of the reader's own for a year, beside the books, pages, and hours: three books of history, two by Ursula
@@ -68,7 +74,7 @@ public static class ReadingGoals
             return (null, T("Aim for between 1 and 1,000 books."));
         }
 
-        if (request.Kind == GoalKind.NewAuthors)
+        if (request.Kind is GoalKind.NewAuthors or GoalKind.Backlog or GoalKind.LetGo)
         {
             name = null;
         }
@@ -110,7 +116,7 @@ public static class ReadingGoals
         var finishes = (await Rereads.FinishesAsync(db, year, cancellationToken)).OrderBy(finish => finish.FinishedOn).ToList();
         var ids = finishes.Select(finish => finish.BookId).Distinct().ToList();
         var details = await db.Books.AsNoTracking().Where(book => ids.Contains(book.Id))
-            .Select(book => new { book.Id, book.Series, Tags = book.Tags.Select(tag => tag.Name).ToList() })
+            .Select(book => new { book.Id, book.Series, book.AddedAt, Tags = book.Tags.Select(tag => tag.Name).ToList() })
             .ToDictionaryAsync(book => book.Id, cancellationToken);
 
         HashSet<string>? before = null;
@@ -122,11 +128,25 @@ public static class ReadingGoals
                 .Select(Key).ToHashSet();
         }
 
+        var yearStart = new DateTimeOffset(year, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var letGo = goals.Any(goal => goal.Kind == GoalKind.LetGo)
+            ? await db.Books.AsNoTracking().Where(book => book.LeftOn >= new DateOnly(year, 1, 1) && book.LeftOn <= new DateOnly(year, 12, 31))
+                .OrderBy(book => book.LeftOn).Select(book => book.Title).ToListAsync(cancellationToken)
+            : [];
         var now = today ?? DateOnly.FromDateTime(DateTime.UtcNow);
         return goals.Select(goal =>
         {
             List<string> counted;
-            if (goal.Kind == GoalKind.NewAuthors)
+            if (goal.Kind == GoalKind.LetGo)
+            {
+                counted = letGo;
+            }
+            else if (goal.Kind == GoalKind.Backlog)
+            {
+                counted = finishes.Where(finish => details.TryGetValue(finish.BookId, out var book) && book.AddedAt < yearStart)
+                    .DistinctBy(finish => finish.BookId).Select(finish => finish.Title).ToList();
+            }
+            else if (goal.Kind == GoalKind.NewAuthors)
             {
                 // Each new author once, by the first of their books finished in the year.
                 counted = finishes.Where(finish => !before!.Contains(Key(finish.Author)))
@@ -151,6 +171,8 @@ public static class ReadingGoals
         GoalKind.Tag => target == 1 ? T("1 book tagged {0}", name ?? "") : T("{0} books tagged {1}", target, name ?? ""),
         GoalKind.Author => target == 1 ? T("1 book by {0}", name ?? "") : T("{0} books by {1}", target, name ?? ""),
         GoalKind.Series => target == 1 ? T("1 book in {0}", name ?? "") : T("{0} books in {1}", target, name ?? ""),
+        GoalKind.Backlog => target == 1 ? T("1 book from before the year began") : T("{0} books from before the year began", target),
+        GoalKind.LetGo => target == 1 ? T("1 copy let go") : T("{0} copies let go", target),
         _ => target == 1 ? T("1 author new to you") : T("{0} authors new to you", target),
     };
 

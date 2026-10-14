@@ -122,6 +122,14 @@ public static class BookEndpoints
         HouseholdCalendar.Map(books);
         Research.Map(books);
         Vocabulary.Map(books);
+        PlaceTree.Map(books);
+        Positions.Map(books);
+        Automations.Map(books);
+        Lifecycle.Map(books);
+        ReadingQueue.Map(books);
+        NoteSearch.Map(books);
+        Concierge.Map(books);
+        Legacy.Map(books);
 
         // Another shelf reaches these with a device key; the rest of the API needs a signed-in reader.
         var sync = app.MapGroup("/books/sync").WithTags("Shelf").RequireAuthorization(SyncEndpoints.Policy);
@@ -396,7 +404,7 @@ public static class BookEndpoints
 
             return TypedResults.Redirect(result is null
                 ? "/backup?restore=unreadable"
-                : $"/backup?restore=done&added={result.Added}&skipped={result.Skipped}&files={result.Files}");
+                : $"/backup?restore=done&added={result.Added}&skipped={result.Skipped}&files={result.Files}&damaged={result.Damaged}");
         }
         finally
         {

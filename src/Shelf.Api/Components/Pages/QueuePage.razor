@@ -1,0 +1,151 @@
+@page "/queue"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("Up next") · Shelf</PageTitle>
+
+<h1>@T("Up next")</h1>
+<p class="hint">@T("The few books you mean to start soon, in your order: shorter than everything you want to read. Hold one for a day or a mood and it keeps its place. When you finish a book, the next in its series comes first, then this queue.")</p>
+
+@if (note is not null)
+{
+    <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
+}
+
+@if (view is not null)
+{
+    @if (view.Ready.Length == 0 && view.Held.Length == 0)
+    {
+        <EmptyState Title="@T("Nothing queued")" Text="@T("Choose Read next on a book you want to read, and it waits here.")" ActionHref="/library?status=Want" ActionLabel="@T("Want to read")" />
+    }
+
+    @if (view.Ready.Length > 0)
+    {
+        <section class="panel">
+            <h2>@T("Ready")</h2>
+            <ol class="queue-list">
+                @for (var at = 0; at < view.Ready.Length; at++)
+                {
+                    var book = view.Ready[at];
+                    var place = at;
+                    <li class="queue-item @(dragging == book.Id ? "dragging" : null)" draggable="true"
+                        @ondragstart="() => dragging = book.Id" @ondragend="() => dragging = null"
+                        @ondragover:preventDefault @ondrop="() => DropOn(book.Id)">
+                        <BookCover Title="@book.Title" Url="@book.Cover" Width="2.5rem" />
+                        <span class="queue-title">
+                            <a href="/library/@book.Id">@book.Title</a>
+                            <span class="hint">@book.Author@(book.Series is { } series ? " · " + series + (book.SeriesNumber is int number ? $" #{number}" : "") : "")@(book.Waiting is { } waiting ? " · " + waiting : "")</span>
+                        </span>
+                        <span class="queue-actions">
+                            <button type="button" class="quiet" @onclick="() => Move(place, -1)" disabled="@(place == 0)" aria-label="@T("Move {0} up", book.Title)">↑</button>
+                            <button type="button" class="quiet" @onclick="() => Move(place, 1)" disabled="@(place == view.Ready.Length - 1)" aria-label="@T("Move {0} down", book.Title)">↓</button>
+                            <button type="button" class="quiet" @onclick="() => holding = book.Id">@T("Hold")</button>
+                            <button type="button" class="quiet" @onclick="() => Remove(book.Id)">@T("Take out")</button>
+                        </span>
+                        @if (holding == book.Id)
+                        {
+                            <div class="queue-hold">
+                                <label>@T("Until") <input type="date" @bind="holdUntil" /></label>
+                                <label>@T("Or for") <input maxlength="80" @bind="holdNote" placeholder="@T("the winter, a holiday, a lighter mood")" /></label>
+                                <button type="button" class="primary" @onclick="() => Hold(book.Id)" disabled="@(holdUntil is null && string.IsNullOrWhiteSpace(holdNote))">@T("Hold it")</button>
+                                <button type="button" class="quiet" @onclick="() => holding = null">@T("Cancel")</button>
+                            </div>
+                        }
+                    </li>
+                }
+            </ol>
+        </section>
+    }
+
+    @if (view.Held.Length > 0)
+    {
+        <section class="panel">
+            <h2>@T("Held")</h2>
+            <ul class="plain-list">
+                @foreach (var book in view.Held)
+                {
+                    <li>
+                        <a href="/library/@book.Id">@book.Title</a>
+                        <span class="hint">@book.Author · @(book.HeldUntil is DateOnly until ? T("until {0}", until.Medium()) : T("for {0}", book.HoldNote ?? ""))</span>
+                        <button type="button" class="quiet" @onclick="() => Release(book.Id)">@T("Ready now")</button>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+}
+
+@code {
+    private QueueView? view;
+    private int? dragging;
+    private int? holding;
+    private DateOnly? holdUntil;
+    private string? holdNote;
+    private string? note;
+    private bool problem;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        view = await ReadingQueue.ViewAsync(db);
+    }
+
+    private async Task SaveOrder(List<int> ids)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await ReadingQueue.OrderAsync(db, [.. ids, .. view!.Held.Select(book => book.Id)]);
+        await LoadAsync();
+    }
+
+    private async Task Move(int at, int by)
+    {
+        var ids = view!.Ready.Select(book => book.Id).ToList();
+        var to = at + by;
+        if (to < 0 || to >= ids.Count)
+        {
+            return;
+        }
+
+        (ids[at], ids[to]) = (ids[to], ids[at]);
+        await SaveOrder(ids);
+    }
+
+    private async Task DropOn(int target)
+    {
+        if (dragging is not int moving || moving == target)
+        {
+            dragging = null;
+            return;
+        }
+
+        var ids = view!.Ready.Select(book => book.Id).ToList();
+        ids.Remove(moving);
+        ids.Insert(ids.IndexOf(target), moving);
+        dragging = null;
+        await SaveOrder(ids);
+    }
+
+    private async Task Hold(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await ReadingQueue.HoldAsync(db, id, holdUntil, holdNote);
+        (holding, holdUntil, holdNote) = (null, null, null);
+        await LoadAsync();
+    }
+
+    private async Task Release(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await ReadingQueue.HoldAsync(db, id, null, null);
+        await LoadAsync();
+    }
+
+    private async Task Remove(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await ReadingQueue.RemoveAsync(db, id);
+        await LoadAsync();
+    }
+}

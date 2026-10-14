@@ -4,6 +4,7 @@
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject NavigationManager Navigation
 @inject IServiceProvider Services
+@inject ReleaseWatch Releases
 
 @if (!signedIn)
 {
@@ -49,6 +50,22 @@ else
                     </aside>
                 </details>
             </header>
+
+            @* For admins: a newer Shelf is out, until they update or say not now. *@
+            @if (release is { } newer)
+            {
+                <div class="notice release-notice" role="status">
+                    <p>
+                        @T("Shelf {0} is out; this server runs {1}.", newer.Version, ShelfVersion.Number)
+                        <a href="@newer.Url" rel="noopener">@T("What's new")</a> ·
+                        <a href="https://doodersrage.github.io/shelf/install.html#updating" rel="noopener">@T("How to update")</a>
+                    </p>
+                    <form method="post" action="/admin/release/dismiss" data-enhance="false">
+                        <AntiforgeryToken />
+                        <button type="submit" class="quiet">@T("Not now")</button>
+                    </form>
+                </div>
+            }
 
             @* Home names each of these itself, under Needs you. *@
             @if (reminders is { Any: true } due && new Uri(Navigation.Uri).AbsolutePath != "/")
@@ -108,6 +125,7 @@ else
     private int authorAlerts;
     private bool fetching;
     private ImportSummary? import;
+    private ShelfRelease? release;
     private string importDone = "";
 
     private string? SavedCurrent(int id) =>
@@ -155,6 +173,7 @@ else
             <summary>@T("Browse")</summary>
             <ul>
                 <li><a href="/library?status=Want" aria-current="@Current("/library?status=Want")">@T("Want to read")</a></li>
+                <li><a href="/queue" aria-current="@Current("/queue")">@T("Up next")</a></li>
                 <li><a href="/library?status=Finished" aria-current="@Current("/library?status=Finished")">@T("Finished")</a></li>
                 @foreach (var search in savedSearches)
                 {
@@ -187,6 +206,7 @@ else
                 <li><a href="/research" aria-current="@Current("/research")">@T("Reference desk")</a></li>
                 <li><a href="/words" aria-current="@Current("/words")">@T("Words and passages")</a></li>
                 <li><a href="/quotes" aria-current="@Current("/quotes")">@T("Quotes & highlights")</a></li>
+                <li><a href="/ask" aria-current="@Current("/ask")">@T("Ask your shelf")</a></li>
                 <li><a href="/search" aria-current="@Current("/search")">@T("Search inside books")</a></li>
                 <li><a href="/next" aria-current="@Current("/next")">@T("What to read next")</a></li>
                 <li><a href="/dna" aria-current="@Current("/dna")">@T("Reading DNA")</a></li>
@@ -197,6 +217,7 @@ else
                 <li><a href="/clubs" aria-current="@Current("/clubs")">@T("Book clubs")</a></li>
                 <li><a href="/free" aria-current="@Current("/free")">@T("Free books")</a></li>
                 <li><a href="/years" aria-current="@Current("/years")">@T("Years")</a></li>
+                <li><a href="/lifecycle" aria-current="@Current("/lifecycle")">@T("Your collection over time")</a></li>
             </ul>
         </details>
         <details class="nav-group" open="@Within(CopiesLinks)">
@@ -207,6 +228,7 @@ else
                     <li><a href="/shelves" aria-current="@Current("/shelves")">@T("Shelves")</a></li>
                 }
                 <li><a href="/places" aria-current="@Current("/places")">@T("Places")</a></li>
+                <li><a href="/moving" aria-current="@Current("/moving")">@T("Moving house")</a></li>
                 <li><a href="/scan" aria-current="@Current("/scan")">@T("Scan books")</a></li>
                 <li><a href="/labels" aria-current="@Current("/labels")">@T("QR labels")</a></li>
                 <li><a href="/copies" aria-current="@Current("/copies")">@T("Condition")</a></li>
@@ -222,11 +244,18 @@ else
                 <li><a href="/activity" aria-current="@Current("/activity")">@T("Activity")</a></li>
                 <li><a href="/backup" aria-current="@Current("/backup")">@T("Backup & restore")</a></li>
                 <li><a href="/trash" aria-current="@Current("/trash")">@T("Trash & undo")</a></li>
+                @if (!isChild)
+                {
+                    <li><a href="/rules" aria-current="@Current("/rules")">@T("Rules")</a></li>
+                    <li><a href="/account/legacy" aria-current="@Current("/account/legacy")">@T("Your library's future")</a></li>
+                }
                 <li><a href="/sync" aria-current="@Current("/sync")">@T("Devices")</a></li>
                 <li><a href="/offline.html">@T("Offline reading")</a></li>
                 @if (isAdmin)
                 {
-                    <li><a href="/admin" aria-current="@Current("/admin")">@T("Readers")</a></li>
+                    <li><a href="/admin" aria-current="@(new Uri(Navigation.Uri).AbsolutePath == "/admin" ? "page" : null)">@T("Readers")</a></li>
+                    <li><a href="/admin/health" aria-current="@Current("/admin/health")">@T("Server health")</a></li>
+                    <li><a href="/admin/access" aria-current="@Current("/admin/access")">@T("Who sees what")</a></li>
                     <li><a href="/downloads" aria-current="@Current("/downloads")">@T("Downloads")</a></li>
                 }
             </ul>
@@ -264,6 +293,7 @@ else
             await using var db = await DbFactory.CreateDbContextAsync();
             reminders = await Asking.RemindersAsync(db);
             isAdmin = await ReaderRules.IsAdminAsync(db, db.ReaderId);
+            release = isAdmin ? await Releases.ForAdminAsync(db) : null;
             isChild = await Family.IsRestrictedAsync(db);
             savedSearches = await db.SavedSearches.AsNoTracking().OrderBy(search => search.Name).ToListAsync();
             seriesAlerts = await SeriesWatch.CountAsync(db);
@@ -302,9 +332,9 @@ else
     private const string LoansIcon = "M7 7h11l-3-3M17 17H6l3 3";
     private const string InsightsIcon = "M5 19V11M12 19V5M19 19v-6";
 
-    private static readonly string[] BrowseLinks = ["/library?status=Want", "/library?status=Finished", "/collections", "/series", "/authors", "/find", "/podcasts", "/quotes", "/search", "/next", "/dna", "/journal", "/agenda", "/research", "/words", "/wanted", "/clubs", "/free", "/years"];
-    private static readonly string[] CopiesLinks = ["/shelves", "/places", "/scan", "/labels", "/copies", "/recommenders", "/duplicates", "/tidy"];
-    private static readonly string[] SettingsLinks = ["/account", "/activity", "/backup", "/trash", "/sync", "/admin", "/downloads"];
+    private static readonly string[] BrowseLinks = ["/library?status=Want", "/library?status=Finished", "/collections", "/series", "/authors", "/find", "/podcasts", "/quotes", "/search", "/next", "/dna", "/journal", "/agenda", "/research", "/words", "/wanted", "/clubs", "/free", "/years", "/queue", "/ask", "/lifecycle"];
+    private static readonly string[] CopiesLinks = ["/shelves", "/places", "/moving", "/scan", "/labels", "/copies", "/recommenders", "/duplicates", "/tidy"];
+    private static readonly string[] SettingsLinks = ["/account", "/activity", "/backup", "/trash", "/sync", "/admin", "/downloads", "/rules"];
 
     // A group opens by itself when the page shown is one of its own.
     private bool Within(string[] links) => links.Any(link => Current(link) is not null);

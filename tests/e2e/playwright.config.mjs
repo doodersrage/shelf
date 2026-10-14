@@ -47,6 +47,8 @@ export default defineConfig({
       CoverStore__Root: join(data, "covers"),
       DataProtection__KeysPath: join(data, "keys"),
       Backup__Enabled: "false",
+      // Asking GitHub for a newer release is left to the server tests, which hand it an answer.
+      Updates__Check: "false",
       // Free books reaches gutenberg.org and librivox.org; the server tests cover it with stand-ins instead.
       FreeBooks__Enabled: "false",
       Accounts__SignInsPerMinute: "1000",

@@ -32,36 +32,38 @@ public static class Backup
         var (export, books) = await ExportWithBooksAsync(db, cancellationToken);
         await using var output = File.Create(zipPath);
         using var zip = new ZipArchive(output, ZipArchiveMode.Create);
-        var entry = zip.CreateEntry(ShelfEntry);
-        await using (var stream = entry.Open())
+        var manifest = new ArchiveManifest();
+        await using (var stream = manifest.Create(zip, ShelfEntry))
         {
             await JsonSerializer.SerializeAsync(stream, export, JsonOptions, cancellationToken);
         }
 
-        await PortableExport.WriteAsync(db, zip, books, JsonOptions, cancellationToken);
+        await PortableExport.WriteAsync(db, zip, books, JsonOptions, manifest, cancellationToken);
 
         for (var index = 0; index < books.Count; index++)
         {
             var book = books[index];
             if (ebooks.OpenPath(book.EbookStoredName) is { } ebookPath && book.EbookFileName is { } fileName)
             {
-                zip.CreateEntryFromFile(ebookPath, $"{Folder(index)}/ebook/{SafeName(fileName)}", CompressionLevel.NoCompression);
+                await manifest.CopyAsync(zip, ebookPath, $"{Folder(index)}/ebook/{SafeName(fileName)}", cancellationToken);
             }
 
             // A kept cover picture travels with its book; a cover address is in the catalog already.
             if (covers.OpenPath(book.CoverImage) is { } coverPath)
             {
-                zip.CreateEntryFromFile(coverPath, $"{Folder(index)}/cover{Path.GetExtension(coverPath)}", CompressionLevel.NoCompression);
+                await manifest.CopyAsync(zip, coverPath, $"{Folder(index)}/cover{Path.GetExtension(coverPath)}", cancellationToken);
             }
 
             foreach (var track in audio.Tracks(book.AudioStoredName))
             {
                 if (audio.TrackPath(book.AudioStoredName, track.Index) is { } trackPath)
                 {
-                    zip.CreateEntryFromFile(trackPath, $"{Folder(index)}/audio/{Path.GetFileName(trackPath)}", CompressionLevel.NoCompression);
+                    await manifest.CopyAsync(zip, trackPath, $"{Folder(index)}/audio/{Path.GetFileName(trackPath)}", cancellationToken);
                 }
             }
         }
+
+        await manifest.FinishAsync(zip, cancellationToken);
     }
 
     public static async Task<RestoreResult?> RestoreShelfAsync(
@@ -146,7 +148,9 @@ public static class Backup
             await db.SaveChangesAsync(cancellationToken);
         }
 
-        return new RestoreResult(result.Added, result.Skipped, files);
+        // A download with a manifest is held up against it, and what doesn't match is said.
+        var check = Preservation.Check(zipPath);
+        return new RestoreResult(result.Added, result.Skipped, files, check.Damaged.Length + check.Missing.Length);
     }
 
     // Everything on the server, for an admin to keep somewhere else. Restore by unpacking it over a stopped shelf.
@@ -323,7 +327,7 @@ public static class Backup
     }
 }
 
-public sealed record RestoreResult(int Added, int Skipped, int Files);
+public sealed record RestoreResult(int Added, int Skipped, int Files, int Damaged = 0);
 
 // Sends a file made for this one response, then deletes it.
 public sealed class TempFileResult(string path, string contentType, string? downloadName = null) : IResult

@@ -75,6 +75,9 @@ public sealed class BookFormModel
 
     public DateOnly? AcquiredOn { get; set; }
 
+    [Range(0, 1000000)]
+    public decimal? PricePaid { get; set; }
+
     public string Arrival { get; set; } = "";
 
     public string Condition { get; set; } = "";
@@ -137,7 +140,7 @@ public sealed class BookFormModel
         Queued,
         Enum.TryParse<Acquisition>(Arrival, out var acquisition) ? acquisition : null,
         Enum.TryParse<CopyCondition>(Condition, out var condition) ? condition : null,
-        Narrator) with { PreviousOwners = PreviousOwners, Signed = Signed };
+        Narrator) with { PreviousOwners = PreviousOwners, Signed = Signed, PricePaid = PricePaid };
 
     public bool FillBlanks(CatalogMatch match)
     {
@@ -235,6 +238,7 @@ public sealed class BookFormModel
         Queued = false;
         Location = "";
         AcquiredOn = null;
+        PricePaid = null;
         Arrival = "";
         Condition = "";
         Translator = "";
@@ -275,6 +279,7 @@ public sealed class BookFormModel
         Queued = book.Queued,
         Location = book.Location ?? "",
         AcquiredOn = book.AcquiredOn,
+        PricePaid = book.PricePaid,
         Arrival = book.Acquisition?.ToString() ?? "",
         Condition = book.Condition?.ToString() ?? "",
         Translator = book.Translator ?? "",

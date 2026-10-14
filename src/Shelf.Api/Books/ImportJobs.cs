@@ -116,5 +116,8 @@ public sealed class ShelfJobs
     public IReadOnlyList<IShelfJob> Of(int readerId) =>
         [.. _jobs.Values.Where(job => job.ReaderId == readerId).OrderByDescending(job => job.Started)];
 
+    // Every reader's, newest first: for the admin's health page, which says only how many and how they went.
+    public IReadOnlyList<IShelfJob> All => [.. _jobs.Values.OrderByDescending(job => job.Started)];
+
     public IShelfJob? Find(int readerId, Guid id) => _jobs.TryGetValue(id, out var job) && job.ReaderId == readerId ? job : null;
 }

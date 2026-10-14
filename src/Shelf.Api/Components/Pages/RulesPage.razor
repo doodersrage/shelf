@@ -1,0 +1,253 @@
+@page "/rules"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("Rules") · Shelf</PageTitle>
+
+<h1>@T("Rules")</h1>
+<p class="hint">@T("Small things Shelf does for you when something happens to a book: when you finish one tagged mystery, put it in a collection; when a loan is overdue, tell you. A rule acts a moment after the change, and what it changes can be undone under Trash & undo. What rules do never sets off other rules.")</p>
+
+@if (note is not null)
+{
+    <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
+}
+
+@if (rules.Length > 0)
+{
+    <section class="panel">
+        <h2>@T("Your rules")</h2>
+        <ul class="plain-list rule-list">
+            @foreach (var rule in rules)
+            {
+                <li>
+                    <div>
+                        <strong>@rule.Name</strong>@(rule.Enabled ? "" : " " + T("(off)"))
+                        <p class="hint">@rule.Summary @(rule.Runs > 0 ? T("Acted {0} times, last {1}.", rule.Runs, rule.LastRun?.Medium() ?? "") : T("Hasn't acted yet."))</p>
+                    </div>
+                    <button type="button" class="quiet" @onclick="() => Try(rule)">@T("Try it")</button>
+                    <button type="button" class="quiet" @onclick="() => Edit(rule)">@T("Change")</button>
+                    <button type="button" class="quiet" @onclick="() => Toggle(rule)">@(rule.Enabled ? T("Turn off") : T("Turn on"))</button>
+                    <button type="button" class="quiet danger" @onclick="() => Remove(rule.Id)">@T("Remove")</button>
+                    @if (trying is { } tried && tried.Rule == rule.Id && tried.Result is { } result)
+                    {
+                        <div class="rule-try" role="status">
+                            <p>@(result.Matched == 0 ? T("As your books are now, it would act on none of them.") : T("As your books are now, it would act on {0}. Nothing has changed; this is what it would do:", Localization.Counts.Books(result.Matched)))</p>
+                            <ul class="plain-list">
+                                @foreach (var would in result.Would)
+                                {
+                                    <li><a href="/library/@would.BookId">@would.Title</a> <span class="hint">@would.Outcome</span></li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+<section class="panel" id="rule-form">
+    <h2>@(editingId is null ? T("A new rule") : T("Change the rule"))</h2>
+    <div class="recipe-grid">
+        <label>@T("Name") <input maxlength="@AutomationRule.MaxNameLength" @bind="name" placeholder="@T("Finished mysteries")" /></label>
+        <label>
+            @T("When")
+            <select @bind="trigger">
+                @foreach (var choice in Enum.GetValues<RuleTrigger>())
+                {
+                    <option value="@choice">@Automations.TriggerLabel(choice)</option>
+                }
+            </select>
+        </label>
+    </div>
+
+    <fieldset>
+        <legend>@T("If the book is (leave empty for any book)")</legend>
+        <div class="recipe-grid">
+            <label>@T("Tagged") <input maxlength="@BookRules.MaxTagLength" @bind="tag" /></label>
+            <label>@T("By") <input maxlength="200" @bind="author" /></label>
+            <label>@T("In the series") <input maxlength="200" @bind="series" /></label>
+            <label>
+                @T("Format")
+                <select @bind="format">
+                    <option value="">@T("Any")</option>
+                    @foreach (var choice in Enum.GetValues<BookFormat>())
+                    {
+                        <option value="@choice">@BookRules.FormatLabel(choice)</option>
+                    }
+                </select>
+            </label>
+            <label>
+                @T("Rated at least")
+                <select @bind="minRating">
+                    <option value="0">@T("Any")</option>
+                    @for (var stars = 1; stars <= 5; stars++)
+                    {
+                        <option value="@stars">@T("{0} of 5 stars", stars)</option>
+                    }
+                </select>
+            </label>
+            <label>@T("At the place") <input maxlength="80" @bind="place" /></label>
+        </div>
+        <label class="check"><input type="checkbox" @bind="loved" /> @T("Loved")</label>
+    </fieldset>
+
+    <fieldset>
+        <legend>@T("Then")</legend>
+        @for (var at = 0; at < actions.Count; at++)
+        {
+            var index = at;
+            var action = actions[index];
+            <div class="inline-form">
+                <select value="@action.Kind" @onchange="change => SetKind(index, change)" aria-label="@T("What to do")">
+                    @foreach (var choice in Enum.GetValues<RuleActionKind>())
+                    {
+                        <option value="@choice">@KindLabel(choice)</option>
+                    }
+                </select>
+                @if (action.Kind is not (RuleActionKind.Queue or RuleActionKind.Unqueue or RuleActionKind.Love))
+                {
+                    <input maxlength="200" value="@action.Value" @onchange="change => SetValue(index, change)" aria-label="@KindLabel(action.Kind)" />
+                }
+                <button type="button" class="quiet" @onclick="() => actions.RemoveAt(index)" disabled="@(actions.Count == 1)">@T("Remove")</button>
+            </div>
+        }
+        @if (actions.Count < AutomationRule.MaxActions)
+        {
+            <button type="button" class="quiet" @onclick="() => actions.Add(new RuleAction(RuleActionKind.AddTag))">@T("And also…")</button>
+        }
+    </fieldset>
+    <p class="hint">@Automations.Summary(trigger, Conditions(), actions)</p>
+    <button type="button" class="primary" @onclick="Save">@(editingId is null ? T("Add the rule") : T("Save"))</button>
+    @if (editingId is not null)
+    {
+        <button type="button" class="quiet" @onclick="ClearForm">@T("Cancel")</button>
+    }
+</section>
+
+@if (runs.Length > 0)
+{
+    <section class="panel">
+        <h2>@T("What rules did")</h2>
+        <ul class="plain-list">
+            @foreach (var run in runs)
+            {
+                <li>
+                    <strong>@run.Rule</strong>
+                    @if (run.BookId is int id)
+                    {
+                        <span> · <a href="/library/@id">@(run.Title ?? T("a book"))</a></span>
+                    }
+                    <span class="hint"> · @run.Outcome · @run.At.Medium()</span>
+                </li>
+            }
+        </ul>
+        <p class="hint">@T("To undo one, find it under Trash & undo, named after its rule.") <a href="/trash#changes">@T("Trash & undo")</a></p>
+    </section>
+}
+
+@code {
+    private RuleView[] rules = [];
+    private RunView[] runs = [];
+    private int? editingId;
+    private string? name;
+    private RuleTrigger trigger = RuleTrigger.Finished;
+    private string? tag;
+    private string? author;
+    private string? series;
+    private string format = "";
+    private int minRating;
+    private string? place;
+    private bool loved;
+    private List<RuleAction> actions = [new(RuleActionKind.AddTag)];
+    private string? note;
+    private bool problem;
+    private (int Rule, DryRunResult? Result)? trying;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        rules = await Automations.ListAsync(db);
+        runs = await Automations.RunsAsync(db, 50);
+    }
+
+    private static string KindLabel(RuleActionKind kind) => kind switch
+    {
+        RuleActionKind.AddTag => T("Tag it"),
+        RuleActionKind.RemoveTag => T("Take off a tag"),
+        RuleActionKind.AddToCollection => T("Put it in a collection"),
+        RuleActionKind.RemoveFromCollection => T("Take it out of a collection"),
+        RuleActionKind.Queue => T("Put it in my queue"),
+        RuleActionKind.Unqueue => T("Take it out of my queue"),
+        RuleActionKind.Love => T("Mark it loved"),
+        RuleActionKind.SetPlace => T("Note it at a place"),
+        _ => T("Tell me"),
+    };
+
+    private RuleConditions Conditions() => new(
+        string.IsNullOrWhiteSpace(tag) ? null : tag.Trim(), string.IsNullOrWhiteSpace(author) ? null : author.Trim(),
+        Enum.TryParse<BookFormat>(format, out var chosen) ? chosen : null, minRating == 0 ? null : minRating,
+        string.IsNullOrWhiteSpace(series) ? null : series.Trim(), loved ? true : null, string.IsNullOrWhiteSpace(place) ? null : place.Trim());
+
+    private void SetKind(int index, ChangeEventArgs change)
+    {
+        if (Enum.TryParse<RuleActionKind>(change.Value?.ToString(), out var kind))
+        {
+            actions[index] = actions[index] with { Kind = kind };
+        }
+    }
+
+    private void SetValue(int index, ChangeEventArgs change) => actions[index] = actions[index] with { Value = change.Value?.ToString() };
+
+    private void Edit(RuleView rule)
+    {
+        editingId = rule.Id;
+        (name, trigger) = (rule.Name, rule.Trigger);
+        (tag, author, series, place) = (rule.Conditions.Tag, rule.Conditions.Author, rule.Conditions.Series, rule.Conditions.Place);
+        (format, minRating, loved) = (rule.Conditions.Format?.ToString() ?? "", rule.Conditions.MinRating ?? 0, rule.Conditions.Loved == true);
+        actions = [.. rule.Actions];
+    }
+
+    private void ClearForm()
+    {
+        editingId = null;
+        (name, trigger, tag, author, series, place, format, minRating, loved) = (null, RuleTrigger.Finished, null, null, null, null, "", 0, false);
+        actions = [new(RuleActionKind.AddTag)];
+    }
+
+    private async Task Save()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var enabled = editingId is int id ? rules.FirstOrDefault(rule => rule.Id == id)?.Enabled ?? true : true;
+        var (_, said) = await Automations.SaveAsync(db, editingId, new RuleRequest(name ?? "", trigger, Conditions(), [.. actions], enabled));
+        (note, problem) = said is null ? (T("Saved."), false) : (said, true);
+        if (said is null)
+        {
+            ClearForm();
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task Toggle(RuleView rule)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Automations.SaveAsync(db, rule.Id, new RuleRequest(rule.Name, rule.Trigger, rule.Conditions, rule.Actions, !rule.Enabled));
+        await LoadAsync();
+    }
+
+    private async Task Remove(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.AutomationRules.Where(rule => rule.Id == id).ExecuteDeleteAsync();
+        await LoadAsync();
+    }
+
+    private async Task Try(RuleView rule)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        trying = (rule.Id, await Automations.DryRunAsync(db, rule.Id));
+    }
+}

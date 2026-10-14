@@ -93,7 +93,7 @@ Recaps are written by a language model: Anthropic's Claude, with a key an admin 
 
 ## Search inside books
 
-**Search inside books** finds a phrase in the words of your e-books and of books lent to you, scanned PDFs included once they have been read. Results come best match first, shown in context, and **Open here** takes you to that chapter or page. Case and accents don't matter (`cafe` finds `café`), and the last word can be partial.
+**Search inside books** finds a phrase in the words of your e-books and of books lent to you, scanned PDFs included once they have been read, and in everything you wrote yourself: notes and reviews, quotes, highlights, the reading log, the journal, and the reference desk, under **In your own words**. **Look in** keeps it to the books, to your own words, or to one kind of them; **Books** and **By** keep it to books of a status or an author. Results come best match first, shown in context, and **Open here** takes you to that chapter or page. Case and accents don't matter (`cafe` finds `café`), and the last word can be partial.
 
 It finds words said in audiobooks too, for those with a transcript (see [Read-along](audiobooks.md#read-along)): each hit says when it's heard, and **Open here** starts the player at that moment.
 
@@ -123,3 +123,5 @@ The reader counts the time you spend with a book open, while the page is in view
 On a book with both an e-book and a recording, its page shows where you are in each and when you last read or listened, and the button for the one you used last leads, with the other beside it. Each keeps its own place: reading doesn't move the recording on, nor listening the e-book. **Listen along**, in the reader, plays the two together.
 
 Your place is your own. A borrower has a place of their own in a book lent to them, separate from the owner's. KOReader and another shelf can move your place forward too; see [Devices and apps](devices.md).
+
+A place moves only forward by itself, so a device that is behind never sends you back. When two disagree, **Where each device has you**, on the book's page, lists where each said you were and when: Shelf's reader and player, reading offline, KOReader (by its device name), and the Audiobookshelf apps. **Go here** takes the one that's right, back or forward, and the choices made are kept beneath.

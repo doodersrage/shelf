@@ -1,0 +1,53 @@
+@page "/account/legacy/print"
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject Legacy Plans
+
+<PageTitle>@T("Your library's future") · Shelf</PageTitle>
+
+<div class="legacy-print">
+    <p class="label-controls"><button type="button" class="primary" onclick="window.print()">@T("Print")</button></p>
+    <h1>@T("What I would like done with my books")</h1>
+    <p class="hint">@T("Written on Shelf by {0}; as it stood on {1}. A note of wishes, not a will.", reader, DateTimeOffset.UtcNow.Medium())</p>
+    @if (view?.Keeper is { } keeper)
+    {
+        <h2>@T("For whoever looks after it")</h2>
+        <p>@keeper</p>
+    }
+    @if (view?.Instructions is { } words)
+    {
+        <p class="legacy-words">@words</p>
+    }
+    @foreach (var share in shares)
+    {
+        var person = view?.Recipients.FirstOrDefault(item => item.Name == share.Recipient);
+        <h2>@share.Recipient <span class="hint">@Localization.Counts.Books(share.Books.Length)</span></h2>
+        @if (person?.Contact is { } contact)
+        {
+            <p>@contact</p>
+        }
+        @if (person?.Note is { } said)
+        {
+            <p class="legacy-words">@said</p>
+        }
+        <ol class="legacy-books">
+            @foreach (var book in share.Books)
+            {
+                <li>@book.Title — @book.Author@(book.Year is int year ? $" ({year})" : "")@(book.Location is { } at ? " · " + at : "")@(book.Signed ? " · " + T("signed") : "")</li>
+            }
+        </ol>
+    }
+</div>
+
+@code {
+    private LegacyView? view;
+    private LegacyShare[] shares = [];
+    private string reader = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        view = await Plans.ViewAsync(db);
+        shares = await Plans.InventoryAsync(db);
+        reader = await db.Readers.AsNoTracking().Where(item => item.Id == db.ReaderId).Select(item => item.Name).FirstOrDefaultAsync() ?? "";
+    }
+}

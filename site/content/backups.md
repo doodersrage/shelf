@@ -25,6 +25,8 @@ On **Backup & restore**, **Download everything** gives a zip of your shelf: the 
 
 The zip also carries your records in plainer forms, with a `README.md` saying what each file is: `books.csv`, a row a book, for a spreadsheet; `collections.json`, with the note on each book; `loans.json`, every loan of your books; and `borrowed-highlights.json`, what you marked in books others lent you. Only your own records are in it. Each reader on a shelf downloads their own, and nothing of another reader's is ever in it.
 
+Every file in it is listed in `manifest.json` with its size and SHA-256, and `SCHEMA.md` says what each file holds, field by field, so the download can be checked and read without Shelf. Restoring one holds it against its manifest and says if any file was damaged or changed since.
+
 To restore one, here or on another shelf, upload it on the same page. Books already on the shelf are skipped, so restoring twice does no harm.
 
 Your quotes, highlights, notes, and reviews also download as Markdown, one file a book, for a notes app.

@@ -185,6 +185,10 @@ else if (Borrowable.Length > 0)
             @T("Acquired")
             <InputDate @bind-Value="Model.AcquiredOn" />
         </label>
+        <label>
+            @T("Price paid")
+            <InputNumber @bind-Value="Model.PricePaid" step="0.01" min="0" />
+        </label>
     </div>
     <label>
         @T("How it arrived")

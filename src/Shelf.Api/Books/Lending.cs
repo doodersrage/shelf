@@ -220,6 +220,7 @@ public static class Lending
             book.AudioTrack = place.AudioTrack;
             book.AudioSeconds = place.AudioSeconds;
             await db.SaveChangesAsync(cancellationToken);
+            await Positions.NoteAsync(db, book.Id, Said(move), place, cancellationToken);
             return;
         }
 
@@ -238,6 +239,15 @@ public static class Lending
 
         Move(kept, move);
         await db.SaveChangesAsync(cancellationToken);
+        await Positions.NoteAsync(db, open.Book.Id, Said(move), kept, cancellationToken);
+    }
+
+    // What a move says on its own, from nowhere: the place the source gave, before Shelf weighed it against its own.
+    private static LoanPlace Said(Action<LoanPlace> move)
+    {
+        var said = new LoanPlace();
+        move(said);
+        return said;
     }
 
     // A move that changes the chapter alone (a Kobo, KOReader, or offline reading, which know chapters only) leaves
@@ -281,6 +291,7 @@ public static class Lending
             return TypedResults.NotFound();
         }
 
+        using var _ = Positions.Reporting("Shelf", "offline");
         await KeepPlaceAsync(db, open, place =>
         {
             if (chapter > (place.EbookChapter ?? -1))

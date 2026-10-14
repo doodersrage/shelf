@@ -1069,8 +1069,73 @@ else if (book is not null)
         }
     </section>
 
+    @if (positions is { Reports.Length: > 0 } where && (where.Reports.Length > 1 || where.Reports.Any(report => !report.Current)))
+    {
+        <section class="panel" id="positions">
+            <details open="@where.Reports.Any(report => !report.Current)">
+                <summary><h2>@T("Where each device has you")</h2></summary>
+                <p class="hint">@T("Shelf keeps you at {0}. A place only moves forward by itself; if another is right, choose it here, back or forward.", where.Current)</p>
+                <ul class="plain-list">
+                    @foreach (var report in where.Reports)
+                    {
+                        <li>
+                            <strong>@Positions.SourceLabel(report.Source, report.Device)</strong>
+                            <span>@report.Where</span>
+                            <span class="hint">@report.At.Medium()@(report.Current ? " · " + T("where Shelf keeps you") : "")</span>
+                            @if (!report.Current)
+                            {
+                                <button type="button" class="quiet" @onclick="() => UsePosition(report.Id)">@T("Go here")</button>
+                            }
+                        </li>
+                    }
+                </ul>
+                @if (where.Chosen.Length > 0)
+                {
+                    <p class="hint">@T("Chosen before:") @string.Join("; ", where.Chosen.Select(choice => T("{0}: {1} instead of {2}", choice.At.Medium(), choice.Place, choice.Before)))</p>
+                }
+            </details>
+        </section>
+    }
+
     <section class="panel" id="copy">
         <h2>@T("Your copy")</h2>
+        @if (copyNote is not null)
+        {
+            <p class="validation-message" role="alert">@copyNote</p>
+        }
+        @if (book.HomeLocation is { } home)
+        {
+            <p>@T("At {0} for now; it lives at {1}.", book.Location ?? T("no place"), home) <button type="button" class="quiet" @onclick="PutBackHome">@T("Put it back")</button></p>
+        }
+        @if (book.LeftOn is not null)
+        {
+            <p>@Lifecycle.Describe(book). <button type="button" class="quiet" @onclick="TakeBack">@T("It's back on the shelf")</button></p>
+        }
+        else if (book.VisitingLinkId is null)
+        {
+            <details class="let-go">
+                <summary>@T("Let this copy go")</summary>
+                <p class="hint">@T("Donated, sold, given away: the copy leaves the library, and its record and your reading stay, under Let go.")</p>
+                <div class="recipe-grid">
+                    <label>
+                        @T("How")
+                        <select @bind="leaveHow">
+                            @foreach (var how in Enum.GetValues<Departure>())
+                            {
+                                <option value="@how">@Lifecycle.DepartureLabel(how)</option>
+                            }
+                        </select>
+                    </label>
+                    <label>@T("When") <input type="date" @bind="leaveOn" /></label>
+                    <label>@T("To whom, or where") <input maxlength="120" @bind="leaveTo" /></label>
+                    @if (leaveHow == Departure.Sold)
+                    {
+                        <label>@T("Sold for") <input type="number" min="0" step="0.01" @bind="leaveFor" /></label>
+                    }
+                </div>
+                <button type="button" @onclick="LetGo">@T("Let it go")</button>
+            </details>
+        }
         <p class="hint">@T("Pictures of this copy: an inscription, a signature, a bookplate, the spine. Only you see them.")</p>
         @if (PhotoMessage == "saved")
         {
@@ -1530,7 +1595,9 @@ else if (book is not null)
             Add(T("Finished"), book.FinishedOn?.Medium());
             Add(T("Arrived"), string.Join(" · ", new[] { book.Acquisition is Acquisition arrived ? BookRules.AcquisitionLabel(arrived) : null, book.AcquiredOn?.Medium() }.Where(part => !string.IsNullOrWhiteSpace(part))));
             Add(T("Condition"), book.Condition is CopyCondition condition ? BookRules.ConditionLabel(condition) : null);
-            Add(T("Place"), book.Location);
+            Add(T("Price paid"), book.PricePaid is decimal price ? Money.Show(price) : null);
+            Add(T("Place"), book.HomeLocation is { } home ? T("{0}, for now; usually {1}", book.Location ?? T("no place"), home) : book.Location);
+            Add(T("Let go"), book.LeftOn is DateOnly left ? Lifecycle.Describe(book) : null);
             Add(T("Recommended by"), book.RecommendedBy);
             Add(T("Earlier owners"), book.PreviousOwners);
             Add(T("Signed"), book.Signed ? T("Signed by the author") : null);
@@ -1721,6 +1788,42 @@ else if (book is not null)
     private ReadThrough[] throughs = [];
     private BookLinked[] links = [];
     private CopyPhotoResponse[] photos = [];
+    private PositionsOfBook? positions;
+    private Departure leaveHow = Departure.Donated;
+    private DateOnly? leaveOn;
+    private string? leaveTo;
+    private decimal? leaveFor;
+    private string? copyNote;
+
+    private async Task UsePosition(int reportId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Positions.UseAsync(db, Id, reportId);
+        copyNote = null;
+        await LoadAsync(replaceDraft: false);
+    }
+
+    private async Task LetGo()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        copyNote = await Lifecycle.LetGoAsync(db, Id, new LetGoRequest(leaveHow, leaveOn, leaveTo, leaveFor));
+        await LoadAsync(replaceDraft: false);
+    }
+
+    private async Task TakeBack()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Lifecycle.TakeBackAsync(db, Id);
+        copyNote = null;
+        await LoadAsync(replaceDraft: false);
+    }
+
+    private async Task PutBackHome()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await PlaceTree.PutBackAsync(db, [Id]);
+        await LoadAsync(replaceDraft: false);
+    }
     private int? editingRead;
     private int readRating;
     private string readThoughts = "";
@@ -1859,6 +1962,7 @@ else if (book is not null)
         throughs = book is null || pastReads.Length == 0 ? [] : await Rereads.ThroughsAsync(db, book.Id) ?? [];
         links = book is null ? [] : await BookLinks.ForBookAsync(db, book.Id);
         photos = book is null ? [] : await CopyPhotos.ListAsync(db, book.Id);
+        positions = book is null ? null : await Positions.ForBookAsync(db, book.Id, Audio);
         others = book is null
             ? []
             : await db.Books.AsNoTracking()
@@ -2125,10 +2229,10 @@ else if (book is not null)
         saved = false;
         if (status == BookStatus.Finished)
         {
-            // A few to choose from next: the read-next list first, else what the shelf would pick.
-            var shelf = await db.Books.AsNoTracking().Where(item => item.Status == BookStatus.Want && item.Id != Id).ToListAsync();
-            var queue = shelf.Where(item => item.Queued).OrderBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase).Take(3).ToList();
-            nextChoices = queue.Count > 0 ? queue : BookRules.Pick(shelf, BookStatus.Want, DateOnly.FromDateTime(DateTime.UtcNow)) is { } pick ? [pick] : [];
+            // A few to choose from next: the next in its series, then the queue in its order, else what the shelf would pick.
+            var queue = await ReadingQueue.UpNextAsync(db, existing);
+            nextChoices = queue.Count > 0 ? queue
+                : BookRules.Pick(await db.Books.AsNoTracking().Where(item => item.Status == BookStatus.Want && item.LeftOn == null && item.Id != Id).ToListAsync(), BookStatus.Want, DateOnly.FromDateTime(DateTime.UtcNow)) is { } pick ? [pick] : [];
             justFinished = true;
         }
         else

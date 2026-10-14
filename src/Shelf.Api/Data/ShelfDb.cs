@@ -107,6 +107,13 @@ public class ShelfDb : DbContext
     public DbSet<ResearchNote> ResearchNotes => Set<ResearchNote>();
     public DbSet<VocabularyWord> VocabularyWords => Set<VocabularyWord>();
     public DbSet<ParallelPassage> ParallelPassages => Set<ParallelPassage>();
+    public DbSet<StoragePlace> StoragePlaces => Set<StoragePlace>();
+    public DbSet<PositionReport> PositionReports => Set<PositionReport>();
+    public DbSet<PositionChoiceRow> PositionChoices => Set<PositionChoiceRow>();
+    public DbSet<AutomationRule> AutomationRules => Set<AutomationRule>();
+    public DbSet<AutomationRun> AutomationRuns => Set<AutomationRun>();
+    public DbSet<LegacyPlan> LegacyPlans => Set<LegacyPlan>();
+    public DbSet<LegacyRecipient> LegacyRecipients => Set<LegacyRecipient>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -140,6 +147,12 @@ public class ShelfDb : DbContext
             book.Property(b => b.Format).HasConversion<string>().HasMaxLength(16);
             book.Property(b => b.Acquisition).HasConversion<string>().HasMaxLength(16);
             book.Property(b => b.Condition).HasConversion<string>().HasMaxLength(16);
+            book.Property(b => b.PricePaid).HasPrecision(12, 2);
+            book.Property(b => b.SoldFor).HasPrecision(12, 2);
+            book.Property(b => b.LeftHow).HasConversion<string>().HasMaxLength(16);
+            book.Property(b => b.LeftTo).HasMaxLength(120);
+            book.Property(b => b.HoldNote).HasMaxLength(80);
+            book.Property(b => b.HomeLocation).HasMaxLength(80);
             book.Property(b => b.EbookFileName).HasMaxLength(200);
             book.Property(b => b.EbookStoredName).HasMaxLength(48);
             book.Property(b => b.AudioFileName).HasMaxLength(200);
@@ -279,6 +292,80 @@ public class ShelfDb : DbContext
             pair.HasOne<Book>().WithMany().HasForeignKey(item => item.OtherId).OnDelete(DeleteBehavior.Cascade);
             pair.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
             pair.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<StoragePlace>(place =>
+        {
+            place.Property(item => item.Name).HasMaxLength(StoragePlace.MaxNameLength).IsRequired();
+            place.Property(item => item.Kind).HasConversion<string>().HasMaxLength(16);
+            place.Property(item => item.Note).HasMaxLength(StoragePlace.MaxNoteLength);
+            place.HasIndex(item => item.OwnerId);
+            place.HasOne<StoragePlace>().WithMany().HasForeignKey(item => item.ParentId).OnDelete(DeleteBehavior.Restrict);
+            place.HasOne<StoragePlace>().WithMany().HasForeignKey(item => item.DestinationId).OnDelete(DeleteBehavior.Restrict);
+            place.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            place.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        // Places told by each source, the reader's own whether the book is theirs or lent to them.
+        modelBuilder.Entity<PositionReport>(report =>
+        {
+            report.Property(item => item.Source).HasMaxLength(PositionReport.MaxSourceLength).IsRequired();
+            report.Property(item => item.Device).HasMaxLength(PositionReport.MaxDeviceLength).IsRequired();
+            report.Property(item => item.EbookCfi).HasMaxLength(1000);
+            report.HasIndex(item => new { item.ReaderId, item.BookId, item.Source, item.Device }).IsUnique();
+            report.HasOne<Book>().WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
+            report.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+            report.HasQueryFilter(item => item.ReaderId == ReaderId);
+        });
+
+        modelBuilder.Entity<PositionChoiceRow>(choice =>
+        {
+            choice.ToTable("PositionChoices");
+            choice.Property(item => item.Source).HasMaxLength(PositionReport.MaxSourceLength).IsRequired();
+            choice.Property(item => item.Device).HasMaxLength(PositionReport.MaxDeviceLength).IsRequired();
+            choice.Property(item => item.Place).HasMaxLength(200).IsRequired();
+            choice.Property(item => item.Before).HasMaxLength(200).IsRequired();
+            choice.HasIndex(item => new { item.ReaderId, item.BookId });
+            choice.HasOne<Book>().WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
+            choice.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+            choice.HasQueryFilter(item => item.ReaderId == ReaderId);
+        });
+
+        modelBuilder.Entity<AutomationRule>(rule =>
+        {
+            rule.Property(item => item.Name).HasMaxLength(AutomationRule.MaxNameLength).IsRequired();
+            rule.Property(item => item.Trigger).HasConversion<string>().HasMaxLength(16);
+            rule.Property(item => item.Conditions).HasMaxLength(2000).IsRequired();
+            rule.Property(item => item.Actions).HasMaxLength(4000).IsRequired();
+            rule.HasIndex(item => new { item.OwnerId, item.Trigger });
+            rule.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            rule.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<AutomationRun>(run =>
+        {
+            run.Property(item => item.Outcome).HasMaxLength(AutomationRun.MaxOutcomeLength).IsRequired();
+            run.HasIndex(item => new { item.OwnerId, item.RuleId });
+            run.HasOne<AutomationRule>().WithMany().HasForeignKey(item => item.RuleId).OnDelete(DeleteBehavior.Cascade);
+            run.HasOne<Book>().WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.SetNull);
+            run.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<LegacyPlan>(plan =>
+        {
+            plan.HasIndex(item => item.OwnerId).IsUnique();
+            plan.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            plan.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<LegacyRecipient>(recipient =>
+        {
+            recipient.Property(item => item.Name).IsRequired();
+            recipient.Property(item => item.Tag).HasMaxLength(BookRules.MaxTagLength);
+            recipient.HasIndex(item => item.OwnerId);
+            recipient.HasOne<Collection>().WithMany().HasForeignKey(item => item.CollectionId).OnDelete(DeleteBehavior.SetNull);
+            recipient.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            recipient.HasQueryFilter(item => item.OwnerId == ReaderId);
         });
 
         modelBuilder.Entity<ImportRecipe>(recipe =>
@@ -719,6 +806,7 @@ public class ShelfDb : DbContext
             reader.Property(r => r.NtfyUrl).HasMaxLength(500);
             reader.Property(r => r.CalendarTokenHash).HasMaxLength(64);
             reader.Property(r => r.PublicToken).HasMaxLength(40);
+            reader.Property(r => r.DismissedRelease).HasMaxLength(32);
             reader.HasIndex(r => r.PublicToken).IsUnique();
             reader.Property(r => r.NtfyToken).HasMaxLength(1000);
             reader.Property(r => r.GotifyUrl).HasMaxLength(500);

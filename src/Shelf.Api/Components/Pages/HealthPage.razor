@@ -1,0 +1,111 @@
+@page "/admin/health"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject ShelfHealth Health
+@inject ReleaseWatch Releases
+
+<PageTitle>@T("Server health") · Shelf</PageTitle>
+
+<h1>@T("Server health")</h1>
+
+@if (!allowed)
+{
+    <p>@T("Only an admin of this shelf can see how the server is.")</p>
+}
+else if (report is not null)
+{
+    <p class="hint">@T("Everything that keeps the shelf well, in one place: what needs you comes first, and each says what to do. The detail under each is for whoever looks after the machine.")</p>
+    <p class="health-summary health-@report.Worst.ToString().ToLowerInvariant()" role="status">
+        @(report.Worst switch
+        {
+            HealthState.Wrong => T("Something needs you."),
+            HealthState.Look => T("All is working; a few things are worth a look."),
+            _ => T("All is well."),
+        })
+        <button type="button" class="quiet" @onclick="LoadAsync">@T("Look again")</button>
+        @if (Releases.Enabled)
+        {
+            <button type="button" class="quiet" @onclick="CheckRelease">@T("Look for a newer Shelf")</button>
+        }
+    </p>
+
+    @foreach (var area in report.Items.GroupBy(item => item.Area))
+    {
+        <section class="panel">
+            <h2>@area.Key</h2>
+            <ul class="health-list">
+                @foreach (var item in area.OrderByDescending(item => item.State))
+                {
+                    <li class="health-@item.State.ToString().ToLowerInvariant()">
+                        <span class="health-state">@ShelfHealth.StateLabel(item.State)</span>
+                        <div>
+                            <strong>@item.Name</strong>
+                            <p>@item.Says</p>
+                            @if (item.Fix is { } fix)
+                            {
+                                <p class="health-fix">@fix</p>
+                            }
+                            @if (item.Detail is { Length: > 0 } detail)
+                            {
+                                <details>
+                                    <summary>@T("Technical detail")</summary>
+                                    <pre>@detail</pre>
+                                </details>
+                            }
+                        </div>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    <section class="panel">
+        <h2>@T("Background jobs")</h2>
+        @if (report.Jobs.Length == 0)
+        {
+            <p class="hint">@T("No job has run since Shelf started, {0}.", Heartbeats.Started.Medium())</p>
+        }
+        else
+        {
+            <ul class="health-list">
+                @foreach (var job in report.Jobs)
+                {
+                    <li class="health-@(job.Problem is null ? "good" : "wrong")">
+                        <span class="health-state">@(job.Problem is null ? ShelfHealth.StateLabel(HealthState.Good) : ShelfHealth.StateLabel(HealthState.Wrong))</span>
+                        <div>
+                            <strong>@ShelfHealth.JobLabel(job.Job)</strong>
+                            <p>@T("Last ran {0}.", job.At.Stamp())</p>
+                            @if (job.Problem is { } problem)
+                            {
+                                <details open>
+                                    <summary>@T("Technical detail")</summary>
+                                    <pre>@problem</pre>
+                                </details>
+                            }
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+}
+
+@code {
+    private bool allowed;
+    private HealthReport? report;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        allowed = await ReaderRules.IsAdminAsync(db, db.ReaderId);
+        report = allowed ? await Health.ReportAsync(db) : null;
+    }
+
+    private async Task CheckRelease()
+    {
+        await Releases.CheckAsync();
+        await LoadAsync();
+    }
+}

@@ -184,6 +184,17 @@ public static class BookRules
         book.FinishedOn = write.FinishedOn;
         book.Status = write.Status;
         book.Queued = book.Status == BookStatus.Want && write.Queued;
+        book.PricePaid = write.PricePaid is >= 0 ? Math.Round(write.PricePaid.Value, 2) : null;
+        if (write.Life is { } life)
+        {
+            (book.LeftOn, book.LeftHow, book.LeftTo, book.SoldFor) = (life.LeftOn, life.LeftHow, BlankToNull(life.LeftTo), life.SoldFor);
+            (book.QueueOrder, book.HeldUntil, book.HoldNote, book.HomeLocation) = (life.QueueOrder, life.HeldUntil, BlankToNull(life.HoldNote), BlankToNull(life.HomeLocation));
+        }
+
+        if (!book.Queued)
+        {
+            (book.QueueOrder, book.HeldUntil, book.HoldNote) = (null, null, null);
+        }
 
         var previousLoan = book.LoanedTo;
         book.LoanedTo = BlankToNull(write.LoanedTo);
@@ -788,7 +799,7 @@ public static class BookRules
                 continue;
             }
 
-            var found = shelf.Find(write.Title, write.Author, NormalizeIsbn(write.Isbn));
+            var found = shelf.Find(write.Title, write.Author, NormalizeIsbn(write.Isbn), row.OtherAuthors);
             if (found.Count > 0)
             {
                 // A book this file already brought is the one it means again.
@@ -1274,7 +1285,8 @@ public static class BookRules
         if (!string.IsNullOrWhiteSpace(place))
         {
             var name = place.Trim().ToLower();
-            books = books.Where(book => book.Location != null && book.Location.ToLower() == name);
+            var within = name + PlaceTree.Separator;
+            books = books.Where(book => book.Location != null && (book.Location.ToLower() == name || book.Location.ToLower().StartsWith(within)));
         }
 
         if (!string.IsNullOrWhiteSpace(recommendedBy))

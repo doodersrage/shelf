@@ -653,6 +653,7 @@ else if (book is not null)
         {
             await using var db = await DbFactory.CreateDbContextAsync();
             var kept = chapter;
+            using var _ = Positions.Reporting("Shelf", "reader");
             await Lending.KeepPlaceAsync(db, open, place =>
             {
                 place.EbookChapter = kept;
@@ -1205,6 +1206,7 @@ else if (book is not null)
         }
 
         await using var db = await DbFactory.CreateDbContextAsync();
+        using var _ = Positions.Reporting("Shelf", "reader");
         await Lending.KeepPlaceAsync(db, open, place => place.EbookChapter = chapter);
 
         // Chosen by hand while listening along, the recording goes to the chapter's start.
@@ -1592,6 +1594,7 @@ else if (book is not null)
         if (moved && open is not null)
         {
             await using var db = await DbFactory.CreateDbContextAsync();
+            using var _ = Positions.Reporting("Shelf", "reader");
             await Lending.KeepPlaceAsync(db, open, place => place.EbookChapter = index);
         }
 

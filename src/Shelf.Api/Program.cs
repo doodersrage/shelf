@@ -164,6 +164,19 @@ builder.Services.AddHttpClient<IWebhookPoster, WebhookPoster>(client => client.T
     .ConfigurePrimaryHttpMessageHandler(() => OutboundGuard.Handler(OutboundReach.Local));
 builder.Services.AddSingleton<Webhooks>();
 builder.Services.AddSingleton<IShelfEventHandler>(static services => services.GetRequiredService<Webhooks>());
+builder.Services.AddSingleton<AutomationRunner>();
+builder.Services.AddSingleton<IShelfEventHandler>(static services => services.GetRequiredService<AutomationRunner>());
+builder.Services.AddHostedService(static services => services.GetRequiredService<AutomationRunner>());
+builder.Services.AddSingleton<Legacy>();
+builder.Services.AddSingleton<ShelfHealth>();
+builder.Services.AddHttpClient(nameof(ReleaseWatch), client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(20);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd($"Shelf/{ShelfVersion.Response.Version} (update check; +https://github.com/doodersrage/shelf)");
+});
+builder.Services.AddSingleton<ReleaseWatch>();
+builder.Services.AddHostedService(static services => services.GetRequiredService<ReleaseWatch>());
+Money.Use(builder.Configuration["Shelf:Currency"]);
 // Read-along: a recording heard by a speech-to-text service (ReadAlong:Url) and matched to its e-book, word by word.
 // Hearing a long track can take most of an hour, and an upload cannot simply be sent again, so it gets no retries.
 #pragma warning disable EXTEXP0001
@@ -465,6 +478,7 @@ app.MapGet("/version", () => TypedResults.Ok(ShelfVersion.Response)).WithTags("S
 app.MapBooks();
 SharedLists.Map(app);
 Feeds.Map(app);
+ReleaseWatch.Map(app);
 Kobo.Map(app);
 PodcastService.Map(app);
 app.Services.GetRequiredService<Federation>().Map(app);

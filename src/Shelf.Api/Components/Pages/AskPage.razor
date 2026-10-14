@@ -1,0 +1,112 @@
+@page "/ask"
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject IRecapWriter Writer
+@inject IConfiguration Configuration
+
+<PageTitle>@T("Ask your shelf") · Shelf</PageTitle>
+
+<h1>@T("Ask your shelf")</h1>
+<p class="hint">@T("Ask in everyday words, and the answer comes from your own books, notes, and quotes, each with a link.")
+    @if (UsesModel)
+    {
+        @T("Your question alone is read by Anthropic's model to understand it; nothing from your shelf is sent.")
+    }
+</p>
+
+<form class="filters" action="/ask" method="get" role="search" aria-label="@T("Ask your shelf")">
+    <label>
+        @T("Your question")
+        <input type="search" name="q" value="@Q" maxlength="@Concierge.MaxQuestionLength" placeholder="@T("Which unread books do I own about Roman history?")" autofocus />
+    </label>
+    <div><button type="submit">@T("Ask")</button></div>
+</form>
+
+@if (answer is null)
+{
+    <section class="panel">
+        <h2>@T("Questions it can answer")</h2>
+        <ul class="plain-list">
+            @foreach (var example in Examples)
+            {
+                <li><a href="@($"/ask?q={Uri.EscapeDataString(example)}")">@example</a></li>
+            }
+        </ul>
+    </section>
+}
+else
+{
+    <p class="hint" role="status">@T("Looking for {0}.", answer.Understood)</p>
+    @if (answer.Books.Length == 0 && answer.Quotes.Length == 0)
+    {
+        <EmptyState Title="@T("Nothing on your shelf fits")" Text="@T("Try fewer words, or other ones.")" ActionHref="@($"/library?q={Uri.EscapeDataString(Q ?? "")}")" ActionLabel="@T("Search the catalog instead")" />
+    }
+
+    @if (answer.Books.Length > 0)
+    {
+        <section class="panel">
+            <h2>@Localization.Counts.Books(answer.Books.Length)</h2>
+            <ul class="next-choices">
+                @foreach (var book in answer.Books)
+                {
+                    <li>
+                        <BookCover Title="@book.Title" Url="@book.Cover" Width="2.5rem" />
+                        <span>
+                            <a href="/library/@book.Id">@book.Title</a>
+                            <span class="hint">@book.Author · @BookRules.StatusLabel(book.Status)@(book.Series is { } series ? " · " + series + (book.SeriesNumber is int number ? $" #{number}" : "") : "")@(book.Why.Length > 0 ? " · " + book.Why : "")</span>
+                        </span>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    @if (answer.Quotes.Length > 0)
+    {
+        <section class="panel">
+            <h2>@T("Quotes and highlights")</h2>
+            <ul class="quotes">
+                @foreach (var quote in answer.Quotes)
+                {
+                    <li>
+                        <blockquote><p>@quote.Text</p></blockquote>
+                        <p class="hint">@quote.Kind · <a href="/library/@quote.BookId">@quote.Title</a></p>
+                    </li>
+                }
+            </ul>
+            @if (answer.Search is { } search)
+            {
+                <p><a href="@search">@T("Search everything you wrote for these words")</a></p>
+            }
+        </section>
+    }
+}
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? Q { get; set; }
+
+    private AskAnswer? answer;
+
+    private bool UsesModel => Writer.Ready && Concierge.AiAllowed(Configuration);
+
+    private static IEnumerable<string> Examples =>
+    [
+        T("Which unread books do I own about Roman history?"),
+        T("Find the mystery novel my friend recommended last year."),
+        T("Which books in the Discworld series have I not read?"),
+        T("Show my favourite quotes about creativity."),
+        T("Which audiobooks by Ursula K. Le Guin have I finished?"),
+    ];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Q))
+        {
+            answer = null;
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        answer = await Concierge.AskAsync(db, Q, UsesModel ? Writer : null);
+    }
+}

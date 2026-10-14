@@ -362,6 +362,7 @@ else if (book is not null)
 
         var spot = exact ?? new Crossover(Crossover.AudioParts(Audio, book.AudioStoredName), text).ToEbook(heard);
         await using (var db = await DbFactory.CreateDbContextAsync())
+        using (Positions.Reporting("Shelf", "player"))
         {
             await Lending.KeepPlaceAsync(db, open, place =>
             {

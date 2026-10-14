@@ -12,6 +12,12 @@ public enum ScanKind
 
     // A place on the shelves checked against the catalog: what is there, what is missing, what is elsewhere.
     Check,
+
+    // A box packed in a move: each book read goes into it, keeping where it usually lives.
+    Pack,
+
+    // A box unpacked: its books checked off, then taken to where the box was going, or back where they live.
+    Unpack,
 }
 
 // A run of scanning, kept so it can be paused and taken up again on any device: the codes read, in order, and for
@@ -150,6 +156,18 @@ public static class Scanning
         {
             result = new ScanCheck(thirteen, ScanFinding.Unknown, null, null, null);
         }
+        else if (session.Kind == ScanKind.Pack)
+        {
+            // Into the box it goes, whatever the place it had.
+            var seen = session.SeenIds;
+            var copy = await db.Books.FirstAsync(item => item.Id == book.Id, cancellationToken);
+            PlaceTree.Put(copy, session.Location, forATime: true, await PlaceTree.TemporaryPathsAsync(db, cancellationToken));
+            result = new ScanCheck(thirteen, seen.Contains(book.Id) ? ScanFinding.Again : ScanFinding.Here, book.Id, book.Title, session.Location);
+            if (seen.Add(book.Id))
+            {
+                session.Seen = string.Join(',', seen);
+            }
+        }
         else if (session.Kind == ScanKind.Add || !SamePlace(book.Location, session.Location))
         {
             result = new ScanCheck(thirteen, ScanFinding.Elsewhere, book.Id, book.Title, book.Location);
@@ -178,9 +196,10 @@ public static class Scanning
             return false;
         }
 
-        if (moveHere)
+        if (moveHere || session.Kind == ScanKind.Pack)
         {
-            book.Location = session.Location;
+            var temporary = await PlaceTree.TemporaryPathsAsync(db, cancellationToken);
+            PlaceTree.Put(book, session.Location, session.Location is { } at && temporary.Contains(at), temporary);
         }
 
         var seen = session.SeenIds;
@@ -207,7 +226,7 @@ public static class Scanning
     public static async Task<CheckedBook[]?> ExpectedAsync(ShelfDb db, int sessionId, CancellationToken cancellationToken = default)
     {
         var session = await db.ScanSessions.AsNoTracking().FirstOrDefaultAsync(item => item.Id == sessionId, cancellationToken);
-        if (session is null || session.Kind != ScanKind.Check)
+        if (session is null || session.Kind == ScanKind.Add)
         {
             return null;
         }
@@ -305,7 +324,49 @@ public static class Scanning
         int? batchId = null;
         var missing = 0;
         var seen = session.SeenIds;
-        if (session.Kind == ScanKind.Check && await ExpectedAsync(db, sessionId, cancellationToken) is { } expected)
+        var box = await BoxAsync(db, session.Location, cancellationToken);
+        if (session.Kind == ScanKind.Pack && box is not null)
+        {
+            box.PackedAt = DateTimeOffset.UtcNow;
+        }
+
+        if (session.Kind == ScanKind.Unpack && await ExpectedAsync(db, sessionId, cancellationToken) is { } unpacked)
+        {
+            // What came out goes where the box was going, or else back where each usually lives.
+            var places = await db.StoragePlaces.AsNoTracking().ToListAsync(cancellationToken);
+            var paths = PlaceTree.Paths(places);
+            var destination = box?.DestinationId is int to ? places.FirstOrDefault(place => place.Id == to) : null;
+            var temporary = places.Where(place => place.Temporary).Select(place => paths[place.Id]).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var came = unpacked.Where(book => book.Seen).Select(book => book.Id).ToList();
+            var batch = came.Count == 0 ? null : await History.StartAsync(db, BatchKind.Edit, T("Unpacked {0}", session.Location ?? T("no place")), cancellationToken);
+            batchId = batch?.Id;
+            using (History.Use(batchId))
+            {
+                foreach (var chunk in came.Chunk(500))
+                {
+                    foreach (var book in await db.Books.Where(book => chunk.Contains(book.Id)).ToListAsync(cancellationToken))
+                    {
+                        if (destination is not null)
+                        {
+                            PlaceTree.Put(book, paths[destination.Id], destination.Temporary, temporary);
+                        }
+                        else if (book.HomeLocation is { } home)
+                        {
+                            (book.Location, book.HomeLocation) = (home, null);
+                        }
+                    }
+
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+            }
+
+            if (box is not null)
+            {
+                box.UnpackedAt = DateTimeOffset.UtcNow;
+            }
+        }
+
+        if (session.Kind is ScanKind.Check or ScanKind.Unpack && await ExpectedAsync(db, sessionId, cancellationToken) is { } expected)
         {
             var notSeen = expected.Where(book => !book.Seen).Select(book => book.Id).ToList();
             missing = notSeen.Count;
@@ -331,6 +392,19 @@ public static class Scanning
         session.FinishedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
         return new ScanFinished(seen.Count, missing, batchId);
+    }
+
+    // The box a run is packing or unpacking, by its place written out.
+    private static async Task<StoragePlace?> BoxAsync(ShelfDb db, string? location, CancellationToken cancellationToken)
+    {
+        if (location is null)
+        {
+            return null;
+        }
+
+        var places = await db.StoragePlaces.ToListAsync(cancellationToken);
+        var paths = PlaceTree.Paths(places);
+        return places.FirstOrDefault(place => place.Kind == PlaceKind.Box && string.Equals(paths[place.Id], location, StringComparison.OrdinalIgnoreCase));
     }
 
     public static async Task DropAsync(ShelfDb db, int sessionId, CancellationToken cancellationToken = default) =>

@@ -14,7 +14,7 @@ docker run -d --name shelf -p 8080:8080 -v shelf-data:/data \
   --restart unless-stopped ghcr.io/doodersrage/shelf:latest
 ```
 
-Then open [http://localhost:8080](http://localhost:8080). Images are published for both amd64 and arm64 (a Raspberry Pi 4 or 5, most NAS boxes, Apple silicon). Every release is also published under its own version, such as `ghcr.io/doodersrage/shelf:2.11.1`, which is the better choice when you want to decide when to update.
+Then open [http://localhost:8080](http://localhost:8080). Images are published for both amd64 and arm64 (a Raspberry Pi 4 or 5, most NAS boxes, Apple silicon). Every release is also published under its own version, such as `ghcr.io/doodersrage/shelf:2.12.0`, which is the better choice when you want to decide when to update.
 
 Everything Shelf keeps is under `/data` in the container:
 
@@ -150,6 +150,8 @@ docker run -d --name shelf -p 8080:8080 -v shelf-data:/data \
 ```
 
 With Compose, `docker compose pull && docker compose up -d`. The [changelog](changelog.md) says what each release changes, including anything to know before updating.
+
+Shelf asks GitHub twice a day whether a newer release is out, and tells admins at the top of every page, with what's new and how to update, until they update or choose **Not now** for that release. Only the release's number is read; nothing about your shelf is sent. `Updates:Check` set to `false` turns it off.
 
 > [!TIP]
 > Take a snapshot from **Readers** before a big update. It holds the whole server, and restoring it is unpacking it over a stopped shelf. See [Backups](backups.md).

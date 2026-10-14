@@ -74,6 +74,10 @@ The first account is an admin. An admin manages readers from **Readers**:
 
 Readers can delete their own account from **Account**, with their password.
 
+**Who sees what**, under **Settings**, shows an admin what one reader can see of the shelf, and why, by the same rules the pages keep: their own books, the open shelves of others (titles, authors, and covers only), books lent to them, their clubs, collections their guardian shares, their API tokens and what each is kept to, and what anyone with one of their links can see. **Why can they see this book?** gives the reasons for one book, or says they can't. Look at it before sharing anything.
+
+**Server health**, beside it, gathers what keeps the shelf well: the newest backup and whether it was proved, copies sent elsewhere, the stored files, disk space, imports, webhooks, linked shelves, email, OCR, a newer release, and when each background job last ran. What needs you comes first, each with what to do, and the technical detail under it.
+
 ### When the only admin is locked out
 
 Reset a password, or make someone an admin, from the command line. Each prints what it did and exits:

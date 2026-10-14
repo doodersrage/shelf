@@ -35,6 +35,9 @@ public sealed class Reader
     // Other readers may see this shelf and ask to borrow from it.
     public bool ShelfOpen { get; set; }
 
+    // The newer release an admin said "not now" to.
+    public string? DismissedRelease { get; set; }
+
     // Changes when the password is reset or changed, which signs out every session made before.
     public string Stamp { get; set; } = ReaderRules.NewStamp();
 

@@ -231,9 +231,11 @@ public sealed class FileChecker(IServiceScopeFactory scopes, EbookStore ebooks, 
                 using var scope = scopes.CreateScope();
                 var result = await FileCheck.RunAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), ebooks, audio, covers, stoppingToken);
                 logger.LogInformation("Checked {Count} stored files: {Missing} missing, {Changed} changed, {Unreadable} unreadable.", result.Checked, result.Missing, result.Changed, result.Unreadable);
+                Heartbeats.Beat(nameof(FileChecker));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                Heartbeats.Beat(nameof(FileChecker), ex.Message);
                 // Tried again at the next turn; a check that fails never stops the shelf.
                 logger.LogWarning(ex, "Could not check stored files.");
                 await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);

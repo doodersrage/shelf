@@ -34,9 +34,15 @@ test("every page passes an accessibility audit in both themes", async ({ browser
   const topic = await (await page.request.post("/books/research", { data: { question: "Why do sailors tell stories?" } })).json();
   await page.request.post(`/books/research/${topic.id}/notes`, { data: { bookId: book.id, place: "ch. 1", text: "Ishmael frames it all." } });
   await page.request.post("/books/words", { data: { word: "baleine", language: "French", meaning: "whale" } });
+  const room = await (await page.request.post("/books/storage", { data: { name: "Study room", kind: "Room" } })).json();
+  await page.request.post("/books/storage", { data: { name: "", kind: "Box", destinationId: room.id } });
+  await page.request.post("/books/rules", { data: { name: "Finished sea books", trigger: "Finished", conditions: { tag: "sea" }, actions: [{ kind: "AddToCollection", value: "Sea stories" }] } });
+  await page.request.post(`/books/queue/${book.id}`);
+  await page.request.post("/books/legacy/recipients", { data: { name: "A niece", rest: true } });
 
   const pages = ["/", "/library", "/reading", "/insights", "/library?view=list", "/library?add=1", `/library/${book.id}`, `/library/${book.id}/read`, `/library/${book.id}/listen`, "/quotes", "/search?q=ishmael",
-    "/free", "/import/audiobookshelf", "/import/calibre", "/authors", "/series", "/places", "/copies", "/recommenders", "/years", `/years/${year}`, "/loans", "/shelves", "/collections", `/collections/${collection.id}`, "/duplicates", "/clubs", `/clubs/${club.id}`, "/stats", "/backup", "/sync", "/account", "/admin", "/next", "/podcasts", "/downloads", "/wanted", "/find", "/find?q=Harbour", "/tidy", "/activity", "/journal", "/map", `/map?book=${book.id}`, "/scan", "/trash", "/labels?place=Study", `/c/${paper.id}`, "/agenda", "/dna", "/research", `/research/${topic.id}`, "/words", "/import/spreadsheet"];
+    "/free", "/import/audiobookshelf", "/import/calibre", "/authors", "/series", "/places", "/copies", "/recommenders", "/years", `/years/${year}`, "/loans", "/shelves", "/collections", `/collections/${collection.id}`, "/duplicates", "/clubs", `/clubs/${club.id}`, "/stats", "/backup", "/sync", "/account", "/admin", "/next", "/podcasts", "/downloads", "/wanted", "/find", "/find?q=Harbour", "/tidy", "/activity", "/journal", "/map", `/map?book=${book.id}`, "/scan", "/trash", "/labels?place=Study", `/c/${paper.id}`, "/agenda", "/dna", "/research", `/research/${topic.id}`, "/words", "/import/spreadsheet",
+    "/places/labels", `/places/${room.id}`, "/moving", "/queue", "/rules", "/lifecycle", "/ask", "/ask?q=sea%20stories", "/account/legacy", "/admin/health", "/admin/access", "/search?q=ferry&in=mine"];
   const failures = [];
   for (const scheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: scheme });

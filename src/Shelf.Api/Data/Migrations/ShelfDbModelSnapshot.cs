@@ -229,6 +229,88 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("AuthorFollows");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.AutomationRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Actions")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Conditions")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Trigger")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId", "Trigger");
+
+                    b.ToTable("AutomationRules");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.AutomationRun", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("BatchId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("BookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("DryRun")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("RuleId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("RuleId");
+
+                    b.HasIndex("OwnerId", "RuleId");
+
+                    b.ToTable("AutomationRuns");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.Book", b =>
                 {
                     b.Property<int>("Id")
@@ -332,6 +414,17 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<int?>("HardcoverUserBookId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateOnly?>("HeldUntil")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HoldNote")
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HomeLocation")
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Inscription")
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
@@ -345,6 +438,17 @@ namespace Shelf.Api.Data.Migrations
 
                     b.Property<string>("Language")
                         .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LeftHow")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("LeftOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LeftTo")
+                        .HasMaxLength(120)
                         .HasColumnType("TEXT");
 
                     b.Property<DateOnly?>("LoanedOn")
@@ -383,9 +487,16 @@ namespace Shelf.Api.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
+                    b.Property<decimal?>("PricePaid")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Publisher")
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("QueueOrder")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("Queued")
                         .HasColumnType("INTEGER");
@@ -413,6 +524,10 @@ namespace Shelf.Api.Data.Migrations
 
                     b.Property<bool>("Signed")
                         .HasColumnType("INTEGER");
+
+                    b.Property<decimal?>("SoldFor")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("TEXT");
 
                     b.Property<DateOnly?>("StartedOn")
                         .HasColumnType("TEXT");
@@ -1339,6 +1454,73 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("KosyncPlaces");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.LegacyPlan", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Instructions")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Keeper")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId")
+                        .IsUnique();
+
+                    b.ToTable("LegacyPlans");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.LegacyRecipient", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("CollectionId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Contact")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Rest")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Tag")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CollectionId");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("LegacyRecipients");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.LinkedAsk", b =>
                 {
                     b.Property<int>("Id")
@@ -1848,6 +2030,104 @@ namespace Shelf.Api.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("PodcastEpisodes");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.PositionChoiceRow", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Before")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Device")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Place")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("ReaderId", "BookId");
+
+                    b.ToTable("PositionChoices", (string)null);
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.PositionReport", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("AudioSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("AudioTrack")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Device")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EbookCfi")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("EbookChapter")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double?>("EbookProgress")
+                        .HasColumnType("REAL");
+
+                    b.Property<bool>("Kept")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("ReaderId", "BookId", "Source", "Device")
+                        .IsUnique();
+
+                    b.ToTable("PositionReports");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Quote", b =>
@@ -2406,6 +2686,61 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("SpokenTexts");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.StoragePlace", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DestinationId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Number")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("PackedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ParentId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Temporary")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("UnpackedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DestinationId");
+
+                    b.HasIndex("OwnerId");
+
+                    b.HasIndex("ParentId");
+
+                    b.ToTable("StoragePlaces");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.Tag", b =>
                 {
                     b.Property<int>("Id")
@@ -2750,6 +3085,10 @@ namespace Shelf.Api.Data.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("DismissedRelease")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("DueSoonDays")
                         .HasColumnType("INTEGER");
 
@@ -3080,6 +3419,29 @@ namespace Shelf.Api.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.AutomationRule", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.AutomationRun", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", null)
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Shelf.Api.Books.AutomationRule", null)
+                        .WithMany()
+                        .HasForeignKey("RuleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.Book", b =>
                 {
                     b.HasOne("Shelf.Api.Readers.Reader", "Borrower")
@@ -3400,6 +3762,29 @@ namespace Shelf.Api.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.LegacyPlan", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.LegacyRecipient", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Collection", null)
+                        .WithMany()
+                        .HasForeignKey("CollectionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.LinkedAsk", b =>
                 {
                     b.HasOne("Shelf.Api.Books.ShelfLink", null)
@@ -3578,6 +3963,36 @@ namespace Shelf.Api.Data.Migrations
                     b.Navigation("Podcast");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.PositionChoiceRow", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", null)
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.PositionReport", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", null)
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.Quote", b =>
                 {
                     b.HasOne("Shelf.Api.Books.Book", "Book")
@@ -3722,6 +4137,25 @@ namespace Shelf.Api.Data.Migrations
                         .HasForeignKey("BookId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.StoragePlace", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.StoragePlace", null)
+                        .WithMany()
+                        .HasForeignKey("DestinationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Books.StoragePlace", null)
+                        .WithMany()
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.TrashItem", b =>

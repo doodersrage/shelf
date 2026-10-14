@@ -1,0 +1,152 @@
+@page "/lifecycle"
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("Your collection over time") · Shelf</PageTitle>
+
+<h1>@T("Your collection over time")</h1>
+<p class="hint">@T("How the shelf changes, beside what you read: copies that came and went, what they cost, and what has waited longest. Let a copy go from its page; its record and reading stay.")</p>
+
+@if (report is not null)
+{
+    <div class="stat-grid">
+        <div class="stat"><span class="stat-number">@report.Owned.ToString("N0")</span><span class="hint">@T("copies kept")</span></div>
+        <div class="stat"><span class="stat-number">@report.Unread.ToString("N0")</span><span class="hint">@T("waiting to be read")</span></div>
+        <div class="stat"><span class="stat-number">@report.NeverOpened.ToString("N0")</span><span class="hint">@T("never opened in two years or more")</span></div>
+        @if (report.Priced > 0)
+        {
+            <div class="stat"><span class="stat-number">@Money.Show(report.Spent)</span><span class="hint">@T("spent on {0} with a price noted", Localization.Counts.Books(report.Priced))</span></div>
+        }
+        @if (report.Got > 0)
+        {
+            <div class="stat"><span class="stat-number">@Money.Show(report.Got)</span><span class="hint">@T("from copies sold")</span></div>
+        }
+    </div>
+
+    <section class="panel">
+        <h2>@T("Year by year")</h2>
+        <table class="proposal-table lifecycle-table">
+            <thead>
+                <tr>
+                    <th scope="col">@T("Year")</th>
+                    <th scope="col">@T("Came")</th>
+                    <th scope="col">@T("Finished")</th>
+                    <th scope="col">@T("Let go")</th>
+                    <th scope="col">@T("Kept at the end")</th>
+                    @if (report.Priced > 0 || report.Got > 0)
+                    {
+                        <th scope="col">@T("Spent")</th>
+                        <th scope="col">@T("Got back")</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var year in report.Years.Where(year => year.Came + year.Finished + year.Left > 0).Take(shownYears))
+                {
+                    <tr>
+                        <th scope="row"><a href="/years/@year.Year">@year.Year</a></th>
+                        <td>@year.Came.ToString("N0")</td>
+                        <td>@year.Finished.ToString("N0")</td>
+                        <td title="@string.Join(", ", year.LeftHow.Select(pair => $"{Lifecycle.DepartureLabel(pair.Key)}: {pair.Value}"))">@year.Left.ToString("N0")</td>
+                        <td>@year.OwnedAtEnd.ToString("N0")</td>
+                        @if (report.Priced > 0 || report.Got > 0)
+                        {
+                            <td>@(year.Spent > 0 ? Money.Show(year.Spent) : "")</td>
+                            <td>@(year.Got > 0 ? Money.Show(year.Got) : "")</td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (report.Years.Count(year => year.Came + year.Finished + year.Left > 0) > shownYears)
+        {
+            <p class="hint">@T("The last {0} years.", shownYears)</p>
+        }
+    </section>
+
+    @if (report.Unread > 0)
+    {
+        <section class="panel">
+            <h2>@T("Waiting to be read")</h2>
+            <div class="lifecycle-columns">
+                <div>
+                    <h3>@T("How long")</h3>
+                    @Bars(report.UnreadByAge.Select(bucket => (bucket.Label, bucket.Books)))
+                </div>
+                <div>
+                    <h3>@T("Format")</h3>
+                    @Bars(report.UnreadByFormat.Select(item => (item.Name, item.Books)))
+                </div>
+                @if (report.UnreadByTag.Length > 0)
+                {
+                    <div>
+                        <h3>@T("Subjects")</h3>
+                        @Bars(report.UnreadByTag.Select(item => (item.Name, item.Books)), name => $"/library?status=Want&tag={Uri.EscapeDataString(name)}")
+                    </div>
+                }
+                @if (report.UnreadBySeries.Length > 0)
+                {
+                    <div>
+                        <h3>@T("Series")</h3>
+                        @Bars(report.UnreadBySeries.Select(item => (item.Name, item.Books)), name => $"/library?series={Uri.EscapeDataString(name)}")
+                    </div>
+                }
+            </div>
+        </section>
+    }
+
+    @if (report.LongestWaiting.Length > 0)
+    {
+        <section class="panel">
+            <h2>@T("Never opened")</h2>
+            <p class="hint">@T("Waiting two years or more, with nothing read, heard, or logged: the longest first. Read one, or let it go to someone who will.")</p>
+            <ul class="plain-list">
+                @foreach (var book in report.LongestWaiting)
+                {
+                    <li><a href="/library/@book.Id">@book.Title</a> <span class="hint">@book.Author · @T("added {0}", book.AddedAt.Medium())</span></li>
+                }
+            </ul>
+        </section>
+    }
+
+    @if (report.Reread.Length > 0)
+    {
+        <section class="panel">
+            <h2>@T("Read again and again")</h2>
+            <ul class="plain-list">
+                @foreach (var book in report.Reread)
+                {
+                    <li><a href="/library/@book.Id">@book.Title</a> <span class="hint">@book.Author · @T("{0} times", book.Times)</span></li>
+                }
+            </ul>
+        </section>
+    }
+
+    <p class="hint">@T("Goals for the backlog and for letting go are under Insights.") <a href="/stats">@T("Insights")</a></p>
+}
+
+@code {
+    private LifecycleReport? report;
+    private const int shownYears = 30;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        report = await Lifecycle.ReportAsync(db);
+    }
+
+    private static RenderFragment Bars(IEnumerable<(string Name, int Books)> items, Func<string, string>? link = null)
+    {
+        var list = items.ToList();
+        var most = Math.Max(1, list.Select(item => item.Books).DefaultIfEmpty(0).Max());
+        return @<ul class="bars">
+            @foreach (var (name, books) in list)
+            {
+                <li>
+                    <span class="bar-label">@if (link is not null) { <a href="@link(name)">@name</a> } else { @name }</span>
+                    <span class="bar" style="--share: @((books * 100 / most).ToString(System.Globalization.CultureInfo.InvariantCulture))%"></span>
+                    <span class="bar-count">@books.ToString("N0")</span>
+                </li>
+            }
+        </ul>;
+    }
+}

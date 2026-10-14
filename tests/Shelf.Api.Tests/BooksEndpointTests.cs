@@ -1687,6 +1687,7 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
         builder.UseSetting("Accounts:SignInsPerMinute", "1000");
         builder.UseSetting("DataProtection:KeysPath", _keysRoot);
         builder.UseSetting("Backup:Enabled", "false");
+        builder.UseSetting("Updates:Check", "false");
         builder.UseSetting("SeriesAlerts:PauseMilliseconds", "0");
         builder.UseSetting("AuthorWatch:Enabled", "false");
         builder.UseSetting("AuthorWatch:PauseMilliseconds", "0");

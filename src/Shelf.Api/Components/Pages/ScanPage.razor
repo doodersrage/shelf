@@ -186,7 +186,7 @@ else
     {
         var seen = expected.Count(book => book.Seen);
         <section class="panel">
-            <h2>@T("{0} of {1} seen", seen, expected.Length)</h2>
+            <h2>@(session.Kind == ScanKind.Pack ? T("{0} in the box", expected.Length) : T("{0} of {1} seen", seen, expected.Length))</h2>
             @if (elsewhere.Count > 0)
             {
                 <h3>@T("Found here, but noted elsewhere")</h3>
@@ -213,6 +213,17 @@ else
                 </ul>
             }
 
+            @if (session.Kind == ScanKind.Pack)
+            {
+                <ul class="plain-list">
+                    @foreach (var book in expected.Take(300))
+                    {
+                        <li><a href="/library/@book.Id">@book.Title</a> <span class="hint">@book.Author</span></li>
+                    }
+                </ul>
+            }
+            else
+            {
             <h3>@T("Not seen yet")</h3>
             @if (seen == expected.Length)
             {
@@ -231,11 +242,16 @@ else
                 </ul>
             }
 
-            <label class="check">
-                <input type="checkbox" @bind="tagMissing" />
-                @T("Tag the books not seen \"{0}\", so they can be found later", Scanning.MissingTag)
-            </label>
-            <button type="button" class="primary" @onclick="Finish" disabled="@busy">@T("Finish the check")</button>
+            }
+
+            @if (session.Kind != ScanKind.Pack)
+            {
+                <label class="check">
+                    <input type="checkbox" @bind="tagMissing" />
+                    @T("Tag the books not seen \"{0}\", so they can be found later", Scanning.MissingTag)
+                </label>
+            }
+            <button type="button" class="primary" @onclick="Finish" disabled="@busy">@(session.Kind switch { ScanKind.Pack => T("Done packing"), ScanKind.Unpack => T("Done unpacking"), _ => T("Finish the check") })</button>
         </section>
     }
 
@@ -299,7 +315,34 @@ else
     private bool canWatch = true;
     private bool watching;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    [SupplyParameterFromQuery(Name = "pack")]
+    public int? PackBox { get; set; }
+
+    [SupplyParameterFromQuery(Name = "unpack")]
+    public int? UnpackBox { get; set; }
+
+    [SupplyParameterFromQuery(Name = "check")]
+    public int? CheckPlace { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        var (asked, placeId) = PackBox is int pack ? (ScanKind.Pack, pack) : UnpackBox is int unpack ? (ScanKind.Unpack, unpack) : CheckPlace is int check ? (ScanKind.Check, check) : (ScanKind.Add, 0);
+        if (placeId == 0)
+        {
+            return;
+        }
+
+        // Started from a place or a box: the run for it taken up, or a new one.
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await PlaceTree.PathAsync(db, placeId) is not { } path)
+        {
+            return;
+        }
+
+        var run = open.FirstOrDefault(item => item.Kind == asked && item.Location == path) ?? Scanning.View(await Scanning.StartAsync(db, asked, path));
+        await ShowAsync(run);
+    }
 
     private async Task LoadAsync()
     {
@@ -332,6 +375,8 @@ else
     {
         (ScanKind.Add, null) => T("Adding books"),
         (ScanKind.Add, var at) => T("Adding books at {0}", at),
+        (ScanKind.Pack, var at) => T("Packing {0}", at ?? ""),
+        (ScanKind.Unpack, var at) => T("Unpacking {0}", at ?? ""),
         (_, null) => T("Checking the books with no place"),
         (_, var at) => T("Checking {0}", at),
     };
@@ -340,6 +385,8 @@ else
     {
         (ScanKind.Add, ScanFinding.Unknown) => T("{0} read.", read.Isbn),
         (ScanKind.Add, _) => T("{0} read. You have it already: {1}.", read.Isbn, read.Title ?? ""),
+        (ScanKind.Pack, ScanFinding.Here) => T("{0}: in the box.", read.Title ?? ""),
+        (ScanKind.Unpack, ScanFinding.Here) => T("{0}: out of the box.", read.Title ?? ""),
         (_, ScanFinding.Here) => T("{0}: here, as it should be.", read.Title ?? ""),
         (_, ScanFinding.Again) => T("{0}: seen already.", read.Title ?? ""),
         (_, ScanFinding.Elsewhere) => read.Location is { } at ? T("{0}: noted at {1}.", read.Title ?? "", at) : T("{0}: no place noted.", read.Title ?? ""),
@@ -441,7 +488,7 @@ else
         }
 
         (lastRead, note) = (read, null);
-        if (session.Kind == ScanKind.Check)
+        if (session.Kind is ScanKind.Check or ScanKind.Unpack)
         {
             if (read.Finding == ScanFinding.Elsewhere && elsewhere.All(item => item.BookId != read.BookId))
             {
@@ -594,10 +641,22 @@ else
         try
         {
             await using var db = await DbFactory.CreateDbContextAsync();
-            var finished = await Scanning.FinishAsync(db, session!.Id, tagMissing);
+            var finishedKind = session!.Kind;
+            var finished = await Scanning.FinishAsync(db, session.Id, tagMissing);
             await StopCamera();
             session = null;
-            if (finished is not null)
+            if (finished is not null && finishedKind == ScanKind.Pack)
+            {
+                (problem, undoBatch, note) = (false, null, T("Packed: {0} in the box. Print its label from Moving house.", Localization.Counts.Books(finished.Seen)));
+            }
+            else if (finished is not null && finishedKind == ScanKind.Unpack)
+            {
+                (problem, undoBatch) = (false, finished.BatchId);
+                note = finished.Missing == 0
+                    ? T("Unpacked: all {0} came out and went where they belong.", finished.Seen)
+                    : T("Unpacked: {0} came out; {1} weren't in the box.", finished.Seen, finished.Missing);
+            }
+            else if (finished is not null)
             {
                 problem = false;
                 undoBatch = finished.BatchId;

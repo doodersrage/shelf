@@ -1,0 +1,100 @@
+@page "/places/labels"
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject NavigationManager Navigation
+
+<PageTitle>@T("Shelf labels") · Shelf</PageTitle>
+
+<div class="label-controls">
+    <h1>@T("Shelf labels")</h1>
+    <p class="hint">@T("Labels for shelves, bookcases, and boxes. Scanning one with a phone's camera opens the place on this shelf, with the copies there. A box's label says where it is going and what is in it.")</p>
+    <form method="get" class="inline-form">
+        <label>
+            @T("Which places")
+            <select name="id">
+                <option value="" selected="@(Id is null)">@T("Every place")</option>
+                <option value="boxes" selected="@(Id == "boxes")">@T("Every box")</option>
+                @foreach (var place in map?.Places ?? [])
+                {
+                    <option value="@place.Id" selected="@(Id == place.Id.ToString(System.Globalization.CultureInfo.InvariantCulture))">@place.Path</option>
+                }
+            </select>
+        </label>
+        <button type="submit">@T("Show the labels")</button>
+    </form>
+    @if (shown.Count > 0)
+    {
+        <p>@(shown.Count == 1 ? T("1 label.") : T("{0} labels.", shown.Count)) <button type="button" class="primary" onclick="window.print()">@T("Print")</button></p>
+    }
+    else
+    {
+        <p class="hint">@T("No places yet.") <a href="/places">@T("Add a place")</a></p>
+    }
+</div>
+
+@if (shown.Count > 0)
+{
+    <ul class="label-sheet place-labels">
+        @foreach (var place in shown)
+        {
+            <li class="@(place.Kind == PlaceKind.Box ? "box-label" : null)">
+                @((MarkupString)Qr(new Uri(new Uri(Navigation.BaseUri), $"places/{place.Id}").AbsoluteUri))
+                <div>
+                    @if (place.Kind == PlaceKind.Box && place.Number is int number)
+                    {
+                        <p class="box-number">@number</p>
+                    }
+                    <p><strong>@place.Name</strong></p>
+                    @if (place.Path != place.Name)
+                    {
+                        <p>@place.Path</p>
+                    }
+                    @if (place.Destination is { } to)
+                    {
+                        <p>@T("To: {0}", to)</p>
+                    }
+                    @if (place.Kind == PlaceKind.Box && contents.TryGetValue(place.Path, out var inside) && inside.Count > 0)
+                    {
+                        <p class="box-contents">@string.Join("; ", inside.Take(30))@(inside.Count > 30 ? " " + T("and {0} more", inside.Count - 30) : "")</p>
+                    }
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "id")]
+    public string? Id { get; set; }
+
+    private PlaceMap? map;
+    private List<PlaceNode> shown = [];
+    private Dictionary<string, List<string>> contents = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Id = string.IsNullOrWhiteSpace(Id) ? null : Id;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        map = await PlaceTree.MapAsync(db);
+        shown = Id switch
+        {
+            null => [.. map.Places],
+            "boxes" => [.. map.Places.Where(place => place.Kind == PlaceKind.Box)],
+            var one when int.TryParse(one, out var id) => [.. map.Places.Where(place => place.Id == id)],
+            _ => [],
+        };
+        var boxes = shown.Where(place => place.Kind == PlaceKind.Box).Select(place => place.Path).ToList();
+        if (boxes.Count > 0)
+        {
+            contents = (await db.Books.AsNoTracking().Where(book => book.Location != null && boxes.Contains(book.Location)).OrderBy(book => book.Title)
+                .Select(book => new { Location = book.Location!, book.Title }).ToListAsync())
+                .GroupBy(book => book.Location).ToDictionary(group => group.Key, group => group.Select(book => book.Title).ToList());
+        }
+    }
+
+    private static string Qr(string address)
+    {
+        using var generator = new QRCoder.QRCodeGenerator();
+        using var data = generator.CreateQrCode(address, QRCoder.QRCodeGenerator.ECCLevel.M);
+        return new QRCoder.SvgQRCode(data).GetGraphic(4, "#000000", "#ffffff", drawQuietZones: true, sizingMode: QRCoder.SvgQRCode.SizingMode.ViewBoxAttribute);
+    }
+}

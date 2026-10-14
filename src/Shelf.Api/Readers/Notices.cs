@@ -546,9 +546,11 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
             try
             {
                 await RemindDueAsync(stoppingToken);
+                Heartbeats.Beat(nameof(Notices));
             }
             catch (Exception ex) when (ex is DbUpdateException or InvalidOperationException)
             {
+                Heartbeats.Beat(nameof(Notices), ex.Message);
                 logger.LogWarning(ex, "Could not send loan notifications; they will try again in an hour.");
             }
         }

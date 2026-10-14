@@ -155,6 +155,7 @@ public sealed class RestoreTests(ShelfApiFactory factory) : IClassFixture<ShelfA
             builder.UseSetting("DataProtection:KeysPath", Path.Combine(data, "keys"));
             builder.UseSetting("Accounts:SignInsPerMinute", "1000");
             builder.UseSetting("Backup:Enabled", "false");
+            builder.UseSetting("Updates:Check", "false");
             builder.UseEnvironment("Testing");
         }
     }

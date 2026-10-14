@@ -1,0 +1,136 @@
+@page "/moving"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("Moving house") · Shelf</PageTitle>
+
+<h1>@T("Moving house")</h1>
+<p class="hint">@T("Number a box, say where it's going, and scan each book as it goes in. Print its label with what's inside. At the other end, scan the books as they come out: they go where the box was going, or back where each lives, and any that didn't arrive are named.")</p>
+
+@if (note is not null)
+{
+    <p class="@(problem ? "validation-message" : "saved")" role="status">@note</p>
+}
+
+<section class="panel">
+    <h2>@T("A new box")</h2>
+    <div class="recipe-grid">
+        <label>
+            @T("Packed in")
+            <select @bind="fromId">
+                <option value="0">@T("Anywhere")</option>
+                @foreach (var place in Lasting)
+                {
+                    <option value="@place.Id">@place.Path</option>
+                }
+            </select>
+        </label>
+        <label>
+            @T("Going to")
+            <select @bind="toId">
+                <option value="0">@T("Back where each book lives")</option>
+                @foreach (var place in Lasting)
+                {
+                    <option value="@place.Id">@place.Path</option>
+                }
+            </select>
+        </label>
+        <label>
+            @T("Name (optional)")
+            <input maxlength="@StoragePlace.MaxNameLength" @bind="boxName" placeholder="@T("Box {0}", NextNumber)" />
+        </label>
+    </div>
+    <button type="button" class="primary" @onclick="NewBox">@T("Number a new box")</button>
+    @if (!Lasting.Any())
+    {
+        <p class="hint">@T("Add rooms on the Places page first to say where boxes go.") <a href="/places">@T("Places")</a></p>
+    }
+</section>
+
+<section class="panel">
+    <h2>@T("Boxes")</h2>
+    @if (Boxes.Count == 0)
+    {
+        <p class="hint">@T("No boxes yet.")</p>
+    }
+    else
+    {
+        <p class="hint">@T("{0} boxes, {1} books in them.", Boxes.Count, Boxes.Sum(box => box.Within).ToString("N0"))</p>
+        <table class="proposal-table">
+            <thead>
+                <tr><th scope="col">@T("Box")</th><th scope="col">@T("Going to")</th><th scope="col">@T("Books")</th><th scope="col">@T("Where it stands")</th><th scope="col"><span class="visually-hidden">@T("Do")</span></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var box in Boxes)
+                {
+                    <tr>
+                        <td><a href="/places/@box.Id">@box.Name</a></td>
+                        <td>@(box.Destination ?? T("back where each lives"))</td>
+                        <td>@box.Within.ToString("N0")</td>
+                        <td>@(box.UnpackedAt is { } opened ? T("unpacked {0}", opened.Medium()) : box.PackedAt is { } packed ? T("packed {0}", packed.Medium()) : box.Within > 0 ? T("packing") : T("empty"))</td>
+                        <td>
+                            <a class="button quiet" href="/scan?pack=@box.Id">@T("Pack")</a>
+                            <a class="button quiet" href="/scan?unpack=@box.Id">@T("Unpack")</a>
+                            <a class="button quiet" href="/places/labels?id=@box.Id">@T("Label")</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <p><a class="button quiet" href="/places/labels?id=boxes">@T("Print every box's label")</a></p>
+    }
+</section>
+
+@if (away > 0)
+{
+    <section class="panel">
+        <h2>@T("Away from home")</h2>
+        <p>@(away == 1 ? T("1 copy is somewhere for a time, away from where it lives.") : T("{0} copies are somewhere for a time, away from where they live.", away.ToString("N0")))</p>
+        <button type="button" @onclick="PutAllBack">@T("Put them all back where they live")</button>
+    </section>
+}
+
+@code {
+    private PlaceMap? map;
+    private int fromId;
+    private int toId;
+    private string? boxName;
+    private int away;
+    private string? note;
+    private bool problem;
+
+    private IEnumerable<PlaceNode> Lasting => (map?.Places ?? []).Where(place => !place.Temporary);
+
+    private List<PlaceNode> Boxes => [.. (map?.Places ?? []).Where(place => place.Kind == PlaceKind.Box).OrderBy(place => place.Number ?? 0)];
+
+    private int NextNumber => (map?.Places ?? []).Select(place => place.Number ?? 0).DefaultIfEmpty(0).Max() + 1;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        map = await PlaceTree.MapAsync(db);
+        away = await db.Books.CountAsync(book => book.HomeLocation != null);
+    }
+
+    private async Task NewBox()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var (made, said) = await PlaceTree.CreateAsync(db, new StoragePlaceRequest(boxName ?? "", PlaceKind.Box, fromId == 0 ? null : fromId, true, toId == 0 ? null : toId));
+        (note, problem) = made is null ? (said, true) : (T("{0} is ready. Pack it, then print its label.", made.Name), false);
+        boxName = null;
+        await LoadAsync();
+    }
+
+    private async Task PutAllBack()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var ids = await db.Books.Where(book => book.HomeLocation != null).Select(book => book.Id).ToListAsync();
+        var batch = await History.StartAsync(db, BatchKind.Edit, T("Put back where they live"));
+        using var _ = History.Use(batch.Id);
+        var moved = await PlaceTree.PutBackAsync(db, ids);
+        (note, problem) = (T("Put back: {0}.", Localization.Counts.Books(moved)), false);
+        await LoadAsync();
+    }
+}

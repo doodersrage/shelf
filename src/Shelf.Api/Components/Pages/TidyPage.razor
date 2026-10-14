@@ -5,6 +5,7 @@
 @inject ShelfJobs Jobs
 @inject FileChecker Checker
 @inject BackupCheck Backups
+@inject EbookStore Ebooks
 
 <PageTitle>@T("Tidy up") · Shelf</PageTitle>
 
@@ -86,6 +87,34 @@
     </section>
 }
 
+<section class="panel" aria-labelledby="flags-heading">
+    <h2 id="flags-heading">@T("Gaps and oddities")</h2>
+    <p class="hint">@T("Details that look missing or wrong, to look at one by one. Nothing here changes a book; open one to put it right.")</p>
+    @if (flags.All(flag => flag.Count == 0))
+    {
+        <p class="hint">@T("Nothing stands out.")</p>
+    }
+    else
+    {
+        @foreach (var flag in flags.Where(flag => flag.Count > 0))
+        {
+            <details class="tidy-flag">
+                <summary>@Tidy.FlagLabel(flag.Kind) <span class="hint">@Localization.Counts.Books(flag.Count)</span></summary>
+                <ul class="plain-list">
+                    @foreach (var book in flag.Books)
+                    {
+                        <li><a href="/library/@book.Id">@book.Title</a> <span class="hint">@book.Author@(book.Detail is { } detail ? " · " + detail : "")</span></li>
+                    }
+                </ul>
+                @if (flag.Count > flag.Books.Length)
+                {
+                    <p class="hint">@T("The first {0} of {1}.", flag.Books.Length, flag.Count.ToString("N0"))</p>
+                }
+            </details>
+        }
+    }
+</section>
+
 <section class="panel" aria-labelledby="files-heading">
     <h2 id="files-heading">@T("Files")</h2>
     @if (health is not null)
@@ -121,6 +150,28 @@
         {
             <button type="button" class="quiet" @onclick="CheckFiles">@T("Check every file now")</button>
         }
+    }
+</section>
+
+<section class="panel" aria-labelledby="formats-heading">
+    <h2 id="formats-heading">@T("Formats that may not last")</h2>
+    <p class="hint">@T("Files in formats few programs will open in years to come, or locked to one shop's readers. Nothing is changed; each says what would last better.")</p>
+    @if (risks is null)
+    {
+        <button type="button" class="quiet" @onclick="LookForRisks" disabled="@lookingForRisks">@(lookingForRisks ? T("Looking…") : T("Look through the files"))</button>
+    }
+    else if (risks.Length == 0)
+    {
+        <p class="hint">@T("Every file is in a format that should keep.")</p>
+    }
+    else
+    {
+        <ul class="plain-list">
+            @foreach (var risk in risks.Take(200))
+            {
+                <li><a href="/library/@risk.BookId">@risk.Title</a> <span class="hint">@risk.File</span><br /><span>@risk.Why</span></li>
+            }
+        </ul>
     }
 </section>
 
@@ -160,6 +211,41 @@
     }
 </section>
 
+<section class="panel" aria-labelledby="publishers-heading">
+    <h2 id="publishers-heading">@T("Publishers written more than one way")</h2>
+    @if (publishers.Count == 0)
+    {
+        <p class="hint">@T("Each publisher is written one way.")</p>
+    }
+    else
+    {
+        <p class="hint">@T("“Penguin Books” and “Penguin” are one publisher. Choose the spelling to keep; every book under the others takes it.")</p>
+        <ul class="tidy-list">
+            @foreach (var group in publishers.Take(shownPublishers))
+            {
+                var chosen = keepPublisher.GetValueOrDefault(group.Key, group.Usual);
+                <li>
+                    <fieldset>
+                        <legend class="visually-hidden">@T("Spellings of {0}", group.Usual)</legend>
+                        @foreach (var spelling in group.Spellings)
+                        {
+                            <label class="check">
+                                <input type="radio" name="@($"publisher-{group.Key}")" checked="@(spelling.Name == chosen)" @onchange="() => keepPublisher[group.Key] = spelling.Name" />
+                                @spelling.Name <span class="hint">@Localization.Counts.Books(spelling.Books)</span>
+                            </label>
+                        }
+                    </fieldset>
+                    <button type="button" class="quiet" @onclick="() => UsePublisher(group)">@T("Use “{0}”", chosen)</button>
+                </li>
+            }
+        </ul>
+        @if (publishers.Count > shownPublishers)
+        {
+            <button type="button" class="quiet" @onclick="() => shownPublishers += 50">@T("Show {0} more", Math.Min(50, publishers.Count - shownPublishers))</button>
+        }
+    }
+</section>
+
 <section class="panel" aria-labelledby="series-heading">
     <h2 id="series-heading">@T("Series inside titles")</h2>
     @if (series.Count == 0)
@@ -196,6 +282,20 @@
 @code {
     private IReadOnlyList<AuthorGroup> authors = [];
     private IReadOnlyList<SeriesInTitle> series = [];
+    private IReadOnlyList<PublisherGroup> publishers = [];
+    private readonly Dictionary<string, string> keepPublisher = [];
+    private int shownPublishers = 50;
+    private CatalogFlag[] flags = [];
+    private FormatRisk[]? risks;
+    private bool lookingForRisks;
+
+    private async Task LookForRisks()
+    {
+        lookingForRisks = true;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        risks = await Task.Run(() => Preservation.RisksAsync(db, Ebooks));
+        lookingForRisks = false;
+    }
     private readonly Dictionary<string, string> keep = [];
     private int shownAuthors = 50;
     private int shownSeries = 50;
@@ -233,6 +333,8 @@
         readerId = db.ReaderId;
         authors = await Tidy.AuthorGroupsAsync(db);
         series = await Tidy.SeriesInTitlesAsync(db);
+        publishers = await Tidy.PublisherGroupsAsync(db);
+        flags = await Tidy.FlagsAsync(db);
         var books = await db.Books.AsNoTracking().ToListAsync();
         missingCovers = books.Count(DetailsFiller.LacksCover);
         missingDetails = books.Count(DetailsFiller.NeedsDetails);
@@ -283,6 +385,17 @@
         var batch = await History.StartAsync(db, BatchKind.Edit, T("Authors written as {0}", spelling));
         using var _ = History.Use(batch.Id);
         var changed = await Tidy.UseSpellingAsync(db, [.. group.Spellings.Select(item => item.Name)], spelling);
+        note = T("Changed: {0}.", Localization.Counts.Books(changed));
+        await LoadAsync();
+    }
+
+    private async Task UsePublisher(PublisherGroup group)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var spelling = keepPublisher.GetValueOrDefault(group.Key, group.Usual);
+        var batch = await History.StartAsync(db, BatchKind.Edit, T("Publishers written as {0}", spelling));
+        using var _ = History.Use(batch.Id);
+        var changed = await Tidy.UsePublisherAsync(db, [.. group.Spellings.Select(item => item.Name)], spelling);
         note = T("Changed: {0}.", Localization.Counts.Books(changed));
         await LoadAsync();
     }

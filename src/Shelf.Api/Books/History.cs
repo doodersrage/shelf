@@ -72,7 +72,8 @@ public static class History
         nameof(Book.CoverUrl), nameof(Book.Location), nameof(Book.Status), nameof(Book.Rating), nameof(Book.Loved), nameof(Book.Notes),
         nameof(Book.Review), nameof(Book.StartedOn), nameof(Book.FinishedOn), nameof(Book.Translator), nameof(Book.Narrator),
         nameof(Book.OriginalTitle), nameof(Book.Inscription), nameof(Book.RecommendedBy), nameof(Book.PreviousOwners), nameof(Book.Signed),
-        nameof(Book.Condition), nameof(Book.Acquisition), nameof(Book.AcquiredOn),
+        nameof(Book.Condition), nameof(Book.Acquisition), nameof(Book.AcquiredOn), nameof(Book.PricePaid), nameof(Book.LeftOn), nameof(Book.LeftHow),
+        nameof(Book.LeftTo), nameof(Book.SoldFor), nameof(Book.HeldUntil), nameof(Book.HoldNote), nameof(Book.HomeLocation),
     ];
 
     private static readonly HashSet<string> Kept = [.. Fields];
@@ -248,6 +249,14 @@ public static class History
         nameof(Book.Condition) => T("Condition"),
         nameof(Book.Acquisition) => T("How it came"),
         nameof(Book.AcquiredOn) => T("Acquired"),
+        nameof(Book.PricePaid) => T("Price paid"),
+        nameof(Book.LeftOn) => T("Let go"),
+        nameof(Book.LeftHow) => T("How it left"),
+        nameof(Book.LeftTo) => T("Went to"),
+        nameof(Book.SoldFor) => T("Sold for"),
+        nameof(Book.HeldUntil) => T("Held until"),
+        nameof(Book.HoldNote) => T("Held for"),
+        nameof(Book.HomeLocation) => T("Usual place"),
         BookChange.Tag => T("Tag"),
         BookChange.Added => T("Added"),
         _ => field,

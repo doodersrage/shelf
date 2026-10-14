@@ -18,23 +18,23 @@ public sealed record BorrowedHighlightExport(string Title, string Author, string
 // marked in books they borrowed. Only ever this reader's: another member of the household is never in it.
 public static class PortableExport
 {
-    public static async Task WriteAsync(ShelfDb db, ZipArchive zip, IReadOnlyList<Book> books, JsonSerializerOptions json, CancellationToken cancellationToken)
+    public static async Task WriteAsync(ShelfDb db, ZipArchive zip, IReadOnlyList<Book> books, JsonSerializerOptions json, ArchiveManifest manifest, CancellationToken cancellationToken)
     {
         var place = books.Select((book, index) => (book.Id, index)).ToDictionary(pair => pair.Id, pair => pair.index);
 
-        await WriteTextAsync(zip, "README.md", Readme);
-        await WriteTextAsync(zip, "books.csv", Csv(books));
+        await WriteTextAsync(manifest, zip, "README.md", Readme);
+        await WriteTextAsync(manifest, zip, "books.csv", Csv(books));
 
         var collections = await db.Collections.AsNoTracking().Where(collection => collection.OwnerId == db.ReaderId)
             .Include(collection => collection.Books).ThenInclude(entry => entry.Book)
             .OrderBy(collection => collection.Name).ToListAsync(cancellationToken);
-        await WriteJsonAsync(zip, "collections.json", collections.Select(collection => new CollectionExport(collection.Name, collection.Description, collection.ReadBy,
+        await WriteJsonAsync(manifest, zip, "collections.json", collections.Select(collection => new CollectionExport(collection.Name, collection.Description, collection.ReadBy,
             [.. collection.Books.Where(entry => entry.Book is not null && place.ContainsKey(entry.BookId)).OrderBy(entry => entry.Position)
                 .Select(entry => new CollectionEntryExport(place[entry.BookId], entry.Book!.Title, entry.Book.Author, entry.Note))])).ToArray(), json, cancellationToken);
 
         var loans = await db.LoanRecords.AsNoTracking().OrderBy(loan => loan.LentOn).ThenBy(loan => loan.Id)
             .Select(loan => new { Loan = loan, loan.Book!.Title }).ToListAsync(cancellationToken);
-        await WriteJsonAsync(zip, "loans.json", loans.Select(item => new
+        await WriteJsonAsync(manifest, zip, "loans.json", loans.Select(item => new
         {
             Book = place.TryGetValue(item.Loan.BookId, out var at) ? at : (int?)null,
             item.Title, item.Loan.Borrower, item.Loan.LentOn, item.Loan.DueOn, item.Loan.ReturnedOn, item.Loan.Renewals,
@@ -50,7 +50,7 @@ public static class PortableExport
             .ToListAsync(cancellationToken);
         var ownerIds = marks.Select(mark => mark.OwnerId).OfType<int>().Distinct().ToList();
         var owners = await db.Readers.AsNoTracking().Where(reader => ownerIds.Contains(reader.Id)).ToDictionaryAsync(reader => reader.Id, reader => reader.Name, cancellationToken);
-        await WriteJsonAsync(zip, "borrowed-highlights.json", marks.Select(mark => new BorrowedHighlightExport(mark.Title, mark.Author,
+        await WriteJsonAsync(manifest, zip, "borrowed-highlights.json", marks.Select(mark => new BorrowedHighlightExport(mark.Title, mark.Author,
             mark.OwnerId is int owner ? owners.GetValueOrDefault(owner, "") : "", mark.ChapterIndex, mark.Text, mark.Note, mark.NotedAt)).ToArray(), json, cancellationToken);
     }
 
@@ -96,15 +96,15 @@ public static class PortableExport
         return value.IndexOfAny([',', '"', '\n', '\r']) >= 0 ? '"' + value.Replace("\"", "\"\"") + '"' : value;
     }
 
-    private static async Task WriteTextAsync(ZipArchive zip, string name, string text)
+    private static async Task WriteTextAsync(ArchiveManifest manifest, ZipArchive zip, string name, string text)
     {
-        await using var writer = new StreamWriter(zip.CreateEntry(name).Open(), new UTF8Encoding(false));
+        await using var writer = new StreamWriter(manifest.Create(zip, name), new UTF8Encoding(false));
         await writer.WriteAsync(text);
     }
 
-    private static async Task WriteJsonAsync<T>(ZipArchive zip, string name, T value, JsonSerializerOptions json, CancellationToken cancellationToken)
+    private static async Task WriteJsonAsync<T>(ArchiveManifest manifest, ZipArchive zip, string name, T value, JsonSerializerOptions json, CancellationToken cancellationToken)
     {
-        await using var stream = zip.CreateEntry(name).Open();
+        await using var stream = manifest.Create(zip, name);
         await JsonSerializer.SerializeAsync(stream, value, json, cancellationToken);
     }
 
@@ -122,6 +122,8 @@ public static class PortableExport
           and came back in.
         - `borrowed-highlights.json` — what you marked in books you borrowed from others.
         - `books/0001/` and on — the e-book, audiobook tracks, and cover picture of each book, numbered as in `books.csv`.
+        - `manifest.json` — every other file with its size and SHA-256, to show the download is whole; `SCHEMA.md` says
+          what each file holds, field by field.
 
         Text is UTF-8. JSON keys are in camelCase; dates are ISO 8601.
         """;

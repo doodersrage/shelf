@@ -113,6 +113,7 @@ public static class AudioPlayback
             return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Track"] = [Localization.Words.T("Give a track of this recording, and a time in it.")] });
         }
 
+        using var _ = Positions.Reporting("Shelf", "player");
         await Lending.KeepPlaceAsync(db, open, place =>
         {
             place.AudioTrack = request.Track;

@@ -15,6 +15,9 @@ public sealed record ShelfEvent(
     int? MeetingId = null)
 {
     public DateTimeOffset At { get; init; } = DateTimeOffset.UtcNow;
+
+    // Saved by a reader's rule, so no rule answers it.
+    public bool ByRule { get; init; } = Automations.Running;
 }
 
 public static class EventKinds
