@@ -83,7 +83,8 @@ public sealed class NoticeTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
             Assert.Equal(2, (await Notices.SettingsAsync(db)).Devices.Length);
         }
 
-        Assert.Equal(1, await notices.TestAsync(readerId));
+        // The browser still subscribed takes it, and so does the reader's email address; the forgotten one does not.
+        Assert.Equal(2, await notices.TestAsync(readerId));
         await using (var scope = Scope(readerId))
         {
             var devices = (await Notices.SettingsAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>())).Devices;
@@ -180,6 +181,35 @@ public sealed class NoticeTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
         Assert.Equal(("Your loans on Shelf", "1 book you lent is overdue."), (told.Notice.Title, told.Notice.Body));
         await notices.RemindDueAsync(CancellationToken.None);
         Assert.Single(factory.Channels.Sent, sent => sent.Address == "https://ntfy.sh/due-owner");
+    }
+
+    [Fact]
+    public async Task Notifications_go_to_the_address_a_reader_signs_in_with_until_they_turn_it_off()
+    {
+        var owner = await factory.SignUpAsync("Mailed Owner");
+        var friend = await factory.SignUpAsync("Mailed Friend");
+        var friendId = await factory.ReaderIdAsync("Mailed Friend");
+        var address = ShelfApiFactory.EmailOf("Mailed Friend");
+        var book = (await (await owner.PostAsJsonAsync("/books", new CreateBookRequest("Persuasion", "Jane Austen", BookStatus.Finished, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+
+        await owner.PostAsJsonAsync($"/books/{book.Id}/lend", new LendRequest(friendId), JsonOptions);
+        await WaitIdleAsync();
+        var lent = Assert.Single(factory.Mail.Sent, mail => mail.To == address);
+        Assert.Equal("Mailed Owner lent you a book", lent.Subject);
+        Assert.StartsWith("Hello Mailed Friend,", lent.Body);
+        Assert.Contains("Persuasion", lent.Body);
+
+        await using (var scope = Scope(friendId))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            Assert.True((await Notices.SettingsAsync(db)).EmailNotices);
+            await Notices.SetEmailNoticesAsync(db, false);
+        }
+
+        await owner.PostAsync($"/books/{book.Id}/return", null);
+        await owner.PostAsJsonAsync($"/books/{book.Id}/lend", new LendRequest(friendId), JsonOptions);
+        await WaitIdleAsync();
+        Assert.Single(factory.Mail.Sent, mail => mail.To == address);
     }
 
     private async Task WaitIdleAsync()

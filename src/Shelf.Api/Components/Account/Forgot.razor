@@ -13,16 +13,16 @@
 }
 else if (Sent == "1")
 {
-    <p role="status">@T("If that name or address belongs to a reader with an email address, a link to choose a new password is on its way. It works for an hour.")</p>
+    <p role="status">@T("If that address, or name, belongs to a reader with an email address, a link to choose a new password is on its way. It works for an hour.")</p>
     <p class="hint"><a href="/signin">@T("Back to sign in")</a></p>
 }
 else
 {
-    <p class="hint">@T("Enter your name or the email address on your account, and we will send a link to choose a new password.")</p>
+    <p class="hint">@T("Enter the email address you sign in with, and we will send a link to choose a new password.")</p>
     <form class="account" method="post" action="/account/forgot">
         <AntiforgeryToken />
         <label>
-            @T("Name or email address")
+            @T("Email address")
             <input name="who" maxlength="@EmailRules.MaxAddressLength" autocomplete="username" required autofocus />
         </label>
         <button type="submit">@T("Send the link")</button>

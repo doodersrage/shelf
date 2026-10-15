@@ -3102,7 +3102,7 @@ namespace Shelf.Api.Data.Migrations
                         .HasMaxLength(254)
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("EmailReminders")
+                    b.Property<bool>("EmailNotices")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("GotifyToken")
@@ -3157,12 +3157,13 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<DateOnly?>("LastNoticeOn")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateOnly?>("LastReminderOn")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NormalizedEmail")
+                        .HasMaxLength(254)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("NormalizedName")
@@ -3195,6 +3196,21 @@ namespace Shelf.Api.Data.Migrations
 
                     b.Property<bool>("PasswordUnknown")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("PendingEmail")
+                        .HasMaxLength(254)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("PendingEmailExpires")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PendingEmailTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PendingNormalizedEmail")
+                        .HasMaxLength(254)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("PublicToken")
                         .HasMaxLength(40)
@@ -3250,11 +3266,18 @@ namespace Shelf.Api.Data.Migrations
                     b.HasIndex("KoboTokenHash")
                         .IsUnique();
 
-                    b.HasIndex("NormalizedName")
+                    b.HasIndex("NormalizedEmail")
                         .IsUnique();
+
+                    b.HasIndex("NormalizedName");
 
                     b.HasIndex("OidcSubject")
                         .IsUnique();
+
+                    b.HasIndex("PendingEmailTokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("PendingNormalizedEmail");
 
                     b.HasIndex("PublicToken")
                         .IsUnique();

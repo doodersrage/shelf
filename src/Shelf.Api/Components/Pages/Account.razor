@@ -424,17 +424,32 @@ else
 <h2>@T("Email")</h2>
 @if (!Email.Enabled)
 {
-    <p class="hint">@T("This shelf has no mail server set up, so it cannot send password resets or reminders. An admin can add one in the Email settings.")</p>
+    <p class="hint">@T("This shelf has no mail server set up, so it cannot send password resets or notifications. An admin can add one in the Email settings.")</p>
+}
+@if (Confirmed == "1")
+{
+    <p class="saved" role="status">@T("Your email address is confirmed. You sign in with it now.")</p>
+}
+else if (ProblemCode is { } confirmCode && Enum.TryParse<AccountProblem>(confirmCode, out var confirmProblem) && confirmProblem is AccountProblem.ConfirmExpired or AccountProblem.EmailTaken)
+{
+    <p class="validation-message" role="alert">@ReaderRules.Describe(confirmProblem)</p>
+}
+@if (pendingEmail is not null)
+{
+    <p class="validation-message" role="status">
+        @T("A link went to {0}. The address is yours to sign in with once you open it.", pendingEmail)
+        <button type="button" class="quiet" @onclick="ResendConfirmation">@T("Send the link again")</button>
+    </p>
+}
+else if (savedEmail is null && !restricted)
+{
+    <p class="validation-message" role="status">@T("Add your email address: you will sign in with it, instead of your name.")</p>
 }
 <label>
     @T("Email address")
     <input type="email" @bind="emailAddress" @bind:event="oninput" maxlength="@EmailRules.MaxAddressLength" autocomplete="email" />
 </label>
-<label class="check">
-    <input type="checkbox" @bind="emailReminders" disabled="@(string.IsNullOrWhiteSpace(emailAddress))" />
-    @T("Email me once a day when a loan is overdue or due soon, or someone asks to borrow")
-</label>
-<p class="hint">@T("Used only for password resets and the reminders you choose.") @T("With series alerts on, under Series, new books in your series come by email too.")</p>
+<p class="hint">@T("You sign in with it. It is used for password resets and, if you like, notifications. Other readers see only a hint of it, such as s…m@example.org, and only when another reader has your name.")</p>
 <button type="button" class="primary" @onclick="SaveEmail">@T("Save")</button>
 @if (Email.Enabled)
 {
@@ -656,7 +671,7 @@ else
 {
 <section class="panel" id="notices">
 <h2>@T("Notifications")</h2>
-<p class="hint">@T("Shelf can tell you when someone lends you a book or asks to borrow one, when a loan is due, about new books in your series, and about your book clubs: on this device, or by ntfy or Gotify.")</p>
+<p class="hint">@T("Shelf can tell you when someone lends you a book or asks to borrow one, when a loan is due, about new books in your series, and about your book clubs: by email, on this device, or by ntfy or Gotify.")</p>
 <fieldset class="audible-take">
     <legend>@T("Tell me about")</legend>
     @foreach (var (kind, label) in NoticeChoices)
@@ -671,6 +686,23 @@ else
         <input type="number" min="1" max="30" value="@dueSoonDays" @onchange="ChangeDueSoonDays" style="width: 5em" />
     </label>
 </fieldset>
+
+<h3>@T("Email")</h3>
+@if (!Email.Enabled)
+{
+    <p class="hint">@T("This shelf has no mail server set up, so it cannot send notifications by email.")</p>
+}
+else if (noticeSettings?.Email is { } noticeAddress)
+{
+    <label class="check">
+        <input type="checkbox" checked="@noticeSettings.EmailNotices" @onchange="ChangeEmailNotices" />
+        @T("Email me at {0}", noticeAddress)
+    </label>
+}
+else
+{
+    <p class="hint">@T("Add an email address on the Connections tab, and notifications go there too.")</p>
+}
 
 <h3>@T("This device")</h3>
 @if (pushState == "unsupported")
@@ -845,7 +877,6 @@ else if (pushState is not null)
     private string? currentSession;
     private string emailAddress = "";
     private string? savedEmail;
-    private bool emailReminders;
     private AccountProblem? emailProblem;
     private string? emailNote;
 
@@ -952,6 +983,12 @@ else if (pushState is not null)
     [SupplyParameterFromQuery(Name = "problem")]
     public string? ProblemCode { get; set; }
 
+    [SupplyParameterFromQuery]
+    public string? Confirmed { get; set; }
+
+    // An address given but not yet confirmed by its link.
+    private string? pendingEmail;
+
     private bool passwordUnknown;
     private string kindleAddress = "";
     private AccountProblem? kindleProblem;
@@ -975,8 +1012,8 @@ else if (pushState is not null)
         tokens = await ApiTokens.ListAsync(db, me.Id);
         sandbox = await SandboxService.InfoAsync(db);
         savedEmail = me.Email;
-        emailAddress = me.Email ?? "";
-        emailReminders = me.EmailReminders;
+        pendingEmail = me.PendingEmail;
+        emailAddress = me.PendingEmail ?? me.Email ?? "";
         twoFactorOn = me.TwoFactorEnabled;
         culture = me.Culture ?? "";
         language = me.Language ?? "";
@@ -1141,6 +1178,13 @@ else if (pushState is not null)
         dueSoonDays = days;
         await using var db = await DbFactory.CreateDbContextAsync();
         await Notices.SetDueSoonDaysAsync(db, days);
+    }
+
+    private async Task ChangeEmailNotices(ChangeEventArgs change)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Notices.SetEmailNoticesAsync(db, change.Value is true);
+        await LoadNoticesAsync(db);
     }
 
     private async Task ChangeNoticeKind(NoticeKinds kind, ChangeEventArgs change)
@@ -1588,13 +1632,22 @@ else if (pushState is not null)
     {
         emailNote = null;
         await using var db = await DbFactory.CreateDbContextAsync();
-        emailProblem = await ReaderRules.SetEmailAsync(db, db.ReaderId, emailAddress, emailReminders);
+        (emailProblem, var pending) = await EmailRules.ChangeAsync(db, Email, db.ReaderId, emailAddress, noticeSettings?.EmailNotices ?? true, Site);
         if (emailProblem is null)
         {
-            savedEmail = EmailRules.CleanAddress(emailAddress);
-            emailReminders = savedEmail is not null && emailReminders;
-            emailNote = T("Saved.");
+            var me = await db.Readers.AsNoTracking().FirstAsync(item => item.Id == db.ReaderId);
+            (savedEmail, pendingEmail) = (me.Email, me.PendingEmail);
+            await LoadNoticesAsync(db);
+            emailNote = pending ? null : T("Saved.");
         }
+    }
+
+    private async Task ResendConfirmation()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var me = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
+        emailProblem = null;
+        emailNote = await EmailRules.SendConfirmationAsync(db, Email, me, Site) ? T("Sent to {0}.", me.PendingEmail!) : T("A link went a moment ago. Wait a minute before asking again.");
     }
 
     private async Task SendTest()

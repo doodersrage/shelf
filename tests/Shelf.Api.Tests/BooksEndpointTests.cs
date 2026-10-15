@@ -1628,12 +1628,16 @@ public sealed partial class ShelfApiFactory : WebApplicationFactory<Program>, IA
         var response = await PostFormAsync(client, "/signup", "/account/signup", new()
         {
             ["name"] = name,
+            ["email"] = EmailOf(name),
             ["password"] = password,
             ["confirm"] = password,
         });
         Assert.Equal("/", response.RequestMessage?.RequestUri?.AbsolutePath);
         return client;
     }
+
+    // The address a reader signed up by SignUpAsync signs in with: "Free Reader" is free.reader@example.test.
+    public static string EmailOf(string name) => string.Join('.', name.ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries)) + "@example.test";
 
     public async Task<int> ReaderIdAsync(string name)
     {

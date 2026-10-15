@@ -30,7 +30,7 @@ public sealed class FolderImportTests(ShelfApiFactory factory) : IClassFixture<S
             builder.UseSetting("Import:EverySeconds", "3600");
         });
         var reader = app.CreateClient();
-        await ShelfApiFactory.PostFormAsync(reader, "/signup", "/account/signup", new() { ["name"] = "Dropping Reader", ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
+        await ShelfApiFactory.PostFormAsync(reader, "/signup", "/account/signup", new() { ["name"] = "Dropping Reader", ["email"] = ShelfApiFactory.EmailOf("Dropping Reader"), ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
         var import = app.Services.GetRequiredService<FolderImport>();
         await import.ScanAsync(CancellationToken.None);
 
@@ -76,7 +76,7 @@ public sealed class FolderImportTests(ShelfApiFactory factory) : IClassFixture<S
             builder.UseSetting("Import:AfterImport", "delete");
         });
         var reader = app.CreateClient();
-        await ShelfApiFactory.PostFormAsync(reader, "/signup", "/account/signup", new() { ["name"] = "Listening Dropper", ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
+        await ShelfApiFactory.PostFormAsync(reader, "/signup", "/account/signup", new() { ["name"] = "Listening Dropper", ["email"] = ShelfApiFactory.EmailOf("Listening Dropper"), ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
         var import = app.Services.GetRequiredService<FolderImport>();
         var album = Path.Combine(folder, "Listening Dropper", "A Long Story");
         Directory.CreateDirectory(album);

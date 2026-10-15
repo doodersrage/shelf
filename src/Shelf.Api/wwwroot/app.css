@@ -2413,6 +2413,15 @@ blockquote .hint {
     padding-top: 2px;
 }
 
+.listen-undo {
+    display: block;
+    margin: 0.5rem auto 0;
+}
+
+.listen-undo[hidden] {
+    display: none;
+}
+
 .listen-book {
     margin: var(--space-2) 0 var(--space-4);
 }

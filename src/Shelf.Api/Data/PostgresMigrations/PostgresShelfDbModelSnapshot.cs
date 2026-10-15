@@ -3245,7 +3245,7 @@ namespace Shelf.Api.Data.PostgresMigrations
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)");
 
-                    b.Property<bool>("EmailReminders")
+                    b.Property<bool>("EmailNotices")
                         .HasColumnType("boolean");
 
                     b.Property<string>("GotifyToken")
@@ -3300,13 +3300,14 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Property<DateOnly?>("LastNoticeOn")
                         .HasColumnType("date");
 
-                    b.Property<DateOnly?>("LastReminderOn")
-                        .HasColumnType("date");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
+
+                    b.Property<string>("NormalizedEmail")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)");
 
                     b.Property<string>("NormalizedName")
                         .IsRequired()
@@ -3338,6 +3339,21 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     b.Property<bool>("PasswordUnknown")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("PendingEmail")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)");
+
+                    b.Property<DateTimeOffset?>("PendingEmailExpires")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PendingEmailTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("PendingNormalizedEmail")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)");
 
                     b.Property<string>("PublicToken")
                         .HasMaxLength(40)
@@ -3393,11 +3409,18 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.HasIndex("KoboTokenHash")
                         .IsUnique();
 
-                    b.HasIndex("NormalizedName")
+                    b.HasIndex("NormalizedEmail")
                         .IsUnique();
+
+                    b.HasIndex("NormalizedName");
 
                     b.HasIndex("OidcSubject")
                         .IsUnique();
+
+                    b.HasIndex("PendingEmailTokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("PendingNormalizedEmail");
 
                     b.HasIndex("PublicToken")
                         .IsUnique();

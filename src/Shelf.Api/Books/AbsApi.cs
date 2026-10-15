@@ -144,7 +144,7 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
     {
         Reader? reader = null;
         if (request.Password?.StartsWith(ApiTokens.Prefix, StringComparison.Ordinal) == true && await ApiTokens.ReaderOfAsync(db, request.Password, cancellationToken) is { } byToken
-            && ReaderRules.Normalize(request.Username ?? "") == byToken.NormalizedName)
+            && (await ReaderRules.FindAsync(db, request.Username, cancellationToken))?.Id == byToken.Id)
         {
             reader = byToken;
         }

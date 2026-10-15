@@ -100,7 +100,7 @@ Then start Shelf with the same two settings. The SQLite file stays as it was, to
 
 ## Email
 
-Without a mail server, an admin resets forgotten passwords and reminders stay in the app. Set at least `Email:Host` and `Email:From`, and `Email:PublicAddress` for password resets; then **Forgot the password?** on the sign-in page sends a reader a link, to the email address on their account.
+Without a mail server, an admin resets forgotten passwords and notifications come only by the other ways a reader sets up. Set at least `Email:Host` and `Email:From`, and `Email:PublicAddress` for password resets; then **Forgot the password?** on the sign-in page sends a reader a link, to the email address on their account.
 
 | Setting | Default | What it does |
 | --- | --- | --- |

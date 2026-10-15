@@ -9,11 +9,13 @@ One Shelf serves everyone you share it with. Each reader signs in to a shelf of 
 
 ## Readers
 
-Each person makes an account with a name and a password of at least eight characters; the first account is the admin. Each reader's settings are their own: language, region for dates, light or dark (under **Look** on **Account**; otherwise as the device is set), the reader's page and typeface, text size, read-aloud voice, audiobook speed, and the yearly goal. See [Accounts and security](security.md) for passkeys, two-step sign-in, and what an admin can do.
+Each person makes an account with their name, their email address, and a password of at least eight characters; the first account is the admin. Readers sign in with their email address, which no two readers here can share, so two readers may have the same name. When the shelf can send email (with `Email:PublicAddress` set), a new address is confirmed first: a link goes to it, and the address is the reader's only once it is opened. Until then it is no one's, so giving someone else's address takes nothing from them; whoever opens their link first has it. A reader can sign in with an address still waiting, by their own password. The address is private: other readers see the name, and where two readers share a name, a hint of the address such as `s…m@example.org` to tell them apart. Accounts made before sign-in was by email go on signing in by name until their reader adds an address under **Account**, in **Connections**; an address given earlier for reminders already works for signing in. An address can be changed to another, which is confirmed the same way while the old one keeps working, but not removed.
+
+A name that only one reader has also still works where a name was asked for before: the sign-in page, KOReader's progress sync, and Audiobookshelf apps. Each reader's settings are their own: language, region for dates, light or dark (under **Look** on **Account**; otherwise as the device is set), the reader's page and typeface, text size, read-aloud voice, audiobook speed, and the yearly goal. See [Accounts and security](security.md) for passkeys, two-step sign-in, and what an admin can do.
 
 ## Children's accounts
 
-A reader can make accounts for their children under **Account**, in **Children's accounts**: a name to sign in with and a password. A child signs in as themselves, keeps a shelf of their own, and reads the books you share with them:
+A reader can make accounts for their children under **Account**, in **Children's accounts**: a name to sign in with, which no other reader here may have, and a password. A child needs no email address. A child signs in as themselves, keeps a shelf of their own, and reads the books you share with them:
 
 1. Put the books in a collection, under **Collections**.
 2. On the collection's page, tick **Let … read the books in this collection**.
@@ -24,7 +26,7 @@ A child's account can't lend books, open its shelf or borrow from other readers,
 
 ## Languages
 
-Shelf's pages are in English, Spanish, French, and German. Each reader sees the language their browser asks for, unless they pick one under **Language and region** on **Account**. Emails, the reset link and the loan reminders, go out in the language the reader picked. Dates and numbers follow the region separately, so a reader can have the pages in English and the dates written the German way.
+Shelf's pages are in English, Spanish, French, and German. Each reader sees the language their browser asks for, unless they pick one under **Language and region** on **Account**. Emails, the reset link and notifications, go out in the language the reader picked. Dates and numbers follow the region separately, so a reader can have the pages in English and the dates written the German way.
 
 The translations were made by machine and checked for consistency, but have not yet been read by native speakers. Corrections are welcome: [Translating Shelf](https://github.com/doodersrage/shelf/blob/main/docs/translating.md) shows where the words are and the terms each language uses, or [open a translation issue](https://github.com/doodersrage/shelf/issues/new?template=translation.yml) with the sentence and what it should say. A test fails when a sentence on a page is missing from a language, so a new sentence can't be left untranslated by accident.
 
@@ -98,7 +100,7 @@ A notice under the header points to **Loans** when:
 - a book lent to you is due soon, within three days unless you choose another number of days on **Account**, under **Notifications**;
 - someone has asked to borrow from you.
 
-With [email set up](configuration.md#email), a reader can add their address on **Account** to get these as one email a day, and to reset a forgotten password from the sign-in page.
+With [email set up](configuration.md#email), the loans due soon or overdue come once a day by email too, with the rest of a reader's [notifications](notifications.md#by-email), and a reader can reset a forgotten password from the sign-in page.
 
 ## Book clubs
 

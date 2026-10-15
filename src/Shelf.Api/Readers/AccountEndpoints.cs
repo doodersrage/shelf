@@ -35,13 +35,16 @@ public static class AccountEndpoints
         account.MapPost("/forgot", Forgot).AllowAnonymous().RequireRateLimiting(SignInLimit);
         account.MapPost("/reset", Reset).AllowAnonymous().RequireRateLimiting(SignInLimit);
         account.MapPut("/email", SetEmail).RequireAuthorization();
+        account.MapGet("/email/confirm", ConfirmEmail).AllowAnonymous().RequireRateLimiting(SignInLimit);
         account.MapPost("/email/test", TestEmail).RequireAuthorization();
         account.MapPut("/kindle", SetKindle).RequireAuthorization();
 
         app.MapGet("/readers", Others).WithTags("Account").RequireAuthorization();
     }
 
+    // By email address, or by name for a reader without one; a form that still sends "name" is answered the same.
     private static async Task<RedirectHttpResult> SignIn(
+        [FromForm] string? email,
         [FromForm] string? name,
         [FromForm] string? password,
         [FromForm] string? returnUrl,
@@ -50,10 +53,11 @@ public static class AccountEndpoints
         IDataProtectionProvider protection,
         CancellationToken cancellationToken)
     {
-        var reader = await ReaderRules.VerifyAsync(db, name, password, cancellationToken);
+        var who = string.IsNullOrWhiteSpace(email) ? name : email;
+        var reader = await ReaderRules.VerifyAsync(db, who, password, cancellationToken);
         if (reader is null)
         {
-            return TypedResults.Redirect(Back("/signin", AccountProblem.WrongPassword, name, returnUrl));
+            return TypedResults.Redirect(Back("/signin", AccountProblem.WrongPassword, null, returnUrl, who));
         }
 
         if (reader.TwoFactorEnabled)
@@ -133,7 +137,7 @@ public static class AccountEndpoints
         reader.TwoFactorSecret = TwoFactor.Protector(protection).Protect(secret);
         reader.TwoFactorEnabled = false;
         await db.SaveChangesAsync(cancellationToken);
-        return TypedResults.Ok(new TwoFactorStart(secret, TwoFactor.Uri(secret, reader.Name)));
+        return TypedResults.Ok(new TwoFactorStart(secret, TwoFactor.Uri(secret, reader.Email ?? reader.Name)));
     }
 
     private static async Task<Results<Ok<RecoveryCodes>, ValidationProblem>> ConfirmTwoFactor(
@@ -173,28 +177,44 @@ public static class AccountEndpoints
 
     private static async Task<RedirectHttpResult> SignUp(
         [FromForm] string? name,
+        [FromForm] string? email,
         [FromForm] string? password,
         [FromForm] string? confirm,
         [FromForm] string? returnUrl,
         HttpContext http,
         ShelfDb db,
         IConfiguration configuration,
+        IEmailSender mail,
         CancellationToken cancellationToken)
     {
         if (!SignUpOpen(configuration) && await db.Readers.AnyAsync(cancellationToken))
         {
-            return TypedResults.Redirect(Back("/signup", AccountProblem.SignUpClosed, name, returnUrl));
+            return TypedResults.Redirect(Back("/signup", AccountProblem.SignUpClosed, name, returnUrl, email));
         }
 
         if (!string.Equals(password, confirm, StringComparison.Ordinal))
         {
-            return TypedResults.Redirect(Back("/signup", AccountProblem.PasswordsDiffer, name, returnUrl));
+            return TypedResults.Redirect(Back("/signup", AccountProblem.PasswordsDiffer, name, returnUrl, email));
         }
 
-        var (reader, problem) = await ReaderRules.CreateAsync(db, name, password, cancellationToken);
+        // Signing up gives an address, which is how the reader signs in from then on.
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return TypedResults.Redirect(Back("/signup", AccountProblem.EmailMissing, name, returnUrl, email));
+        }
+
+        // When the shelf can, the address waits for its link, so no one can take an address that is not theirs.
+        var link = EmailRules.ResetAddress(configuration, http.Request);
+        var confirms = EmailRules.Confirms(mail, link);
+        var (reader, problem) = await ReaderRules.CreateAsync(db, name, email, password, cancellationToken, confirmed: !confirms);
         if (reader is null)
         {
-            return TypedResults.Redirect(Back("/signup", problem ?? AccountProblem.NameMissing, name, returnUrl));
+            return TypedResults.Redirect(Back("/signup", problem ?? AccountProblem.NameMissing, name, returnUrl, email));
+        }
+
+        if (confirms)
+        {
+            await EmailRules.SendConfirmationAsync(db, mail, reader, link!, cancellationToken);
         }
 
         await SignInAsync(http, db, reader, cancellationToken);
@@ -276,12 +296,32 @@ public static class AccountEndpoints
             : Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString("/reset", new Dictionary<string, string?> { ["token"] = token, ["problem"] = problem.ToString() }));
     }
 
-    private static async Task<Results<NoContent, ValidationProblem>> SetEmail(EmailSettingsRequest request, ShelfDb db, CancellationToken cancellationToken)
+    // 202 Accepted when the new address waits for the link sent to it; 204 when it is the reader's at once.
+    private static async Task<Results<NoContent, Accepted, ValidationProblem>> SetEmail(
+        EmailSettingsRequest request,
+        HttpContext http,
+        ShelfDb db,
+        IEmailSender mail,
+        IConfiguration configuration,
+        CancellationToken cancellationToken)
     {
-        var problem = await ReaderRules.SetEmailAsync(db, db.ReaderId, request.Email, request.Reminders, cancellationToken);
-        return problem is null
-            ? TypedResults.NoContent()
-            : TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Email)] = [ReaderRules.Describe(problem.Value)] });
+        var (problem, pending) = await EmailRules.ChangeAsync(db, mail, db.ReaderId, request.Email, request.Reminders, EmailRules.ResetAddress(configuration, http.Request), cancellationToken);
+        return problem is not null
+            ? TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Email)] = [ReaderRules.Describe(problem.Value)] })
+            : pending ? TypedResults.Accepted((string?)null) : TypedResults.NoContent();
+    }
+
+    private static async Task<RedirectHttpResult> ConfirmEmail(string? token, HttpContext http, ShelfDb db, CancellationToken cancellationToken)
+    {
+        var problem = await EmailRules.ConfirmAsync(db, token, cancellationToken);
+        var signedIn = http.User.Identity?.IsAuthenticated == true;
+        return TypedResults.Redirect((problem, signedIn) switch
+        {
+            (null, true) => "/account?confirmed=1#email",
+            (null, false) => "/signin?notice=confirmed",
+            (_, true) => $"/account?problem={problem}#email",
+            _ => $"/signin?problem={problem}",
+        });
     }
 
     private static async Task<Results<NoContent, ValidationProblem>> SetKindle(KindleSettingsRequest request, ShelfDb db, CancellationToken cancellationToken)
@@ -320,12 +360,17 @@ public static class AccountEndpoints
             new AuthenticationProperties { IsPersistent = true });
     }
 
-    private static string Back(string page, AccountProblem problem, string? name, string? returnUrl)
+    private static string Back(string page, AccountProblem problem, string? name, string? returnUrl, string? email = null)
     {
         var query = new Dictionary<string, string?> { ["problem"] = problem.ToString() };
         if (!string.IsNullOrWhiteSpace(name))
         {
             query["name"] = ReaderRules.Clean(name) is { Length: <= ReaderRules.MaxNameLength } cleaned ? cleaned : null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            query["email"] = email.Trim() is { Length: <= EmailRules.MaxAddressLength } trimmed ? trimmed : null;
         }
 
         if (ReaderRules.IsLocalUrl(returnUrl))

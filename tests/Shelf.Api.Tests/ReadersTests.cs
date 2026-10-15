@@ -11,7 +11,7 @@ using Shelf.Api.Readers;
 
 namespace Shelf.Api.Tests;
 
-public sealed class ReadersTests(ShelfApiFactory factory) : IClassFixture<ShelfApiFactory>
+public sealed partial class ReadersTests(ShelfApiFactory factory) : IClassFixture<ShelfApiFactory>
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -38,22 +38,140 @@ public sealed class ReadersTests(ShelfApiFactory factory) : IClassFixture<ShelfA
     }
 
     [Fact]
-    public async Task Sign_up_refuses_a_taken_name_a_short_password_and_a_mismatch()
+    public async Task Sign_up_refuses_a_taken_address_a_missing_one_a_short_password_and_a_mismatch()
     {
         var client = factory.CreateClient(new() { AllowAutoRedirect = false });
 
-        var taken = await SignUpFormAsync(client, "tenar", ShelfApiFactory.Password, ShelfApiFactory.Password);
-        Assert.Contains("problem=NameTaken", taken.Headers.Location?.OriginalString);
+        var taken = await SignUpFormAsync(client, "Ged", "TENAR@example.test", ShelfApiFactory.Password, ShelfApiFactory.Password);
+        Assert.Contains("problem=EmailTaken", taken.Headers.Location?.OriginalString);
 
-        var weak = await SignUpFormAsync(client, "Ged", "short", "short");
+        var missing = await SignUpFormAsync(client, "Ged", "", ShelfApiFactory.Password, ShelfApiFactory.Password);
+        Assert.Contains("problem=EmailMissing", missing.Headers.Location?.OriginalString);
+
+        var invalid = await SignUpFormAsync(client, "Ged", "not an address", ShelfApiFactory.Password, ShelfApiFactory.Password);
+        Assert.Contains("problem=EmailInvalid", invalid.Headers.Location?.OriginalString);
+
+        var weak = await SignUpFormAsync(client, "Ged", "ged@example.test", "short", "short");
         Assert.Contains("problem=PasswordTooShort", weak.Headers.Location?.OriginalString);
 
-        var mismatch = await SignUpFormAsync(client, "Ged", ShelfApiFactory.Password, "something else entirely");
+        var mismatch = await SignUpFormAsync(client, "Ged", "ged@example.test", ShelfApiFactory.Password, "something else entirely");
         Assert.Contains("problem=PasswordsDiffer", mismatch.Headers.Location?.OriginalString);
 
         var page = await client.GetStringAsync(mismatch.Headers.Location!.OriginalString);
         Assert.Contains("The two passwords are different.", page);
         Assert.Contains("value=\"Ged\"", page);
+        Assert.Contains("value=\"ged@example.test\"", page);
+    }
+
+    [Fact]
+    public async Task Readers_sign_in_by_email_and_may_share_a_name()
+    {
+        var client = factory.CreateClient(new() { AllowAutoRedirect = false });
+        Assert.Equal("/", (await SignUpFormAsync(client, "Shared Name", "first.shared@example.test", ShelfApiFactory.Password, ShelfApiFactory.Password)).Headers.Location?.OriginalString);
+        var other = factory.CreateClient(new() { AllowAutoRedirect = false });
+        Assert.Equal("/", (await SignUpFormAsync(other, "shared name", "second.shared@example.test", ShelfApiFactory.Password + "2", ShelfApiFactory.Password + "2")).Headers.Location?.OriginalString);
+
+        // The address finds each, whatever its case; the name, now two readers', finds neither.
+        var visitor = factory.CreateClient(new() { AllowAutoRedirect = false });
+        var byEmail = await ShelfApiFactory.PostFormAsync(visitor, "/signin", "/account/signin", new() { ["email"] = "Second.Shared@Example.test", ["password"] = ShelfApiFactory.Password + "2" });
+        Assert.Equal("/", byEmail.Headers.Location?.OriginalString);
+        var byName = await ShelfApiFactory.PostFormAsync(factory.CreateClient(new() { AllowAutoRedirect = false }), "/signin", "/account/signin", new() { ["email"] = "Shared Name", ["password"] = ShelfApiFactory.Password });
+        Assert.Contains("problem=WrongPassword", byName.Headers.Location?.OriginalString);
+
+        // A name only one reader has still signs in, as KOReader and Audiobookshelf apps already set up use it.
+        var unique = await ShelfApiFactory.PostFormAsync(factory.CreateClient(new() { AllowAutoRedirect = false }), "/signin", "/account/signin", new() { ["name"] = "Tenar", ["password"] = ShelfApiFactory.Password });
+        Assert.Equal("/", unique.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
+    public async Task An_address_can_change_to_a_free_one_but_not_be_removed()
+    {
+        var reader = await factory.SignUpAsync("Changing Address");
+        var taken = await reader.PutAsJsonAsync("/account/email", new EmailSettingsRequest("tenar@example.test", true), JsonOptions);
+        Assert.Equal(HttpStatusCode.BadRequest, taken.StatusCode);
+        Assert.Contains("already signs in with that email address", await taken.Content.ReadAsStringAsync());
+
+        var removed = await reader.PutAsJsonAsync("/account/email", new EmailSettingsRequest(null, true), JsonOptions);
+        Assert.Equal(HttpStatusCode.BadRequest, removed.StatusCode);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await reader.PutAsJsonAsync("/account/email", new EmailSettingsRequest("moved@example.test", true), JsonOptions)).StatusCode);
+        var visitor = factory.CreateClient(new() { AllowAutoRedirect = false });
+        var signedIn = await ShelfApiFactory.PostFormAsync(visitor, "/signin", "/account/signin", new() { ["email"] = "moved@example.test", ["password"] = ShelfApiFactory.Password });
+        Assert.Equal("/", signedIn.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
+    public async Task A_new_address_is_only_the_readers_once_they_open_the_link_sent_to_it()
+    {
+        await using var addressed = factory.WithWebHostBuilder(builder => builder.UseSetting("Email:PublicAddress", "https://shelf.test"));
+        var first = addressed.CreateClient(new() { AllowAutoRedirect = false });
+        Assert.Equal("/", (await SignUpFormAsync(first, "Claimant One", "claimed@example.test", ShelfApiFactory.Password, ShelfApiFactory.Password)).Headers.Location?.OriginalString);
+
+        // Not confirmed, the address is no one's yet: someone else may give it too, and each signs in with it by
+        // their own password.
+        var second = addressed.CreateClient(new() { AllowAutoRedirect = false });
+        Assert.Equal("/", (await SignUpFormAsync(second, "Claimant Two", "claimed@example.test", ShelfApiFactory.Password + "2", ShelfApiFactory.Password + "2")).Headers.Location?.OriginalString);
+        var links = factory.Mail.Sent.Where(mail => mail.To == "claimed@example.test").Select(mail => ConfirmLink().Match(mail.Body).Value).ToList();
+        Assert.Equal(2, links.Count);
+        var visitor = addressed.CreateClient(new() { AllowAutoRedirect = false });
+        var asSecond = await ShelfApiFactory.PostFormAsync(visitor, "/signin", "/account/signin", new() { ["email"] = "claimed@example.test", ["password"] = ShelfApiFactory.Password + "2" });
+        Assert.Equal("/", asSecond.Headers.Location?.OriginalString);
+        Assert.Contains("Claimant Two", await visitor.GetStringAsync("/account"));
+
+        // The second opens their link first, and has it; the first's link then finds it taken.
+        Assert.Equal("/account?confirmed=1#email", (await second.GetAsync(links[1])).Headers.Location?.OriginalString);
+        Assert.Equal("/signin?problem=EmailTaken", (await addressed.CreateClient(new() { AllowAutoRedirect = false }).GetAsync(links[0])).Headers.Location?.OriginalString);
+        Assert.Equal("/signin?problem=ConfirmExpired", (await addressed.CreateClient(new() { AllowAutoRedirect = false }).GetAsync(links[1])).Headers.Location?.OriginalString);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            Assert.Equal("Claimant Two", (await ReaderRules.FindAsync(db, "claimed@example.test"))?.Name);
+            var one = await db.Readers.SingleAsync(reader => reader.Name == "Claimant One");
+            Assert.Equal((null, null), (one.Email, one.PendingEmail));
+        }
+
+        // A change waits for its link too, and the address before it keeps working until then.
+        var change = await second.PutAsJsonAsync("/account/email", new EmailSettingsRequest("moved.claimant@example.test", true), JsonOptions);
+        Assert.Equal(HttpStatusCode.Accepted, change.StatusCode);
+        Assert.Equal("/", (await ShelfApiFactory.PostFormAsync(addressed.CreateClient(new() { AllowAutoRedirect = false }), "/signin", "/account/signin", new() { ["email"] = "claimed@example.test", ["password"] = ShelfApiFactory.Password + "2" })).Headers.Location?.OriginalString);
+        var moved = ConfirmLink().Match(factory.Mail.Sent.Last(mail => mail.To == "moved.claimant@example.test").Body).Value;
+        Assert.Equal("/account?confirmed=1#email", (await second.GetAsync(moved)).Headers.Location?.OriginalString);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            Assert.Equal("Claimant Two", (await ReaderRules.FindAsync(db, "moved.claimant@example.test"))?.Name);
+            Assert.Null(await ReaderRules.FindAsync(db, "claimed@example.test"));
+        }
+    }
+
+    [Fact]
+    public async Task Readers_who_share_a_name_are_told_apart_by_a_hint_of_their_address()
+    {
+        await factory.SignUpAsync("Twin Reader");
+        var other = factory.CreateClient(new() { AllowAutoRedirect = false });
+        await SignUpFormAsync(other, "Twin Reader", "samantha@example.org", ShelfApiFactory.Password, ShelfApiFactory.Password);
+        var names = (await _tenar.GetFromJsonAsync<ReaderResponse[]>("/readers", JsonOptions))!.Select(reader => reader.Name).ToList();
+        Assert.Contains("Twin Reader (t…r@example.test)", names);
+        Assert.Contains("Twin Reader (s…a@example.org)", names);
+        Assert.DoesNotContain(names, name => name.Contains("samantha", StringComparison.Ordinal));
+        Assert.Contains("Tenar", (await other.GetFromJsonAsync<ReaderResponse[]>("/readers", JsonOptions))!.Select(reader => reader.Name));
+    }
+
+    [Fact]
+    public async Task Addresses_given_before_sign_in_was_by_email_become_ways_to_sign_in_first_come_first()
+    {
+        await using var fresh = new FreshShelfFactory();
+        await using var scope = fresh.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+        Reader Old(string name, string? email) => new() { Name = name, NormalizedName = ReaderRules.Normalize(name), Email = email, CreatedAt = DateTimeOffset.UtcNow };
+        db.Readers.AddRange(Old("Older", "kept@example.test"), Old("Younger", "Kept@example.test"), Old("Addressless", null));
+        await db.SaveChangesAsync();
+
+        await ReaderRules.AdoptEmailsAsync(db);
+        Assert.Equal("Older", (await ReaderRules.FindAsync(db, "KEPT@example.test"))?.Name);
+        Assert.Null(db.Readers.Single(reader => reader.Name == "Younger").NormalizedEmail);
+        Assert.Equal("Younger", (await ReaderRules.FindAsync(db, "younger"))?.Name);
+        Assert.Equal("Addressless", (await ReaderRules.FindAsync(db, "Addressless"))?.Name);
     }
 
     [Fact]
@@ -389,10 +507,11 @@ public sealed class ReadersTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         write.Location, write.AcquiredOn, write.Translator, write.OriginalTitle, write.RecommendedBy, write.Inscription,
         write.DueOn, write.Queued, write.Acquisition, write.Condition);
 
-    private static Task<HttpResponseMessage> SignUpFormAsync(HttpClient client, string name, string password, string confirm) =>
+    private static Task<HttpResponseMessage> SignUpFormAsync(HttpClient client, string name, string email, string password, string confirm) =>
         ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new()
         {
             ["name"] = name,
+            ["email"] = email,
             ["password"] = password,
             ["confirm"] = confirm,
         });
@@ -415,4 +534,8 @@ public sealed class ReadersTests(ShelfApiFactory factory) : IClassFixture<ShelfA
 
         public ValueTask DisposeAsync() => _inner.DisposeAsync();
     }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"/account/email/confirm\?token=[A-Za-z0-9_-]+")]
+    private static partial System.Text.RegularExpressions.Regex ConfirmLink();
+
 }

@@ -23,7 +23,7 @@ public sealed class FreeBooksTests(ShelfApiFactory factory) : IClassFixture<Shel
         await using var app = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
             services.AddHttpClient(FreeCatalog.ClientName).ConfigurePrimaryHttpMessageHandler(() => new FakeCatalogs())));
         var client = app.CreateClient();
-        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Free Reader", ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
+        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Free Reader", ["email"] = ShelfApiFactory.EmailOf("Free Reader"), ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
         var readerId = await factory.ReaderIdAsync("Free Reader");
 
         var http = app.Services.GetRequiredService<IHttpClientFactory>().CreateClient(FreeCatalog.ClientName);
@@ -74,7 +74,7 @@ public sealed class FreeBooksTests(ShelfApiFactory factory) : IClassFixture<Shel
         await using var app = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
             services.AddHttpClient(FreeCatalog.ClientName).ConfigurePrimaryHttpMessageHandler(() => new FakeCatalogs())));
         var client = app.CreateClient();
-        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Wanting Reader", ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
+        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Wanting Reader", ["email"] = ShelfApiFactory.EmailOf("Wanting Reader"), ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
         var readerId = await factory.ReaderIdAsync("Wanting Reader");
         var wanted = (await (await client.PostAsJsonAsync("/books", new CreateBookRequest("Moby-Dick", "Herman Melville", BookStatus.Want, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
 
@@ -134,7 +134,7 @@ public sealed class FreeBooksTests(ShelfApiFactory factory) : IClassFixture<Shel
 
         // With nothing searched for, the page opens on the most read books.
         var client = app.CreateClient();
-        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Browsing Reader", ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
+        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Browsing Reader", ["email"] = ShelfApiFactory.EmailOf("Browsing Reader"), ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
         var page = WebUtility.HtmlDecode(await client.GetStringAsync("/free"));
         Assert.Contains("Most popular", page);
         Assert.Contains("Pride and Prejudice", page);
@@ -157,7 +157,7 @@ public sealed class FreeBooksTests(ShelfApiFactory factory) : IClassFixture<Shel
         await using var app = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
             services.AddHttpClient(FreeCatalog.ClientName).ConfigurePrimaryHttpMessageHandler(() => new BreaksOnDetails())));
         var client = app.CreateClient();
-        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Unlucky Reader", ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
+        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Unlucky Reader", ["email"] = ShelfApiFactory.EmailOf("Unlucky Reader"), ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
 
         // The connection drops halfway through a book's record: the page says so instead of failing.
         var response = await client.GetAsync("/free?about=Gutenberg-84");

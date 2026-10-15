@@ -139,7 +139,7 @@ public sealed partial class SeriesWatch(IServiceScopeFactory scopes, IConfigurat
         }
     }
 
-    // New books in a reader's series, by email, when they have reminders by email: each book once.
+    // New books in a reader's series, by email, when notifications of them go by email: each book once.
     public async Task<bool> MailAsync(int readerId, CancellationToken cancellationToken)
     {
         if (!email.Enabled)
@@ -151,7 +151,7 @@ public sealed partial class SeriesWatch(IServiceScopeFactory scopes, IConfigurat
         scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
         var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
         var reader = await db.Readers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == readerId, cancellationToken);
-        if (reader is not { EmailReminders: true, Email: { } address })
+        if (reader is not { EmailNotices: true, Email: { } address } || ((NoticeKinds)reader.NoticeKinds & NoticeKinds.Series) == 0)
         {
             return false;
         }

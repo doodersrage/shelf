@@ -52,7 +52,7 @@ public enum PushOutcome
 
 public sealed record PushDevice(int Id, string? Label, DateTimeOffset CreatedAt);
 
-public sealed record NoticeSettings(NoticeKinds Kinds, string? NtfyUrl, bool NtfyToken, string? GotifyUrl, bool GotifyToken, PushDevice[] Devices, int DueSoonDays = Reader.DefaultDueSoonDays);
+public sealed record NoticeSettings(NoticeKinds Kinds, string? NtfyUrl, bool NtfyToken, string? GotifyUrl, bool GotifyToken, PushDevice[] Devices, int DueSoonDays = Reader.DefaultDueSoonDays, string? Email = null, bool EmailNotices = false);
 
 public interface INoticeChannels
 {
@@ -247,8 +247,9 @@ public static class WebPush
     }
 }
 
-// Tells readers what concerns them, by the ways each chose: this browser's notifications, an ntfy topic, or Gotify.
-public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channels, IDataProtectionProvider protection, IConfiguration configuration, ILogger<Notices> logger)
+// Tells readers what concerns them, by the ways each chose: this browser's notifications, an ntfy topic, Gotify, or,
+// when the shelf can send email, their email address, which is on until they turn it off.
+public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channels, IDataProtectionProvider protection, IConfiguration configuration, IEmailSender email, ILogger<Notices> logger)
     : BackgroundService, IShelfEventHandler
 {
     public const int MaxDevices = 20;
@@ -285,8 +286,11 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
         var devices = (await db.PushSubscriptions.AsNoTracking().Where(item => item.ReaderId == db.ReaderId).ToListAsync(cancellationToken))
             .OrderByDescending(item => item.CreatedAt).Select(item => new PushDevice(item.Id, item.Label, item.CreatedAt)).ToArray();
         return new NoticeSettings((NoticeKinds)reader.NoticeKinds, reader.NtfyUrl, reader.NtfyToken is not null, reader.GotifyUrl, reader.GotifyToken is not null, devices,
-            reader.DueSoonDays is >= 1 and <= 30 ? reader.DueSoonDays : Reader.DefaultDueSoonDays);
+            reader.DueSoonDays is >= 1 and <= 30 ? reader.DueSoonDays : Reader.DefaultDueSoonDays, reader.Email, reader.EmailNotices);
     }
+
+    public static async Task SetEmailNoticesAsync(ShelfDb db, bool on, CancellationToken cancellationToken = default) =>
+        await db.Readers.Where(item => item.Id == db.ReaderId).ExecuteUpdateAsync(set => set.SetProperty(item => item.EmailNotices, on), cancellationToken);
 
     public static async Task SetDueSoonDaysAsync(ShelfDb db, int days, CancellationToken cancellationToken = default) =>
         await db.Readers.Where(item => item.Id == db.ReaderId).ExecuteUpdateAsync(set => set.SetProperty(item => item.DueSoonDays, Math.Clamp(days, 1, 30)), cancellationToken);
@@ -392,7 +396,8 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
     public Task<int> TestAsync(int readerId, CancellationToken cancellationToken = default) =>
         SendAsync(readerId, null, _ => new Notice(T("Shelf"), T("Notifications reach you here."), "/account#notices", "test"), cancellationToken);
 
-    public async Task<int> SendAsync(int readerId, NoticeKinds? kind, Func<Reader, Notice?> compose, CancellationToken cancellationToken = default)
+    // byEmail false leaves email out, for news that goes by an email of its own (new books in a series).
+    public async Task<int> SendAsync(int readerId, NoticeKinds? kind, Func<Reader, Notice?> compose, CancellationToken cancellationToken = default, bool byEmail = true)
     {
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
@@ -403,15 +408,25 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
         }
 
         var devices = await db.PushSubscriptions.Where(item => item.ReaderId == readerId).ToListAsync(cancellationToken);
-        if (devices.Count == 0 && reader.NtfyUrl is null && reader.GotifyUrl is null)
+        var address = byEmail && email.Enabled && reader.EmailNotices ? reader.Email : null;
+        if (devices.Count == 0 && reader.NtfyUrl is null && reader.GotifyUrl is null && address is null)
         {
             return 0;
         }
 
+        EmailMessage? mail = null;
+
         Notice? notice;
+        var site = EmailRules.PublicAddress(configuration, null);
         using (Speaking(reader.Language))
         {
             notice = compose(reader);
+            if (notice is not null && address is not null)
+            {
+                mail = new EmailMessage(address, notice.Title, T("Hello {0},", reader.Name) + "\n\n" + notice.Body + "\n\n"
+                    + (site.Length > 0 ? T("See it on Shelf: {0}", site + notice.Url) + "\n\n" : "")
+                    + T("You can choose what you hear about, and how, on your account under Notifications."));
+            }
         }
 
         if (notice is null)
@@ -420,9 +435,20 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
         }
 
         notice = notice with { Title = Clip(notice.Title, 120), Body = Clip(notice.Body, 600) };
-        var site = EmailRules.PublicAddress(configuration, null);
         var link = site.Length > 0 ? site + notice.Url : null;
         var sent = 0;
+        if (mail is not null)
+        {
+            try
+            {
+                await email.SendAsync(mail, cancellationToken);
+                sent++;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "A notification email to reader {ReaderId} did not go.", readerId);
+            }
+        }
         if (reader.NtfyUrl is { } ntfy && await channels.NtfyAsync(ntfy, Open(reader.NtfyToken), notice, link, cancellationToken))
         {
             sent++;
@@ -489,7 +515,7 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
             case EventKinds.SeriesFound when shelfEvent.ReaderId is int seriesReader:
                 await SendAsync(seriesReader, NoticeKinds.Series, _ => new Notice(
                     shelfEvent.Count == 1 ? T("A new book in your series") : T("{0} new books in your series", shelfEvent.Count),
-                    T("See them under Series."), "/series", "series"), cancellationToken);
+                    T("See them under Series."), "/series", "series"), cancellationToken, byEmail: false);
                 break;
             case EventKinds.ClubJoined when shelfEvent.ClubId is int clubId && shelfEvent.ReaderId is int member && member != shelfEvent.ActorId:
                 var club = await db.Clubs.AsNoTracking().Where(item => item.Id == clubId).Select(item => item.Name).FirstOrDefaultAsync(cancellationToken);
@@ -537,7 +563,8 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
         }
     }
 
-    // Once a day, readers who are told of their loans hear of any due soon or overdue.
+    // Once a day, readers who are told of their loans hear of any due soon or overdue: by email too, which takes the
+    // place of the daily loan email there was before notifications.
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromHours(1));
@@ -565,9 +592,10 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
         {
             var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
             var withDevice = db.PushSubscriptions.Select(item => item.ReaderId);
+            var mails = email.Enabled;
             due = await db.Readers.AsNoTracking()
                 .Where(reader => (reader.NoticeKinds & (int)NoticeKinds.Loans) != 0 && (reader.LastNoticeOn == null || reader.LastNoticeOn < today)
-                    && (reader.NtfyUrl != null || reader.GotifyUrl != null || withDevice.Contains(reader.Id)))
+                    && (reader.NtfyUrl != null || reader.GotifyUrl != null || withDevice.Contains(reader.Id) || (mails && reader.EmailNotices && reader.Email != null)))
                 .Select(reader => reader.Id)
                 .ToListAsync(cancellationToken);
         }

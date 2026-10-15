@@ -3,6 +3,8 @@ namespace Shelf.Api.Readers;
 public sealed class Reader
 {
     public int Id { get; set; }
+    // The name other readers see. Names may repeat; a reader without an email address signs in with theirs, so
+    // among those readers each name is still unique.
     public required string Name { get; set; }
     public required string NormalizedName { get; set; }
     public string PasswordHash { get; set; } = "";
@@ -44,10 +46,21 @@ public sealed class Reader
     // Changes when the password is reset or changed, which signs out every session made before.
     public string Stamp { get; set; } = ReaderRules.NewStamp();
 
-    // Optional, for password resets and, when EmailReminders is on, a daily note about loans.
+    // The address the reader signs in with, unique on the shelf, and where password resets and, when EmailNotices
+    // is on and the shelf can send email, notifications go. Children's accounts, and accounts made before sign-in
+    // was by email, may have none and sign in by name.
     public string? Email { get; set; }
-    public bool EmailReminders { get; set; }
-    public DateOnly? LastReminderOn { get; set; }
+
+    // The address upper-cased for finding the reader by it; null when the reader does not sign in with it.
+    public string? NormalizedEmail { get; set; }
+    public bool EmailNotices { get; set; } = true;
+
+    // An address given but not yet confirmed: a link went to it, and it becomes Email when the link is opened. Until
+    // then it is no one's, so giving someone else's address takes it from no one.
+    public string? PendingEmail { get; set; }
+    public string? PendingNormalizedEmail { get; set; }
+    public string? PendingEmailTokenHash { get; set; }
+    public DateTimeOffset? PendingEmailExpires { get; set; }
 
     // Where Send to Kindle emails this reader's e-books: their Kindle's own address at Amazon.
     public string? KindleEmail { get; set; }
@@ -111,13 +124,14 @@ public sealed record TwoFactorCodeRequest(string? Code);
 
 public sealed record RecoveryCodes(string[] Codes);
 
+// Reminders: whether notifications go to the address too (the name is kept from when it meant only loan reminders).
 public sealed record EmailSettingsRequest(string? Email, bool Reminders);
 
 public sealed record KindleSettingsRequest(string? Email);
 
 public sealed record ReaderResponse(int Id, string Name);
 
-public sealed record ReaderSummary(int Id, string Name, bool IsAdmin, DateTimeOffset CreatedAt, int Books, bool Child = false);
+public sealed record ReaderSummary(int Id, string Name, bool IsAdmin, DateTimeOffset CreatedAt, int Books, bool Child = false, string? Email = null);
 
 public sealed record AdminChange(bool IsAdmin);
 

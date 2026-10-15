@@ -69,6 +69,8 @@ else if (book is not null)
                     <button type="button" class="icon-button jump" data-player="forward" aria-label="@T("Forward")"><PlayerIcon Name="forward" /><span class="jump-by" data-show="forward-by">30</span></button>
                     <button type="button" class="icon-button" data-player="next" aria-label="@T("Next chapter")" disabled="@(plan.Chapters.Length < 2)"><PlayerIcon Name="next" /></button>
                 </div>
+                @* After a chapter, the scrubber, or a bookmark moves the book far, a few seconds to take it back. *@
+                <button type="button" class="quiet listen-undo" data-player="undo" data-show="undo" data-template="@T("Back to {0}")" aria-live="polite" hidden></button>
 
                 <div class="listen-book">
                     <div class="book-bar" aria-hidden="true"><div class="book-fill" data-show="book-bar"></div><div class="book-ticks" data-show="ticks"></div></div>
@@ -204,6 +206,10 @@ else if (book is not null)
                                 <option value="@seconds">@T("{0} seconds", seconds)</option>
                             }
                         </select>
+                    </label>
+                    <label class="check">
+                        <input type="checkbox" data-player="smart-rewind" checked />
+                        @T("After a pause, start a few seconds back, more the longer it was")
                     </label>
                 </div>
                 <p class="hint">@T("Keys: Space plays and pauses, the arrow keys go back and forward, Shift and an arrow key moves by chapter, [ and ] change the speed, and M mutes.")</p>

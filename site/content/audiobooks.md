@@ -40,7 +40,9 @@ Matching asks Audible and Audnexus over the internet; nothing is sent about you 
 - **Chapters.** The chapter you're in, its time gone and left, and a slider to move within it. Below, a bar for the whole book with a mark at each chapter, its time left at your speed, and how far through you are. The **Chapters** list (or **Tracks**, for a recording without chapter marks) shows each one's start and goes to it. **Previous chapter** goes back to the start of the chapter first, then to the one before.
 - **Skips.** Back 15 and ahead 30 seconds, or any of 5 to 60 seconds, under **Player settings**.
 - **Speed.** From 0.5× to 3× in steps of 0.05 with **−** and **+**, or a common speed from **Speed**. Kept for you.
-- **Sleep timer.** Pause after 5 to 90 minutes of listening, or at the end of the chapter, with **5 more minutes** when you are not sleepy yet. The minutes count only while the book plays.
+- **Sleep timer.** Pause after 5 to 90 minutes of listening, or at the end of the chapter, with **5 more minutes** when you are not sleepy yet. The minutes count only while the book plays, and the sound fades out over the last half minute rather than stopping all at once.
+- **Undo a jump.** After a move to another chapter, along the scrubber, from the chapter list, or to a bookmark, **Back to …** under the buttons returns to where you were, for ten seconds.
+- **Picking up the thread.** Played again after a pause, the book starts a little before where it stopped: 5 seconds after half a minute away, 10 after five minutes, 20 after an hour, and never before the start of the chapter. Turn it off under **Player settings**.
 - **Volume,** kept on that device.
 - **Keys.** Space plays and pauses, the arrow keys skip, Shift and an arrow move by chapter, `[` and `]` change the speed, and M mutes.
 - **Bookmarks.** **Bookmark this moment** keeps where you are, with a note if you like. Each bookmark shows its chapter or track and time, and **Go there** goes back to it.

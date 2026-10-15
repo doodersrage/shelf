@@ -42,7 +42,7 @@ services:
     environment:
       # Behind a proxy that ends HTTPS (Caddy, nginx, Traefik):
       # Hosting__BehindProxy: "true"
-      # Email for password resets and reminders (Email__Host and Email__From are both needed):
+      # Email for password resets and notifications (Email__Host and Email__From are both needed):
       # Email__Host: smtp.example.org
       # Email__From: shelf@example.org
       # Email__PublicAddress: https://shelf.example.org

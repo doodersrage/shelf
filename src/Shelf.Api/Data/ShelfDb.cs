@@ -793,9 +793,16 @@ public class ShelfDb : DbContext
             reader.Property(r => r.NormalizedName).HasMaxLength(ReaderRules.MaxNameLength).IsRequired();
             reader.Property(r => r.PasswordHash).HasMaxLength(200).IsRequired();
             reader.Property(r => r.KeyHash).HasMaxLength(64);
-            reader.HasIndex(r => r.NormalizedName).IsUnique();
+            reader.HasIndex(r => r.NormalizedName);
             reader.Property(r => r.Stamp).HasMaxLength(64).IsRequired();
             reader.Property(r => r.Email).HasMaxLength(EmailRules.MaxAddressLength);
+            reader.Property(r => r.NormalizedEmail).HasMaxLength(EmailRules.MaxAddressLength);
+            reader.HasIndex(r => r.NormalizedEmail).IsUnique();
+            reader.Property(r => r.PendingEmail).HasMaxLength(EmailRules.MaxAddressLength);
+            reader.Property(r => r.PendingNormalizedEmail).HasMaxLength(EmailRules.MaxAddressLength);
+            reader.HasIndex(r => r.PendingNormalizedEmail);
+            reader.Property(r => r.PendingEmailTokenHash).HasMaxLength(64);
+            reader.HasIndex(r => r.PendingEmailTokenHash).IsUnique();
             reader.Property(r => r.TwoFactorSecret).HasMaxLength(500);
             reader.Property(r => r.Culture).HasMaxLength(16);
             reader.HasIndex(r => r.KeyHash).IsUnique();

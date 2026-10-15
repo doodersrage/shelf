@@ -32,6 +32,8 @@ public static class ReaderRules
 
     public static string Normalize(string name) => Clean(name).ToUpperInvariant();
 
+    public static string NormalizeEmail(string address) => address.Trim().ToUpperInvariant();
+
     public static string Clean(string? name) =>
         string.Join(' ', (name ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
@@ -69,13 +71,17 @@ public static class ReaderRules
         AccountProblem.PasswordTooShort => T("Use a password of at least {0} characters.", MinPasswordLength),
         AccountProblem.PasswordTooLong => T("Keep the password to {0} characters.", MaxPasswordLength),
         AccountProblem.PasswordsDiffer => T("The two passwords are different."),
-        AccountProblem.WrongPassword => T("That name and password do not match."),
+        AccountProblem.WrongPassword => T("That email address and password do not match."),
         AccountProblem.CurrentPasswordWrong => T("The current password does not match."),
         AccountProblem.SignUpClosed => T("This shelf is not taking new readers."),
         AccountProblem.LastAdmin => T("The shelf needs at least one admin. Make another reader an admin first."),
         AccountProblem.NoSuchReader => T("That reader is not on this shelf."),
         AccountProblem.ResetExpired => T("That reset link has expired or was used already. Ask for a new one."),
         AccountProblem.EmailInvalid => T("That does not look like an email address."),
+        AccountProblem.EmailMissing => T("Give your email address. You sign in with it."),
+        AccountProblem.EmailTaken => T("Another reader here already signs in with that email address."),
+        AccountProblem.EmailRequired => T("You sign in with your email address, so it can be changed but not removed."),
+        AccountProblem.ConfirmExpired => T("That link has expired or was used already. Ask for a new one on your account."),
         AccountProblem.CodeWrong => T("That code does not match. Try the newest code from your authenticator, or a recovery code."),
         AccountProblem.SsoFailed => T("Single sign-on did not finish. Try again, or sign in with your password."),
         AccountProblem.SsoUnknown => T("This shelf has no account for that sign-on, and it is not taking new accounts. Sign in with your password, then connect single sign-on on Account."),
@@ -86,11 +92,17 @@ public static class ReaderRules
         _ => T("Something went wrong."),
     };
 
+    // A reader with an email address signs in with it, and no one else may have it; their name may be anyone's. A
+    // reader without one (a child's account, or one made by single sign-on without an address) signs in by name, so
+    // it must be a name no reader has yet. An address not yet confirmed (confirmed false) is only pending: it takes no
+    // address from anyone until its link is opened (EmailRules.ConfirmAsync).
     public static async Task<(Reader? Reader, AccountProblem? Problem)> CreateAsync(
         ShelfDb db,
         string? name,
+        string? email,
         string? password,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool confirmed = true)
     {
         var problem = NameProblem(name) ?? PasswordProblem(password);
         if (problem is not null)
@@ -98,16 +110,30 @@ public static class ReaderRules
             return (null, problem);
         }
 
-        var normalized = Normalize(name!);
-        if (await db.Readers.AnyAsync(reader => reader.NormalizedName == normalized, cancellationToken))
+        var address = EmailRules.CleanAddress(email);
+        if (address == "")
         {
-            return (null, AccountProblem.NameTaken);
+            return (null, AccountProblem.EmailInvalid);
         }
 
+        var normalized = Normalize(name!);
+        var normalizedEmail = address is null ? null : NormalizeEmail(address);
+        if (normalizedEmail is not null
+            ? await db.Readers.AnyAsync(reader => reader.NormalizedEmail == normalizedEmail, cancellationToken)
+            : await NameTakenAsync(db, normalized, cancellationToken))
+        {
+            return (null, normalizedEmail is null ? AccountProblem.NameTaken : AccountProblem.EmailTaken);
+        }
+
+        var pending = !confirmed && address is not null;
         var reader = new Reader
         {
             Name = Clean(name),
             NormalizedName = normalized,
+            Email = pending ? null : address,
+            NormalizedEmail = pending ? null : normalizedEmail,
+            PendingEmail = pending ? address : null,
+            PendingNormalizedEmail = pending ? normalizedEmail : null,
             CreatedAt = DateTimeOffset.UtcNow,
         };
         reader.PasswordHash = Hasher.HashPassword(reader, password!);
@@ -118,7 +144,8 @@ public static class ReaderRules
         }
         catch (DbUpdateException)
         {
-            return (null, AccountProblem.NameTaken);
+            db.Readers.Remove(reader);
+            return (null, normalizedEmail is null ? AccountProblem.NameTaken : AccountProblem.EmailTaken);
         }
 
         if (!await db.Readers.AnyAsync(other => other.Id != reader.Id, cancellationToken))
@@ -132,28 +159,105 @@ public static class ReaderRules
         return (reader, null);
     }
 
+    private static Task<bool> NameTakenAsync(ShelfDb db, string normalizedName, CancellationToken cancellationToken) =>
+        db.Readers.AnyAsync(reader => reader.NormalizedName == normalizedName && reader.SandboxOf == null, cancellationToken);
+
+    // The reader an email address, or a name, signs in as. A name finds the reader without an address who has it, of
+    // whom there is at most one; or else a reader with an address, when they are the only one with that name, so the
+    // name already given to KOReader or an Audiobookshelf app keeps working.
+    public static async Task<Reader?> FindAsync(ShelfDb db, string? who, CancellationToken cancellationToken = default)
+    {
+        var wanted = who?.Trim() ?? "";
+        if (wanted.Length == 0 || wanted.Length > EmailRules.MaxAddressLength)
+        {
+            return null;
+        }
+
+        if (wanted.Contains('@'))
+        {
+            var address = NormalizeEmail(wanted);
+            return await db.Readers.FirstOrDefaultAsync(reader => reader.NormalizedEmail == address, cancellationToken);
+        }
+
+        var name = Normalize(wanted);
+        var named = await db.Readers
+            .Where(reader => reader.NormalizedName == name && reader.SandboxOf == null)
+            .OrderBy(reader => reader.NormalizedEmail == null && reader.PendingNormalizedEmail == null ? 0 : 1)
+            .Take(2)
+            .ToListAsync(cancellationToken);
+        return named is [{ NormalizedEmail: null, PendingNormalizedEmail: null } byName, ..] ? byName : named is [var only] ? only : null;
+    }
+
+    // Who a sign-in may be for. A reader whose address is still pending signs in with it too: their password, not the
+    // address, proves who they are, and several may have given the same one, so each is tried.
+    private static async Task<List<Reader>> SigningInAsync(ShelfDb db, string? who, CancellationToken cancellationToken)
+    {
+        if (await FindAsync(db, who, cancellationToken) is { } found)
+        {
+            return [found];
+        }
+
+        if (who?.Trim() is not { Length: > 0 and <= EmailRules.MaxAddressLength } wanted || !wanted.Contains('@'))
+        {
+            return [];
+        }
+
+        var address = NormalizeEmail(wanted);
+        return await db.Readers.Where(reader => reader.PendingNormalizedEmail == address).OrderBy(reader => reader.Id).Take(5).ToListAsync(cancellationToken);
+    }
+
+    // Addresses given before sign-in was by email become ways to sign in, each for the earliest reader who gave it.
+    public static async Task AdoptEmailsAsync(ShelfDb db, CancellationToken cancellationToken = default)
+    {
+        var waiting = await db.Readers.Where(reader => reader.Email != null && reader.NormalizedEmail == null).OrderBy(reader => reader.Id).ToListAsync(cancellationToken);
+        if (waiting.Count == 0)
+        {
+            return;
+        }
+
+        var taken = (await db.Readers.Where(reader => reader.NormalizedEmail != null).Select(reader => reader.NormalizedEmail!).ToListAsync(cancellationToken)).ToHashSet(StringComparer.Ordinal);
+        foreach (var reader in waiting)
+        {
+            if (taken.Add(NormalizeEmail(reader.Email!)))
+            {
+                reader.NormalizedEmail = NormalizeEmail(reader.Email!);
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public static async Task<Reader?> VerifyAsync(
         ShelfDb db,
-        string? name,
+        string? who,
         string? password,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrEmpty(password) || password.Length > MaxPasswordLength)
+        if (string.IsNullOrEmpty(password) || password.Length > MaxPasswordLength)
         {
             return null;
         }
 
-        var normalized = Normalize(name);
-        var reader = await db.Readers.FirstOrDefaultAsync(item => item.NormalizedName == normalized, cancellationToken);
-        if (reader is null)
+        var readers = await SigningInAsync(db, who, cancellationToken);
+        if (readers.Count == 0)
         {
             return null;
         }
 
-        var result = Hasher.VerifyHashedPassword(reader, reader.PasswordHash, password);
+        var reader = readers[0];
+        var result = PasswordVerificationResult.Failed;
+        foreach (var candidate in readers)
+        {
+            (reader, result) = (candidate, Hasher.VerifyHashedPassword(candidate, candidate.PasswordHash, password));
+            if (result != PasswordVerificationResult.Failed)
+            {
+                break;
+            }
+        }
+
         if (result == PasswordVerificationResult.Failed)
         {
-            await Audit.NoteAsync(db, Localization.Words.Say("A sign-in failed: wrong password"), reader, cancellationToken: cancellationToken);
+            await Audit.NoteAsync(db, Localization.Words.Say("A sign-in failed: wrong password"), readers[0], cancellationToken: cancellationToken);
             return null;
         }
 
@@ -212,7 +316,9 @@ public static class ReaderRules
         return true;
     }
 
-    public static async Task<AccountProblem?> SetEmailAsync(ShelfDb db, int readerId, string? email, bool reminders, CancellationToken cancellationToken = default)
+    // The address a reader signs in with, and whether notifications go there too. It can change, to one no other
+    // reader has, but a reader who signs in with one cannot go back to none.
+    public static async Task<AccountProblem?> SetEmailAsync(ShelfDb db, int readerId, string? email, bool notices, CancellationToken cancellationToken = default)
     {
         var address = EmailRules.CleanAddress(email);
         if (address == "")
@@ -226,9 +332,34 @@ public static class ReaderRules
             return AccountProblem.NoSuchReader;
         }
 
-        reader.Email = address;
-        reader.EmailReminders = address is not null && reminders;
-        await db.SaveChangesAsync(cancellationToken);
+        var normalized = address is null ? null : NormalizeEmail(address);
+        if (normalized is null && reader.NormalizedEmail is not null)
+        {
+            return AccountProblem.EmailRequired;
+        }
+
+        if (normalized is not null && await db.Readers.AnyAsync(other => other.NormalizedEmail == normalized && other.Id != readerId, cancellationToken))
+        {
+            return AccountProblem.EmailTaken;
+        }
+
+        var changed = !string.Equals(reader.Email, address, StringComparison.Ordinal);
+        (reader.Email, reader.NormalizedEmail, reader.EmailNotices) = (address, normalized, notices);
+        (reader.PendingEmail, reader.PendingNormalizedEmail, reader.PendingEmailTokenHash, reader.PendingEmailExpires) = (null, null, null, null);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            return AccountProblem.EmailTaken;
+        }
+
+        if (changed)
+        {
+            await Audit.NoteAsync(db, Localization.Words.Say("Changed the email address"), reader, cancellationToken: cancellationToken);
+        }
+
         return null;
     }
 
@@ -298,7 +429,7 @@ public static class ReaderRules
         var readers = await db.Readers.AsNoTracking().Where(reader => reader.SandboxOf == null).ToListAsync(cancellationToken);
         return readers
             .OrderBy(reader => reader.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(reader => new ReaderSummary(reader.Id, reader.Name, reader.IsAdmin, reader.CreatedAt, counts.GetValueOrDefault(reader.Id), reader.Restricted))
+            .Select(reader => new ReaderSummary(reader.Id, reader.Name, reader.IsAdmin, reader.CreatedAt, counts.GetValueOrDefault(reader.Id), reader.Restricted, reader.Email))
             .ToArray();
     }
 
@@ -483,9 +614,28 @@ public static class ReaderRules
         var guardian = await db.Readers.AsNoTracking().Where(reader => reader.Id == readerId && reader.Restricted).Select(reader => (int?)(reader.GuardianId ?? 0)).FirstOrDefaultAsync(cancellationToken);
         var readers = await db.Readers.AsNoTracking()
             .Where(reader => reader.Id != readerId && reader.SandboxOf == null && (guardian == null ? !reader.Restricted || reader.GuardianId == readerId : reader.Id == guardian))
-            .Select(reader => new ReaderResponse(reader.Id, reader.Name))
+            .Select(reader => new { reader.Id, reader.Name, reader.NormalizedName, Email = reader.NormalizedEmail == null ? null : reader.Email })
             .ToListAsync(cancellationToken);
-        return readers.OrderBy(reader => reader.Name, StringComparer.OrdinalIgnoreCase).ToArray();
+
+        // Readers who share a name are told apart by a hint of their address, never the whole of it.
+        var shared = readers.GroupBy(reader => reader.NormalizedName).Where(group => group.Count() > 1).Select(group => group.Key).ToHashSet();
+        return readers
+            .Select(reader => new ReaderResponse(reader.Id, shared.Contains(reader.NormalizedName) && reader.Email is { } email ? $"{reader.Name} ({Hint(email)})" : reader.Name))
+            .OrderBy(reader => reader.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    // s…m@example.org: the first and last letters of the part before the @, and where the address is.
+    public static string Hint(string email)
+    {
+        var at = email.LastIndexOf('@');
+        if (at <= 0)
+        {
+            return "…";
+        }
+
+        var local = email[..at];
+        return (local.Length <= 2 ? local[..1] + "…" : $"{local[0]}…{local[^1]}") + email[at..];
     }
 
     public static ClaimsPrincipal Principal(Reader reader, string scheme, string? sessionId = null)
@@ -538,4 +688,8 @@ public enum AccountProblem
     SsoLastWay,
     NotAllowed,
     TooManyChildren,
+    EmailMissing,
+    EmailTaken,
+    EmailRequired,
+    ConfirmExpired,
 }

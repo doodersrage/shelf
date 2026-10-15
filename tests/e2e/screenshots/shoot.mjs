@@ -70,6 +70,7 @@ try {
     });
     await page.goto("/signup");
     await page.fill("input[name=name]", name);
+    await page.fill("input[name=email]", `${name.toLowerCase().split(/\s+/).join(".")}@example.test`);
     await page.fill("input[name=password]", "a long enough password");
     await page.fill("input[name=confirm]", "a long enough password");
     await page.click("button[type=submit]");

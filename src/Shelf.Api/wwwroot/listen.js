@@ -4,9 +4,9 @@
 // screen, headphones, and the keyboard.
 //
 // Controls are plain markup. A button says what it does with data-player ("toggle", "back", "forward", "prev",
-// "next", "slower", "faster", "rate", "sleep", "chapter", "close"); a place for a value says which with data-show
-// ("chapter", "elapsed", "remaining", "book-elapsed", "book-left", "percent", "rate", "sleep", "cover", "title",
-// "author", "link", "book-bar", "ticks", "chapter-number", "note"). A data-template such as "{0} left" puts the
+// "next", "slower", "faster", "rate", "sleep", "chapter", "undo", "close"); a place for a value says which with
+// data-show ("chapter", "elapsed", "remaining", "book-elapsed", "book-left", "percent", "rate", "sleep", "cover",
+// "title", "author", "link", "book-bar", "ticks", "chapter-number", "note", "undo"). A data-template such as "{0} left" puts the
 // value into a sentence in the page's language.
 (() => {
   const STORE = "shelf-player";
@@ -34,6 +34,8 @@
   let note = "";
   // Seconds played since the last save, by the clock, for the reader's listening time.
   let heard = 0;
+  // Where the book was before a long move (a chapter, the scrubber, a bookmark), to go back to for a few seconds.
+  let undo = null;
 
   const read = (key, fallback) => {
     try {
@@ -53,7 +55,20 @@
   };
 
   const jumps = () => ({ back: read("shelf-jump-back", 15), forward: read("shelf-jump-forward", 30) });
-  audio.volume = Math.min(1, Math.max(0, read("shelf-volume", 1)));
+  // The volume the reader set; the sleep timer fades from it, and the slider shows it.
+  let volume = Math.min(1, Math.max(0, read("shelf-volume", 1)));
+  audio.volume = volume;
+
+  // Coming back after a pause, the book starts a little before where it stopped, more the longer it was away, so
+  // the thread is not lost: none under half a minute, then 5, 10, or 20 seconds after an hour or more.
+  const UNDO_FOR = 10000;
+  const smartRewind = () => read("shelf-smart-rewind", true);
+  function rewindAfter(away) {
+    if (away < 30 * 1000) return 0;
+    if (away < 5 * 60 * 1000) return 5;
+    if (away < 60 * 60 * 1000) return 10;
+    return 20;
+  }
 
   // 1:02:03, or 4:05 under an hour.
   function clock(seconds) {
@@ -163,7 +178,11 @@
 
   audio.addEventListener("pause", () => {
     if (switching) return;
-    if (!audio.ended) wantPlay = false;
+    if (!audio.ended) {
+      wantPlay = false;
+      write("shelf-paused-at", { key: keyOf(plan), at: Date.now() });
+    }
+    fade();
     save();
     render();
   });
@@ -297,13 +316,30 @@
     seek(now() + by);
   }
 
+  // A move far enough to lose one's place by mistake, half a minute or into another chapter, can be taken back for
+  // a few seconds.
+  function move(time) {
+    const before = now();
+    seek(time);
+    if (plan && (Math.abs(time - before) >= 30 || chapterAt(time) !== chapterAt(before))) undo = { time: before, until: performance.now() + UNDO_FOR };
+  }
+
   // Back goes to the start of this chapter first, unless that is where it already is.
   function chapter(direction) {
     if (!chapters.length) return;
     const time = now();
     const index = chapterAt(time);
-    if (direction < 0 && time - chapters[index].start > 3) seek(chapters[index].start);
-    else seek(chapters[Math.max(0, Math.min(chapters.length - 1, index + direction))].start);
+    if (direction < 0 && time - chapters[index].start > 3) move(chapters[index].start);
+    else move(chapters[Math.max(0, Math.min(chapters.length - 1, index + direction))].start);
+  }
+
+  // Over its last half minute the sleep timer turns the book down, so it stops gently rather than all at once.
+  function fade() {
+    let left = Infinity;
+    if (!audio.paused && sleep.mode === "time") left = sleep.left / 1000;
+    else if (!audio.paused && sleep.mode === "chapter") left = (sleep.until - now()) / rate;
+    const wanted = volume * Math.min(1, Math.max(0, left / 30));
+    if (Math.abs(audio.volume - wanted) > 0.005) audio.volume = wanted;
   }
 
   function setRate(value) {
@@ -328,6 +364,7 @@
     if (what === "chapter") sleep = { mode: "chapter", left: 0, until: chapters[chapterAt(now())]?.end ?? total };
     else if (Number(what) > 0) sleep = { mode: "time", left: Number(what) * 60 * 1000, until: 0 };
     else sleep = { mode: "off", left: 0, until: 0 };
+    fade();
     render();
   }
 
@@ -335,6 +372,7 @@
     sleep = { mode: "off", left: 0, until: 0 };
     audio.pause();
     note = "slept";
+    fade();
     render();
   }
 
@@ -349,6 +387,8 @@
     }
     if (playing && sleep.mode === "chapter" && now() >= sleep.until - 0.3) slept();
     if (playing && moment - lastSaved > 15000) save();
+    if (playing) fade();
+    if (undo && moment > undo.until) undo = null;
     lastTick = moment;
     render();
   }
@@ -393,7 +433,7 @@
     handler("stop", () => audio.pause());
     handler("seekbackward", (details) => jump(-(details?.seekOffset || jumps().back)));
     handler("seekforward", (details) => jump(details?.seekOffset || jumps().forward));
-    handler("seekto", (details) => Number.isFinite(details?.seekTime) && seek(details.seekTime));
+    handler("seekto", (details) => Number.isFinite(details?.seekTime) && move(details.seekTime));
     handler("previoustrack", () => chapter(-1));
     handler("nexttrack", () => chapter(1));
   }
@@ -401,6 +441,19 @@
   function play() {
     if (!plan) return;
     note = "";
+    // Only for the book that was paused: another one opened since starts where its place is.
+    const paused = read("shelf-paused-at", null);
+    write("shelf-paused-at", null);
+    const back = smartRewind() && paused?.key === keyOf(plan) && paused.at ? rewindAfter(Date.now() - paused.at) : 0;
+    if (back > 0 && track >= 0) {
+      // Not back past the start of the chapter, which is where a reader who stopped there means to begin.
+      const time = now();
+      const start = chapters[chapterAt(time)]?.start ?? 0;
+      wantPlay = true;
+      seek(Math.max(start, time - back));
+      return;
+    }
+
     wantPlay = true;
     if (!audio.src) setTrack(Math.max(0, track), 0, true);
     else audio.play().catch(() => {});
@@ -449,6 +502,10 @@
           if (sleep.mode === "time") fill(element, [clock(sleep.left / 1000)]);
           else if (sleep.mode === "chapter") fill(element, [element.dataset.chapterText || ""]);
           break;
+        case "undo":
+          element.hidden = !undo;
+          if (undo) fill(element, [clock(undo.time)]);
+          break;
         case "note":
           element.hidden = !note;
           if (note && element.dataset[note]) fill(element, [element.dataset[note]]);
@@ -494,12 +551,15 @@
       const on = (value === "chapter" && sleep.mode === "chapter") || (value === "off" && sleep.mode === "off");
       item.setAttribute("aria-pressed", on ? "true" : "false");
     }
+    for (const box of document.querySelectorAll('input[data-player="smart-rewind"]')) {
+      box.checked = smartRewind();
+    }
     for (const select of document.querySelectorAll("select[data-jump]")) {
       const value = String(select.dataset.jump === "back" ? back : forward);
       if (select.value !== value) select.value = value;
     }
     for (const range of document.querySelectorAll('input[data-player="volume"]')) {
-      if (document.activeElement !== range) range.value = String(Math.round(audio.volume * 100));
+      if (document.activeElement !== range) range.value = String(Math.round(volume * 100));
     }
 
     if (session) session.playbackState = playing ? "playing" : "paused";
@@ -526,6 +586,8 @@
     shownChapter = -1;
     note = "";
     sleep = { mode: "off", left: 0, until: 0 };
+    undo = null;
+    audio.volume = volume;
     rate = Math.min(3, Math.max(0.5, (next.speed || 100) / 100));
     write(STORE, { bookId: next.bookId, planUrl: next.planUrl });
     await prepare(next);
@@ -617,7 +679,8 @@
       case "rate": setRate(Number(control.dataset.rate)); break;
       case "sleep": setSleep(control.dataset.sleep); break;
       case "sleep-more": if (sleep.mode === "time") sleep.left += 5 * 60 * 1000; render(); break;
-      case "chapter": seek(chapters[Number(control.dataset.chapter)]?.start ?? 0); break;
+      case "chapter": move(chapters[Number(control.dataset.chapter)]?.start ?? 0); break;
+      case "undo": if (undo) { const back = undo.time; undo = null; seek(back); } break;
       case "close": close(); break;
       default: return;
     }
@@ -633,8 +696,9 @@
       const preview = current.start + (Number(control.value) / 1000) * (current.end - current.start);
       for (const element of document.querySelectorAll('[data-show="elapsed"]')) fill(element, [clock(preview - current.start)]);
     } else if (control.dataset.player === "volume") {
-      audio.volume = Math.min(1, Math.max(0, Number(control.value) / 100));
-      write("shelf-volume", audio.volume);
+      volume = Math.min(1, Math.max(0, Number(control.value) / 100));
+      write("shelf-volume", volume);
+      fade();
     }
   });
 
@@ -644,7 +708,9 @@
     if (control.dataset.player === "scrub") {
       control.dataset.dragging = "false";
       const current = chapters[chapterAt(now())] ?? { start: 0, end: total };
-      seek(current.start + (Number(control.value) / 1000) * (current.end - current.start));
+      move(current.start + (Number(control.value) / 1000) * (current.end - current.start));
+    } else if (control.dataset.player === "smart-rewind") {
+      write("shelf-smart-rewind", control.checked);
     } else if (control.dataset.jump) {
       write(control.dataset.jump === "back" ? "shelf-jump-back" : "shelf-jump-forward", Number(control.value));
       render();
@@ -699,7 +765,12 @@
     play,
     pause: () => audio.pause(),
     seek,
-    seekTrack: (index, seconds) => plan && setTrack(Math.min(Math.max(0, index), lengths.length - 1), seconds, wantPlay),
+    // A bookmark: a long move, so it can be taken back.
+    seekTrack: (index, seconds) => {
+      if (!plan) return;
+      const at = Math.min(Math.max(0, index), lengths.length - 1);
+      move(offsets[at] + seconds);
+    },
     // Where the player is, for a bookmark or for carrying the place to the e-book.
     now: () => ({
       bookId: plan?.bookId ?? 0,

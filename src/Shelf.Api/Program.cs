@@ -252,8 +252,6 @@ builder.Services.AddSingleton<Storage>();
 builder.Services.AddSingleton<AudioStore>();
 builder.Services.AddSingleton<CoverStore>();
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
-builder.Services.AddSingleton<ReminderMailer>();
-builder.Services.AddHostedService(static services => services.GetRequiredService<ReminderMailer>());
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 // Copies of each backup off the servers disk: Backup:CopyTo and Backup:S3:*.
 builder.Services.AddSingleton<OffsiteBackup>();
@@ -363,24 +361,26 @@ await using (var scope = app.Services.CreateAsyncScope())
     var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
     await db.Database.MigrateAsync();
 
-    // Run with --reset-password <name> when nobody can sign in to reset it from the admin page.
+    await ReaderRules.AdoptEmailsAsync(db);
+
+    // Run with --reset-password <email or name> when nobody can sign in to reset it from the admin page.
     if (app.Configuration["reset-password"] is { Length: > 0 } resetName)
     {
-        var reader = await db.Readers.FirstOrDefaultAsync(item => item.NormalizedName == ReaderRules.Normalize(resetName));
+        var reader = await ReaderRules.FindAsync(db, resetName);
         var password = reader is null ? null : await ReaderRules.ResetPasswordAsync(db, reader.Id);
-        Console.WriteLine(password is null ? $"No reader is named {resetName}." : $"The new password for {reader!.Name} is {password}");
+        Console.WriteLine(password is null ? $"No reader signs in as {resetName}." : $"The new password for {reader!.Name} is {password}");
         return password is null ? 1 : 0;
     }
 
     if (app.Configuration["make-admin"] is { Length: > 0 } adminName)
     {
-        var reader = await db.Readers.FirstOrDefaultAsync(item => item.NormalizedName == ReaderRules.Normalize(adminName));
+        var reader = await ReaderRules.FindAsync(db, adminName);
         if (reader is not null)
         {
             await ReaderRules.SetAdminAsync(db, reader.Id, true);
         }
 
-        Console.WriteLine(reader is null ? $"No reader is named {adminName}." : $"{reader.Name} is an admin.");
+        Console.WriteLine(reader is null ? $"No reader signs in as {adminName}." : $"{reader.Name} is an admin.");
         return reader is null ? 1 : 0;
     }
 

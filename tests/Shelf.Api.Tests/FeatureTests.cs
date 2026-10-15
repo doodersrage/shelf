@@ -418,13 +418,13 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         var book = await CreateAsync(new CreateBookRequest("Long Overdue Book", "Someone", BookStatus.Want, null));
         await _client.PostAsJsonAsync($"/books/{book.Id}/lend", new LendRequest(borrowerId, DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-3)), JsonOptions);
 
-        var mailer = factory.Services.GetRequiredService<ReminderMailer>();
-        await mailer.SendDueAsync(CancellationToken.None);
+        var notices = factory.Services.GetRequiredService<Notices>();
+        await notices.RemindDueAsync(CancellationToken.None);
         var reminder = factory.Mail.Sent.Last(item => item.To == "reminded@example.org");
         Assert.Contains("1 book you borrowed is overdue", reminder.Body);
         var count = factory.Mail.Sent.Count(item => item.To == "reminded@example.org");
 
-        await mailer.SendDueAsync(CancellationToken.None);
+        await notices.RemindDueAsync(CancellationToken.None);
         Assert.Equal(count, factory.Mail.Sent.Count(item => item.To == "reminded@example.org"));
     }
 
@@ -443,7 +443,7 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
 
         var book = await CreateAsync(new CreateBookRequest("Libro Atrasado", "Alguien", BookStatus.Want, null));
         await _client.PostAsJsonAsync($"/books/{book.Id}/lend", new LendRequest(readerId, DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-3)), JsonOptions);
-        await factory.Services.GetRequiredService<ReminderMailer>().SendDueAsync(CancellationToken.None);
+        await factory.Services.GetRequiredService<Notices>().RemindDueAsync(CancellationToken.None);
         var reminder = factory.Mail.Sent.Last(item => item.To == "lectora@example.org");
         Assert.Equal("Tus préstamos en Shelf", reminder.Subject);
         Assert.StartsWith("Hola, Lectora:", reminder.Body);

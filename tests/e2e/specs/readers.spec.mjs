@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { authenticatorCode, createBook, noProblems, ready, signUp, unique, PASSWORD } from "../helpers.mjs";
+import { authenticatorCode, createBook, emailOf, noProblems, ready, signUp, unique, PASSWORD } from "../helpers.mjs";
 
 test("a reader lends a book to another, who gives it back", async ({ browser }) => {
   const ownerName = unique("Tenar");
@@ -42,7 +42,7 @@ test("two-step sign-in is set up from the account page and asked for at the next
 
   const fresh = await (await browser.newContext()).newPage();
   await fresh.goto("/signin");
-  await fresh.fill("input[name=name]", name);
+  await fresh.fill("input[name=email]", emailOf(name));
   await fresh.fill("input[name=password]", PASSWORD);
   await Promise.all([fresh.waitForURL(/\/signin\/code/), fresh.click("button[type=submit]")]);
   await fresh.fill("input[name=code]", authenticatorCode(secret));
@@ -163,7 +163,7 @@ test("a parent makes a child's account and shares a collection, which the child 
   child.problems = [];
   child.navigations = 0;
   await child.goto("/signin");
-  await child.fill("input[name=name]", childName);
+  await child.fill("input[name=email]", childName);
   await child.fill("input[name=password]", PASSWORD);
   await Promise.all([child.waitForURL("**/", { waitUntil: "domcontentloaded" }), child.click("button[type=submit]")]);
   await ready(child);

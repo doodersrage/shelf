@@ -196,11 +196,13 @@ public static class SingleSignOn
         return TypedResults.Redirect(back);
     }
 
-    // A new reader, named as the provider calls them (made unique here), with a password nobody knows.
+    // A new reader, named as the provider calls them, with a password nobody knows. Their address, when the provider
+    // vouches for it and no reader here has it, is theirs to sign in with; without one, the name is made unique.
     private static async Task<Reader?> CreateAsync(ShelfDb db, ClaimsPrincipal who, string subject, CancellationToken cancellationToken)
     {
         var email = who.FindFirst("email")?.Value;
         var verified = string.Equals(who.FindFirst("email_verified")?.Value, "true", StringComparison.OrdinalIgnoreCase);
+        var address = verified && EmailRules.CleanAddress(email) is { Length: > 0 } clean ? clean : null;
         var wanted = new[] { who.FindFirst("preferred_username")?.Value, who.FindFirst("name")?.Value, email?.Split('@')[0], "Reader" }
             .Select(ReaderRules.Clean)
             .Select(name => name.Length > ReaderRules.MaxNameLength - 4 ? name[..(ReaderRules.MaxNameLength - 4)].Trim() : name)
@@ -209,7 +211,13 @@ public static class SingleSignOn
         for (var n = 1; n < 100; n++)
         {
             var name = n == 1 ? wanted : $"{wanted} {n}";
-            var (reader, problem) = await ReaderRules.CreateAsync(db, name, password, cancellationToken);
+            var (reader, problem) = await ReaderRules.CreateAsync(db, name, address, password, cancellationToken);
+            if (problem == AccountProblem.EmailTaken)
+            {
+                (address, n) = (null, 0);
+                continue;
+            }
+
             if (problem == AccountProblem.NameTaken)
             {
                 continue;
@@ -222,10 +230,6 @@ public static class SingleSignOn
 
             reader.OidcSubject = subject;
             reader.PasswordUnknown = true;
-            if (verified && EmailRules.CleanAddress(email) is { Length: > 0 } address)
-            {
-                reader.Email = address;
-            }
 
             await db.SaveChangesAsync(cancellationToken);
             await Audit.NoteAsync(db, Say("Signed up with single sign-on"), reader, cancellationToken: cancellationToken);

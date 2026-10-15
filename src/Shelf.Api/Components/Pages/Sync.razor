@@ -59,7 +59,7 @@ else if (hasKey)
     <dt>@T("Server")</dt>
     <dd><code class="key">@KosyncAddress</code></dd>
     <dt>@T("Username")</dt>
-    <dd><code class="key">@readerName</code></dd>
+    <dd><code class="key">@userName</code></dd>
     <dt>@T("Password")</dt>
     <dd>
         @if (newKosyncPassword is not null)
@@ -123,7 +123,7 @@ else if (hasKey)
 <p>@T("Audiobookshelf's phone apps, for Android and iPhone, can sign in to Shelf as to an Audiobookshelf server: they list your audiobooks and e-books, play them or download them to listen offline, with Android Auto and CarPlay, and keep your place, bookmarks, and time listened in step with Shelf.")</p>
 <dl class="facts">
     <dt>@T("Server address")</dt><dd><code>@Site</code></dd>
-    <dt>@T("User name")</dt><dd>@Reader.Name</dd>
+    <dt>@T("User name")</dt><dd>@userName</dd>
     <dt>@T("Password")</dt><dd>@T("Your Shelf password; with two-step sign-in on, an API token from Account in its place.")</dd>
 </dl>
 </section>
@@ -301,7 +301,8 @@ else if (hasKobo)
 
     private string CatalogAddress => Navigation.ToAbsoluteUri("/opds").ToString();
     private string KosyncAddress => Navigation.ToAbsoluteUri("/kosync").ToString();
-    private string? readerName;
+    // What the reader signs in with: their email address, or their name when they have none.
+    private string? userName;
     private bool hasKosync;
     private string? newKosyncPassword;
     private bool busy;
@@ -319,7 +320,7 @@ else if (hasKobo)
         hasKey = await ReaderRules.HasKeyAsync(db, db.ReaderId);
         connections = await Connections.ForReaderAsync(db);
         var reader = await db.Readers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == db.ReaderId);
-        readerName = reader?.Name;
+        userName = reader?.NormalizedEmail is not null ? reader.Email : reader?.Name;
         hasKosync = reader?.KosyncHash is not null;
         hasKobo = reader?.KoboTokenHash is not null;
         koboCollection = reader?.KoboCollectionId ?? 0;

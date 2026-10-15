@@ -51,7 +51,7 @@ jar=$(mktemp)
 token=$(curl -s -c "$jar" "$site/signin" \
   | grep -o 'name="__RequestVerificationToken"[^>]*value="[^"]*"' | sed 's/.*value="//; s/"$//')
 curl -s -b "$jar" -c "$jar" -o /dev/null "$site/account/signin" \
-  --data-urlencode "name=Tenar" --data-urlencode "password=$SHELF_PASSWORD" \
+  --data-urlencode "email=tenar@example.org" --data-urlencode "password=$SHELF_PASSWORD" \
   --data-urlencode "__RequestVerificationToken=$token"
 
 curl -s -b "$jar" "$site/books?status=Reading"
@@ -247,7 +247,7 @@ done
 | `GET /account/passkeys` | Your passkeys. `DELETE /account/passkeys/{id}` removes one. |
 | `GET /account/tokens` | Your API tokens. `POST {"name": "…", "canChange": false}` makes one and answers with it, once; `DELETE /account/tokens/{id}` removes one. Only with the browser's sign-in, not a token. |
 | `GET /account/sandbox` | Your sandbox: how many books, and its tokens; nothing when there is none. `POST /account/sandbox/tokens` with `{"name": "…", "canChange": true}` makes a token for it, making the sandbox the first time; `POST /account/sandbox/reset` puts the samples back; `DELETE /account/sandbox` removes it. Only with the browser's sign-in. |
-| `PUT /account/email` | `{"email": "you@example.org", "reminders": true}`. `POST /account/email/test` sends a test. |
+| `PUT /account/email` | `{"email": "you@example.org", "reminders": true}`: the address you sign in with, which can change but not be removed, and whether notifications go there too. `204` when the address is yours at once; `202` when a link went to it to confirm it first. `POST /account/email/test` sends a test. |
 | `POST /account/signout` | Sign out of this browser. |
 
 ## For admins

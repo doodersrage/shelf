@@ -33,7 +33,7 @@ If you already sign in to your self-hosted apps through an OpenID Connect provid
 How readers are matched:
 
 - **A reader already here** signs in with their password once, then chooses **Connect** under **Single sign-on** on **Account**. From then on, either way works.
-- **Someone new** gets an account of their own the first time they sign in through the provider, as long as the shelf is taking new accounts (`Accounts:AllowSignUp`, or `Oidc:CreateAccounts` to allow it through the provider only). They are named as the provider calls them, and their email address comes along when the provider says it is verified. Such an account has no password; **Set a password** on **Account** adds one.
+- **Someone new** gets an account of their own the first time they sign in through the provider, as long as the shelf is taking new accounts (`Accounts:AllowSignUp`, or `Oidc:CreateAccounts` to allow it through the provider only). They are named as the provider calls them, and their email address comes along, to sign in and be notified with, when the provider says it is verified and no reader here has it already. Such an account has no password; **Set a password** on **Account** adds one.
 - Readers are matched by the provider's own unchanging id for each person, never by email address, so nobody can take over an account by claiming someone else's address at the provider.
 - Signing in through the provider skips Shelf's own two-step sign-in: the provider's own second step, if you turn it on there, takes its place.
 - **Disconnect** on **Account** removes the connection, once the account has a password to fall back on.
@@ -54,7 +54,7 @@ The secret is sealed with the shelf's keys, so a copy of the database alone can'
 
 Shelf keeps a record of:
 
-- sign-ups, and failed sign-ins for names that exist;
+- sign-ups, failed sign-ins for accounts that exist, and changes of email address;
 - password changes and resets;
 - admin rights given or taken, and removed accounts;
 - two-step sign-in turned on or off, and passkeys added or removed;
@@ -84,12 +84,14 @@ Reset a password, or make someone an admin, from the command line. Each prints w
 
 ```bash
 # In Docker
-docker exec shelf dotnet Shelf.Api.dll --reset-password "Their Name"
-docker exec shelf dotnet Shelf.Api.dll --make-admin "Their Name"
+docker exec shelf dotnet Shelf.Api.dll --reset-password "them@example.org"
+docker exec shelf dotnet Shelf.Api.dll --make-admin "them@example.org"
 
 # From source
-dotnet run --project src/Shelf.Api -- --reset-password "Their Name"
+dotnet run --project src/Shelf.Api -- --reset-password "them@example.org"
 ```
+
+Each takes the email address the reader signs in with, or the name of a reader without one.
 
 ## Storage
 

@@ -85,7 +85,7 @@ docker build --build-arg CALIBRE=true -t shelf https://github.com/doodersrage/sh
 
 ## Email
 
-Email lets readers reset a forgotten password themselves and get a daily reminder about loans. Any SMTP server works: your email provider's, or a service such as Fastmail, Mailgun, or Amazon SES. [Configuration](configuration.md#email) lists the settings. Readers can send themselves a test from **Account** once their address is saved.
+Email lets readers reset a forgotten password themselves and get their notifications by email, which is on for each reader until they turn it off. Readers sign in with their email address whether or not the shelf can send email. Any SMTP server works: your email provider's, or a service such as Fastmail, Mailgun, or Amazon SES. [Configuration](configuration.md#email) lists the settings. Readers can send themselves a test from **Account** once their address is saved.
 
 ## Disk space
 

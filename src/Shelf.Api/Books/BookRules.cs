@@ -637,7 +637,10 @@ public static class BookRules
         using var _ = History.Use(batch.Id);
         var readers = await db.Readers.AsNoTracking()
             .Where(reader => reader.Id != db.ReaderId)
-            .ToDictionaryAsync(reader => reader.NormalizedName, reader => reader.Id, cancellationToken);
+            .GroupBy(reader => reader.NormalizedName)
+            .Where(group => group.Count() == 1)
+            .Select(group => new { Name = group.Key, Id = group.Min(reader => reader.Id) })
+            .ToDictionaryAsync(reader => reader.Name, reader => reader.Id, cancellationToken);
         var existing = await db.Books.AsNoTracking()
             .Select(book => new ExistingBook(book.Title, book.Author, book.Isbn))
             .ToListAsync(cancellationToken);
@@ -667,7 +670,7 @@ public static class BookRules
                 book.AddedAt = source.AddedAt;
             }
 
-            // A loan to a reader comes back as one when a reader by that name is on this shelf.
+            // A loan to a reader comes back as one when a reader by that name, and only one, is on this shelf.
             if (source.BorrowerId is not null && book.LoanedTo is { } lentTo
                 && readers.TryGetValue(Readers.ReaderRules.Normalize(lentTo), out var borrowerId))
             {

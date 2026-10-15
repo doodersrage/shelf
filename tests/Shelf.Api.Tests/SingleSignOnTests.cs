@@ -80,7 +80,7 @@ public sealed class SingleSignOnTests(ShelfApiFactory factory) : IClassFixture<S
         var client = Browser(app);
         await using (var scope = app.Services.CreateAsyncScope())
         {
-            await ReaderRules.CreateAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), "Connecting Reader", ShelfApiFactory.Password);
+            await ReaderRules.CreateAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), "Connecting Reader", "connecting@example.test", ShelfApiFactory.Password);
         }
 
         await ShelfApiFactory.PostFormAsync(client, "/signin", "/account/signin", new() { ["name"] = "Connecting Reader", ["password"] = ShelfApiFactory.Password });
@@ -112,7 +112,7 @@ public sealed class SingleSignOnTests(ShelfApiFactory factory) : IClassFixture<S
         await using (var scope = app.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
-            await ReaderRules.CreateAsync(db, "Another Reader", ShelfApiFactory.Password);
+            await ReaderRules.CreateAsync(db, "Another Reader", "another@example.test", ShelfApiFactory.Password);
         }
 
         await ShelfApiFactory.PostFormAsync(other, "/signin", "/account/signin", new() { ["name"] = "Another Reader", ["password"] = ShelfApiFactory.Password });

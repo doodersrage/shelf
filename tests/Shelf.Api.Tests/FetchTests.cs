@@ -69,7 +69,7 @@ public sealed class FetchTests(ShelfApiFactory factory) : IClassFixture<ShelfApi
         await using var app = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
             services.AddHttpClient(ProwlarrClient.ClientName).ConfigurePrimaryHttpMessageHandler(() => fake)));
         var client = app.CreateClient();
-        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Fetch Reader", ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
+        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Fetch Reader", ["email"] = ShelfApiFactory.EmailOf("Fetch Reader"), ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
         var readerId = await factory.ReaderIdAsync("Fetch Reader");
         var wanted = (await (await client.PostAsJsonAsync("/books", new CreateBookRequest("The Left Hand of Darkness", "Ursula K. Le Guin", BookStatus.Want, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
 
@@ -155,7 +155,7 @@ public sealed class FetchTests(ShelfApiFactory factory) : IClassFixture<ShelfApi
         await using var app = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
             services.AddHttpClient(ProwlarrClient.ClientName).ConfigurePrimaryHttpMessageHandler(() => fake)));
         var client = app.CreateClient();
-        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Cancel Reader", ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
+        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Cancel Reader", ["email"] = ShelfApiFactory.EmailOf("Cancel Reader"), ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
         var readerId = await factory.ReaderIdAsync("Cancel Reader");
         var wanted = (await (await client.PostAsJsonAsync("/books", new CreateBookRequest("The Left Hand of Darkness", "Ursula K. Le Guin", BookStatus.Want, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
 

@@ -12,6 +12,9 @@ export const fixture = (name) => join(here, "fixtures", name);
 // Reader names are unique per test, so the tests can share one shelf without seeing each other's books.
 export const unique = (name) => `${name} ${Math.random().toString(36).slice(2, 7)}`;
 
+// The address a reader made by signUp signs in with: "Lender ab12c" is lender.ab12c@example.test.
+export const emailOf = (name) => `${name.toLowerCase().split(/\s+/).filter(Boolean).join(".")}@example.test`;
+
 export async function signUp(browser, name, options = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, ...options });
   const page = await context.newPage();
@@ -30,6 +33,7 @@ export async function signUp(browser, name, options = {}) {
   page.on("pageerror", (error) => page.problems.push({ text: error.message, at: page.navigations }));
   await page.goto("/signup");
   await page.fill("input[name=name]", name);
+  await page.fill("input[name=email]", emailOf(name));
   await page.fill("input[name=password]", PASSWORD);
   await page.fill("input[name=confirm]", PASSWORD);
   await Promise.all([page.waitForURL("**/", { waitUntil: "domcontentloaded" }), page.click("button[type=submit]")]);

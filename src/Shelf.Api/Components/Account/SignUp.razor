@@ -32,7 +32,11 @@ else
         <input type="hidden" name="returnUrl" value="@SafeReturnUrl" />
         <label>
             @T("Name")
-            <input name="name" value="@Name" maxlength="@ReaderRules.MaxNameLength" autocomplete="username" required autofocus />
+            <input name="name" value="@Name" maxlength="@ReaderRules.MaxNameLength" autocomplete="name" required autofocus />
+        </label>
+        <label>
+            @T("Email address, which you sign in with")
+            <input type="email" name="email" value="@Email" maxlength="@EmailRules.MaxAddressLength" autocomplete="username" required />
         </label>
         <label>
             @T("Password, at least {0} characters", ReaderRules.MinPasswordLength)
@@ -57,6 +61,9 @@ else
 
     [SupplyParameterFromQuery]
     public string? Name { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? Email { get; set; }
 
     [SupplyParameterFromQuery]
     public string? ReturnUrl { get; set; }

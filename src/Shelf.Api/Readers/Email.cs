@@ -103,6 +103,11 @@ public static class EmailRules
 {
     public const int MaxAddressLength = 254;
     public static readonly TimeSpan ResetLasts = TimeSpan.FromHours(1);
+    public static readonly TimeSpan ConfirmLasts = TimeSpan.FromDays(1);
+
+    // The shortest wait between two links to the same reader's new address, so an account cannot be made to mail
+    // someone over and over.
+    public static readonly TimeSpan ConfirmEvery = TimeSpan.FromMinutes(1);
 
     public static string? CleanAddress(string? address)
     {
@@ -135,7 +140,8 @@ public static class EmailRules
         return string.IsNullOrWhiteSpace(allowed) || allowed.Split(';').Any(host => host.Trim() == "*") ? null : $"{request.Scheme}://{request.Host}";
     }
 
-    // Sends a reset link when the name or address belongs to a reader with an address. Says nothing either way.
+    // Sends a reset link when the address, or the name a reader signs in with, is a reader's with an address. Says
+    // nothing either way.
     public static async Task RequestResetAsync(
         ShelfDb db,
         IEmailSender email,
@@ -149,10 +155,7 @@ public static class EmailRules
             return;
         }
 
-        var normalized = ReaderRules.Normalize(wanted);
-        var reader = await db.Readers.FirstOrDefaultAsync(
-            item => item.Email != null && (item.NormalizedName == normalized || item.Email.ToLower() == wanted.ToLower()),
-            cancellationToken);
+        var reader = await ReaderRules.FindAsync(db, wanted, cancellationToken);
         if (reader?.Email is null)
         {
             return;
@@ -220,109 +223,107 @@ public static class EmailRules
         return reset is not null && reset.ExpiresAt > now ? reset : null;
     }
 
-    private static string Hash(string token) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
+    // A new address waits for its link to be opened when the shelf can send one, to an address of its own to link to.
+    public static bool Confirms(IEmailSender email, string? linkAddress) => email.Enabled && !string.IsNullOrEmpty(linkAddress);
 
-    public static string? ReminderBody(string name, Reminders due, string publicAddress)
+    // Mails the link that confirms the reader's pending address. False when there is none, or one went just now.
+    public static async Task<bool> SendConfirmationAsync(ShelfDb db, IEmailSender email, Reader reader, string linkAddress, CancellationToken cancellationToken = default)
     {
-        if (!due.Any)
+        var now = DateTimeOffset.UtcNow;
+        if (reader.PendingEmail is null || (reader.PendingEmailExpires is { } expires && expires - ConfirmLasts + ConfirmEvery > now))
         {
-            return null;
+            return false;
         }
 
-        var lines = new List<string>();
-        if (due.LentOverdue > 0)
+        var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        (reader.PendingEmailTokenHash, reader.PendingEmailExpires) = (Hash(token), now + ConfirmLasts);
+        await db.SaveChangesAsync(cancellationToken);
+        EmailMessage message;
+        using (Localization.Words.Speaking(reader.Language ?? Localization.Words.Current))
         {
-            lines.Add("- " + (due.LentOverdue == 1 ? T("1 book you lent is overdue.") : T("{0} books you lent are overdue.", due.LentOverdue)));
+            message = new EmailMessage(
+                reader.PendingEmail,
+                Localization.Words.T("Confirm your email address for Shelf"),
+                Localization.Words.T("Hello {0},\n\nTo sign in to Shelf with this address, and to get your notifications here, open this link within a day:\n\n{1}\n\nIf you did not ask for this, ignore this email and nothing changes.", reader.Name, $"{linkAddress}/account/email/confirm?token={token}"));
         }
 
-        if (due.BorrowedOverdue > 0)
-        {
-            lines.Add("- " + (due.BorrowedOverdue == 1 ? T("1 book you borrowed is overdue.") : T("{0} books you borrowed are overdue.", due.BorrowedOverdue)));
-        }
-
-        if (due.BorrowedDueSoon > 0)
-        {
-            lines.Add("- " + (due.BorrowedDueSoon == 1 ? T("1 borrowed book is due within three days.") : T("{0} borrowed books are due within three days.", due.BorrowedDueSoon)));
-        }
-
-        if (due.Asks > 0)
-        {
-            lines.Add("- " + (due.Asks == 1 ? T("1 reader has asked to borrow a book of yours.") : T("{0} readers have asked to borrow a book of yours.", due.Asks)));
-        }
-
-        var link = publicAddress.Length > 0 ? T("See your loans: {0}", $"{publicAddress}/loans") : T("Open Shelf and go to Loans to see them.");
-        return T("Hello {0},", name) + "\n\n" + string.Join('\n', lines) + "\n\n" + link + "\n\n" + T("You can turn these reminders off from your account.");
-    }
-}
-
-// Once a day, a short email to each reader who asked for one, when a loan needs their attention.
-public sealed class ReminderMailer(IServiceScopeFactory scopes, IEmailSender email, IConfiguration configuration, ILogger<ReminderMailer> logger)
-    : BackgroundService
-{
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        if (!email.Enabled)
-        {
-            return;
-        }
-
-        using var timer = new PeriodicTimer(TimeSpan.FromHours(1));
-        do
-        {
-            try
-            {
-                await SendDueAsync(stoppingToken);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                logger.LogWarning(ex, "Reminder emails stopped; they will try again in an hour.");
-            }
-        }
-        while (await timer.WaitForNextTickAsync(stoppingToken));
+        await email.SendAsync(message, cancellationToken);
+        return true;
     }
 
-    public async Task<int> SendDueAsync(CancellationToken cancellationToken)
+    // A reader's new address, and whether notifications go there. When the shelf confirms addresses, a new one waits
+    // for its link (Pending) and the old one stays until then; otherwise it is theirs at once.
+    public static async Task<(AccountProblem? Problem, bool Pending)> ChangeAsync(
+        ShelfDb db,
+        IEmailSender email,
+        int readerId,
+        string? address,
+        bool notices,
+        string? linkAddress,
+        CancellationToken cancellationToken = default)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        List<int> due;
-        await using (var scope = scopes.CreateAsyncScope())
+        var clean = CleanAddress(address);
+        var reader = await db.Readers.FirstOrDefaultAsync(item => item.Id == readerId, cancellationToken);
+        if (!Confirms(email, linkAddress) || clean is null or "" || reader is null || string.Equals(clean, reader.Email, StringComparison.OrdinalIgnoreCase))
         {
-            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
-            due = await db.Readers.AsNoTracking()
-                .Where(reader => reader.EmailReminders && reader.Email != null && (reader.LastReminderOn == null || reader.LastReminderOn < today))
-                .Select(reader => reader.Id)
-                .ToListAsync(cancellationToken);
+            return (await ReaderRules.SetEmailAsync(db, readerId, address, notices, cancellationToken), false);
         }
 
-        var sent = 0;
-        foreach (var readerId in due)
+        var normalized = ReaderRules.NormalizeEmail(clean);
+        if (await db.Readers.AnyAsync(other => other.NormalizedEmail == normalized && other.Id != readerId, cancellationToken))
         {
-            await using var scope = scopes.CreateAsyncScope();
-            scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
-            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
-            var reader = await db.Readers.FirstAsync(item => item.Id == readerId, cancellationToken);
-            var reminders = await Asking.RemindersAsync(db, cancellationToken);
-            EmailMessage? message = null;
-            using (Localization.Words.Speaking(reader.Language))
-            {
-                if (EmailRules.ReminderBody(reader.Name, reminders, EmailRules.PublicAddress(configuration, null)) is { } body)
-                {
-                    message = new EmailMessage(reader.Email!, Localization.Words.T("Your loans on Shelf"), body);
-                }
-            }
+            return (AccountProblem.EmailTaken, false);
+        }
 
-            if (message is not null)
-            {
-                await email.SendAsync(message, cancellationToken);
-                sent++;
-            }
+        var again = reader.PendingNormalizedEmail == normalized;
+        (reader.PendingEmail, reader.PendingNormalizedEmail, reader.EmailNotices) = (clean, normalized, notices);
+        if (!again)
+        {
+            // A different address than the one waiting: its link goes now, and the old link no longer works.
+            (reader.PendingEmailTokenHash, reader.PendingEmailExpires) = (null, null);
+        }
 
-            // Checked today either way, so a quiet day sends nothing until tomorrow.
-            reader.LastReminderOn = today;
+        await db.SaveChangesAsync(cancellationToken);
+        await SendConfirmationAsync(db, email, reader, linkAddress!, cancellationToken);
+        return (null, true);
+    }
+
+    // Opening the link: the pending address becomes the reader's, unless someone confirmed it first.
+    public static async Task<AccountProblem?> ConfirmAsync(ShelfDb db, string? token, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(token) || token.Length > 100)
+        {
+            return AccountProblem.ConfirmExpired;
+        }
+
+        var hash = Hash(token.Trim());
+        var reader = await db.Readers.FirstOrDefaultAsync(item => item.PendingEmailTokenHash == hash, cancellationToken);
+        if (reader is not { PendingEmail: { } pending, PendingNormalizedEmail: { } normalized } || reader.PendingEmailExpires < DateTimeOffset.UtcNow)
+        {
+            return AccountProblem.ConfirmExpired;
+        }
+
+        (reader.PendingEmail, reader.PendingNormalizedEmail, reader.PendingEmailTokenHash, reader.PendingEmailExpires) = (null, null, null, null);
+        if (await db.Readers.AnyAsync(other => other.NormalizedEmail == normalized && other.Id != reader.Id, cancellationToken))
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            return AccountProblem.EmailTaken;
+        }
+
+        (reader.Email, reader.NormalizedEmail) = (pending, normalized);
+        try
+        {
             await db.SaveChangesAsync(cancellationToken);
         }
+        catch (DbUpdateException)
+        {
+            return AccountProblem.EmailTaken;
+        }
 
-        return sent;
+        await Audit.NoteAsync(db, Localization.Words.Say("Confirmed the email address"), reader, pending, cancellationToken);
+        return null;
     }
+
+    private static string Hash(string token) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
 }

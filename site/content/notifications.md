@@ -1,6 +1,6 @@
 ---
 title: Notifications
-description: Hear about loans, asks to borrow, new books in your series, and your book clubs, on your phone or computer, or by ntfy or Gotify; and webhooks for Home Assistant, Discord, and the like.
+description: Hear about loans, asks to borrow, new books in your series, and your book clubs, by email, on your phone or computer, or by ntfy or Gotify; and webhooks for Home Assistant, Discord, and the like.
 ---
 
 # Notifications
@@ -17,6 +17,12 @@ Tick the kinds you want:
 - **Your book clubs:** new posts in the discussion, and being added to a club.
 
 A notification opens the page it's about: **Loans**, the book, **Series**, or the club.
+
+## By email
+
+When the shelf has [email set up](configuration.md#email), notifications go to the address you sign in with, without anything to set up: **Email me at …** under **Notifications** is ticked from the start, and unticking it stops them. The kinds you chose above apply to email as to every other way. New books in your series come as one email listing them all.
+
+It is on for every reader, those whose accounts came before it included, and goes to the address they sign in with; an address given earlier for reminders became that address.
 
 ## On this device
 

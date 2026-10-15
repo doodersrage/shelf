@@ -93,8 +93,7 @@ public static partial class Kosync
             return null;
         }
 
-        var normalized = ReaderRules.Normalize(name);
-        var reader = await db.Readers.FirstOrDefaultAsync(item => item.NormalizedName == normalized, cancellationToken);
+        var reader = await ReaderRules.FindAsync(db, name, cancellationToken);
         if (reader?.KosyncHash is null
             || !CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(reader.KosyncHash), Encoding.ASCII.GetBytes(HashKey(key))))
         {

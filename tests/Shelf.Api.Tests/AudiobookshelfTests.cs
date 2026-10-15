@@ -28,7 +28,7 @@ public sealed class AudiobookshelfTests(ShelfApiFactory factory) : IClassFixture
             services.AddHttpClient(AbsClient.ReaderClientName).ConfigurePrimaryHttpMessageHandler(() => new FakeAudiobookshelf());
         }));
         var client = app.CreateClient();
-        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Abs Reader", ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
+        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Abs Reader", ["email"] = ShelfApiFactory.EmailOf("Abs Reader"), ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
         var readerId = await factory.ReaderIdAsync("Abs Reader");
         var http = app.Services.GetRequiredService<IHttpClientFactory>().CreateClient(AbsClient.ClientName);
         var server = AbsClient.ServerAddress("abs.example.org:13378")!;

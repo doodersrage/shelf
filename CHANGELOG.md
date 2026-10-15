@@ -4,6 +4,24 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.14.1] - 2026-10-15
+
+### Added
+
+- **Notifications by email**: with a mail server set up, notifications go to the address a reader signs in with, for every reader until they untick **Email me at …** under **Notifications**, and for the kinds they chose. The daily loan email is now one of them.
+- **Confirmed addresses**: with a mail server and `Email:PublicAddress`, a new or changed address is the reader's only once they open the link sent to it, so no one can take an address that isn't theirs. A reader can sign in with it while it waits, and **Send the link again** is on **Account**.
+- **A kinder audiobook player**: after a pause the book picks up a few seconds back, more the longer it was away (5 to 20 seconds, never before the chapter's start; off under **Player settings**); a move to another chapter, along the scrubber, or to a bookmark can be taken back with **Back to …** for ten seconds; and the sleep timer fades the sound out over its last half minute.
+- Where two readers share a name, the lists for lending, shelf checks, and book clubs tell them apart with a hint of each address, such as `s…m@example.org`.
+
+### Changed
+
+- **Sign in with your email address.** Making an account asks for an email address, which no two readers may share; names may now repeat, and other readers still see only the name. Accounts made before keep signing in by name until their reader adds an address, and an address already given for reminders works for signing in from the first start. A child's account still signs in by name, which no other reader may have. A name only one reader has still works on the sign-in page, for KOReader's progress sync, and for Audiobookshelf apps. `--reset-password` and `--make-admin` take an email address or a name.
+- An address can be changed on **Account** to one no other reader has, but no longer removed.
+
+### Removed
+
+- The separate daily reminder email and its checkbox: loans due and overdue come with the other notifications, by email among them.
+
 ## [2.14.0] - 2026-10-14
 
 ### Added
@@ -585,7 +603,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.14.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.14.1...HEAD
+[2.14.1]: https://github.com/doodersrage/shelf/compare/v2.14.0...v2.14.1
 [2.14.0]: https://github.com/doodersrage/shelf/compare/v2.13.0...v2.14.0
 [2.13.0]: https://github.com/doodersrage/shelf/compare/v2.12.3...v2.13.0
 [2.12.3]: https://github.com/doodersrage/shelf/compare/v2.12.2...v2.12.3

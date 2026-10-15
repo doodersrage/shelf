@@ -48,7 +48,7 @@ public static class Family
             return (null, AccountProblem.TooManyChildren);
         }
 
-        var (child, problem) = await ReaderRules.CreateAsync(db, name, password, cancellationToken);
+        var (child, problem) = await ReaderRules.CreateAsync(db, name, null, password, cancellationToken);
         if (child is null)
         {
             return (null, problem);

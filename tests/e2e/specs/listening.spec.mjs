@@ -50,6 +50,44 @@ test("an audiobook keeps its speed, shows its chapters, and keeps a bookmark", a
   noProblems(page);
 });
 
+test("a chapter skipped by mistake is undone, and the book picks up a little back after a long pause", async ({ browser }) => {
+  const page = await signUp(browser, unique("Undoer"));
+  const book = await createBook(page, { title: "Second Chances", author: "Someone" });
+  await upload(page, book.id, "audio", "chapters.m4b", "audio/mp4");
+  await page.goto(`/library/${book.id}/listen`);
+  await ready(page);
+  await expect(page.locator(".listen-chapter")).toHaveText("Opening");
+  await expect(page.locator(".listen-undo")).toBeHidden();
+
+  // A skip to the next chapter offers the way back for a few seconds, and takes it.
+  await page.getByRole("button", { name: "Next chapter" }).click();
+  await expect(page.locator(".listen-chapter")).toHaveText("The Middle Part");
+  await expect(page.locator(".listen-undo")).toHaveText("Back to 0:00");
+  await page.locator(".listen-undo").click();
+  await expect(page.locator(".listen-chapter")).toHaveText("Opening");
+  await expect(page.locator(".listen-undo")).toBeHidden();
+
+  // Paused an hour ago part way into a chapter, it starts again from the chapter's start, not before it.
+  await page.getByRole("button", { name: "Next chapter" }).click();
+  await page.locator(".listen-undo").waitFor({ state: "visible" });
+  await page.evaluate(() => window.shelfPlayer.seek(window.shelfPlayer.now().bookSeconds + 1.5));
+  const before = await page.evaluate(() => window.shelfPlayer.now().bookSeconds);
+  await page.evaluate((key) => localStorage.setItem("shelf-paused-at", JSON.stringify({ key, at: Date.now() - 3_600_000 })), String(book.id));
+  await page.locator(".listen [data-player=toggle]").click();
+  await expect.poll(() => page.evaluate(() => window.shelfPlayer.now().bookSeconds)).toBeLessThan(before - 1);
+  await expect(page.locator(".listen-chapter")).toHaveText("The Middle Part");
+  await page.locator(".listen [data-player=toggle]").click();
+
+  // Turned off, it starts where it stopped.
+  await page.locator("details.panel summary", { hasText: "Player settings" }).click();
+  await page.locator("input[data-player=smart-rewind]").uncheck();
+  const kept = await page.evaluate(() => window.shelfPlayer.now().bookSeconds);
+  await page.evaluate((key) => localStorage.setItem("shelf-paused-at", JSON.stringify({ key, at: Date.now() - 3_600_000 })), String(book.id));
+  await page.locator(".listen [data-player=toggle]").click();
+  await expect.poll(() => page.evaluate(() => window.shelfPlayer.now().bookSeconds)).toBeGreaterThanOrEqual(kept);
+  noProblems(page);
+});
+
 test("the book plays on in the mini player while the reader moves around the shelf", async ({ browser }) => {
   const page = await signUp(browser, unique("Wanderer"));
   const book = await createBook(page, { title: "A Walking Recording", author: "Someone", status: "Reading" });

@@ -35,7 +35,10 @@ else
         @foreach (var reader in readers)
         {
             <li>
-                <strong>@reader.Name</strong>
+                <strong>@reader.Name</strong>@if (reader.Email is not null)
+                {
+                    <span class="hint"> · @reader.Email</span>
+                }
                 <span class="hint"> · @Localization.Counts.Books(reader.Books) · @T("since {0}", reader.CreatedAt.Medium())@(reader.IsAdmin ? " · " + T("admin") : "")@(reader.Child ? " · " + T("a child's account") : "")@(reader.Id == me ? " · " + T("you") : "")</span>
                 @if (passwords.TryGetValue(reader.Id, out var password))
                 {
