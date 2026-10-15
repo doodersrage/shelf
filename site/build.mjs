@@ -14,7 +14,7 @@ const repository = "https://github.com/doodersrage/shelf";
 
 // The sidebar, in order. Each page is content/<slug>.md, apart from the changelog, made from CHANGELOG.md.
 const groups = [
-  { title: "Get started", pages: ["index", "install", "configuration"] },
+  { title: "Get started", pages: ["index", "features", "install", "configuration"] },
   { title: "Using Shelf", pages: ["library", "adding", "reading", "audiobooks", "lending", "devices", "notifications"] },
   { title: "Running Shelf", pages: ["security", "backups", "server"] },
   { title: "Reference", pages: ["api", "development", "changelog"] },

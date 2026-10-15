@@ -845,6 +845,49 @@ main:focus {
     color: var(--color-ink);
 }
 
+/* Features: each part's pictures side by side, one wide, or a row of phones. */
+.feature-shots {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: 1.25rem;
+    margin: 1.25rem 0 0.75rem;
+}
+
+.feature-shots.single {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.feature-shots.phones {
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    align-items: start;
+}
+
+.feature-shots figure {
+    margin: 0;
+}
+
+.feature-shots img {
+    margin: 0 0 0.5rem;
+}
+
+.feature-shots figcaption {
+    color: var(--color-muted);
+    font-size: 0.92rem;
+}
+
+.feature-shots figcaption strong {
+    color: var(--color-ink);
+}
+
+.more {
+    margin: 0 0 2.5rem;
+    font-weight: 500;
+}
+
+.more a::after {
+    content: " →";
+}
+
 .features {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));

@@ -11,6 +11,8 @@ Any book with an e-book opens in the reader from its page or its card in the lib
 
 An EPUB opens in a page-turning reader built on [epub.js](https://github.com/futurepress/epub.js), the engine Audiobookshelf's reader uses, and like Audiobookshelf's it fills the browser window: the book is all there is, with the bars over it. The whole book is one view: turn a page by tapping the right or left of it, swiping, pressing the arrow keys, Page Up and Page Down, or the space bar; the last page of a chapter turns into the next one.
 
+![The e-book reader with the contents open, a highlighted passage, and the reading bars](assets/images/reader.png)
+
 A tap in the middle of the page shows the bars, and another hides them, as does turning the page by tapping or swiping:
 
 - at the top, **‹** back to the book's page (or to Loans, for a book lent to you), the book's title, **☰** for the contents, **Aa** for the text settings, and **⋯** for the rest;

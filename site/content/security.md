@@ -9,6 +9,8 @@ description: Passwords, passkeys, two-step sign-in, signed-in devices, the activ
 
 Every page and every API call needs a signed-in reader, apart from a [reading list you share by link](library.md#sharing-a-reading-list). Scripts sign in with an [API token](api.md#api-tokens), which opens the books API but never the account. A sign-in lasts thirty days on that browser, and each one is listed on **Account** under **Signed-in devices**, with its browser and when it was last used. Sign out any of them from there, or **Sign out everywhere else**.
 
+![Sign-in & security on Account: password, two-step sign-in, passkeys, and signed-in devices](assets/images/security.png)
+
 Changing your password signs you out everywhere. Sign-in and sign-up allow ten attempts a minute from one address (`Accounts:SignInsPerMinute`).
 
 ## Passkeys
@@ -80,21 +82,26 @@ Every reader sees the lines about their own account under **Recent activity** on
 
 The first account is an admin. **Shelf admin**, under **Admin** in the menu, is in four tabs: **Readers**, **Backups**, **System**, and **Activity**.
 
+![Shelf admin: who may sign up, and invitations sent](assets/images/admin.png)
+
 Under **Readers**, a list of every reader, found by name or address and put in order by name, newest, or last seen, shows each one's address and whether it is confirmed, whether they are an admin, a child, suspended, or use two-step sign-in, their books, and when they were last signed in. Open a reader for what can be done:
 
 - **Rename** them, or **change their email address** (a confirmation link can be sent again from there).
 - **Sign out everywhere**, which keeps their password.
 - **Suspend** them: no way of signing in works (password, passkey, single sign-on, API tokens, device keys, KOReader, Kobo, Audiobookshelf apps, the calendar), and their shelf is kept as it is, until they are **restored**.
-
 - **A new password** for a reader who forgot theirs. It signs them out everywhere, turns off their two-step sign-in, and removes their passkeys: the way back in after a lost phone, and a way to shut out anyone who added a passkey of their own.
 - **Make admin** for another reader, or take it away. The shelf always keeps at least one admin.
 - **Delete** a reader, with their books and files. Books lent to them go back to their owners.
+
+![A reader opened in Shelf admin: rename, change their address, new password, sign out everywhere, suspend, make admin, delete](assets/images/admin-reader.png)
 
 Readers can delete their own account from **Account**, with their password.
 
 **Who sees what**, under **Settings**, shows an admin what one reader can see of the shelf, and why, by the same rules the pages keep: their own books, the open shelves of others (titles, authors, and covers only), books lent to them, their clubs, collections their guardian shares, their API tokens and what each is kept to, and what anyone with one of their links can see. **Why can they see this book?** gives the reasons for one book, or says they can't. Look at it before sharing anything.
 
 **Server health**, beside it, gathers what keeps the shelf well: the newest backup and whether it was proved, copies sent elsewhere, the stored files, disk space, imports, webhooks, linked shelves, email, OCR, a newer release, and when each background job last ran. What needs you comes first, each with what to do, and the technical detail under it.
+
+![Server health: backups, files, disk space, email, and the background jobs, what needs you first](assets/images/health.png)
 
 ### When the only admin is locked out
 
@@ -119,6 +126,8 @@ Each takes the email address the reader signs in with, or the name of a reader w
 
 A shelf linked to another (see [Linked shelves](lending.md#linked-shelves)) answers that shelf's calls under `/federation`, each carrying the secret this shelf gave it, of which it keeps only a hash. Those calls see open shelves' titles, take asks to borrow, and fetch the files of books lent to that shelf's readers, while they are lent; nothing else. The one-time link code is good for a day. Unlinking stops the calls at once.
 
+![The System tab of Shelf admin: background work with Run now, email, and the announcement](assets/images/admin-system.png)
+
 ## Turnstile
 
 With a [Cloudflare Turnstile](configuration.md#cloudflare-turnstile) widget's keys set, signing in, signing up, and asking for a password reset each need a token from Turnstile, checked with Cloudflare by the server: made for that form, on the shelf's own address, and used once. The sign-in limit still counts each attempt.
@@ -130,6 +139,8 @@ Sign-up is open until you change it, so anyone who can reach the shelf can make 
 ### Invitations
 
 Under **Invitations**, give email addresses, up to fifty at once, and each gets an email with a link to make an account. The link works for a week, once, even when sign-up is closed, and the account it makes signs in with that address, confirmed already. An address someone already signs in with is passed over. Without a mail server, each link is shown to pass on yourself. Sent invitations are listed, to **Send again** with a new link or **Withdraw**.
+
+![An invitation by email, with a button to make an account](assets/images/email-invite.png)
 
 ## The shelf's own work
 

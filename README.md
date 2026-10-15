@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/doodersrage/shelf/actions/workflows/ci.yml/badge.svg)](https://github.com/doodersrage/shelf/actions/workflows/ci.yml)
 
-**[Read the documentation](https://doodersrage.github.io/shelf/)**: installing, every feature, configuration, and the API.
+**[Read the documentation](https://doodersrage.github.io/shelf/)**: installing, [every feature, with pictures](https://doodersrage.github.io/shelf/features.html), configuration, and the API.
 
 A personal library you run yourself. Shelf keeps the books you own on paper, your e-books, and your audiobooks together, one book at a time: the catalog, where you stopped in each format, what you highlighted, your reading log and yearly goal, and who has borrowed which copy. Everyone on your server gets a shelf of their own and can lend to the others.
 
@@ -18,10 +18,12 @@ A personal library you run yourself. Shelf keeps the books you own on paper, you
 | **Insights** lead with the year's goal, then a year of reading, favourites, and milestones. | **Loans** between readers, and asks to borrow from an open shelf. |
 | ![A reading list shared by link, as someone signed out sees it](docs/images/shared.png) | ![Home in dark mode](docs/images/dark.png) |
 | **A reading list** shared by link with anyone, showing only the books. | **Dark mode** follows the system, or a choice in Account. |
+| ![A book club's page with its book and members' posts](docs/images/club.png) | ![A reader opened in Shelf admin, with what can be done](docs/images/admin-reader.png) |
+| **Book clubs** pick a book, meet, and talk about it, with spoilers folded away. | **Shelf admin** invites people by email and looks after every reader. |
 
-<p align="center"><img src="docs/images/phone.png" alt="Home on a phone, with the bottom bar" width="300" /></p>
+<p align="center"><img src="docs/images/phone.png" alt="Home on a phone, with the bottom bar" width="200" /> <img src="docs/images/phone-library.png" alt="The library on a phone" width="200" /> <img src="docs/images/phone-listen.png" alt="The audiobook player on a phone" width="200" /></p>
 
-The screenshots show public-domain books, with covers drawn for the demo. `npm run screenshots` in `tests/e2e` makes them again.
+The screenshots show public-domain books, with covers drawn for the demo. `npm run screenshots` in `tests/e2e` makes them again, emails included: the demo shelf's mail goes to a little SMTP server in the script, which photographs it.
 
 ## Why Shelf
 

@@ -48,6 +48,8 @@ Matching asks Audible and Audnexus over the internet; nothing is sent about you 
 - **Bookmarks.** **Bookmark this moment** keeps where you are, with a note if you like. Each bookmark shows its chapter or track and time, and **Go there** goes back to it.
 - **Lock screen and headphones.** While a book plays, a phone's lock screen and notifications, headphones, a car, or a smartwatch show the chapter, the book, its author, and cover, with the whole book as the scrubber. Their buttons play and pause, skip, scrub, and go to the previous or next chapter.
 
+![The player just after skipping to the next chapter, with a Back to button under the controls](assets/images/listen-undo.png)
+
 ### Listening while you browse
 
 ![Insights, with the book playing in the mini player at the foot of the page](assets/images/mini-player.png)

@@ -8,9 +8,13 @@ description: The catalog, statuses, the library's views and filters, changing ma
 
 **Home** is the front page. When something wants you, **Needs you** comes first and names it: a book you lent that's overdue, a borrowed one due back within three days, a reader asking to borrow, new books in series you follow or by authors you follow. Otherwise it isn't there. Then the book you were last in leads, with a button straight back into it, and after it your shelf at a glance (reading, want to read, finished this year against your goal, on loan), the other books you're reading, what to read next, what you added lately, and what you finished. **Arrange Home**, at the bottom, hides any of those and puts them in the order you like, on every device. **Library** holds every book on your shelf, as covers, a list, or a compact table (one line a book, with the columns you choose, and every match in one scroll), with search, chips for each status and for books on loan, e-books, and audiobooks, and an order that's kept for next time. On a cover, the status is a menu: change it there without opening the book. **Reading** gathers the books you have open, each a tap from your place, with your reading log of the last weeks and what you noted on the way.
 
+![The library as covers, with search, a chip for each status, and the order it is in](assets/images/covers.png)
+
 ## Finding your way
 
 The menu keeps the five places you go most at the top (**Home**, **Library**, **Reading**, **Loans**, **Insights**), then groups the rest: **Your books** (Add & import, want to read, up next, finished, your saved searches, collections, series, authors, the map), **Your reading** (journal, quotes, words, calendar, book clubs, the reference desk), **Discover** (finding new books, what to read next, free books, podcasts, asking your shelf, searching inside books), **Insights** (years, reading DNA, your collection over time), **Your copies**, and **Settings**. A group opens by itself on its own pages. Under **Account**, **Menu** leaves out the pages you don't use; they are still there.
+
+![Go to, opened with Ctrl K: typing “mo” finds a search of the library, the Moving house page, and Moby-Dick](assets/images/jump.png)
 
 **Search or go to…**, the box at the top of the menu (or **Ctrl K**, **⌘ K** on a Mac, or **/** when you aren't typing), searches the library when you press **Enter**, and as you type finds any page by its name or what it's for ("goodreads", "passkeys", "dark"), and any of your books, authors, series, places, and collections by a few letters of their names. The arrow keys choose among them, and **Enter** goes; when what you typed is the very name of a page or book, Enter goes there instead of searching. **?** lists every keyboard shortcut. Before you type, the pages and books you opened lately on this device come first.
 
@@ -41,6 +45,8 @@ Can't choose what to read next? `/books/pick` picks one book from the want list.
 
 A book's details hold as much or as little as you like:
 
+![A book's page: its cover, status, reading progress, and the next step](assets/images/book.png)
+
 - **Title, subtitle, author, and year**, with the original title of a translation and its translator, and the narrator of an audiobook (search finds narrators too).
 - **Series and number**, so the next volume is offered from the book's page.
 - **ISBN, publisher, language, page count, and format** (hardcover, paperback, e-book, or audiobook).
@@ -54,6 +60,8 @@ Tags are kept in lowercase, and an ISBN can be typed with or without hyphens.
 ## Views and filters
 
 The library shows covers or a list, and remembers your choice. Search, status, and sort are always in view, with chips for books on loan, e-books, and audiobooks; **Loved** and **Read next** sit under **More filters**. A filter from elsewhere (an author, series, tag, place, or recommender you followed a link from) shows as a chip of its own under the list's tools, and so do the ones under **More filters**: tap one's **×** to take it away, or **Clear filters** to take them all.
+
+![The compact table: one line a book, with columns for status, series, year, format, and place](assets/images/compact.png)
 
 The address keeps up with what you choose, so a filtered library can be bookmarked, and opening a book then going back finds the same books, as far down the page as you were.
 

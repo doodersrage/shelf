@@ -34,6 +34,8 @@ The translations were made by machine and checked for consistency, but have not 
 
 On a book's page, under **Lending**, choose a reader and, if you like, a date it's due back, then **Lend**. The book stays on your shelf, marked as lent to them, and appears under **Borrowed** on their **Loans** page.
 
+![Loans: a book lent out with its due date, and another reader asking to borrow](assets/images/loans.png)
+
 While it's out, the borrower can:
 
 - **read its e-book and play its audiobook** from **Loans**, with a place of their own;
@@ -105,6 +107,8 @@ With [email set up](configuration.md#email), the loans due soon or overdue come 
 ## Book clubs
 
 Readers on the same shelf can read together. On **Book clubs**, start a club and invite the readers you want; a club you are invited to appears in your list.
+
+![A book club's page: its books, the one being read, and members' posts about it](assets/images/club.png)
 
 - **Books.** Any member adds a book, from their own shelf or by title and author. The first one added is the one being read now; **Read this one now** picks another.
 - **Talking.** Each book has its own conversation: choose it in the list and say something about it. Everyone in the club sees what everyone says. Tick **It gives something away** on a post that would spoil the book for someone further behind: it is folded away until they open it, and notifications and webhooks leave its words out.

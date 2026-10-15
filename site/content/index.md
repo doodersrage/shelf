@@ -11,7 +11,7 @@ description: Shelf is a personal library you run yourself: your books, e-books, 
 <p class="lead">Shelf keeps your catalog, your e-books and audiobooks, where you stopped, what you highlighted, and who has which book. It runs on your own computer or server, for you and the people you share it with.</p>
 <div class="actions">
 <a class="button primary" href="install.html">Install Shelf</a>
-<a class="button" href="library.html">See what it does</a>
+<a class="button" href="features.html">See what it does</a>
 <a class="button" href="https://github.com/doodersrage/shelf">Source on GitHub</a>
 </div>
 </div>
@@ -29,7 +29,8 @@ description: Shelf is a personal library you run yourself: your books, e-books, 
 <li><strong>Bring a library in</strong><span>Drop in a folder of files, import from Audiobookshelf, Goodreads, or StoryGraph, or add free public-domain books.</span></li>
 <li><strong>Keep in step with devices</strong><span>A Kobo syncs as with its own store; KOReader downloads from Shelf's catalog and syncs its place and reading time back. Notifications on your phone, and webhooks for Home Assistant.</span></li>
 <li><strong>Know your reading</strong><span>Goals for books, pages, and hours, a review of each year, a calendar of reading days, a streak, every quote in one place, a note when a series you read has a new book, and what to read next.</span></li>
-<li><strong>Yours, and private</strong><span>Your data stays on your server. Passkeys, two-step sign-in, single sign-on, an activity log, nightly backups, and API tokens for scripts and Home Assistant.</span></li>
+<li><strong>Yours, and private</strong><span>Your data stays on your server. Sign-in by email or passkey, two-step sign-in, single sign-on, Turnstile on public forms, an activity log, nightly backups, and API tokens for scripts and Home Assistant.</span></li>
+<li><strong>Share it with many</strong><span>Invite people by email, choose who may sign up, and look after every reader from Shelf admin: rename, sign out, suspend, or announce something to everyone.</span></li>
 <li><strong>In four languages</strong><span>English, Spanish, French, and German, chosen by each reader, with dates written the way their region writes them.</span></li>
 </ul>
 
@@ -40,9 +41,14 @@ description: Shelf is a personal library you run yourself: your books, e-books, 
 <figure><img src="assets/images/listen.png" alt="The audiobook player with chapters, a bookmark, and a button to continue in the e-book" /><figcaption><strong>The player</strong> keeps chapters and bookmarks, and switches to the e-book at the same point.</figcaption></figure>
 <figure><img src="assets/images/stats.png" alt="Insights with the year's goal and books finished each month" /><figcaption><strong>Insights</strong> lead with the year's goal, then a year of reading, favourites, and milestones.</figcaption></figure>
 <figure><img src="assets/images/loans.png" alt="Loans, with a book lent out and another reader asking to borrow" /><figcaption><strong>Loans</strong> between readers, and asks to borrow from an open shelf.</figcaption></figure>
+<figure><img src="assets/images/club.png" alt="A book club's page with its book and members' posts" /><figcaption><strong>Book clubs</strong> pick a book, meet, and talk about it, spoilers folded away.</figcaption></figure>
+<figure><img src="assets/images/email-notice.png" alt="A notification by email: Tenar lent you a book" /><figcaption><strong>Notifications</strong> by email, on your phone, or by ntfy and Gotify.</figcaption></figure>
+<figure><img src="assets/images/admin-reader.png" alt="A reader opened in Shelf admin" /><figcaption><strong>Shelf admin</strong> invites people by email and looks after every reader.</figcaption></figure>
 <figure><img src="assets/images/shared.png" alt="A reading list shared by link, as someone signed out sees it" /><figcaption><strong>A reading list</strong> shared by link, showing only the books.</figcaption></figure>
 <figure><img src="assets/images/dark.png" alt="Home in dark mode" /><figcaption><strong>Dark mode</strong> follows the system or your choice, and every page works on a phone.</figcaption></figure>
 </div>
+
+<p class="more"><a href="features.html">Every feature, with pictures</a></p>
 
 ## Why Shelf
 

@@ -11,6 +11,8 @@ Shelf talks to e-reader apps and to other shelves, and works on a phone like an 
 
 **Connections**, at the top of **Devices**, lists each thing your shelf can trade with (KOReader, a Kobo, Audiobookshelf, Readwise, Hardcover, another shelf) and how it stands:
 
+![Devices: the connections to e-readers, apps, and services, and the device key](assets/images/devices.png)
+
 - **Off**: not set up, with a link to set it up.
 - **Waiting**: set up, and nothing has come from it yet, with what to do next, such as syncing the Kobo.
 - **Working**: when it was last heard from, and from which device.

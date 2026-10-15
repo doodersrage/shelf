@@ -8,6 +8,8 @@ description: Add books by hand, from files, from free public-domain catalogs, fr
 
 **Add & import**, at the top of **Your books** in the menu, has every way to bring books in on one page: a book at a time (by hand, or files), a shelf at a time (scanning), from another app (Goodreads, StoryGraph, any spreadsheet, Calibre, Audiobookshelf, Hardcover, Readwise, a Shelf backup), and something new (Open Library, free books). A new, empty shelf shows the main ones on **Home**.
 
+![Add & import: every way of bringing books in on one page](assets/images/add.png)
+
 Books come in five ways, and Shelf keeps out what you already have.
 
 A new shelf opens on a welcome with a card for each way below, so the first step is bringing what you already have.

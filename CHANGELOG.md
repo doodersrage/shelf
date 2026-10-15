@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Added
+
+- **[Features](https://doodersrage.github.io/shelf/features.html)**: a page of the documentation showing everything Shelf does, part by part, with screenshots, and screenshots in the guides beside what they describe: the library, Go to, the compact table, the reader, the player, loans, book clubs, adding books, devices, notifications and their emails, accounts, Shelf admin, invitations, and Server health.
+
 ## [2.15.0] - 2026-10-15
 
 ### Added

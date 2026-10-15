@@ -19,11 +19,15 @@ Tick the kinds you want:
 
 A notification opens the page it's about: **Loans**, the book, **Series**, or the club.
 
+![Notification settings: the kinds to hear about, and email, this device, ntfy, and Gotify](assets/images/notifications.png)
+
 ## By email
 
 When the shelf has [email set up](configuration.md#email), notifications go to the address you sign in with, without anything to set up: **Email me at …** under **Notifications** is ticked from the start, and unticking it stops them. The kinds you chose above apply to email as to every other way. New books in your series come as one email listing them all.
 
 It is on for every reader, those whose accounts came before it included, and goes to the address they sign in with; an address given earlier for reminders became that address.
+
+![A notification by email: Tenar lent you a book, with a button to see it on Shelf](assets/images/email-notice.png)
 
 ## On this device
 
