@@ -15,7 +15,7 @@ using static Shelf.Api.Localization.Words;
 namespace Shelf.Api.Readers;
 
 // What a reader is told about: their loans (lent to them, returned, due, or overdue), asks to borrow their books,
-// new books in their series, and their book clubs.
+// new books in their series, their book clubs, and, for an admin, new readers and problems on Server health.
 [Flags]
 public enum NoticeKinds
 {
@@ -24,7 +24,8 @@ public enum NoticeKinds
     Asks = 2,
     Series = 4,
     Clubs = 8,
-    All = Loans | Asks | Series | Clubs,
+    Admin = 16,
+    All = Loans | Asks | Series | Clubs | Admin,
 }
 
 // A browser that asked to be told things, by the Push API: where its push service takes messages for it, and the
@@ -560,28 +561,236 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
                 }
 
                 break;
+            case EventKinds.ClubReading when shelfEvent.ClubId is int readingIn && shelfEvent.ClubBookId is int picked:
+                var reading = await db.ClubBooks.AsNoTracking().Where(item => item.Id == picked).Select(item => new { Club = item.Club!.Name, item.Title, item.Author }).FirstOrDefaultAsync(cancellationToken);
+                if (reading is null)
+                {
+                    break;
+                }
+
+                foreach (var reader in await MembersAsync(db, readingIn, shelfEvent.ActorId, cancellationToken))
+                {
+                    await SendAsync(reader, NoticeKinds.Clubs, _ => new Notice(T("{0} is reading a new book", reading.Club), string.IsNullOrWhiteSpace(reading.Author) ? reading.Title : T("{0}, by {1}", reading.Title, reading.Author), $"/clubs/{readingIn}", $"club-{readingIn}"), cancellationToken);
+                }
+
+                break;
+            case EventKinds.ClubMeetingCancelled when shelfEvent.ClubId is int calledOffIn && shelfEvent.When is { } calledOffAt:
+                var calledOff = await db.Clubs.AsNoTracking().Where(item => item.Id == calledOffIn).Select(item => item.Name).FirstOrDefaultAsync(cancellationToken);
+                var calledOffBook = shelfEvent.ClubBookId is int calledOffBookId ? await db.ClubBooks.AsNoTracking().Where(item => item.Id == calledOffBookId).Select(item => item.Title).FirstOrDefaultAsync(cancellationToken) : null;
+                if (calledOff is null)
+                {
+                    break;
+                }
+
+                foreach (var reader in await MembersAsync(db, calledOffIn, shelfEvent.ActorId, cancellationToken))
+                {
+                    await SendAsync(reader, NoticeKinds.Clubs, _ => new Notice(T("{0} will not meet {1}", calledOff, ClubMeetings.Say(calledOffAt, shelfEvent.Zone)), calledOffBook ?? T("The meeting is called off."), $"/clubs/{calledOffIn}", $"club-{calledOffIn}"), cancellationToken);
+                }
+
+                break;
+            case EventKinds.ClubLeft when shelfEvent.ClubId is int leftClub && shelfEvent.ReaderId is int left:
+                var leftName = await db.Clubs.AsNoTracking().Where(item => item.Id == leftClub).Select(item => item.Name).FirstOrDefaultAsync(cancellationToken);
+                var remover = await NameAsync(shelfEvent.ActorId);
+                if (leftName is not null)
+                {
+                    await SendAsync(left, NoticeKinds.Clubs, _ => new Notice(T("You are no longer in {0}", leftName), T("{0} took you out of the book club.", remover), "/clubs", $"club-{leftClub}"), cancellationToken);
+                }
+
+                break;
+            case EventKinds.ClubEnded when shelfEvent.ReaderId is int member && shelfEvent.Name is { } endedName:
+                var ender = await NameAsync(shelfEvent.ActorId);
+                await SendAsync(member, NoticeKinds.Clubs, _ => new Notice(T("{0} has ended", endedName), T("{0} ended the book club.", ender), "/clubs", "club-ended"), cancellationToken);
+                break;
+            case EventKinds.AskDeclined when book?.OwnerId is int declinedBy && shelfEvent.ReaderId is int declined:
+                var declinerName = await NameAsync(declinedBy);
+                await SendAsync(declined, NoticeKinds.Asks, _ => new Notice(T("{0} can't lend you a book", declinerName), book.Title, "/loans", $"ask-{book.Id}"), cancellationToken);
+                break;
+            case EventKinds.ReaderJoined when shelfEvent.ReaderId is int joined:
+                var newcomer = await db.Readers.AsNoTracking().Where(item => item.Id == joined).Select(item => new { item.Name, item.Restricted, item.GuardianId }).FirstOrDefaultAsync(cancellationToken);
+                if (newcomer is null)
+                {
+                    break;
+                }
+
+                var guardian = newcomer.Restricted ? await NameAsync(newcomer.GuardianId) : null;
+                foreach (var admin in await db.Readers.AsNoTracking().Where(item => item.IsAdmin && item.Id != joined).Select(item => item.Id).ToListAsync(cancellationToken))
+                {
+                    await SendAsync(admin, NoticeKinds.Admin, _ => new Notice(T("{0} joined the shelf", newcomer.Name),
+                        guardian is null ? T("A new reader signed up.") : T("{0} made a child's account.", guardian), "/admin", "reader-joined"), cancellationToken);
+                }
+
+                break;
+            case EventKinds.EmailChanged or EventKinds.PasswordChanged or EventKinds.TwoStepOff or EventKinds.PasskeyAdded or EventKinds.SignedIn when shelfEvent.ReaderId is int account:
+                await SecureAsync(db, account, shelfEvent, cancellationToken);
+                break;
         }
     }
 
-    // Once a day, readers who are told of their loans hear of any due soon or overdue: by email too, which takes the
-    // place of the daily loan email there was before notifications.
+    // A club's members, other than whoever did the thing they are told of.
+    private static Task<List<int>> MembersAsync(ShelfDb db, int clubId, int except, CancellationToken cancellationToken) =>
+        db.ClubMembers.AsNoTracking().Where(item => item.ClubId == clubId && item.ReaderId != except).Select(item => item.ReaderId).ToListAsync(cancellationToken);
+
+    // Changes to how a reader signs in come by email whatever they chose to hear about, as someone else may have made
+    // them: to the address they had, when it is the address that changed. A sign-in says so only from a device the
+    // shelf has not seen them on.
+    private async Task SecureAsync(ShelfDb db, int readerId, ShelfEvent shelfEvent, CancellationToken cancellationToken)
+    {
+        var reader = await db.Readers.FirstOrDefaultAsync(item => item.Id == readerId, cancellationToken);
+        if (reader is null || reader.SandboxOf is not null)
+        {
+            return;
+        }
+
+        if (shelfEvent.Kind == EventKinds.SignedIn)
+        {
+            // A device already known, or the first sign-in the shelf keeps track of (signing up, or the first after
+            // this came in), says nothing.
+            var device = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(shelfEvent.Name ?? "")))[..16];
+            var known = (reader.KnownDevices ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries).ToList();
+            var seen = reader.KnownDevices is null || known.Remove(device);
+            reader.KnownDevices = string.Join('\n', known.Prepend(device).Take(30));
+            await db.SaveChangesAsync(cancellationToken);
+            if (seen)
+            {
+                return;
+            }
+        }
+
+        var to = shelfEvent.Kind == EventKinds.EmailChanged ? shelfEvent.Name : reader.Email;
+        if (!email.Enabled || to is null)
+        {
+            return;
+        }
+
+        var site = EmailRules.PublicAddress(configuration, null);
+        EmailMessage message;
+        using (Speaking(reader.Language))
+        {
+            var account = site.Length > 0 ? "\n\n" + T("Open your account: {0}", site + "/account#sessions") : "";
+            var reset = site.Length > 0 ? "\n\n" + T("Reset your password: {0}", site + "/forgot") : "";
+            message = shelfEvent.Kind switch
+            {
+                EventKinds.EmailChanged => new EmailMessage(to, T("Your Shelf email address changed"),
+                    T("Hello {0},\n\nThe email address you sign in to Shelf with is now {1}, in place of this one.", reader.Name, reader.Email ?? "") + reset
+                    + "\n\n" + T("If you did not change it, someone else may be in your account: reset your password, or ask an admin of the shelf for help.")),
+                EventKinds.PasswordChanged => new EmailMessage(to, T("Your Shelf password changed"),
+                    T("Hello {0},\n\nThe password for your shelf was just changed, and every device signed in with the old one was signed out.", reader.Name) + reset
+                    + "\n\n" + T("If it was not you, reset your password now, or ask an admin of the shelf for help.")),
+                EventKinds.TwoStepOff => new EmailMessage(to, T("Two-step sign-in is off"),
+                    T("Hello {0},\n\nTwo-step sign-in was just turned off for your shelf, so a password alone signs in now.", reader.Name) + account
+                    + "\n\n" + T("If it was not you, change your password, and turn two-step sign-in on again.")),
+                EventKinds.PasskeyAdded => new EmailMessage(to, T("A passkey was added to your account"),
+                    T("Hello {0},\n\nA new passkey, {1}, can now sign in to your shelf.", reader.Name, shelfEvent.Name ?? "") + account
+                    + "\n\n" + T("If it was not you, remove it under Sign-in & security, and change your password.")),
+                _ => new EmailMessage(to, T("A new sign-in to your shelf"),
+                    T("Hello {0},\n\nYour shelf was just signed in to from {1}, a device you had not used with it before.", reader.Name, string.IsNullOrWhiteSpace(shelfEvent.Name) ? T("A browser") : shelfEvent.Name) + account
+                    + "\n\n" + T("If it was you, there is nothing to do. If not, sign that device out under Sign-in & security, and change your password.")),
+            };
+        }
+
+        try
+        {
+            await email.SendAsync(message, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "A security email to reader {ReaderId} did not go.", readerId);
+        }
+    }
+
+    // Every five minutes, members hear of their club's meetings a day and an hour ahead; every hour, readers who are
+    // told of their loans hear once a day of any due soon or overdue, by email too, which takes the place of the
+    // daily loan email there was before notifications; and admins hear of anything wrong on Server health.
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromHours(1));
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5));
+        var hourly = DateTimeOffset.MinValue;
         do
         {
             try
             {
-                await RemindDueAsync(stoppingToken);
+                await RemindMeetingsAsync(stoppingToken);
+                if (DateTimeOffset.UtcNow - hourly >= TimeSpan.FromHours(1))
+                {
+                    await RemindDueAsync(stoppingToken);
+                    await TellHealthAsync(stoppingToken);
+                    hourly = DateTimeOffset.UtcNow;
+                }
+
                 Heartbeats.Beat(nameof(Notices));
             }
             catch (Exception ex) when (ex is DbUpdateException or InvalidOperationException)
             {
                 Heartbeats.Beat(nameof(Notices), ex.Message);
-                logger.LogWarning(ex, "Could not send loan notifications; they will try again in an hour.");
+                logger.LogWarning(ex, "Could not send notifications; they will try again shortly.");
             }
         }
         while (await timer.WaitForNextTickAsync(stoppingToken));
+    }
+
+    // A meeting a day away, and an hour away, is told to every member of its club, each once. A meeting arranged
+    // closer than that has just been told of, and a meeting already past is let be.
+    public async Task<int> RemindMeetingsAsync(CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        await using var scope = scopes.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+        var waiting = await db.ClubMeetings.Where(meeting => !meeting.HourReminded).Include(meeting => meeting.Club).Include(meeting => meeting.Book).ToListAsync(cancellationToken);
+        var sent = 0;
+        foreach (var meeting in waiting)
+        {
+            var away = meeting.At - now;
+            var dayAhead = !meeting.DayReminded && away <= TimeSpan.FromDays(1);
+            var hourAhead = away <= TimeSpan.FromHours(1);
+            if (!dayAhead && !hourAhead)
+            {
+                continue;
+            }
+
+            var lead = hourAhead ? TimeSpan.FromHours(1) : TimeSpan.FromDays(1);
+            (meeting.DayReminded, meeting.HourReminded) = (true, hourAhead || meeting.HourReminded);
+            await db.SaveChangesAsync(cancellationToken);
+            if (away <= TimeSpan.Zero || meeting.At - meeting.CreatedAt <= lead || meeting.Club is null)
+            {
+                continue;
+            }
+
+            var (club, title, through, at, zone, clubId) = (meeting.Club.Name, meeting.Book?.Title ?? "", meeting.Through, meeting.At, meeting.TimeZone, meeting.ClubId);
+            foreach (var reader in await MembersAsync(db, clubId, 0, cancellationToken))
+            {
+                sent += await SendAsync(reader, NoticeKinds.Clubs, _ => new Notice(
+                    T("Reminder: {0} meets {1}", club, ClubMeetings.Say(at, zone)),
+                    through is null ? title : T("{0}, {1}", title, through),
+                    $"/clubs/{clubId}", $"club-{clubId}"), cancellationToken) > 0 ? 1 : 0;
+            }
+        }
+
+        return sent;
+    }
+
+    // Admins hear when something on Server health goes wrong: once for each new set of troubles, not every hour.
+    public async Task<int> TellHealthAsync(CancellationToken cancellationToken)
+    {
+        await using var scope = scopes.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+        var report = await scope.ServiceProvider.GetRequiredService<ShelfHealth>().ReportAsync(db, cancellationToken);
+        var wrong = report.Items.Where(item => item.State == HealthState.Wrong).ToList();
+        var troubles = wrong.Count == 0 ? null
+            : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n', wrong.Select(item => $"{item.Area}|{item.Name}").Order(StringComparer.Ordinal)))))[..32];
+        var sent = 0;
+        foreach (var admin in await db.Readers.Where(reader => reader.IsAdmin && reader.HealthTold != troubles).ToListAsync(cancellationToken))
+        {
+            admin.HealthTold = troubles;
+            await db.SaveChangesAsync(cancellationToken);
+            if (troubles is not null)
+            {
+                sent += await SendAsync(admin.Id, NoticeKinds.Admin, _ => new Notice(
+                    wrong.Count == 1 ? T("Something on the shelf needs you") : T("{0} things on the shelf need you", wrong.Count),
+                    string.Join(" ", wrong.Take(3).Select(item => item.Says)), "/admin/health", "health"), cancellationToken) > 0 ? 1 : 0;
+            }
+        }
+
+        return sent;
     }
 
     public async Task<int> RemindDueAsync(CancellationToken cancellationToken)

@@ -5,6 +5,7 @@
 @inject NavigationManager Navigation
 @inject IServiceProvider Services
 @inject ReleaseWatch Releases
+@inject Microsoft.Extensions.Caching.Memory.IMemoryCache Cache
 
 @if (!signedIn)
 {
@@ -52,6 +53,15 @@ else
                     </aside>
                 </details>
             </header>
+
+            @* An admin's note to everyone, until it is taken down; announce.js hides it once this browser says so. *@
+            @if (announcement is { } note)
+            {
+                <div class="notice announcement" role="status" data-announcement="@note.At.ToUnixTimeSeconds()">
+                    <p>@note.Text</p>
+                    <button type="button" class="quiet" data-hide-announcement>@T("Hide")</button>
+                </div>
+            }
 
             @* For admins: a newer Shelf is out, until they update or say not now. *@
             @if (release is { } newer)
@@ -147,6 +157,7 @@ else
     private bool fetching;
     private ImportSummary? import;
     private ShelfRelease? release;
+    private Announcement? announcement;
     private string importDone = "";
     private HashSet<string> hidden = [];
 
@@ -295,6 +306,7 @@ else
             reminders = await Asking.RemindersAsync(db);
             isAdmin = await ReaderRules.IsAdminAsync(db, db.ReaderId);
             release = isAdmin ? await Releases.ForAdminAsync(db) : null;
+            announcement = await Management.AnnouncementAsync(db, Cache);
             isChild = await Family.IsRestrictedAsync(db);
             savedSearches = await db.SavedSearches.AsNoTracking().OrderBy(search => search.Name).ToListAsync();
             seriesAlerts = await SeriesWatch.CountAsync(db);

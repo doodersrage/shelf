@@ -59,7 +59,7 @@ public static class Feeds
     private static async Task<IResult> Calendar(string token, ShelfDb db, CancellationToken cancellationToken)
     {
         var hash = Hash(token);
-        var reader = token.Length is > 10 and < 60 ? await db.Readers.AsNoTracking().FirstOrDefaultAsync(item => item.CalendarTokenHash == hash, cancellationToken) : null;
+        var reader = token.Length is > 10 and < 60 ? await db.Readers.AsNoTracking().FirstOrDefaultAsync(item => item.CalendarTokenHash == hash && !item.Suspended, cancellationToken) : null;
         if (reader is null)
         {
             return Results.NotFound();

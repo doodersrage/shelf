@@ -8,7 +8,8 @@ using static Shelf.Api.Localization.Words;
 
 namespace Shelf.Api.Readers;
 
-public sealed record EmailMessage(string To, string Subject, string Body, IReadOnlyList<EmailAttachment>? Attachments = null);
+// Body is plain text, which EmailLayout also dresses as HTML; Button is what a link on a line of its own says there.
+public sealed record EmailMessage(string To, string Subject, string Body, IReadOnlyList<EmailAttachment>? Attachments = null, string? Button = null);
 
 // A file sent with an email, read from disk as it goes.
 public sealed record EmailAttachment(string FileName, string ContentType, string Path);
@@ -68,22 +69,15 @@ public sealed class SmtpEmailSender(IConfiguration configuration, ILogger<SmtpEm
         mail.To.Add(MimeKit.MailboxAddress.Parse(message.To));
         mail.Subject = message.Subject;
         var streams = new List<Stream>();
-        if (message.Attachments is { Count: > 0 } attachments)
+        var body = new MimeKit.BodyBuilder { TextBody = message.Body, HtmlBody = EmailLayout.Html(message, EmailRules.PublicAddress(configuration, null)) };
+        foreach (var attachment in message.Attachments ?? [])
         {
-            var body = new MimeKit.BodyBuilder { TextBody = message.Body };
-            foreach (var attachment in attachments)
-            {
-                var stream = File.OpenRead(attachment.Path);
-                streams.Add(stream);
-                await body.Attachments.AddAsync(attachment.FileName, stream, MimeKit.ContentType.Parse(attachment.ContentType), cancellationToken);
-            }
+            var stream = File.OpenRead(attachment.Path);
+            streams.Add(stream);
+            await body.Attachments.AddAsync(attachment.FileName, stream, MimeKit.ContentType.Parse(attachment.ContentType), cancellationToken);
+        }
 
-            mail.Body = body.ToMessageBody();
-        }
-        else
-        {
-            mail.Body = new MimeKit.TextPart("plain") { Text = message.Body };
-        }
+        mail.Body = body.ToMessageBody();
 
         using var client = new MailKit.Net.Smtp.SmtpClient();
         await client.ConnectAsync(configuration["Email:Host"]!, configuration.GetValue("Email:Port", 587), Security(), cancellationToken);
@@ -203,7 +197,8 @@ public static class EmailRules
             message = new EmailMessage(
                 reader.Email,
                 Localization.Words.T("Reset your Shelf password"),
-                Localization.Words.T("Hello {0},\n\nSomeone asked to reset the password for your shelf. If it was you, choose a new one here within the hour:\n\n{1}\n\nIf it was not you, ignore this email and your password stays as it is.", reader.Name, $"{publicAddress}/reset?token={token}"));
+                Localization.Words.T("Hello {0},\n\nSomeone asked to reset the password for your shelf. If it was you, choose a new one here within the hour:\n\n{1}\n\nIf it was not you, ignore this email and your password stays as it is.", reader.Name, $"{publicAddress}/reset?token={token}"),
+                Button: Localization.Words.T("Choose a new password"));
         }
 
         await email.SendAsync(message, cancellationToken);
@@ -271,7 +266,8 @@ public static class EmailRules
             message = new EmailMessage(
                 reader.PendingEmail,
                 Localization.Words.T("Confirm your email address for Shelf"),
-                Localization.Words.T("Hello {0},\n\nTo sign in to Shelf with this address, and to get your notifications here, open this link within a day:\n\n{1}\n\nIf you did not ask for this, ignore this email and nothing changes.", reader.Name, $"{linkAddress}/account/email/confirm?token={token}"));
+                Localization.Words.T("Hello {0},\n\nTo sign in to Shelf with this address, and to get your notifications here, open this link within a day:\n\n{1}\n\nIf you did not ask for this, ignore this email and nothing changes.", reader.Name, $"{linkAddress}/account/email/confirm?token={token}"),
+                Button: Localization.Words.T("Confirm this address"));
         }
 
         await email.SendAsync(message, cancellationToken);

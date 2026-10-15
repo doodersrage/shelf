@@ -7,9 +7,14 @@
 
 <h1>@T("Make an account")</h1>
 
+@if ((!string.IsNullOrEmpty(Invite) && invitedAs is null) || Problem == AccountProblem.InviteExpired)
+{
+    <p class="validation-message" role="alert">@ReaderRules.Describe(AccountProblem.InviteExpired)</p>
+}
+
 @if (closed)
 {
-    <p>@ReaderRules.Describe(AccountProblem.SignUpClosed) <a href="/signin">@T("Sign in")</a></p>
+    <p>@(mode == SignUpMode.Invites ? T("This shelf takes new readers by invitation. Ask an admin of the shelf for one.") : ReaderRules.Describe(AccountProblem.SignUpClosed)) <a href="/signin">@T("Sign in")</a></p>
 }
 else
 {
@@ -17,12 +22,16 @@ else
     {
         <p class="hint">@T("This is the first account here. It keeps the books already on the shelf.")</p>
     }
+    else if (invitedAs is not null)
+    {
+        <p class="hint">@T("You are invited. Each reader has a shelf of their own, and can lend books to the others.")</p>
+    }
     else
     {
         <p class="hint">@T("Each reader has a shelf of their own, and can lend books to the others.")</p>
     }
 
-    @if (Problem is AccountProblem problem)
+    @if (Problem is AccountProblem problem && problem != AccountProblem.InviteExpired)
     {
         <p class="validation-message" role="alert">@ReaderRules.Describe(problem)</p>
     }
@@ -30,13 +39,17 @@ else
     <form class="account" method="post" action="/account/signup">
         <AntiforgeryToken />
         <input type="hidden" name="returnUrl" value="@SafeReturnUrl" />
+        @if (invitedAs is not null)
+        {
+            <input type="hidden" name="invite" value="@Invite" />
+        }
         <label>
             @T("Name")
             <input name="name" value="@Name" maxlength="@ReaderRules.MaxNameLength" autocomplete="name" required autofocus />
         </label>
         <label>
             @T("Email address, which you sign in with")
-            <input type="email" name="email" value="@Email" maxlength="@EmailRules.MaxAddressLength" autocomplete="username" required />
+            <input type="email" name="email" value="@(invitedAs ?? Email)" maxlength="@EmailRules.MaxAddressLength" autocomplete="username" required readonly="@(invitedAs is not null)" />
         </label>
         <label>
             @T("Password, at least {0} characters", ReaderRules.MinPasswordLength)
@@ -46,6 +59,7 @@ else
             @T("The password again")
             <input type="password" name="confirm" minlength="@ReaderRules.MinPasswordLength" maxlength="@ReaderRules.MaxPasswordLength" autocomplete="new-password" required />
         </label>
+        <TurnstileWidget Action="@TurnstileActions.SignUp" />
         <button type="submit">@T("Make the account")</button>
     </form>
 
@@ -68,6 +82,13 @@ else
     [SupplyParameterFromQuery]
     public string? ReturnUrl { get; set; }
 
+    // The token from an invitation's link.
+    [SupplyParameterFromQuery]
+    public string? Invite { get; set; }
+
+    private string? invitedAs;
+    private SignUpMode mode;
+
     private AccountProblem? Problem =>
         Enum.TryParse<AccountProblem>(ProblemCode, out var problem) && Enum.IsDefined(problem) ? problem : null;
 
@@ -77,6 +98,8 @@ else
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         first = !await db.Readers.AnyAsync();
-        closed = !first && !AccountEndpoints.SignUpOpen(Configuration);
+        mode = await Management.SignUpModeAsync(db, Configuration);
+        invitedAs = (await Management.InvitationAsync(db, Invite))?.Email;
+        closed = !first && invitedAs is null && mode != SignUpMode.Open;
     }
 }

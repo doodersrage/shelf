@@ -212,6 +212,118 @@ public sealed class NoticeTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
         Assert.Single(factory.Mail.Sent, mail => mail.To == address);
     }
 
+    [Fact]
+    public async Task Club_members_hear_of_the_next_book_a_meeting_called_off_reminders_and_being_let_go()
+    {
+        var owner = await factory.SignUpAsync("Club Runner");
+        await factory.SignUpAsync("Club Reader");
+        var readerId = await factory.ReaderIdAsync("Club Reader");
+        var reader = ShelfApiFactory.EmailOf("Club Reader");
+        var club = (await (await owner.PostAsJsonAsync("/books/clubs", new ClubRequest("Tuesday readers", null), JsonOptions)).Content.ReadFromJsonAsync<ClubResponse>(JsonOptions))!;
+        await owner.PostAsJsonAsync($"/books/clubs/{club.Id}/members", new ClubInvite(readerId), JsonOptions);
+        await owner.PostAsJsonAsync($"/books/clubs/{club.Id}/books", new ClubBookRequest(Title: "Middlemarch", Author: "George Eliot"), JsonOptions);
+        await owner.PostAsJsonAsync($"/books/clubs/{club.Id}/books", new ClubBookRequest(Title: "Persuasion", Author: "Jane Austen"), JsonOptions);
+        var books = (await owner.GetFromJsonAsync<ClubResponse>($"/books/clubs/{club.Id}", JsonOptions))!.Books;
+        var next = books.Single(book => book.Title == "Persuasion");
+
+        await owner.PutAsync($"/books/clubs/{club.Id}/current/{next.Id}", null);
+        // The first book added became the one being read, and was told of too.
+        await WaitMailAsync(reader, "Tuesday readers is reading a new book", "Middlemarch, by George Eliot");
+        await WaitMailAsync(reader, "Tuesday readers is reading a new book", "Persuasion, by Jane Austen");
+
+        var made = await (await owner.PostAsJsonAsync($"/books/clubs/{club.Id}/meetings", new ClubMeetingRequest(next.Id, DateTimeOffset.UtcNow.AddDays(3)), JsonOptions)).Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        await owner.DeleteAsync($"/books/clubs/{club.Id}/meetings/{made.GetProperty("id").GetInt32()}");
+        Assert.Contains("Persuasion", (await WaitMailAsync(reader, "Tuesday readers will not meet")).Body);
+
+        // A day ahead, then an hour ahead, each once; one arranged an hour before it is not reminded of.
+        int meetingId;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            var meeting = new ClubMeeting { ClubId = club.Id, ClubBookId = next.Id, At = DateTimeOffset.UtcNow.AddHours(23), CreatedAt = DateTimeOffset.UtcNow.AddDays(-3) };
+            db.ClubMeetings.Add(meeting);
+            db.ClubMeetings.Add(new ClubMeeting { ClubId = club.Id, ClubBookId = next.Id, At = DateTimeOffset.UtcNow.AddMinutes(50), CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-5) });
+            await db.SaveChangesAsync();
+            meetingId = meeting.Id;
+        }
+
+        var notices = factory.Services.GetRequiredService<Notices>();
+        await WaitIdleAsync();
+        Assert.Equal(2, await notices.RemindMeetingsAsync(CancellationToken.None));
+        Assert.StartsWith("Reminder: Tuesday readers meets", factory.Mail.Sent.Last(mail => mail.To == reader).Subject);
+        Assert.Equal(0, await notices.RemindMeetingsAsync(CancellationToken.None));
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            db.ClubMeetings.Single(item => item.Id == meetingId).At = DateTimeOffset.UtcNow.AddMinutes(40);
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Equal(2, await notices.RemindMeetingsAsync(CancellationToken.None));
+
+        await owner.DeleteAsync($"/books/clubs/{club.Id}/members/{readerId}");
+        Assert.Contains("Club Runner took you out", (await WaitMailAsync(reader, "You are no longer in Tuesday readers")).Body);
+
+        await owner.PostAsJsonAsync($"/books/clubs/{club.Id}/members", new ClubInvite(readerId), JsonOptions);
+        await owner.DeleteAsync($"/books/clubs/{club.Id}");
+        Assert.Contains("Club Runner ended the book club.", (await WaitMailAsync(reader, "Tuesday readers has ended")).Body);
+    }
+
+    [Fact]
+    public async Task An_ask_turned_down_is_told_to_whoever_asked()
+    {
+        var owner = await factory.SignUpAsync("Careful Lender");
+        var friend = await factory.SignUpAsync("Hopeful Borrower");
+        var book = (await (await owner.PostAsJsonAsync("/books", new CreateBookRequest("Emma", "Jane Austen", BookStatus.Finished, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        await owner.PutAsJsonAsync("/books/shelves/open", new ShelfOpenChange(true), JsonOptions);
+        (await friend.PostAsync($"/books/{book.Id}/ask", null)).EnsureSuccessStatusCode();
+        var ask = (await owner.GetFromJsonAsync<LoanAsks>("/books/asks", JsonOptions))!.Incoming.Single(item => item.BookId == book.Id);
+        (await owner.DeleteAsync($"/books/asks/{ask.Id}")).EnsureSuccessStatusCode();
+        var told = await WaitMailAsync(ShelfApiFactory.EmailOf("Hopeful Borrower"), "Careful Lender can't lend you a book");
+        Assert.Contains("Emma", told.Body);
+    }
+
+    [Fact]
+    public async Task Changes_to_how_a_reader_signs_in_are_emailed_to_them_and_admins_hear_of_new_readers()
+    {
+        var reader = await factory.SignUpAsync("Guarded Reader");
+        var readerId = await factory.ReaderIdAsync("Guarded Reader");
+        Assert.Contains("A new reader signed up.", (await WaitMailAsync(ShelfApiFactory.EmailOf("Tenar"), "Guarded Reader joined the shelf")).Body);
+
+        // A new address: the old one hears of it.
+        var old = ShelfApiFactory.EmailOf("Guarded Reader");
+        await reader.PutAsJsonAsync("/account/email", new EmailSettingsRequest("guarded@example.org", true), JsonOptions);
+        Assert.Contains("guarded@example.org", (await WaitMailAsync(old, "Your Shelf email address changed")).Body);
+
+        // A sign-in from a device not seen before, once.
+        var laptop = factory.CreateClient(new() { AllowAutoRedirect = false });
+        laptop.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0");
+        await ShelfApiFactory.PostFormAsync(laptop, "/signin", "/account/signin", new() { ["email"] = "guarded@example.org", ["password"] = ShelfApiFactory.Password });
+        await WaitMailAsync("guarded@example.org", "A new sign-in to your shelf");
+        await ShelfApiFactory.PostFormAsync(laptop, "/signin", "/account/signin", new() { ["email"] = "guarded@example.org", ["password"] = ShelfApiFactory.Password });
+        await WaitIdleAsync();
+        Assert.Single(factory.Mail.Sent, mail => mail.To == "guarded@example.org" && mail.Subject == "A new sign-in to your shelf");
+
+        // A password an admin gives.
+        (await factory.Client.PostAsync($"/admin/readers/{readerId}/password", null)).EnsureSuccessStatusCode();
+        await WaitMailAsync("guarded@example.org", "Your Shelf password changed");
+    }
+
+    private async Task<EmailMessage> WaitMailAsync(string to, string subject, string? saying = null)
+    {
+        for (var i = 0; i < 100; i++)
+        {
+            if (factory.Mail.Sent.LastOrDefault(mail => mail.To == to && mail.Subject.StartsWith(subject, StringComparison.Ordinal) && (saying is null || mail.Body.Contains(saying, StringComparison.Ordinal))) is { } found)
+            {
+                return found;
+            }
+
+            await Task.Delay(50);
+        }
+
+        throw new TimeoutException($"No email \"{subject}\" went to {to}.");
+    }
+
     private async Task WaitIdleAsync()
     {
         var events = factory.Services.GetRequiredService<ShelfEvents>();

@@ -19,12 +19,17 @@ else if (Sent == "1")
 else
 {
     <p class="hint">@T("Enter the email address you sign in with, and we will send a link to choose a new password.")</p>
+    @if (ProblemCode == nameof(AccountProblem.NotHuman))
+    {
+        <p class="validation-message" role="alert">@ReaderRules.Describe(AccountProblem.NotHuman)</p>
+    }
     <form class="account" method="post" action="/account/forgot">
         <AntiforgeryToken />
         <label>
             @T("Email address")
             <input name="who" maxlength="@EmailRules.MaxAddressLength" autocomplete="username" required autofocus />
         </label>
+        <TurnstileWidget Action="@TurnstileActions.Forgot" />
         <button type="submit">@T("Send the link")</button>
     </form>
     <p class="hint"><a href="/signin">@T("Back to sign in")</a></p>
@@ -33,4 +38,7 @@ else
 @code {
     [SupplyParameterFromQuery]
     public string? Sent { get; set; }
+
+    [SupplyParameterFromQuery(Name = "problem")]
+    public string? ProblemCode { get; set; }
 }

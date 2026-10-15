@@ -200,7 +200,8 @@ public static class Clubs
 
     public static async Task<ClubProblem> DeleteAsync(ShelfDb db, int id, CancellationToken cancellationToken = default)
     {
-        var club = await Mine(db).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        // With its members, so each hears that the club has ended.
+        var club = await Mine(db).Include(item => item.Members).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (club is null)
         {
             return ClubProblem.NotFound;

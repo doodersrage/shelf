@@ -34,6 +34,9 @@ public sealed class Reader
     public bool Restricted { get; set; }
     public int? GuardianId { get; set; }
 
+    // Suspended by an admin: no way of signing in works, and the shelf is kept as it is.
+    public bool Suspended { get; set; }
+
     // Other readers may see this shelf and ask to borrow from it.
     public bool ShelfOpen { get; set; }
 
@@ -94,6 +97,13 @@ public sealed class Reader
     public string? GotifyUrl { get; set; }
     public string? GotifyToken { get; set; }
     public DateOnly? LastNoticeOn { get; set; }
+
+    // The devices this reader has signed in on, by a hash of each one's name, newest first; a sign-in from any other
+    // is emailed to them.
+    public string? KnownDevices { get; set; }
+
+    // For an admin: the problems on Server health they were last told of, so each is told once.
+    public string? HealthTold { get; set; }
 
     // How many days before a loan is due the reminder speaks of it.
     public int DueSoonDays { get; set; } = DefaultDueSoonDays;

@@ -178,6 +178,24 @@ public sealed class ShelfHealth(
                 email.Enabled ? T("Email is set up, for password resets and notifications.") : T("Email is not set up: readers can't reset a forgotten password by email."),
                 email.Enabled ? null : T("Set Email:Host and Email:From."), email.Enabled ? configuration["Email:Host"] : null));
         }
+        // Turnstile: off, half set up (which leaves the forms unguarded), or on.
+        var siteKey = !string.IsNullOrWhiteSpace(configuration["Turnstile:SiteKey"]);
+        var secretKey = !string.IsNullOrWhiteSpace(configuration["Turnstile:SecretKey"]);
+        var hosts = Readers.Turnstile.Hostnames(configuration);
+        items.Add((siteKey, secretKey, hosts.Count > 0) switch
+        {
+            (false, false, _) => new HealthItem(T("Connections"), T("Turnstile"), HealthState.Off,
+                T("Turnstile is off: signing in, signing up, and forgotten passwords have no check for scripts beyond the limit on attempts."),
+                T("Set Turnstile:SiteKey and Turnstile:SecretKey from a Cloudflare Turnstile widget of your own.")),
+            (true, true, true) => new HealthItem(T("Connections"), T("Turnstile"), HealthState.Good,
+                T("Turnstile guards signing in, signing up, and forgotten passwords."), null, string.Join(", ", hosts)),
+            (true, true, false) => new HealthItem(T("Connections"), T("Turnstile"), HealthState.Wrong,
+                T("Turnstile has its keys but no address to expect answers from, so it is off."),
+                T("Set Turnstile:Hostnames to the shelf's host names, or Email:PublicAddress.")),
+            _ => new HealthItem(T("Connections"), T("Turnstile"), HealthState.Wrong,
+                T("Turnstile has only one of its two keys, so it is off."),
+                T("Set both Turnstile:SiteKey and Turnstile:SecretKey.")),
+        });
         items.Add(new HealthItem(T("Connections"), T("Reading scanned pages"), ocr.Available ? HealthState.Good : HealthState.Off,
             ocr.Available ? T("Tesseract is installed: scanned PDFs and photos of spines can be read.") : T("Tesseract isn't installed: scanned PDFs and photos of spines can't be read."),
             ocr.Available ? null : T("Install tesseract-ocr and poppler-utils, as the Docker image has them."), ocr.Tesseract));

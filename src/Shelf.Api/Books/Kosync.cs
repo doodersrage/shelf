@@ -94,7 +94,7 @@ public static partial class Kosync
         }
 
         var reader = await ReaderRules.FindAsync(db, name, cancellationToken);
-        if (reader?.KosyncHash is null
+        if (reader?.KosyncHash is null || reader.Suspended
             || !CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(reader.KosyncHash), Encoding.ASCII.GetBytes(HashKey(key))))
         {
             return null;

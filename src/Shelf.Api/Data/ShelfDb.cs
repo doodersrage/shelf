@@ -50,6 +50,8 @@ public class ShelfDb : DbContext
     public DbSet<OcrPage> OcrPages => Set<OcrPage>();
     public DbSet<BookText> BookTexts => Set<BookText>();
     public DbSet<PasswordReset> PasswordResets => Set<PasswordReset>();
+    public DbSet<SiteSetting> SiteSettings => Set<SiteSetting>();
+    public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<AudioBookmark> AudioBookmarks => Set<AudioBookmark>();
     public DbSet<ReaderSession> ReaderSessions => Set<ReaderSession>();
     public DbSet<RecoveryCode> RecoveryCodes => Set<RecoveryCode>();
@@ -803,6 +805,8 @@ public class ShelfDb : DbContext
             reader.HasIndex(r => r.PendingNormalizedEmail);
             reader.Property(r => r.PendingEmailTokenHash).HasMaxLength(64);
             reader.HasIndex(r => r.PendingEmailTokenHash).IsUnique();
+            reader.Property(r => r.KnownDevices).HasMaxLength(2000);
+            reader.Property(r => r.HealthTold).HasMaxLength(64);
             reader.Property(r => r.TwoFactorSecret).HasMaxLength(500);
             reader.Property(r => r.Culture).HasMaxLength(16);
             reader.HasIndex(r => r.KeyHash).IsUnique();
@@ -908,6 +912,24 @@ public class ShelfDb : DbContext
                 .HasForeignKey(item => item.ReaderId)
                 .OnDelete(DeleteBehavior.Cascade);
             bookmark.HasQueryFilter(item => item.Book!.OwnerId == ReaderId && item.ReaderId == null);
+        });
+
+        modelBuilder.Entity<SiteSetting>(site =>
+        {
+            site.Property(item => item.Id).ValueGeneratedNever();
+            site.Property(item => item.SignUp).HasConversion<string>().HasMaxLength(16);
+            site.Property(item => item.Announcement).HasMaxLength(SiteSetting.MaxAnnouncementLength);
+        });
+
+        modelBuilder.Entity<Invitation>(invitation =>
+        {
+            invitation.Property(item => item.Email).HasMaxLength(EmailRules.MaxAddressLength).IsRequired();
+            invitation.Property(item => item.NormalizedEmail).HasMaxLength(EmailRules.MaxAddressLength).IsRequired();
+            invitation.HasIndex(item => item.NormalizedEmail);
+            invitation.Property(item => item.TokenHash).HasMaxLength(64).IsRequired();
+            invitation.HasIndex(item => item.TokenHash);
+            invitation.HasOne<Reader>().WithMany().HasForeignKey(item => item.InvitedById).OnDelete(DeleteBehavior.Cascade);
+            invitation.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<PasswordReset>(reset =>
@@ -1067,6 +1089,99 @@ public class ShelfDb : DbContext
         foreach (var member in ChangeTracker.Entries<ClubMember>().Where(entry => entry.State == EntityState.Added).Select(entry => entry.Entity))
         {
             _happening.Add(() => new ShelfEvent(EventKinds.ClubJoined, actor, ReaderId: member.ReaderId, ClubId: member.ClubId));
+        }
+
+        // A club's next book, a meeting called off, a member let go, and a club ended. A club going takes its members and
+        // meetings with it, which are its ending, not each a change of its own.
+        var endedClubs = ChangeTracker.Entries<Club>().Where(entry => entry.State == EntityState.Deleted).Select(entry => entry.Entity).ToList();
+        var goneReaders = ChangeTracker.Entries<Reader>().Where(entry => entry.State == EntityState.Deleted).Select(entry => entry.Entity.Id).ToHashSet();
+        foreach (var entry in ChangeTracker.Entries<Club>().Where(entry => entry.State == EntityState.Modified))
+        {
+            var current = entry.Property(item => item.CurrentBookId);
+            if (current.IsModified && current.CurrentValue is int picked && current.OriginalValue != picked)
+            {
+                var clubId = entry.Entity.Id;
+                _happening.Add(() => new ShelfEvent(EventKinds.ClubReading, actor, ClubId: clubId, ClubBookId: picked));
+            }
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        foreach (var meeting in ChangeTracker.Entries<ClubMeeting>().Where(entry => entry.State == EntityState.Deleted).Select(entry => entry.Entity))
+        {
+            if (meeting.At > now && endedClubs.All(club => club.Id != meeting.ClubId))
+            {
+                _happening.Add(() => new ShelfEvent(EventKinds.ClubMeetingCancelled, actor, ClubId: meeting.ClubId, ClubBookId: meeting.ClubBookId, When: meeting.At, Zone: meeting.TimeZone));
+            }
+        }
+
+        foreach (var member in ChangeTracker.Entries<ClubMember>().Where(entry => entry.State == EntityState.Deleted).Select(entry => entry.Entity))
+        {
+            if (member.ReaderId == actor || goneReaders.Contains(member.ReaderId))
+            {
+                continue;
+            }
+
+            var (readerId, clubId) = (member.ReaderId, member.ClubId);
+            _happening.Add(endedClubs.FirstOrDefault(club => club.Id == clubId) is { } ended
+                ? () => new ShelfEvent(EventKinds.ClubEnded, actor, ReaderId: readerId, Name: ended.Name)
+                : () => new ShelfEvent(EventKinds.ClubLeft, actor, ReaderId: readerId, ClubId: clubId));
+        }
+
+        // An ask let go by the book's owner, not by lending it to the one who asked.
+        foreach (var ask in ChangeTracker.Entries<LoanAskRow>().Where(entry => entry.State == EntityState.Deleted).Select(entry => entry.Entity))
+        {
+            var lent = ChangeTracker.Entries<Book>().Any(entry => entry.Entity.Id == ask.BookId && (entry.Entity.BorrowerId == ask.ReaderId || entry.State == EntityState.Deleted));
+            if (ask.ReaderId != actor && !lent && !goneReaders.Contains(ask.ReaderId))
+            {
+                var (bookId, asker) = (ask.BookId, ask.ReaderId);
+                _happening.Add(() => new ShelfEvent(EventKinds.AskDeclined, actor, bookId, asker));
+            }
+        }
+
+        // A new reader, for the admins; and changes to how a reader signs in, for that reader.
+        foreach (var entry in ChangeTracker.Entries<Reader>())
+        {
+            var reader = entry.Entity;
+            if (entry.State == EntityState.Added && reader.SandboxOf is null)
+            {
+                _happening.Add(() => new ShelfEvent(EventKinds.ReaderJoined, actor, ReaderId: reader.Id));
+                continue;
+            }
+
+            if (entry.State != EntityState.Modified)
+            {
+                continue;
+            }
+
+            var readerId = reader.Id;
+            var email = entry.Property(item => item.Email);
+            if (email.IsModified && email.OriginalValue is { } before && !string.Equals(before, email.CurrentValue, StringComparison.OrdinalIgnoreCase))
+            {
+                _happening.Add(() => new ShelfEvent(EventKinds.EmailChanged, actor, ReaderId: readerId, Name: before));
+            }
+
+            // A new password comes with a new stamp; a new stamp alone (signed out everywhere, or suspended) is not one.
+            var stamp = entry.Property(item => item.Stamp);
+            if (stamp.IsModified && stamp.OriginalValue != stamp.CurrentValue && entry.Property(item => item.PasswordHash).IsModified)
+            {
+                _happening.Add(() => new ShelfEvent(EventKinds.PasswordChanged, actor, ReaderId: readerId));
+            }
+
+            var twoStep = entry.Property(item => item.TwoFactorEnabled);
+            if (twoStep.IsModified && twoStep.OriginalValue && !twoStep.CurrentValue)
+            {
+                _happening.Add(() => new ShelfEvent(EventKinds.TwoStepOff, actor, ReaderId: readerId));
+            }
+        }
+
+        foreach (var passkey in ChangeTracker.Entries<ReaderPasskey>().Where(entry => entry.State == EntityState.Added).Select(entry => entry.Entity))
+        {
+            _happening.Add(() => new ShelfEvent(EventKinds.PasskeyAdded, actor, ReaderId: passkey.ReaderId, Name: passkey.Name));
+        }
+
+        foreach (var session in ChangeTracker.Entries<ReaderSession>().Where(entry => entry.State == EntityState.Added).Select(entry => entry.Entity))
+        {
+            _happening.Add(() => new ShelfEvent(EventKinds.SignedIn, session.ReaderId, ReaderId: session.ReaderId, Name: session.Device));
         }
 
         // New books in series come many at once, so a save tells each reader once, with how many.

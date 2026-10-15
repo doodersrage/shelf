@@ -20,8 +20,20 @@ Settings can come from environment variables, from `appsettings.json` beside the
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| `Accounts:AllowSignUp` | `true` | Whether new accounts can be made. Set it to `false` once your readers have signed up. The first account can always be made. |
+| `Accounts:AllowSignUp` | `true` | Whether new accounts can be made, until an admin chooses under **Who may sign up** on **Shelf admin**, which then decides. The first account can always be made. |
 | `Accounts:SignInsPerMinute` | `10` | Sign-in and sign-up attempts allowed a minute from one address. |
+
+### Cloudflare Turnstile
+
+[Turnstile](https://developers.cloudflare.com/turnstile/) asks a visitor's browser to show it is one a person is using before signing in, signing up, or asking for a password reset goes through, usually without them doing anything. It is off until both keys are set. Make a widget in the Cloudflare dashboard, under **Turnstile**, for the host names the shelf is reached at, and copy its keys here.
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `Turnstile:SiteKey` | none | The widget's site key. |
+| `Turnstile:SecretKey` | none | The widget's secret key. Keep it as you would a password. |
+| `Turnstile:Hostnames` | the host of `Email:PublicAddress` | The host names the forms are on, separated by commas. Cloudflare says which site a token was made on, and one made anywhere else is refused. Leave out `localhost` on a shelf others reach. |
+
+With Turnstile on, a form whose check fails, or cannot reach Cloudflare, is refused, so a shelf that cannot reach `challenges.cloudflare.com` cannot be signed in to with a password; passkeys and single sign-on still work. Scripts signing in with a password stop working too: give them an [API token](api.md#api-tokens). **Server health** says whether Turnstile is on, or set up only partly.
 
 ## Single sign-on
 

@@ -29,6 +29,10 @@ public sealed class ClubMeeting
     public string? Agenda { get; set; }
     public string? Summary { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+
+    // Whether members have been reminded the day before, and the hour before.
+    public bool DayReminded { get; set; }
+    public bool HourReminded { get; set; }
     public List<ClubQuestion> Questions { get; set; } = [];
 }
 
@@ -216,7 +220,16 @@ public static class ClubMeetings
             return ClubProblem.NotOwner;
         }
 
-        return await db.ClubMeetings.Where(item => item.Id == meetingId && item.ClubId == clubId).ExecuteDeleteAsync(cancellationToken) > 0 ? ClubProblem.None : ClubProblem.NotFound;
+        // Taken out as a tracked change, so the members hear that it is called off.
+        var meeting = await db.ClubMeetings.FirstOrDefaultAsync(item => item.Id == meetingId && item.ClubId == clubId, cancellationToken);
+        if (meeting is null)
+        {
+            return ClubProblem.NotFound;
+        }
+
+        db.ClubMeetings.Remove(meeting);
+        await db.SaveChangesAsync(cancellationToken);
+        return ClubProblem.None;
     }
 
     public static async Task<ClubProblem> AskAsync(ShelfDb db, int clubId, int meetingId, string? text, CancellationToken cancellationToken = default)

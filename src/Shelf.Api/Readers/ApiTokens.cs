@@ -193,7 +193,7 @@ public static class ApiTokens
 
         var hash = Hash(secret.Trim());
         var token = await db.ApiTokens.FirstOrDefaultAsync(item => item.Hash == hash, cancellationToken);
-        var reader = token is null ? null : await db.Readers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == token.ReaderId, cancellationToken);
+        var reader = token is null ? null : await db.Readers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == token.ReaderId && !item.Suspended, cancellationToken);
         if (token is null || reader is null)
         {
             return AuthenticateResult.Fail("That API token is not one of this shelf's.");
@@ -217,7 +217,7 @@ public static class ApiTokens
     {
         var hash = Hash(secret.Trim());
         var readerId = await db.ApiTokens.AsNoTracking().Where(item => item.Hash == hash).Select(item => (int?)item.ReaderId).FirstOrDefaultAsync(cancellationToken);
-        return readerId is int id ? await db.Readers.AsNoTracking().FirstOrDefaultAsync(reader => reader.Id == id, cancellationToken) : null;
+        return readerId is int id ? await db.Readers.AsNoTracking().FirstOrDefaultAsync(reader => reader.Id == id && !reader.Suspended, cancellationToken) : null;
     }
 
     private static Task Refuse(HttpContext context, string detail) =>

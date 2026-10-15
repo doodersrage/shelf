@@ -81,6 +81,10 @@ public static class ReaderRules
         AccountProblem.EmailMissing => T("Give your email address. You sign in with it."),
         AccountProblem.EmailTaken => T("Another reader here already signs in with that email address."),
         AccountProblem.EmailRequired => T("You sign in with your email address, so it can be changed but not removed."),
+        AccountProblem.NotHuman => T("Shelf could not tell that a person sent this. Try again; if it keeps happening, an admin can check Turnstile on Server health."),
+        AccountProblem.Suspended => T("This account is suspended. Ask an admin of the shelf."),
+        AccountProblem.NotYourself => T("An admin cannot do that to their own account."),
+        AccountProblem.InviteExpired => T("That invitation has expired or was used already. Ask for a new one."),
         AccountProblem.ConfirmExpired => T("That link has expired or was used already. Ask for a new one on your account."),
         AccountProblem.CodeWrong => T("That code does not match. Try the newest code from your authenticator, or a recovery code."),
         AccountProblem.SsoFailed => T("Single sign-on did not finish. Try again, or sign in with your password."),
@@ -417,7 +421,7 @@ public static class ReaderRules
 
     public static async Task<bool> StampMatchesAsync(ShelfDb db, int readerId, string? stamp, CancellationToken cancellationToken = default) =>
         !string.IsNullOrEmpty(stamp)
-        && await db.Readers.AnyAsync(reader => reader.Id == readerId && reader.Stamp == stamp, cancellationToken);
+        && await db.Readers.AnyAsync(reader => reader.Id == readerId && reader.Stamp == stamp && !reader.Suspended, cancellationToken);
 
     public static async Task<ReaderSummary[]> SummariesAsync(ShelfDb db, CancellationToken cancellationToken = default)
     {
@@ -599,7 +603,7 @@ public static class ReaderRules
         }
 
         var hash = HashKey(key.Trim());
-        return await db.Readers.AsNoTracking().FirstOrDefaultAsync(reader => reader.KeyHash == hash, cancellationToken);
+        return await db.Readers.AsNoTracking().FirstOrDefaultAsync(reader => reader.KeyHash == hash && !reader.Suspended, cancellationToken);
     }
 
     public static async Task<ReaderResponse[]> OthersAsync(ShelfDb db, int readerId, CancellationToken cancellationToken = default)
@@ -692,4 +696,8 @@ public enum AccountProblem
     EmailTaken,
     EmailRequired,
     ConfirmExpired,
+    Suspended,
+    NotYourself,
+    InviteExpired,
+    NotHuman,
 }

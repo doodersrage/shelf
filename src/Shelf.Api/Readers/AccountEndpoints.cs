@@ -48,16 +48,28 @@ public static class AccountEndpoints
         [FromForm] string? name,
         [FromForm] string? password,
         [FromForm] string? returnUrl,
+        [FromForm(Name = TurnstileActions.Field)] string? turnstile,
         HttpContext http,
         ShelfDb db,
         IDataProtectionProvider protection,
+        ITurnstile turnstiles,
         CancellationToken cancellationToken)
     {
         var who = string.IsNullOrWhiteSpace(email) ? name : email;
+        if (!await HumanAsync(turnstiles, turnstile, TurnstileActions.SignIn, http, cancellationToken))
+        {
+            return TypedResults.Redirect(Back("/signin", AccountProblem.NotHuman, null, returnUrl, who));
+        }
+
         var reader = await ReaderRules.VerifyAsync(db, who, password, cancellationToken);
         if (reader is null)
         {
             return TypedResults.Redirect(Back("/signin", AccountProblem.WrongPassword, null, returnUrl, who));
+        }
+
+        if (reader.Suspended)
+        {
+            return TypedResults.Redirect(Back("/signin", AccountProblem.Suspended, null, returnUrl, who));
         }
 
         if (reader.TwoFactorEnabled)
@@ -181,20 +193,36 @@ public static class AccountEndpoints
         [FromForm] string? password,
         [FromForm] string? confirm,
         [FromForm] string? returnUrl,
+        [FromForm] string? invite,
+        [FromForm(Name = TurnstileActions.Field)] string? turnstile,
         HttpContext http,
         ShelfDb db,
         IConfiguration configuration,
         IEmailSender mail,
+        ITurnstile turnstiles,
         CancellationToken cancellationToken)
     {
-        if (!SignUpOpen(configuration) && await db.Readers.AnyAsync(cancellationToken))
+        if (!await HumanAsync(turnstiles, turnstile, TurnstileActions.SignUp, http, cancellationToken))
+        {
+            return TypedResults.Redirect(Back("/signup", AccountProblem.NotHuman, name, returnUrl, email, invite));
+        }
+
+        // An invitation lets its address in whoever may sign up otherwise, and the address is the one it went to.
+        var invitation = await Management.InvitationAsync(db, invite, cancellationToken);
+        if (!string.IsNullOrEmpty(invite) && invitation is null)
+        {
+            return TypedResults.Redirect(Back("/signup", AccountProblem.InviteExpired, name, returnUrl, email));
+        }
+
+        email = invitation?.Email ?? email;
+        if (invitation is null && await Management.SignUpModeAsync(db, configuration, cancellationToken) != SignUpMode.Open && await db.Readers.AnyAsync(cancellationToken))
         {
             return TypedResults.Redirect(Back("/signup", AccountProblem.SignUpClosed, name, returnUrl, email));
         }
 
         if (!string.Equals(password, confirm, StringComparison.Ordinal))
         {
-            return TypedResults.Redirect(Back("/signup", AccountProblem.PasswordsDiffer, name, returnUrl, email));
+            return TypedResults.Redirect(Back("/signup", AccountProblem.PasswordsDiffer, name, returnUrl, email, invite));
         }
 
         // Signing up gives an address, which is how the reader signs in from then on.
@@ -203,13 +231,19 @@ public static class AccountEndpoints
             return TypedResults.Redirect(Back("/signup", AccountProblem.EmailMissing, name, returnUrl, email));
         }
 
-        // When the shelf can, the address waits for its link, so no one can take an address that is not theirs.
+        // When the shelf can, the address waits for its link, so no one can take an address that is not theirs. An
+        // invitation's link went to the address already.
         var link = EmailRules.ResetAddress(configuration, http.Request);
-        var confirms = EmailRules.Confirms(mail, link);
+        var confirms = invitation is null && EmailRules.Confirms(mail, link);
         var (reader, problem) = await ReaderRules.CreateAsync(db, name, email, password, cancellationToken, confirmed: !confirms);
         if (reader is null)
         {
-            return TypedResults.Redirect(Back("/signup", problem ?? AccountProblem.NameMissing, name, returnUrl, email));
+            return TypedResults.Redirect(Back("/signup", problem ?? AccountProblem.NameMissing, name, returnUrl, email, invite));
+        }
+
+        if (invitation is not null)
+        {
+            await Management.AcceptAsync(db, invitation, reader, cancellationToken);
         }
 
         if (confirms)
@@ -269,13 +303,20 @@ public static class AccountEndpoints
     // The answer is the same whether or not that reader exists, so the form tells no one who has an account.
     private static async Task<RedirectHttpResult> Forgot(
         [FromForm] string? who,
+        [FromForm(Name = TurnstileActions.Field)] string? turnstile,
         HttpContext http,
         ShelfDb db,
         IEmailSender email,
         IConfiguration configuration,
         ILoggerFactory loggers,
+        ITurnstile turnstiles,
         CancellationToken cancellationToken)
     {
+        if (!await HumanAsync(turnstiles, turnstile, TurnstileActions.Forgot, http, cancellationToken))
+        {
+            return TypedResults.Redirect($"/forgot?problem={AccountProblem.NotHuman}");
+        }
+
         if (EmailRules.ResetAddress(configuration, http.Request) is { } address)
         {
             try
@@ -379,6 +420,10 @@ public static class AccountEndpoints
     private static async Task<Ok<ReaderResponse[]>> Others(ShelfDb db, ShelfReader reader, CancellationToken cancellationToken) =>
         TypedResults.Ok(await ReaderRules.OthersAsync(db, reader.Id ?? 0, cancellationToken));
 
+    // With Turnstile on, a public form goes through only with a token Cloudflare vouches for; with it off, always.
+    private static async Task<bool> HumanAsync(ITurnstile turnstiles, string? token, string action, HttpContext http, CancellationToken cancellationToken) =>
+        !turnstiles.Enabled || await turnstiles.VerifyAsync(token, action, http.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+
     public static bool SignUpOpen(IConfiguration configuration) =>
         configuration.GetValue("Accounts:AllowSignUp", true);
 
@@ -392,7 +437,7 @@ public static class AccountEndpoints
             new AuthenticationProperties { IsPersistent = true });
     }
 
-    private static string Back(string page, AccountProblem problem, string? name, string? returnUrl, string? email = null)
+    private static string Back(string page, AccountProblem problem, string? name, string? returnUrl, string? email = null, string? invite = null)
     {
         var query = new Dictionary<string, string?> { ["problem"] = problem.ToString() };
         if (!string.IsNullOrWhiteSpace(name))
@@ -408,6 +453,11 @@ public static class AccountEndpoints
         if (ReaderRules.IsLocalUrl(returnUrl))
         {
             query["returnUrl"] = returnUrl;
+        }
+
+        if (!string.IsNullOrWhiteSpace(invite) && invite.Length <= 100)
+        {
+            query["invite"] = invite;
         }
 
         return Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(page, query);

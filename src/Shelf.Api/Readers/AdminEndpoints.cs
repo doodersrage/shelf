@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Shelf.Api.Books;
 using Shelf.Api.Data;
 
@@ -26,6 +28,50 @@ public static class AdminEndpoints
         admin.MapGet("/audit", async (ShelfDb db, CancellationToken cancellationToken) => TypedResults.Ok(await Audit.RecentAsync(db, take: 500, cancellationToken: cancellationToken)));
         admin.MapGet("/backups/{name}", (string name, BackupSchedule schedule) =>
             schedule.PathOf(name) is { } path ? Results.File(path, "application/zip", name) : Results.NotFound());
+
+        // Readers, as an admin manages them.
+        admin.MapGet("/accounts", async (ShelfDb db, CancellationToken cancellationToken) => TypedResults.Ok(await Management.ReadersAsync(db, cancellationToken)));
+        admin.MapPut("/readers/{id:int}/suspended", async (int id, SuspendRequest request, ShelfDb db, CancellationToken cancellationToken) =>
+            Answer(await Management.SuspendAsync(db, id, request.Suspended, cancellationToken)));
+        admin.MapPost("/readers/{id:int}/signout", async Task<IResult> (int id, ShelfDb db, CancellationToken cancellationToken) =>
+            await Management.SignOutEverywhereAsync(db, id, cancellationToken) ? TypedResults.NoContent() : TypedResults.NotFound());
+        admin.MapPut("/readers/{id:int}/name", async (int id, RenameRequest request, ShelfDb db, CancellationToken cancellationToken) =>
+            Answer(await Management.RenameAsync(db, id, request.Name, cancellationToken)));
+        admin.MapPut("/readers/{id:int}/email", async (int id, KindleSettingsRequest request, ShelfDb db, CancellationToken cancellationToken) =>
+            Answer(await db.Readers.AsNoTracking().Where(reader => reader.Id == id).Select(reader => (bool?)reader.EmailNotices).FirstOrDefaultAsync(cancellationToken) is bool notices
+                ? await ReaderRules.SetEmailAsync(db, id, request.Email, notices, cancellationToken)
+                : AccountProblem.NoSuchReader));
+
+        // Invitations, and who may sign up.
+        admin.MapGet("/invitations", async (ShelfDb db, CancellationToken cancellationToken) => TypedResults.Ok(await Management.InvitationsAsync(db, cancellationToken)));
+        admin.MapPost("/invitations", async (InvitationRequest request, HttpContext http, ShelfDb db, IEmailSender email, IConfiguration configuration, CancellationToken cancellationToken) =>
+            TypedResults.Ok(await Management.InviteAsync(db, email, request.Emails, EmailRules.PublicAddress(configuration, http.Request), cancellationToken)));
+        admin.MapPost("/invitations/{id:int}/resend", async Task<IResult> (int id, HttpContext http, ShelfDb db, IEmailSender email, IConfiguration configuration, CancellationToken cancellationToken) =>
+            await Management.ResendAsync(db, email, id, EmailRules.PublicAddress(configuration, http.Request), cancellationToken) is { } made ? TypedResults.Ok(made) : TypedResults.NotFound());
+        admin.MapDelete("/invitations/{id:int}", async Task<IResult> (int id, ShelfDb db, CancellationToken cancellationToken) =>
+            await Management.RevokeAsync(db, id, cancellationToken) ? TypedResults.NoContent() : TypedResults.NotFound());
+        admin.MapGet("/signup", async (ShelfDb db, IConfiguration configuration, CancellationToken cancellationToken) =>
+            TypedResults.Ok(new SignUpModeRequest(await Management.SignUpModeAsync(db, configuration, cancellationToken))));
+        admin.MapPut("/signup", async (SignUpModeRequest request, ShelfDb db, CancellationToken cancellationToken) =>
+        {
+            await Management.SetSignUpModeAsync(db, request.Mode, cancellationToken);
+            return TypedResults.NoContent();
+        });
+
+        // The shelf as a whole: a note for everyone, the jobs, and a test email.
+        admin.MapPut("/announcement", async (AnnouncementRequest request, HttpContext http, ShelfDb db, IMemoryCache cache, IEmailSender email, IConfiguration configuration, CancellationToken cancellationToken) =>
+            TypedResults.Ok(new { emailed = await Management.AnnounceAsync(db, cache, email, request.Text, request.Email, EmailRules.PublicAddress(configuration, http.Request), cancellationToken) }));
+        admin.MapGet("/jobs", () => TypedResults.Ok(Management.Jobs.Select(job => new { job.Key, job.Label, LastRun = Heartbeats.All.FirstOrDefault(beat => beat.Job == job.Beat) })));
+        admin.MapPost("/jobs/{key}", async Task<IResult> (string key, IServiceProvider services, ShelfDb db, CancellationToken cancellationToken) =>
+        {
+            if (!await Management.RunAsync(services, key, cancellationToken))
+            {
+                return TypedResults.NotFound();
+            }
+
+            await Audit.NoteAsync(db, Localization.Words.Say("Ran a job by hand"), detail: key, cancellationToken: cancellationToken);
+            return TypedResults.NoContent();
+        });
     }
 
     private static async ValueTask<object?> AdminsOnly(EndpointFilterInvocationContext context, EndpointFilterDelegate next)

@@ -31,7 +31,7 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.Equal(HttpStatusCode.Forbidden, (await other.GetAsync("/admin/readers")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await other.GetAsync("/admin/snapshot")).StatusCode);
         Assert.Contains("Only an admin", await other.GetStringAsync("/admin"));
-        Assert.Contains("Download a snapshot", await _admin.GetStringAsync("/admin"));
+        Assert.Contains("Download a snapshot", await _admin.GetStringAsync("/admin?tab=tab-backups"));
         Assert.DoesNotContain("href=\"/admin\"", await other.GetStringAsync("/"));
     }
 

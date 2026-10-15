@@ -11,6 +11,8 @@ public static class Counts
 
     public static string Files(int count) => count == 1 ? T("1 file") : T("{0} files", count);
 
+    public static string Readers(int count) => count == 1 ? T("1 reader") : T("{0} readers", count);
+
     // A size, in the units the reader's language writes (Mo in French, for one).
     public static string Size(long bytes)
     {

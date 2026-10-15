@@ -158,6 +158,12 @@ public sealed class Webhooks(IServiceScopeFactory scopes, IWebhookPoster poster,
 
     public async Task HandleAsync(ShelfEvent shelfEvent, CancellationToken cancellationToken)
     {
+        // Only the kinds a webhook can ask for; what happens to an account stays between Shelf and its reader.
+        if (!EventKinds.All.Contains(shelfEvent.Kind))
+        {
+            return;
+        }
+
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
         var book = shelfEvent.BookId is int bookId

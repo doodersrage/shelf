@@ -116,6 +116,8 @@ builder.Services.AddHttpClient<ISeriesCatalog, OpenLibrarySeries>(client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("Shelf/1.0 (personal library; +https://github.com/doodersrage/shelf)");
 });
 builder.Services.AddSingleton<SeriesWatch>();
+// Cloudflare Turnstile on the public forms, once an admin gives a widget's keys.
+builder.Services.AddHttpClient<ITurnstile, Turnstile>(client => client.Timeout = TimeSpan.FromSeconds(15));
 // Highlights sent on to Readwise, for readers who connect it.
 builder.Services.AddHttpClient<IReadwiseClient, ReadwiseClient>(client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddSingleton<ReadwiseSync>();
@@ -512,6 +514,8 @@ static Task Refuse(RedirectContext<CookieAuthenticationOptions> context, int sta
     var path = context.Request.Path;
     if (path.StartsWithSegments("/books") || path.StartsWithSegments("/settings") || path.StartsWithSegments("/readers")
         || path.StartsWithSegments("/admin/readers") || path.StartsWithSegments("/admin/snapshot") || path.StartsWithSegments("/admin/backups") || path.StartsWithSegments("/admin/audit") || path.StartsWithSegments("/account/remove")
+        || path.StartsWithSegments("/admin/accounts") || path.StartsWithSegments("/admin/invitations") || path.StartsWithSegments("/admin/signup")
+        || path.StartsWithSegments("/admin/announcement") || path.StartsWithSegments("/admin/jobs")
         || path.StartsWithSegments("/opds"))
     {
         context.Response.StatusCode = status;

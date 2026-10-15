@@ -153,7 +153,7 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
             reader = byPassword;
         }
 
-        if (reader is null)
+        if (reader is null || reader.Suspended)
         {
             return Results.Text("Invalid username or password", statusCode: StatusCodes.Status401Unauthorized);
         }

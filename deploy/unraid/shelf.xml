@@ -24,4 +24,7 @@
   <Config Name="Behind a reverse proxy" Target="Hosting__BehindProxy" Default="false" Description="Set to true when Shelf is reached only through a proxy such as Nginx Proxy Manager or SWAG." Type="Variable" Display="advanced" Required="false">false</Config>
   <Config Name="Email server" Target="Email__Host" Default="" Description="An SMTP server, for password resets, loan reminders, and Send to Kindle. See the configuration docs for the rest." Type="Variable" Display="advanced" Required="false"/>
   <Config Name="Email from" Target="Email__From" Default="" Description="The address Shelf sends from." Type="Variable" Display="advanced" Required="false"/>
+  <Config Name="Turnstile site key" Target="Turnstile__SiteKey" Default="" Description="Cloudflare Turnstile on sign-in, sign-up, and password resets: the widget's site key. With the secret key, it turns Turnstile on." Type="Variable" Display="advanced" Required="false"/>
+  <Config Name="Turnstile secret key" Target="Turnstile__SecretKey" Default="" Description="The Turnstile widget's secret key." Type="Variable" Display="advanced" Required="false" Mask="true"/>
+  <Config Name="Turnstile host names" Target="Turnstile__Hostnames" Default="" Description="The host names the shelf is reached at, separated by commas; without it, the host of Email__PublicAddress." Type="Variable" Display="advanced" Required="false"/>
 </Container>

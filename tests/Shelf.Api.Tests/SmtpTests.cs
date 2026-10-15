@@ -177,6 +177,27 @@ public sealed class SmtpTests
         Assert.Null(working.Problem);
     }
 
+    [Fact]
+    public void An_email_is_dressed_as_html_from_its_text()
+    {
+        var reset = EmailLayout.Html(new EmailMessage("ged@example.org", "Reset your Shelf password",
+            "Hello <Ged>,\n\nChoose a new one here within the hour:\n\nhttps://shelf.test/reset?token=abc\n\nIf it was not you, ignore this email.", Button: "Choose a new password"), "https://shelf.test");
+        Assert.Contains("<h1", reset);
+        Assert.Contains("Hello &lt;Ged&gt;,", reset);
+        Assert.DoesNotContain("<Ged>", reset);
+        Assert.Matches(@"<a href=""https://shelf.test/reset\?token=abc""[^>]*>Choose a new password</a>", reset);
+        Assert.Contains(">https://shelf.test/reset?token=abc</a>", reset);
+        Assert.Contains("https://shelf.test/icon-192.png", reset);
+        Assert.Contains(">shelf.test</a>", reset);
+
+        var notice = EmailLayout.Html(new EmailMessage("ged@example.org", "Tenar lent you a book",
+            "Hello Ged,\n\nThe Tombs of Atuan\n\nSee it on Shelf\u00a0: https://shelf.test/loans\n\n- One, at https://shelf.test/series.\n- Two"), "");
+        Assert.Matches(@"<a href=""https://shelf.test/loans""[^>]*>See it on Shelf</a>", notice);
+        Assert.Contains("<li style=\"margin:0 0 6px;\">One, at <a href=\"https://shelf.test/series\"", notice);
+        Assert.Contains("The Tombs of Atuan</div>", notice);
+        Assert.DoesNotContain("icon-192.png", notice);
+    }
+
     [Theory]
     [InlineData("shelf@example.org", "Shelf", "shelf@example.org")]
     [InlineData("Shelf <shelf@example.org>", "Shelf", "shelf@example.org")]

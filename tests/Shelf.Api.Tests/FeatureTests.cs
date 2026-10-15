@@ -346,21 +346,23 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
 
         // Without the shelf's own address, a request naming another site gets no link to it, nor any link at all.
         var stranger = factory.CreateClient(new() { AllowAutoRedirect = false });
-        var before = factory.Mail.Sent.Count;
+        // Counting what goes to the address asked about: the old one hears it was changed, and that is not this.
+        int ToForgetful() => factory.Mail.Sent.Count(mail => mail.To == "forgetful@example.org");
+        var before = ToForgetful();
         await ShelfApiFactory.PostFormAsync(stranger, "/forgot", "/account/forgot", new() { ["who"] = "forgetful@example.org" }, host: "evil.example");
-        Assert.Equal(before, factory.Mail.Sent.Count);
+        Assert.Equal(before, ToForgetful());
 
         // The same shelf, with its address set.
         await using var addressed = factory.WithWebHostBuilder(builder => builder.UseSetting("Email:PublicAddress", "https://shelf.test"));
         var visitor = addressed.CreateClient(new() { AllowAutoRedirect = false });
         var unknown = await ShelfApiFactory.PostFormAsync(visitor, "/forgot", "/account/forgot", new() { ["who"] = "Nobody Here" });
         Assert.Equal("/forgot?sent=1", unknown.Headers.Location?.OriginalString);
-        Assert.Equal(before, factory.Mail.Sent.Count);
+        Assert.Equal(before, ToForgetful());
 
         // Asked by a request naming another site: the link is to the shelf's own address all the same.
         var asked = await ShelfApiFactory.PostFormAsync(visitor, "/forgot", "/account/forgot", new() { ["who"] = "FORGETFUL@example.org" }, host: "evil.example");
         Assert.Equal("/forgot?sent=1", asked.Headers.Location?.OriginalString);
-        var message = factory.Mail.Sent.Last();
+        var message = factory.Mail.Sent.Last(mail => mail.To == "forgetful@example.org");
         Assert.Equal("forgetful@example.org", message.To);
         Assert.Contains("https://shelf.test/reset?token=", message.Body);
         Assert.DoesNotContain("evil.example", message.Body);
@@ -540,7 +542,7 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         var backup = await taken.Content.ReadFromJsonAsync<AutomaticBackup>(JsonOptions);
         Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync($"/admin/backups/{backup!.Name}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync("/admin/backups/not-a-backup.zip")).StatusCode);
-        Assert.Contains("Nightly backups", await _client.GetStringAsync("/admin"));
+        Assert.Contains("Nightly backups", await _client.GetStringAsync("/admin?tab=tab-backups"));
         var reader = await factory.SignUpAsync("Backup Bystander");
         Assert.Equal(HttpStatusCode.Forbidden, (await reader.GetAsync($"/admin/backups/{backup.Name}")).StatusCode);
     }

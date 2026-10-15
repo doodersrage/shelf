@@ -811,6 +811,12 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("DayReminded")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("HourReminded")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Summary")
                         .HasMaxLength(4000)
                         .HasColumnType("TEXT");
@@ -3003,6 +3009,55 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("AuditEntries");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Readers.Invitation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("InvitedById")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("NormalizedEmail")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ReaderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvitedById");
+
+                    b.HasIndex("NormalizedEmail");
+
+                    b.HasIndex("ReaderId");
+
+                    b.HasIndex("TokenHash");
+
+                    b.ToTable("Invitations");
+                });
+
             modelBuilder.Entity("Shelf.Api.Readers.PasswordReset", b =>
                 {
                     b.Property<int>("Id")
@@ -3126,6 +3181,10 @@ namespace Shelf.Api.Data.Migrations
                         .HasMaxLength(6000)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("HealthTold")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("HiddenNav")
                         .HasMaxLength(4000)
                         .HasColumnType("TEXT");
@@ -3139,6 +3198,10 @@ namespace Shelf.Api.Data.Migrations
 
                     b.Property<string>("KindleEmail")
                         .HasMaxLength(254)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("KnownDevices")
+                        .HasMaxLength(2000)
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("KoboCollectionId")
@@ -3247,6 +3310,9 @@ namespace Shelf.Api.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("StorageLimitMegabytes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Suspended")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("TwoFactorEnabled")
@@ -3377,6 +3443,27 @@ namespace Shelf.Api.Data.Migrations
                     b.HasIndex("ReaderId");
 
                     b.ToTable("RecoveryCodes");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Readers.SiteSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("AnnouncedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Announcement")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SignUp")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SiteSettings");
                 });
 
             modelBuilder.Entity("BookTag", b =>
@@ -4237,6 +4324,20 @@ namespace Shelf.Api.Data.Migrations
                         .HasForeignKey("ReaderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Readers.Invitation", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("InvitedById")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("Shelf.Api.Readers.PasswordReset", b =>

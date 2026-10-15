@@ -40,6 +40,7 @@ else if (Notice == "confirmed")
         @T("Password")
         <input type="password" name="password" maxlength="@ReaderRules.MaxPasswordLength" autocomplete="current-password" required />
     </label>
+    <TurnstileWidget Action="@TurnstileActions.SignIn" />
     <button type="submit">@T("Sign in")</button>
     <p class="hint">@T("A child's account, or one without an email address, signs in with its name here.")</p>
 </form>

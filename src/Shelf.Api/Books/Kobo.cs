@@ -52,7 +52,7 @@ public static partial class Kobo
         var token = http.GetRouteValue("token") as string;
         var db = http.RequestServices.GetRequiredService<ShelfDb>();
         var hash = Hash(token ?? "");
-        var reader = token is { Length: > 0 and <= 100 } ? await db.Readers.AsNoTracking().FirstOrDefaultAsync(item => item.KoboTokenHash == hash, http.RequestAborted) : null;
+        var reader = token is { Length: > 0 and <= 100 } ? await db.Readers.AsNoTracking().FirstOrDefaultAsync(item => item.KoboTokenHash == hash && !item.Suspended, http.RequestAborted) : null;
         if (reader is null)
         {
             return TypedResults.Unauthorized();

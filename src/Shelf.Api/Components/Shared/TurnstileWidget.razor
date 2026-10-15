@@ -1,0 +1,14 @@
+@inject ITurnstile Turnstile
+
+@* Cloudflare Turnstile in a public form, when the shelf has it: turnstile.js loads Cloudflare's script and draws it
+   here, in the page's language and look; it adds cf-turnstile-response to the form. *@
+@if (Turnstile.Enabled)
+{
+    <div class="cf-turnstile" data-sitekey="@Turnstile.SiteKey" data-action="@Action"></div>
+}
+
+@code {
+    // What the form is, which the server checks the token was made for.
+    [Parameter, EditorRequired]
+    public string Action { get; set; } = "";
+}

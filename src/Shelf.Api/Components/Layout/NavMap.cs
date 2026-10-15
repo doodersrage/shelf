@@ -97,7 +97,7 @@ public static class NavMap
         ], Hideable: false),
         new("admin", T("Admin"),
         [
-            new("/admin", T("Readers"), "users accounts invite", NavNeed.Admin),
+            new("/admin", T("Shelf admin"), "readers users accounts invite invitations suspend sign-up backups jobs announcement email", NavNeed.Admin),
             new("/admin/health", T("Server health"), "disk storage status", NavNeed.Admin),
             new("/admin/access", T("Who sees what"), "permissions access preview", NavNeed.Admin),
             new("/downloads", T("Downloads"), "indexers download clients", NavNeed.Admin),

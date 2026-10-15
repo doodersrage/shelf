@@ -12,7 +12,11 @@ public sealed record ShelfEvent(
     int? ClubId = null,
     int? PostId = null,
     int Count = 1,
-    int? MeetingId = null)
+    int? MeetingId = null,
+    int? ClubBookId = null,
+    DateTimeOffset? When = null,
+    string? Zone = null,
+    string? Name = null)
 {
     public DateTimeOffset At { get; init; } = DateTimeOffset.UtcNow;
 
@@ -35,6 +39,21 @@ public static class EventKinds
     public const string ClubMeeting = "club.meeting";
 
     public static readonly IReadOnlyList<string> All = [BookAdded, BookStarted, BookFinished, BookLent, BookReturned, LoanAsked, ClubPosted, ClubJoined, SeriesFound, BookReread, ClubMeeting];
+
+    // Told only to the readers they concern, never to webhooks: what happened to a club (Name carries a removed
+    // club's name, When and Zone a cancelled meeting's time), an ask turned down, a new reader, and changes to an
+    // account's sign-in (Name carries the address an account had before).
+    public const string ClubReading = "club.reading";
+    public const string ClubMeetingCancelled = "club.meeting.cancelled";
+    public const string ClubLeft = "club.left";
+    public const string ClubEnded = "club.ended";
+    public const string AskDeclined = "loan.ask.declined";
+    public const string ReaderJoined = "reader.joined";
+    public const string EmailChanged = "account.email";
+    public const string PasswordChanged = "account.password";
+    public const string TwoStepOff = "account.two-step.off";
+    public const string PasskeyAdded = "account.passkey";
+    public const string SignedIn = "account.signin";
 }
 
 public interface IShelfEventHandler

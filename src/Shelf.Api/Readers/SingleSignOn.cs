@@ -174,12 +174,17 @@ public static class SingleSignOn
         var known = await db.Readers.FirstOrDefaultAsync(item => item.OidcSubject == subject, cancellationToken);
         if (known is not null)
         {
+            if (known.Suspended)
+            {
+                return TypedResults.Redirect($"/signin?problem={AccountProblem.Suspended}");
+            }
+
             await AccountEndpoints.SignInAsync(http, db, known, cancellationToken);
             await Audit.NoteAsync(db, Say("Signed in with single sign-on"), known, cancellationToken: cancellationToken);
             return TypedResults.Redirect(back);
         }
 
-        var open = AccountEndpoints.SignUpOpen(configuration) || configuration.GetValue("Oidc:CreateAccounts", false)
+        var open = await Management.SignUpModeAsync(db, configuration, cancellationToken) == SignUpMode.Open || configuration.GetValue("Oidc:CreateAccounts", false)
             || !await db.Readers.AnyAsync(cancellationToken);
         if (!open)
         {

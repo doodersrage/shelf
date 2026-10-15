@@ -50,6 +50,18 @@ Two-step sign-in asks for a code from an authenticator app after your password.
 
 The secret is sealed with the shelf's keys, so a copy of the database alone can't use it. To turn it off, enter a current code.
 
+## Emails about your account
+
+Whatever you choose to hear about, Shelf emails you when something changes how you sign in, as it may not have been you:
+
+- your email address changes (to the address you had, with the new one named);
+- your password is changed or reset, by you or by an admin;
+- two-step sign-in is turned off;
+- a passkey is added;
+- you sign in from a device you haven't used with this shelf before.
+
+Each says what to do if it wasn't you. These need [email set up](configuration.md#email), and never go to webhooks.
+
 ## The activity log
 
 Shelf keeps a record of:
@@ -62,11 +74,17 @@ Shelf keeps a record of:
 - device keys and KOReader passwords made;
 - restores, snapshots, and backups taken by hand, and imports from Audiobookshelf.
 
-Every reader sees the lines about their own account under **Recent activity** on **Account**; if something there wasn't you, change your password. An admin reads the whole log on **Readers**, or as JSON at `/admin/audit`. The newest 5,000 entries are kept.
+Every reader sees the lines about their own account under **Recent activity** on **Account**; if something there wasn't you, change your password. An admin reads the whole log on **Shelf admin**, under **Activity**, or as JSON at `/admin/audit`. The newest 5,000 entries are kept.
 
 ## Admins
 
-The first account is an admin. An admin manages readers from **Readers**:
+The first account is an admin. **Shelf admin**, under **Admin** in the menu, is in four tabs: **Readers**, **Backups**, **System**, and **Activity**.
+
+Under **Readers**, a list of every reader, found by name or address and put in order by name, newest, or last seen, shows each one's address and whether it is confirmed, whether they are an admin, a child, suspended, or use two-step sign-in, their books, and when they were last signed in. Open a reader for what can be done:
+
+- **Rename** them, or **change their email address** (a confirmation link can be sent again from there).
+- **Sign out everywhere**, which keeps their password.
+- **Suspend** them: no way of signing in works (password, passkey, single sign-on, API tokens, device keys, KOReader, Kobo, Audiobookshelf apps, the calendar), and their shelf is kept as it is, until they are **restored**.
 
 - **A new password** for a reader who forgot theirs. It signs them out everywhere, turns off their two-step sign-in, and removes their passkeys: the way back in after a lost phone, and a way to shut out anyone who added a passkey of their own.
 - **Make admin** for another reader, or take it away. The shelf always keeps at least one admin.
@@ -101,9 +119,26 @@ Each takes the email address the reader signs in with, or the name of a reader w
 
 A shelf linked to another (see [Linked shelves](lending.md#linked-shelves)) answers that shelf's calls under `/federation`, each carrying the secret this shelf gave it, of which it keeps only a hash. Those calls see open shelves' titles, take asks to borrow, and fetch the files of books lent to that shelf's readers, while they are lent; nothing else. The one-time link code is good for a day. Unlinking stops the calls at once.
 
-## Closing sign-up
+## Turnstile
 
-Sign-up is open until you close it, so anyone who can reach the shelf can make an account. Once your readers have accounts, set `Accounts:AllowSignUp` to `false`. The sign-up page then says sign-up is closed, though the first account can always be made, so make yours before the shelf can be reached from outside.
+With a [Cloudflare Turnstile](configuration.md#cloudflare-turnstile) widget's keys set, signing in, signing up, and asking for a password reset each need a token from Turnstile, checked with Cloudflare by the server: made for that form, on the shelf's own address, and used once. The sign-in limit still counts each attempt.
+
+## Who may sign up
+
+Sign-up is open until you change it, so anyone who can reach the shelf can make an account. On **Shelf admin**, under **Who may sign up**, choose **Anyone who finds the shelf**, **Only people invited**, or **No one new**. Until you choose, `Accounts:AllowSignUp` decides (`false` for no one new). The first account can always be made, so make yours before the shelf can be reached from outside.
+
+### Invitations
+
+Under **Invitations**, give email addresses, up to fifty at once, and each gets an email with a link to make an account. The link works for a week, once, even when sign-up is closed, and the account it makes signs in with that address, confirmed already. An address someone already signs in with is passed over. Without a mail server, each link is shown to pass on yourself. Sent invitations are listed, to **Send again** with a new link or **Withdraw**.
+
+## The shelf's own work
+
+Under **System** on **Shelf admin**:
+
+- **Background work**: what the shelf does on its own (notifications, series, the file check, podcasts, the Audiobookshelf, Readwise, and Hardcover syncs, and looking for a newer Shelf), when each last ran, and **Run now**.
+- **Email**: which server it goes through, the last email that would not go, and **Send me a test email**.
+- **Announcement**: a note at the top of every page for every reader, until you take it down, and by email to every reader too if you like. Each reader can hide it for themselves.
+- The import folder, storage and limits, and linked shelves.
 
 ## Addresses readers give
 

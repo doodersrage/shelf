@@ -12,10 +12,13 @@
 @inject Storage Storage
 @inject IConfiguration Configuration
 @inject NavigationManager Navigation
+@inject IEmailSender Email
+@inject IServiceProvider Services
+@inject Microsoft.Extensions.Caching.Memory.IMemoryCache Cache
 
-<PageTitle>@T("Readers") · Shelf</PageTitle>
+<PageTitle>@T("Shelf admin") · Shelf</PageTitle>
 
-<h1>@T("Readers")</h1>
+<h1>@T("Shelf admin")</h1>
 
 @if (!allowed)
 {
@@ -23,67 +26,202 @@
 }
 else
 {
-    <p class="hint">@T("A reader who forgets their password gets a new one here. Hand it to them, and they can change it from their account.")</p>
+    <p class="hint">@T("Readers and invitations, backups, and the shelf's own work.") <a href="/admin/health">@T("Server health")</a></p>
 
+    <SectionTabs Label="@T("Shelf admin")" Tabs="AdminTabs" Sections="AdminSections" @bind-Active="tab" />
+
+    @if (tab == "tab-readers")
+    {
+    <section class="panel" id="signup">
+    <h2>@T("Who may sign up")</h2>
+    <fieldset class="audible-take">
+        <legend class="visually-hidden">@T("Who may sign up")</legend>
+        @foreach (var (choice, label) in SignUpChoices)
+        {
+            <label class="check">
+                <input type="radio" name="signup" checked="@(signUp == choice)" @onchange="() => SetSignUp(choice)" />
+                @T(label)
+            </label>
+        }
+    </fieldset>
+    </section>
+
+    <section class="panel" id="invites">
+    <h2>@T("Invitations")</h2>
+    <p class="hint">@T("Each address gets an email with a link to make an account, which works for a week, even when sign-up is closed. The account signs in with that address, already confirmed.")</p>
+    @if (!Email.Enabled)
+    {
+        <p class="hint">@T("This shelf cannot send email, so pass each link on yourself.")</p>
+    }
+    <label>
+        @T("Email addresses, separated by commas or one to a line, up to {0} at once", Management.MaxInvitesAtOnce)
+        <textarea rows="3" @bind="inviteAddresses" @bind:event="oninput" autocomplete="off"></textarea>
+    </label>
+    <button type="button" class="primary" @onclick="Invite" disabled="@(inviting || string.IsNullOrWhiteSpace(inviteAddresses))">@(inviting ? T("Inviting…") : T("Invite"))</button>
+    @if (invited.Count > 0)
+    {
+        <ul class="tag-counts" role="status">
+            @foreach (var made in invited)
+            {
+                <li>
+                    <span>@made.Email <span class="@(made.Problem is null ? "hint" : "late")">@(made.Problem ?? (made.Sent ? T("Sent.") : T("Pass this link on:")))</span></span>
+                    @if (made.Link is not null && !made.Sent)
+                    {
+                        <code class="key">@made.Link</code>
+                    }
+                </li>
+            }
+        </ul>
+    }
+    @if (invitations.Length > 0)
+    {
+        <h3>@T("Sent")</h3>
+        <ul class="tag-counts">
+            @foreach (var invitation in invitations.Take(50))
+            {
+                <li>
+                    <span>@invitation.Email
+                        <span class="hint">
+                            @if (invitation.AcceptedAt is { } accepted)
+                            {
+                                @T("joined {0} as {1}", accepted.Medium(), invitation.Reader ?? "")
+                            }
+                            else if (invitation.ExpiresAt < DateTimeOffset.UtcNow)
+                            {
+                                @T("expired {0}", invitation.ExpiresAt.Medium())
+                            }
+                            else
+                            {
+                                @T("by {0}, until {1}", invitation.InvitedBy, invitation.ExpiresAt.Medium())
+                            }
+                        </span>
+                    </span>
+                    @if (invitation.AcceptedAt is null)
+                    {
+                        <span>
+                            <button type="button" class="quiet" @onclick="() => Resend(invitation.Id)">@T("Send again")</button>
+                            <button type="button" class="quiet" @onclick="() => Revoke(invitation.Id)">@T("Withdraw")</button>
+                        </span>
+                    }
+                </li>
+            }
+        </ul>
+    }
+    </section>
+
+    <section class="panel" id="readers">
+    <h2>@T("Readers")</h2>
     @if (problem is AccountProblem shown)
     {
         <p class="validation-message" role="alert">@ReaderRules.Describe(shown)</p>
     }
-
-    <section class="panel">
-    <ul class="quotes">
-        @foreach (var reader in readers)
+    <div class="reader-tools">
+        <label>
+            <span class="visually-hidden">@T("Find a reader")</span>
+            <input type="search" @bind="readerFilter" @bind:event="oninput" placeholder="@T("Find a reader by name or email")" autocomplete="off" />
+        </label>
+        <label>
+            <span class="visually-hidden">@T("Order")</span>
+            <select @bind="readerOrder">
+                <option value="name">@T("By name")</option>
+                <option value="joined">@T("Newest first")</option>
+                <option value="seen">@T("Last seen first")</option>
+            </select>
+        </label>
+    </div>
+    <p class="hint">@Localization.Counts.Readers(ShownReaders.Count)</p>
+    <ul class="reader-rows">
+        @foreach (var reader in ShownReaders)
         {
             <li>
-                <strong>@reader.Name</strong>@if (reader.Email is not null)
-                {
-                    <span class="hint"> · @reader.Email</span>
-                }
-                <span class="hint"> · @Localization.Counts.Books(reader.Books) · @T("since {0}", reader.CreatedAt.Medium())@(reader.IsAdmin ? " · " + T("admin") : "")@(reader.Child ? " · " + T("a child's account") : "")@(reader.Id == me ? " · " + T("you") : "")</span>
-                @if (passwords.TryGetValue(reader.Id, out var password))
-                {
-                    <p>@T("New password:") <code class="key">@password</code></p>
-                    <p class="hint">@T("It is not shown again. Every session {0} had is signed out.", reader.Name)</p>
-                }
-                <p>
-                    @if (reader.Id != me)
-                    {
-                        <button type="button" @onclick="() => Reset(reader.Id)">@T("New password")</button>
-                    }
-                    @if (reader.Child)
-                    {
-                        <button type="button" @onclick="() => Release(reader.Id)">@T("Make it an ordinary account")</button>
-                    }
-                    else
-                    {
-                        <button type="button" @onclick="() => SetAdmin(reader.Id, !reader.IsAdmin)">@(reader.IsAdmin ? T("No longer admin") : T("Make admin"))</button>
-                    }
-                    @if (reader.Id != me)
-                    {
-                        @if (removing == reader.Id)
+                <details>
+                    <summary>
+                        <strong>@reader.Name</strong>
+                        <span class="hint">@(reader.Email ?? reader.PendingEmail ?? T("no email address"))@(reader.Email is null && reader.PendingEmail is not null ? " · " + T("not confirmed") : "")</span>
+                        <span class="reader-badges">
+                            @if (reader.Id == me) { <span class="badge plain">@T("you")</span> }
+                            @if (reader.IsAdmin) { <span class="badge plain">@T("admin")</span> }
+                            @if (reader.Child) { <span class="badge plain">@T("a child's account")</span> }
+                            @if (reader.Suspended) { <span class="badge">@T("suspended")</span> }
+                            @if (reader.TwoStep) { <span class="badge plain">@T("two-step")</span> }
+                        </span>
+                        <span class="hint">@Localization.Counts.Books(reader.Books) · @T("since {0}", reader.CreatedAt.Medium()) · @(reader.LastSeenAt is { } seen ? T("last seen {0}", seen.Medium()) : T("not signed in now"))</span>
+                    </summary>
+                    <div class="reader-actions">
+                        @if (passwords.TryGetValue(reader.Id, out var password))
                         {
-                            <span class="hint">@T("Delete {0}, their {1}, and their files?", reader.Name, Localization.Counts.Books(reader.Books))</span>
-                            <button type="button" class="danger" @onclick="() => Remove(reader.Id)">@T("Yes, delete")</button>
-                            <button type="button" @onclick="() => removing = null">@T("Cancel")</button>
+                            <p>@T("New password:") <code class="key">@password</code></p>
+                            <p class="hint">@T("It is not shown again. Every session {0} had is signed out.", reader.Name)</p>
                         }
-                        else
+                        @if (rowNotes.TryGetValue(reader.Id, out var rowNote))
                         {
-                            <button type="button" class="danger" @onclick="() => removing = reader.Id">@T("Delete")</button>
+                            <p class="@(rowNote.Problem ? "validation-message" : "saved")" role="status">@rowNote.Text</p>
                         }
-                    }
-                </p>
+                        <div class="reader-edit">
+                            <label>
+                                @T("Name")
+                                <input value="@reader.Name" maxlength="@ReaderRules.MaxNameLength" @onchange="change => editNames[reader.Id] = change.Value?.ToString() ?? reader.Name" />
+                            </label>
+                            <button type="button" @onclick="() => Rename(reader.Id)">@T("Rename")</button>
+                        </div>
+                        <div class="reader-edit">
+                            <label>
+                                @T("Email address")
+                                <input type="email" value="@reader.Email" maxlength="@EmailRules.MaxAddressLength" @onchange="change => editEmails[reader.Id] = change.Value?.ToString() ?? reader.Email ?? reader.PendingEmail" />
+                            </label>
+                            <button type="button" @onclick="() => SetEmail(reader.Id)">@T("Change it")</button>
+                            @if (reader.PendingEmail is not null)
+                            {
+                                <button type="button" class="quiet" @onclick="() => ResendConfirmation(reader.Id)">@T("Send the confirmation link again")</button>
+                            }
+                        </div>
+                        <p>
+                            @if (reader.Id != me)
+                            {
+                                <button type="button" @onclick="() => Reset(reader.Id)">@T("New password")</button>
+                                <button type="button" @onclick="() => SignOut(reader.Id)">@T("Sign out everywhere")</button>
+                                <button type="button" @onclick="() => Suspend(reader.Id, !reader.Suspended)">@(reader.Suspended ? T("Restore") : T("Suspend"))</button>
+                            }
+                            @if (reader.Child)
+                            {
+                                <button type="button" @onclick="() => Release(reader.Id)">@T("Make it an ordinary account")</button>
+                            }
+                            else
+                            {
+                                <button type="button" @onclick="() => SetAdmin(reader.Id, !reader.IsAdmin)">@(reader.IsAdmin ? T("No longer admin") : T("Make admin"))</button>
+                            }
+                            @if (reader.Id != me)
+                            {
+                                @if (removing == reader.Id)
+                                {
+                                    <span class="hint">@T("Delete {0}, their {1}, and their files?", reader.Name, Localization.Counts.Books(reader.Books))</span>
+                                    <button type="button" class="danger" @onclick="() => Remove(reader.Id)">@T("Yes, delete")</button>
+                                    <button type="button" @onclick="() => removing = null">@T("Cancel")</button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="danger" @onclick="() => removing = reader.Id">@T("Delete")</button>
+                                }
+                            }
+                        </p>
+                        <p class="hint">@T("Suspending keeps the shelf as it is and signs the reader out; no way of signing in works until they are restored.")</p>
+                    </div>
+                </details>
             </li>
         }
     </ul>
     </section>
+    }
 
-    <section class="panel">
+    @if (tab == "tab-backups")
+    {
+    <section class="panel" id="snapshot">
     <h2>@T("Snapshot")</h2>
     <p class="hint">@((MarkupString)T("Everything on this server in one zip: the database with every reader, and every e-book, audiobook, and cover picture. To restore it, stop the shelf and unpack it into a new data folder: <code>shelf.db</code> beside the app, and the <code>ebooks</code>, <code>audio</code>, and <code>covers</code> folders where they were."))</p>
     <a class="button primary" href="/admin/snapshot">@T("Download a snapshot")</a>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="backups">
     <h2>@T("Nightly backups")</h2>
     <p class="hint">@T("Each is proved after it is taken: read through, its database opened and checked, and brought up to this version, as a restore would.")</p>
     @if (!Schedule.Enabled)
@@ -139,7 +277,78 @@ else
     <button type="button" @onclick="BackUpNow" disabled="@backingUp">@(backingUp ? T("Backing up…") : T("Back up now"))</button>
     </section>
 
-    <section class="panel">
+    }
+
+    @if (tab == "tab-system")
+    {
+    <section class="panel" id="jobs">
+    <h2>@T("Background work")</h2>
+    <p class="hint">@T("Shelf does these on its own, on a schedule. Run one now rather than wait its turn.")</p>
+    <ul class="tag-counts">
+        @foreach (var job in Management.Jobs)
+        {
+            var beat = Heartbeats.All.FirstOrDefault(item => item.Job == job.Beat);
+            <li>
+                <span>@T(job.Label)
+                    <span class="@(beat?.Problem is null ? "hint" : "late")">@(beat is null ? "" : beat.Problem is { } trouble ? T("went wrong {0}: {1}", beat.At.Medium(), trouble) : T("last ran {0}", beat.At.Medium()))</span>
+                </span>
+                <button type="button" class="quiet" @onclick="() => RunJob(job.Key)" disabled="@(running is not null)">@(running == job.Key ? T("Running…") : T("Run now"))</button>
+            </li>
+        }
+    </ul>
+    @if (jobNote is not null)
+    {
+        <p class="saved" role="status">@jobNote</p>
+    }
+    </section>
+
+    <section class="panel" id="email">
+    <h2>@T("Email")</h2>
+    @if (!Email.Enabled)
+    {
+        <p class="hint">@((MarkupString)T("Off. Set <code>Email:Host</code> and <code>Email:From</code> for password resets, confirmations, invitations, and notifications by email."))</p>
+    }
+    else
+    {
+        <p class="hint">@T("Sent through {0} as {1}.", Configuration["Email:Host"] ?? "", Configuration["Email:From"] ?? "")</p>
+        @if (Email.Problem is { } mailProblem)
+        {
+            <p class="validation-message">@T("The last email did not go: {0}", mailProblem)</p>
+        }
+        <button type="button" @onclick="TestEmail" disabled="@testingEmail">@T("Send me a test email")</button>
+        @if (emailNote is not null)
+        {
+            <p class="@(emailProblem ? "validation-message" : "saved")" role="status">@emailNote</p>
+        }
+    }
+    </section>
+
+    <section class="panel" id="announcement">
+    <h2>@T("Announcement")</h2>
+    <p class="hint">@T("A note at the top of every page for every reader, until you take it down. Each reader can hide it for themselves.")</p>
+    <label>
+        @T("Announcement")
+        <textarea rows="3" maxlength="@SiteSetting.MaxAnnouncementLength" @bind="announcementText" @bind:event="oninput"></textarea>
+    </label>
+    @if (Email.Enabled)
+    {
+        <label class="check">
+            <input type="checkbox" @bind="announceByEmail" />
+            @T("Email it to every reader too")
+        </label>
+    }
+    <button type="button" class="primary" @onclick="Announce" disabled="@(string.IsNullOrWhiteSpace(announcementText) || announcing)">@T("Put it up")</button>
+    @if (announced)
+    {
+        <button type="button" @onclick="TakeDown" disabled="@announcing">@T("Take it down")</button>
+    }
+    @if (announcementNote is not null)
+    {
+        <p class="saved" role="status">@announcementNote</p>
+    }
+    </section>
+
+    <section class="panel" id="import">
     <h2>@T("Import folder")</h2>
     @if (ImportFolder.Folder is not { } watched)
     {
@@ -226,17 +435,293 @@ else
     }
     </section>
 
-    <section class="panel">
+    }
+
+    @if (tab == "tab-activity")
+    {
+    <section class="panel" id="activity">
     <h2>@T("Activity")</h2>
     <p class="hint">@T("Sign-ups, failed sign-ins, passwords, admin rights, two-step sign-in, passkeys, devices signed out, keys, restores, and backups, newest first. The last {0} are kept.", Audit.Keep) <a href="/admin/audit">@T("The newest 500 as JSON")</a></p>
     <AuditList Lines="activity" />
     </section>
+    }
 }
 
 @code {
     private bool allowed;
     private int me;
-    private List<ReaderSummary> readers = [];
+    private List<ReaderRow> readers = [];
+    private string tab = "tab-readers";
+
+    private static readonly IReadOnlyList<(string Key, string Label)> AdminTabs =
+    [
+        ("tab-readers", T("Readers")),
+        ("tab-backups", T("Backups")),
+        ("tab-system", T("System")),
+        ("tab-activity", T("Activity")),
+    ];
+
+    // Where each part of the page is, so links to it from elsewhere still find it.
+    private static readonly Dictionary<string, string> AdminSections = new()
+    {
+        ["signup"] = "tab-readers",
+        ["invites"] = "tab-readers",
+        ["readers"] = "tab-readers",
+        ["snapshot"] = "tab-backups",
+        ["backups"] = "tab-backups",
+        ["jobs"] = "tab-system",
+        ["email"] = "tab-system",
+        ["announcement"] = "tab-system",
+        ["import"] = "tab-system",
+        ["storage"] = "tab-system",
+        ["links"] = "tab-system",
+        ["activity"] = "tab-activity",
+    };
+
+    private static readonly (SignUpMode Mode, string Label)[] SignUpChoices =
+    [
+        (SignUpMode.Open, Say("Anyone who finds the shelf can make an account")),
+        (SignUpMode.Invites, Say("Only people invited")),
+        (SignUpMode.Closed, Say("No one new")),
+    ];
+
+    private SignUpMode signUp;
+    private string readerFilter = "";
+    private string readerOrder = "name";
+    private readonly Dictionary<int, string?> editNames = [];
+    private readonly Dictionary<int, string?> editEmails = [];
+    private readonly Dictionary<int, (string Text, bool Problem)> rowNotes = [];
+
+    private List<ReaderRow> ShownReaders
+    {
+        get
+        {
+            var wanted = readerFilter.Trim();
+            var found = readers.Where(reader => wanted.Length == 0
+                || reader.Name.Contains(wanted, StringComparison.OrdinalIgnoreCase)
+                || (reader.Email ?? reader.PendingEmail ?? "").Contains(wanted, StringComparison.OrdinalIgnoreCase));
+            return (readerOrder switch
+            {
+                "joined" => found.OrderByDescending(reader => reader.CreatedAt),
+                "seen" => found.OrderByDescending(reader => reader.LastSeenAt ?? DateTimeOffset.MinValue),
+                _ => found.OrderBy(reader => reader.Name, StringComparer.OrdinalIgnoreCase),
+            }).ToList();
+        }
+    }
+
+    private InvitationSummary[] invitations = [];
+    private string inviteAddresses = "";
+    private bool inviting;
+    private List<InvitationMade> invited = [];
+
+    private string? running;
+    private string? jobNote;
+    private bool testingEmail;
+    private string? emailNote;
+    private bool emailProblem;
+    private string announcementText = "";
+    private bool announceByEmail;
+    private bool announced;
+    private bool announcing;
+    private string? announcementNote;
+
+    private async Task SetSignUp(SignUpMode mode)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await StillAdminAsync(db))
+        {
+            await Management.SetSignUpModeAsync(db, mode);
+            signUp = mode;
+        }
+    }
+
+    private async Task Invite()
+    {
+        inviting = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            if (await StillAdminAsync(db))
+            {
+                invited = [.. await Management.InviteAsync(db, Email, inviteAddresses, Address)];
+                inviteAddresses = string.Join("\n", invited.Where(made => made.Problem is not null).Select(made => made.Email));
+                invitations = await Management.InvitationsAsync(db);
+            }
+        }
+        finally
+        {
+            inviting = false;
+        }
+    }
+
+    private async Task Resend(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await StillAdminAsync(db) && await Management.ResendAsync(db, Email, id, Address) is { } made)
+        {
+            invited = [made];
+            invitations = await Management.InvitationsAsync(db);
+        }
+    }
+
+    private async Task Revoke(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await StillAdminAsync(db))
+        {
+            await Management.RevokeAsync(db, id);
+            invitations = await Management.InvitationsAsync(db);
+        }
+    }
+
+    private async Task Rename(int id)
+    {
+        if (!editNames.TryGetValue(id, out var name))
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await StillAdminAsync(db))
+        {
+            var trouble = await Management.RenameAsync(db, id, name);
+            rowNotes[id] = trouble is { } shown ? (ReaderRules.Describe(shown), true) : (T("Saved."), false);
+            readers = [.. await Management.ReadersAsync(db)];
+        }
+    }
+
+    private async Task SetEmail(int id)
+    {
+        if (!editEmails.TryGetValue(id, out var address))
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await StillAdminAsync(db) && readers.FirstOrDefault(reader => reader.Id == id) is not null)
+        {
+            var notices = await db.Readers.Where(reader => reader.Id == id).Select(reader => reader.EmailNotices).FirstAsync();
+            var trouble = await ReaderRules.SetEmailAsync(db, id, address, notices);
+            rowNotes[id] = trouble is { } shown ? (ReaderRules.Describe(shown), true) : (T("Saved."), false);
+            readers = [.. await Management.ReadersAsync(db)];
+        }
+    }
+
+    private async Task ResendConfirmation(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (!await StillAdminAsync(db) || await db.Readers.FirstOrDefaultAsync(reader => reader.Id == id) is not { PendingEmail: { } pending } reader)
+        {
+            return;
+        }
+
+        try
+        {
+            rowNotes[id] = await EmailRules.SendConfirmationAsync(db, Email, reader, Address)
+                ? (T("Sent to {0}.", pending), false)
+                : (T("A link went a moment ago. Wait a minute before asking again."), true);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            rowNotes[id] = (T("The mail server did not take it: {0}", ex.Message), true);
+        }
+    }
+
+    private async Task SignOut(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await StillAdminAsync(db) && await Management.SignOutEverywhereAsync(db, id))
+        {
+            rowNotes[id] = (T("Signed out everywhere."), false);
+            readers = [.. await Management.ReadersAsync(db)];
+        }
+    }
+
+    private async Task Suspend(int id, bool suspended)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await StillAdminAsync(db))
+        {
+            var trouble = await Management.SuspendAsync(db, id, suspended);
+            rowNotes[id] = trouble is { } shown ? (ReaderRules.Describe(shown), true) : (suspended ? T("Suspended.") : T("Restored."), false);
+            readers = [.. await Management.ReadersAsync(db)];
+        }
+    }
+
+    private async Task RunJob(string key)
+    {
+        running = key;
+        jobNote = null;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            if (await StillAdminAsync(db) && await Management.RunAsync(Services, key))
+            {
+                await Audit.NoteAsync(db, Say("Ran a job by hand"), detail: key);
+                jobNote = T("Done.");
+            }
+        }
+        finally
+        {
+            running = null;
+        }
+    }
+
+    private async Task TestEmail()
+    {
+        testingEmail = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var mine = await db.Readers.AsNoTracking().FirstAsync(reader => reader.Id == db.ReaderId);
+            if (mine.Email is null)
+            {
+                (emailProblem, emailNote) = (true, T("Add an address, and an admin has to set up a mail server, first."));
+                return;
+            }
+
+            await Email.SendAsync(new EmailMessage(mine.Email, T("Shelf can reach you"), T("Hello {0},\n\nThis is a test from your shelf. Email works.", mine.Name)), CancellationToken.None);
+            (emailProblem, emailNote) = (false, T("Sent to {0}.", mine.Email));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            (emailProblem, emailNote) = (true, T("The mail server did not take it: {0}", ex.Message));
+        }
+        finally
+        {
+            testingEmail = false;
+        }
+    }
+
+    private async Task Announce()
+    {
+        announcing = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            if (await StillAdminAsync(db))
+            {
+                var emailed = await Management.AnnounceAsync(db, Cache, Email, announcementText, announceByEmail, Address);
+                announced = true;
+                announcementNote = announceByEmail && Email.Enabled ? T("It is up, and went to {0}.", Localization.Counts.Readers(emailed)) : T("It is up.");
+                announceByEmail = false;
+            }
+        }
+        finally
+        {
+            announcing = false;
+        }
+    }
+
+    private async Task TakeDown()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (await StillAdminAsync(db))
+        {
+            await Management.AnnounceAsync(db, Cache, Email, null, false, Address);
+            (announced, announcementText, announcementNote) = (false, "", T("Taken down."));
+        }
+    }
     private readonly Dictionary<int, string> passwords = [];
     private AccountProblem? problem;
     private int? removing;
@@ -285,7 +770,13 @@ else
         await using var db = await DbFactory.CreateDbContextAsync();
         me = db.ReaderId;
         allowed = await ReaderRules.IsAdminAsync(db, me);
-        readers = allowed ? (await ReaderRules.SummariesAsync(db)).ToList() : [];
+        readers = allowed ? [.. await Management.ReadersAsync(db)] : [];
+        invitations = allowed ? await Management.InvitationsAsync(db) : [];
+        signUp = await Management.SignUpModeAsync(db, Configuration);
+        if (allowed && await Management.AnnouncementAsync(db, Cache) is { } current)
+        {
+            (announced, announcementText) = (true, current.Text);
+        }
         backups = allowed ? Checks.List() : [];
         activity = allowed ? await Audit.RecentAsync(db, take: 100) : [];
         links = allowed ? await Federation.ListAsync(db) : [];

@@ -12,9 +12,10 @@ Shelf can tell you when something needs you, without waiting for you to open it.
 Tick the kinds you want:
 
 - **Loans:** someone lends you a book, a borrower returns one of yours, and once a day, any loan due within three days or overdue.
-- **Asks to borrow** one of your books, as soon as they're made.
+- **Asks to borrow** one of your books, as soon as they're made, and an ask of yours the owner turns down.
 - **New books in your series,** when the daily look finds some (with series alerts on, under **Series**).
-- **Your book clubs:** new posts in the discussion, and being added to a club.
+- **Your book clubs:** the next book the club reads, a meeting arranged or called off, a reminder a day and an hour before each meeting, new posts in the discussion, being added to or taken out of a club, and a club ending.
+- **For admins:** a new reader signing up, and anything going wrong on **Server health**, such as a failed backup or an email that would not go, each told once.
 
 A notification opens the page it's about: **Loans**, the book, **Series**, or the club.
 

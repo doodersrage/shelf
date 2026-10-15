@@ -233,6 +233,11 @@ public static class Passkeys
             return Problem(Localization.Words.T("The passkey could not be checked. Try again."));
         }
 
+        if (reader.Suspended)
+        {
+            return Problem(ReaderRules.Describe(AccountProblem.Suspended));
+        }
+
         key.LastUsedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
         await AccountEndpoints.SignInAsync(http, db, reader, cancellationToken);

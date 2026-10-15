@@ -43,7 +43,7 @@ rest:
 
 ## Signing in from a script without a token
 
-A script can also sign in with the cookie the browser uses, posting the sign-in form with the anti-forgery token the page carries:
+A script can also sign in with the cookie the browser uses, posting the sign-in form with the anti-forgery token the page carries. This doesn't work with [Turnstile](configuration.md#cloudflare-turnstile) on; use an API token then.
 
 ```bash
 site=https://shelf.example.org
@@ -247,6 +247,12 @@ done
 | `GET /account/passkeys` | Your passkeys. `DELETE /account/passkeys/{id}` removes one. |
 | `GET /account/tokens` | Your API tokens. `POST {"name": "…", "canChange": false}` makes one and answers with it, once; `DELETE /account/tokens/{id}` removes one. Only with the browser's sign-in, not a token. |
 | `GET /account/sandbox` | Your sandbox: how many books, and its tokens; nothing when there is none. `POST /account/sandbox/tokens` with `{"name": "…", "canChange": true}` makes a token for it, making the sandbox the first time; `POST /account/sandbox/reset` puts the samples back; `DELETE /account/sandbox` removes it. Only with the browser's sign-in. |
+| `GET /admin/accounts` | Every reader, for an admin: address and whether it is confirmed, admin, child, suspended, two-step, books, joined, last seen. |
+| `PUT /admin/readers/{id}/suspended`, `/name`, `/email`; `POST /admin/readers/{id}/signout` | `{"suspended": true}`, `{"name": "…"}`, `{"email": "…"}`: suspend or restore, rename, or change a reader's address; sign them out everywhere. |
+| `GET/POST /admin/invitations`, `POST /admin/invitations/{id}/resend`, `DELETE /admin/invitations/{id}` | `{"emails": "a@example.org, b@example.org"}` invites each, answering with each one's link and whether it went. |
+| `GET/PUT /admin/signup` | `{"mode": "Open"}`, `"Invites"`, or `"Closed"`. |
+| `PUT /admin/announcement` | `{"text": "…", "email": false}`; no text takes it down. |
+| `GET /admin/jobs`, `POST /admin/jobs/{key}` | The background jobs and when each last ran; run one now. |
 | `PUT /account/email` | `{"email": "you@example.org", "reminders": true}`: the address you sign in with, which can change but not be removed, and whether notifications go there too. `204` when the address is yours at once; `202` when a link went to it to confirm it first. `POST /account/email/test` sends a test. |
 | `POST /account/signout` | Sign out of this browser. |
 

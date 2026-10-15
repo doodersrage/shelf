@@ -4,6 +4,27 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.15.0] - 2026-10-15
+
+### Added
+
+- **Cloudflare Turnstile** on signing in, signing up, and asking for a password reset, once `Turnstile:SiteKey` and `Turnstile:SecretKey` are set from a widget of your own. Each token is checked with Cloudflare by the server, for its own form and the shelf's own host names (`Turnstile:Hostnames`, or the host of `Email:PublicAddress`); a check that fails or cannot finish is refused. **Server health** says whether it is on.
+
+- **Shelf admin**, the old Readers page in tabs: **Readers**, **Backups**, **System**, and **Activity**.
+  - **Invitations**: invite people by email, up to fifty at once; each link makes an account with that address, confirmed, even when sign-up is closed. Send again, or withdraw.
+  - **Who may sign up**: anyone, only people invited, or no one new, chosen on the page.
+  - **A list of readers** to search and sort, with each one's address, whether it is confirmed, two-step sign-in, books, and when they were last seen; and for each, **Rename**, **change their address**, **Sign out everywhere**, and **Suspend**, which stops every way of signing in and keeps their shelf.
+  - **Background work** to run now, a test email with the server's answer, and an **announcement** at the top of every page, and by email if you like.
+
+- **More from your book clubs**: members hear when the club moves to its next book, when a meeting is called off, a day and an hour before each meeting, and when they are taken out of a club or it ends.
+- **An ask turned down** is told to whoever asked, so they are not left waiting.
+- **Emails about your account**: a changed email address (told to the old one), a changed or reset password, two-step sign-in turned off, a new passkey, and a sign-in from a device not seen before each come by email, whatever you chose to hear about, with what to do if it wasn't you.
+- **For admins**: a new reader signing up, and anything going wrong on **Server health**, each told once, under a new kind on **Notifications**.
+
+### Changed
+
+- **Emails look the part**: every email Shelf sends, from password resets and address confirmations to notifications, series news, and Send to Kindle, comes in the shelf's own colours under its mark, with the subject as a heading, links as buttons, and why it came set apart at the foot. A plain-text copy goes with each, for mail apps that prefer it.
+
 ## [2.14.2] - 2026-10-15
 
 ### Fixed
@@ -611,7 +632,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.14.2...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.15.0...HEAD
+[2.15.0]: https://github.com/doodersrage/shelf/compare/v2.14.2...v2.15.0
 [2.14.2]: https://github.com/doodersrage/shelf/compare/v2.14.1...v2.14.2
 [2.14.1]: https://github.com/doodersrage/shelf/compare/v2.14.0...v2.14.1
 [2.14.0]: https://github.com/doodersrage/shelf/compare/v2.13.0...v2.14.0

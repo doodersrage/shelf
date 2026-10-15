@@ -674,7 +674,7 @@ else
 <p class="hint">@T("Shelf can tell you when someone lends you a book or asks to borrow one, when a loan is due, about new books in your series, and about your book clubs: by email, on this device, or by ntfy or Gotify.")</p>
 <fieldset class="audible-take">
     <legend>@T("Tell me about")</legend>
-    @foreach (var (kind, label) in NoticeChoices)
+    @foreach (var (kind, label) in NoticeChoices.Where(choice => choice.Kind != NoticeKinds.Admin || admin))
     {
         <label class="check">
             <input type="checkbox" checked="@noticeKinds.HasFlag(kind)" @onchange="change => ChangeNoticeKind(kind, change)" />
@@ -989,6 +989,9 @@ else if (pushState is not null)
     // An address given but not yet confirmed by its link.
     private string? pendingEmail;
 
+    // Admins have a kind of notification of their own.
+    private bool admin;
+
     private bool passwordUnknown;
     private string kindleAddress = "";
     private AccountProblem? kindleProblem;
@@ -1031,6 +1034,7 @@ else if (pushState is not null)
         await LoadNoticesAsync(db);
         webhooks = await Webhooks.ListAsync(db);
         restricted = me.Restricted;
+        admin = me.IsAdmin;
         calendarOn = me.CalendarTokenHash is not null;
         publicToken = me.PublicToken;
         guardianName = me.GuardianId is int guardian ? await db.Readers.Where(item => item.Id == guardian).Select(item => item.Name).FirstOrDefaultAsync() : null;
@@ -1125,7 +1129,8 @@ else if (pushState is not null)
         (NoticeKinds.Loans, Say("Loans: lent to me, returned, due soon, or overdue")),
         (NoticeKinds.Asks, Say("Asks to borrow my books")),
         (NoticeKinds.Series, Say("New books in my series")),
-        (NoticeKinds.Clubs, Say("My book clubs: new posts, and being added to one")),
+        (NoticeKinds.Clubs, Say("My book clubs: new books, meetings and reminders, new posts, and being added or removed")),
+        (NoticeKinds.Admin, Say("For admins: new readers, and anything wrong on Server health")),
     ];
 
     private NoticeSettings? noticeSettings;

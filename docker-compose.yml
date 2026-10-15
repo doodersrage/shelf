@@ -22,6 +22,10 @@ services:
       # Email__PublicAddress: https://shelf.example.org
       # Stop new accounts once yours exists:
       # Accounts__AllowSignUp: "false"
+      # Cloudflare Turnstile on sign-in, sign-up, and password resets (both keys turn it on):
+      # Turnstile__SiteKey: 0x4AAAAAAA...
+      # Turnstile__SecretKey: 0x4AAAAAAA...
+      # Turnstile__Hostnames: shelf.example.org
       # Add books dropped into the folder mounted at /import:
       # Import__Folder: /import
       Ocr__Languages: eng
