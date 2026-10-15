@@ -454,6 +454,21 @@ app.Use(async (context, next) =>
 
     await next();
 });
+// A browser asking for a page that isn't there is shown Shelf's own, with somewhere to go; the API, and anything else
+// not asking for a page, keeps its plain 404 and every other answer as it was.
+app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.Use(async (context, next) =>
+{
+    if (context.Features.Get<Microsoft.AspNetCore.Diagnostics.IStatusCodePagesFeature>() is { } pages)
+    {
+        var endpoint = context.GetEndpoint();
+        pages.Enabled = HttpMethods.IsGet(context.Request.Method)
+            && context.Request.Headers.Accept.ToString().Contains("text/html", StringComparison.OrdinalIgnoreCase)
+            && (endpoint is null || endpoint.Metadata.GetMetadata<Microsoft.AspNetCore.Components.Endpoints.ComponentTypeMetadata>() is not null);
+    }
+
+    await next();
+});
 app.UseWebSockets();
 app.UseAuthentication();
 app.UseRequestLocalization(Regions.Configure);

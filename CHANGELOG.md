@@ -4,6 +4,12 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.17.0] - 2026-10-15
+
+### Added
+
+- **A page for addresses with nothing at them**: instead of a blank page, a browser is shown where it may have meant to go: a page whose address is a letter or two off (`/libary`), your books, authors, series, places, and collections matching the address's words, as Go to finds them, and the book at `/book/42`; with a search of the library filled in from the address, and links to Home, Library, Trash & undo, and Help. Signed out, it offers to sign in and says nothing of any shelf. It answers 404, and the API and anything not asking for a page keep their plain 404.
+
 ## [2.16.2] - 2026-10-15
 
 ### Fixed
@@ -657,7 +663,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.16.2...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.17.0...HEAD
+[2.17.0]: https://github.com/doodersrage/shelf/compare/v2.16.2...v2.17.0
 [2.16.2]: https://github.com/doodersrage/shelf/compare/v2.16.1...v2.16.2
 [2.16.1]: https://github.com/doodersrage/shelf/compare/v2.16.0...v2.16.1
 [2.16.0]: https://github.com/doodersrage/shelf/compare/v2.15.0...v2.16.0

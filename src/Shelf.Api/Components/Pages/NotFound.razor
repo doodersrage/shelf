@@ -1,8 +1,97 @@
 @page "/not-found"
 @attribute [AllowAnonymous]
 @layout MainLayout
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject NavigationManager Navigation
 
-<PageTitle>@T("Not found")</PageTitle>
+<PageTitle>@T("Not found") · Shelf</PageTitle>
 
 <h1>@T("Not found")</h1>
-<p>@T("That page is not on the shelf.")</p>
+<p class="lead">
+    @(Address is { Length: > 0 } address ? T("There's nothing at {0}.", address) : T("That page is not on the shelf."))
+    @(" ")@T("The address may be mistyped, or what was there has moved or been deleted.")
+</p>
+
+@if (!signedIn)
+{
+    <div class="actions">
+        <a class="button primary" href="/signin">@T("Sign in")</a>
+        <a class="button" href="/">@T("Shelf's front page")</a>
+    </div>
+}
+else
+{
+    @if (suggestions.Length > 0)
+    {
+        <section class="panel" aria-labelledby="perhaps">
+            <h2 id="perhaps">@T("Perhaps you were looking for")</h2>
+            <ul class="lost-hits">
+                @foreach (var hit in suggestions)
+                {
+                    <li>
+                        <a href="@hit.Href">@hit.Title</a>
+                        <span class="hint">@hit.Kind@(hit.Detail is { Length: > 0 } detail ? $" · {detail}" : "")</span>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    <form class="filters lost-search" action="/library" method="get" role="search" aria-label="@T("Search your library")">
+        <label>
+            @T("Search your library")
+            <input type="search" name="q" value="@words" maxlength="200" placeholder="@T("Title, author, ISBN, notes, quotes")" />
+        </label>
+        <button type="submit">@T("Search")</button>
+    </form>
+    <p class="hint">@T("Go to finds any page or book by a few letters: Ctrl K or / opens it from anywhere.")</p>
+
+    <div class="actions">
+        <a class="button" href="/">@T("Home")</a>
+        <a class="button" href="/library">@T("Library")</a>
+        <a class="button" href="/trash">@T("Trash & undo")</a>
+        <a class="button" href="/help">@T("Help")</a>
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? Authentication { get; set; }
+
+    private bool signedIn;
+    private string words = "";
+    private JumpHit[] suggestions = [];
+
+    // The address asked for: kept by the server when it shows this page in its place, or else the one in the browser.
+    private string? Address
+    {
+        get
+        {
+            if (HttpContext?.Features.Get<Microsoft.AspNetCore.Diagnostics.IStatusCodeReExecuteFeature>() is { } original)
+            {
+                return Fit(original.OriginalPath);
+            }
+
+            var path = new Uri(Navigation.Uri).AbsolutePath;
+            return path == "/not-found" ? null : Fit(path);
+        }
+    }
+
+    private static string Fit(string path) => path.Length > 200 ? path[..200] + "…" : path;
+
+    protected override async Task OnInitializedAsync()
+    {
+        signedIn = Authentication is not null && (await Authentication).User.Identity?.IsAuthenticated == true;
+        if (!signedIn || Address is not { Length: > 1 } address)
+        {
+            return;
+        }
+
+        words = string.Join(' ', Lost.Words(address));
+        await using var db = await DbFactory.CreateDbContextAsync();
+        suggestions = await Lost.SuggestAsync(db, address);
+    }
+}

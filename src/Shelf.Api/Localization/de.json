@@ -3356,5 +3356,11 @@
   "No books here match that.": "Hier passt kein Buch dazu.",
   "{0}–{1} of {2}": "{0}–{1} von {2}",
   "Title, author, series, ISBN": "Titel, Autor, Reihe, ISBN",
-  "Not lent out": "Nicht verliehen"
+  "Not lent out": "Nicht verliehen",
+  "There's nothing at {0}.": "Unter {0} ist nichts.",
+  "The address may be mistyped, or what was there has moved or been deleted.": "Die Adresse ist vielleicht vertippt, oder was dort war, wurde verschoben oder gelöscht.",
+  "Shelf's front page": "Startseite von Shelf",
+  "Perhaps you were looking for": "Vielleicht hast du das gesucht",
+  "Search your library": "Deine Bibliothek durchsuchen",
+  "Go to finds any page or book by a few letters: Ctrl K or / opens it from anywhere.": "Gehe zu findet jede Seite und jedes Buch mit ein paar Buchstaben: Strg K oder / öffnet es von überall."
 }

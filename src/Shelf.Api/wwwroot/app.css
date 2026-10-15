@@ -831,6 +831,28 @@ form.filters > button {
     margin: 0;
 }
 
+/* Not found: what it may have been, and a search of the library. */
+form.filters.lost-search {
+    grid-template-columns: minmax(0, 1fr) auto;
+    max-width: 40rem;
+    margin-top: var(--space-4);
+}
+
+.lost-hits {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: var(--space-2);
+}
+
+.lost-hits li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-3);
+}
+
 .toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -2961,6 +2983,10 @@ label.volume > input[type=range] {
     .filters,
     form.filters:has(> button) {
         grid-template-columns: 1fr 1fr;
+    }
+
+    form.filters.lost-search {
+        grid-template-columns: minmax(0, 1fr) auto;
     }
 
     .filters label:first-child {
