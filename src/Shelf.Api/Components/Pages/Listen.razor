@@ -3,6 +3,7 @@
 @using Microsoft.JSInterop
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject AudioStore Audio
+@inject IConfiguration Configuration
 @inject IJSRuntime Js
 @inject EbookStore Ebooks
 @inject NavigationManager Navigation
@@ -213,6 +214,7 @@ else if (book is not null)
                     </label>
                 </div>
                 <p class="hint">@T("Keys: Space plays and pauses, the arrow keys go back and forward, Shift and an arrow key moves by chapter, [ and ] change the speed, and M mutes.")</p>
+                <p class="hint"><a href="@Docs.Url(Configuration, "audiobooks", "the-player")" target="_blank" rel="noopener">@T("Everything the player does")</a></p>
             </details>
         </div>
     }

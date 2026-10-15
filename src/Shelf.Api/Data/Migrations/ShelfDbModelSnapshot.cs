@@ -41,6 +41,9 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<int>("BookId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("HistoryBrought")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("ItemId")
                         .IsRequired()
                         .HasMaxLength(100)

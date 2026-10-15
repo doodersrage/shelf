@@ -1,0 +1,79 @@
+@page "/help"
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject IConfiguration Configuration
+
+<PageTitle>@T("Help") · Shelf</PageTitle>
+
+<h1>@T("Help")</h1>
+<p class="lead">@T("Guides to every part of Shelf, with pictures. They open in a new tab, and are in English.")</p>
+
+<section class="panel" id="around">
+    <h2>@T("Finding your way")</h2>
+    <ul class="help-tips">
+        <li>@((MarkupString)T("<strong>Search or go to</strong>, at the top of the menu, finds any page or book by a few letters. On a computer, Ctrl K or / opens it from anywhere."))</li>
+        <li>@((MarkupString)T("Many pages have a <strong>?</strong> beside their name, which opens the guide to that page."))</li>
+        <li><button type="button" class="link" data-shortcuts-open>@T("Keyboard shortcuts")</button></li>
+        <li><a href="/account#menu">@T("Leave pages you don't use out of the menu")</a></li>
+    </ul>
+</section>
+
+<section class="panel" id="guides">
+    <h2>@T("Guides")</h2>
+    <ul class="help-guides">
+        @foreach (var guide in Docs.Guides().Where(guide => !guide.AdminOnly))
+        {
+            <li>
+                <a href="@Docs.Url(Configuration, guide.Page)" target="_blank" rel="noopener">@guide.Title</a>
+                <span>@guide.About</span>
+            </li>
+        }
+    </ul>
+</section>
+
+@if (admin)
+{
+    <section class="panel" id="running">
+        <h2>@T("For admins")</h2>
+        <ul class="help-guides">
+            @foreach (var guide in Docs.Guides().Where(guide => guide.AdminOnly))
+            {
+                <li>
+                    <a href="@Docs.Url(Configuration, guide.Page)" target="_blank" rel="noopener">@guide.Title</a>
+                    <span>@guide.About</span>
+                </li>
+            }
+        </ul>
+        <p class="hint">@T("Found something wrong in Shelf itself?") <a href="@($"{ShelfVersion.Source}/issues")" target="_blank" rel="noopener">@T("Tell the people who make it")</a></p>
+    </section>
+}
+
+<section class="panel" id="ask">
+    <h2>@T("Still stuck?")</h2>
+    @if (helpers.Count > 0)
+    {
+        <p>@(helpers.Count == 1
+            ? T("{0} looks after this shelf, and can help: a new password, a reader you can't find, or something that isn't working.", helpers[0])
+            : T("{0} look after this shelf, and can help: a new password, a reader you can't find, or something that isn't working.", string.Join(", ", helpers)))</p>
+    }
+    else
+    {
+        <p>@T("You look after this shelf. The guides for admins, above, cover running it.")</p>
+    }
+</section>
+
+@code {
+    private bool admin;
+    private List<string> helpers = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        admin = await ReaderRules.IsAdminAsync(db, db.ReaderId);
+
+        // Who to ask: a child's grown-up, or else the shelf's admins other than whoever is asking.
+        var guardian = await Family.GuardianOfAsync(db, db.ReaderId);
+        helpers = guardian is int grownUp
+            ? await db.Readers.AsNoTracking().Where(reader => reader.Id == grownUp).Select(reader => reader.Name).ToListAsync()
+            : await db.Readers.AsNoTracking().Where(reader => reader.IsAdmin && !reader.Suspended && reader.Id != db.ReaderId).OrderBy(reader => reader.Name).Select(reader => reader.Name).ToListAsync();
+    }
+}

@@ -42,7 +42,7 @@ test("every page passes an accessibility audit in both themes", async ({ browser
 
   const pages = ["/", "/library", "/reading", "/insights", "/library?view=list", "/library?add=1", `/library/${book.id}`, `/library/${book.id}/read`, `/library/${book.id}/listen`, "/quotes", "/search?q=ishmael",
     "/free", "/import/audiobookshelf", "/import/calibre", "/authors", "/series", "/places", "/copies", "/recommenders", "/years", `/years/${year}`, "/loans", "/shelves", "/collections", `/collections/${collection.id}`, "/duplicates", "/clubs", `/clubs/${club.id}`, "/stats", "/backup", "/sync", "/account", "/admin", "/next", "/podcasts", "/downloads", "/wanted", "/find", "/find?q=Harbour", "/tidy", "/activity", "/journal", "/map", `/map?book=${book.id}`, "/scan", "/add", "/trash", "/labels?place=Study", `/c/${paper.id}`, "/agenda", "/dna", "/research", `/research/${topic.id}`, "/words", "/import/spreadsheet",
-    "/places/labels", `/places/${room.id}`, "/moving", "/queue", "/rules", "/lifecycle", "/ask", "/ask?q=sea%20stories", "/account/legacy", "/admin/health", "/admin/access", "/admin?tab=tab-backups", "/admin?tab=tab-system", "/admin?tab=tab-activity", "/search?q=ferry&in=mine"];
+    "/places/labels", `/places/${room.id}`, "/moving", "/queue", "/rules", "/lifecycle", "/ask", "/ask?q=sea%20stories", "/account/legacy", "/admin/health", "/admin/access", "/admin?tab=tab-backups", "/admin?tab=tab-system", "/admin?tab=tab-activity", "/help", "/search?q=ferry&in=mine"];
   const failures = [];
   for (const scheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: scheme });

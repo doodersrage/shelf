@@ -182,7 +182,7 @@ else
 </section>
 
 <section class="panel" id="password">
-<h2>@(passwordUnknown ? T("Set a password") : T("Change the password"))</h2>
+<div class="titled"><h2>@(passwordUnknown ? T("Set a password") : T("Change the password"))</h2><HelpLink Page="security" Section="signing-in" /></div>
 <EditForm Model="form" OnValidSubmit="ChangePassword">
     @if (passwordUnknown)
     {
@@ -214,7 +214,7 @@ else
 </section>
 
 <section class="panel" id="two-step">
-<h2>@T("Two-step sign-in")</h2>
+<div class="titled"><h2>@T("Two-step sign-in")</h2><HelpLink Page="security" Section="two-step-sign-in" /></div>
 @if (twoFactorOn)
 {
     <p>@T("On. Signing in asks for a code from your authenticator app after the password.")</p>
@@ -670,7 +670,7 @@ else
 @if (tab == "tab-notices")
 {
 <section class="panel" id="notices">
-<h2>@T("Notifications")</h2>
+<div class="titled"><h2>@T("Notifications")</h2><HelpLink Page="notifications" Section="what-you-hear-about" /></div>
 <p class="hint">@T("Shelf can tell you when someone lends you a book or asks to borrow one, when a loan is due, about new books in your series, and about your book clubs: by email, on this device, or by ntfy or Gotify.")</p>
 <fieldset class="audible-take">
     <legend>@T("Tell me about")</legend>

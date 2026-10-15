@@ -1,11 +1,12 @@
 @page "/admin/health"
+@inject IConfiguration Configuration
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject ShelfHealth Health
 @inject ReleaseWatch Releases
 
 <PageTitle>@T("Server health") · Shelf</PageTitle>
 
-<h1>@T("Server health")</h1>
+<div class="titled"><h1>@T("Server health")</h1><HelpLink Page="backups" Section="health-checks" /></div>
 
 @if (!allowed)
 {
@@ -46,6 +47,10 @@ else if (report is not null)
                             @if (item.Fix is { } fix)
                             {
                                 <p class="health-fix">@fix</p>
+                            }
+                            @if (item.Help is { } help && (item.Fix is not null || item.State != HealthState.Good))
+                            {
+                                <p><a href="@Docs.Url(Configuration, help.Page, help.Section)" target="_blank" rel="noopener">@T("How to set this up")</a></p>
                             }
                             @if (item.Detail is { Length: > 0 } detail)
                             {

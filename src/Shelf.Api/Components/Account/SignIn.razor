@@ -60,6 +60,7 @@ else if (Notice == "confirmed")
 </div>
 
 <p class="hint">@T("New to this shelf?") <a href="@SignUpHref">@T("Make an account")</a></p>
+<p class="hint"><a href="@Docs.Url(Configuration, "security", "signing-in")" target="_blank" rel="noopener">@T("Help with signing in")</a></p>
 @if (Email.Enabled)
 {
     <p class="hint"><a href="/forgot">@T("Forgot the password?")</a></p>

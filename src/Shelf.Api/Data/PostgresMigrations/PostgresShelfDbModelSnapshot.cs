@@ -48,6 +48,9 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Property<int>("BookId")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("HistoryBrought")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("ItemId")
                         .IsRequired()
                         .HasMaxLength(100)

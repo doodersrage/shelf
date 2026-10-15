@@ -92,11 +92,23 @@ From **Backup & restore**, **Connect to Audiobookshelf** copies books from an [A
 
 A Calibre import, from **Bring a Calibre library**, shows its progress the same way.
 
-Each book comes across with its audio tracks in Audiobookshelf's order, its e-book, cover, series and number, narrator, and genres as tags. Tick **Bring where I stopped** to bring your listening place, your place in the e-book, and which books you finished.
+Each book comes across with its audio tracks in Audiobookshelf's order, its e-book, cover, series and number, narrator, and genres as tags. Under **Bring my reading too**, each ticked from the start:
+
+- **Where I stopped**: your place in the audiobook and the e-book, which books you finished, and the days you started and finished each.
+- **My bookmarks**, with their names, in the player's bookmarks.
+- **My listening history**: how long you listened each day, so **Insights**, your goals, and your streak include your time in Audiobookshelf.
+- **My collections and playlists**, each as a collection of the books in it that are on your shelf.
+- **For the books already on my shelf too**: all of the above for books you have here already, without their files coming again. Bring it again later and your place moves on to where you are now; bookmarks and listening history are never doubled.
+
+### Everyone on the shelf
+
+Each reader brings their own: they sign in to Shelf as themselves and connect their own Audiobookshelf account, so their books land on their shelf with their own reading.
+
+An admin of this shelf who is also an admin of Audiobookshelf can bring everyone's at once. Connect with an Audiobookshelf admin's API key, and under **Bring everyone's books and reading**, **List Audiobookshelf's users**. Each is matched to the reader here with the same email address, or else the same name; choose another, **Leave out**, or **Invite** someone with no account here yet. Then choose **The books each person has started or finished** or **Every book in this library**, and **Bring for everyone chosen**: each reader's books come to their own shelf, with their own reading and the choices above, one reader after another, and each reader sees how it goes on their pages. Books on a reader's shelf are their own copies, so bringing the whole library for everyone takes that much room for each. Someone invited can bring their own once they have joined.
 
 ### Keeping in step
 
-Connected with an API key, tick **Keep in step** before bringing books, and Shelf looks at that library once a day from then on, bringing across books added to it since. It knows each Audiobookshelf book it has brought, so none comes twice, and a book already on your shelf by title and author is left alone. The Audiobookshelf page shows when it last looked and what it found, with **Check now** and **Stop keeping in step**. Shelf keeps the API key for this, sealed with its own keys, until you stop; a password can't be used, since Audiobookshelf's sign-in by password doesn't last. One library is kept in step for each reader. `AbsSync:Enabled` set to `false` turns it off for the whole shelf.
+Connected with an API key, tick **Keep in step** before bringing books, and Shelf looks at that library once a day from then on, bringing across books added to it since. It knows each Audiobookshelf book it has brought, so none comes twice, and a book already on your shelf by title and author is left alone. The Audiobookshelf page shows when it last looked and what it found, with **Check now** and **Stop keeping in step**. With **Where I stopped** ticked, new books come with your place, bookmarks, and listening history. Shelf keeps the API key for this, sealed with its own keys, until you stop; a password can't be used, since Audiobookshelf's sign-in by password doesn't last. One library is kept in step for each reader. `AbsSync:Enabled` set to `false` turns it off for the whole shelf.
 
 > [!TIP]
 > The Audiobookshelf user needs permission to download (**Can Download** in its Users settings). Nothing on the Audiobookshelf server changes. If it is served under a path, include it in the address, such as `https://example.org/audiobookshelf`.

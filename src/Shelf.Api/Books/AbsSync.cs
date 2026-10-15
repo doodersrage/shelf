@@ -14,6 +14,9 @@ public sealed class AbsLink
     public required string Server { get; set; }
     public required string ItemId { get; set; }
     public int BookId { get; set; }
+
+    // The reader's listening history for this book has come across, so it is never added twice.
+    public bool HistoryBrought { get; set; }
 }
 
 // A library kept in step: every day, books new to it come across to the reader's shelf. Its API key is kept,
@@ -144,7 +147,7 @@ public sealed class AbsKeeper(IServiceScopeFactory scopes, IHttpClientFactory cl
             var fresh = items.Where(item => !brought.Contains(item.Id) && !shelf.Contains(Key(item.Title, item.Author))).ToList();
             if (fresh.Count > 0)
             {
-                importer.Start(setting.ReaderId, connection, setting.BringProgress, fresh);
+                importer.Start(setting.ReaderId, connection, AbsOptions.Place(setting.BringProgress), fresh);
             }
 
             (setting.LastFound, setting.Problem) = (fresh.Count, null);

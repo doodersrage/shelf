@@ -5,13 +5,17 @@
 @inject IHttpClientFactory Http
 @inject AbsImporter Importer
 @inject AbsKeeper Keeper
+@inject IEmailSender Email
+@inject IConfiguration Configuration
+@inject NavigationManager Navigation
 @implements IDisposable
 
 <PageTitle>Audiobookshelf · Shelf</PageTitle>
 
 <p class="hint"><a href="/backup">@T("Backup & restore")</a></p>
 <h1>@T("Bring books from Audiobookshelf")</h1>
-<p class="hint">@T("Copies audiobooks and e-books from an Audiobookshelf server to your shelf: their files, covers, series, and genres, and where you stopped, if you like. Nothing on the Audiobookshelf server changes. Books already on your shelf are left alone.") <a href="https://www.audiobookshelf.org" rel="noopener">audiobookshelf.org</a></p>
+<p class="hint">@T("Copies audiobooks and e-books from an Audiobookshelf server to your shelf: their files, covers, series, and genres, and, if you like, where you stopped, your bookmarks, your listening history, and your collections. Nothing on the Audiobookshelf server changes. Books already on your shelf don't come again.") <a href="https://www.audiobookshelf.org" rel="noopener">audiobookshelf.org</a></p>
+<p class="hint">@T("Everyone on this shelf brings their own: each signs in to Shelf as themselves and connects their own Audiobookshelf account here.")</p>
 
 @if (kept is { } sync)
 {
@@ -154,10 +158,32 @@ else
                     </div>
                 </Virtualize>
             </div>
-            <label class="check">
-                <input type="checkbox" @bind="bringProgress" />
-                @T("Bring where I stopped listening or reading, and which books I finished")
-            </label>
+            <fieldset class="audible-take">
+                <legend>@T("Bring my reading too")</legend>
+                <label class="check">
+                    <input type="checkbox" @bind="placeOn" />
+                    @T("Where I stopped listening or reading, and when I started and finished each book")
+                </label>
+                <label class="check">
+                    <input type="checkbox" @bind="bookmarksOn" />
+                    @T("My bookmarks")
+                </label>
+                <label class="check">
+                    <input type="checkbox" @bind="historyOn" />
+                    @T("My listening history, for Insights and my goals")
+                </label>
+                <label class="check">
+                    <input type="checkbox" @bind="listsOn" />
+                    @T("My collections and playlists, as collections")
+                </label>
+                @if (onShelf.Count > 0)
+                {
+                    <label class="check">
+                        <input type="checkbox" @bind="updateExisting" />
+                        @T("Bring all of this for the {0} already on my shelf too, without their files", Localization.Counts.Books(onShelf.Count))
+                    </label>
+                }
+            </fieldset>
             @if (keptKey is not null)
             {
                 <label class="check">
@@ -170,7 +196,76 @@ else
             {
                 <p class="hint">@T("To keep in step with this library every day, connect with an API key rather than a password.")</p>
             }
-            <button type="button" class="primary" @onclick="Import" disabled="@(chosen.Count == 0 || !connection.CanDownload)">@T("Bring {0}", Localization.Counts.Books(chosen.Count))</button>
+            <button type="button" class="primary" @onclick="Import" disabled="@(Updating.Count == 0 && (chosen.Count == 0 || !connection.CanDownload))">
+                @(Updating.Count > 0 ? T("Bring {0}, and my reading for {1} already here", Localization.Counts.Books(chosen.Count), Updating.Count.ToString("N0")) : T("Bring {0}", Localization.Counts.Books(chosen.Count)))
+            </button>
+
+            @if (isAdmin && connection.Admin)
+            {
+                @* An admin of both: everyone's books and reading, each to their own shelf. *@
+                <details class="panel abs-everyone" open="@(absUsers is not null)">
+                    <summary>@T("Bring everyone's books and reading")</summary>
+                    <p class="hint">@T("You are an admin of this shelf and of Audiobookshelf, so you can bring each Audiobookshelf user's books and reading to the shelf of the reader they are here, with the choices above. Each reader's books are copies of their own, so this takes room for each.")</p>
+                    @if (absUsers is null)
+                    {
+                        <button type="button" @onclick="LoadUsers" disabled="@busy">@T("List Audiobookshelf's users")</button>
+                    }
+                    else
+                    {
+                        <ul class="abs-users">
+                            @foreach (var absUser in absUsers)
+                            {
+                                <li>
+                                    <label>
+                                        <span><strong>@absUser.Name</strong>@if (absUser.Email is not null) { <span class="hint"> · @absUser.Email</span> }</span>
+                                        <select value="@(mapping.GetValueOrDefault(absUser.Id) ?? "")" @onchange="change => mapping[absUser.Id] = change.Value?.ToString() ?? string.Empty">
+                                            <option value="">@T("Leave out")</option>
+                                            @foreach (var shelfReader in shelfReaders)
+                                            {
+                                                <option value="@($"r:{shelfReader.Id}")">@T("To {0}'s shelf", shelfReader.Name)</option>
+                                            }
+                                            @if (absUser.Email is not null && shelfReaders.All(item => !string.Equals(item.Email, absUser.Email, StringComparison.OrdinalIgnoreCase)))
+                                            {
+                                                <option value="invite">@T("Invite {0} to Shelf", absUser.Email)</option>
+                                            }
+                                        </select>
+                                    </label>
+                                </li>
+                            }
+                        </ul>
+                        <fieldset class="audible-take">
+                            <legend>@T("Which books")</legend>
+                            <label class="check"><input type="radio" name="everyone" checked="@everyoneStarted" @onchange="() => everyoneStarted = true" /> @T("The books each person has started or finished")</label>
+                            <label class="check"><input type="radio" name="everyone" checked="@(!everyoneStarted)" @onchange="() => everyoneStarted = false" /> @T("Every book in this library, for each of them")</label>
+                        </fieldset>
+                        <button type="button" class="primary" @onclick="BringEveryone" disabled="@(mapping.Values.All(value => value.Length == 0))">@T("Bring for everyone chosen")</button>
+                        <p class="hint">@T("Someone invited can bring their own once they have joined, or you can come back here then.")</p>
+                    }
+                    @if (everyoneNote is not null)
+                    {
+                        <p class="saved" role="status">@everyoneNote</p>
+                    }
+                    @if (everyoneJobs.Count > 0)
+                    {
+                        <ul class="tag-counts" role="status">
+                            @foreach (var started in everyoneJobs)
+                            {
+                                var lines = started.Books.Values;
+                                <li>
+                                    <span>@started.ForName</span>
+                                    <span class="hint">@(started.Finished
+                                        ? T("{0} brought, {1} already there, {2} could not come", lines.Count(line => line.State == AbsState.Done), lines.Count(line => line.State == AbsState.Skipped), lines.Count(line => line.State == AbsState.Failed))
+                                        : T("{0} of {1} done", lines.Count(line => line.State is not (AbsState.Waiting or AbsState.Downloading)), started.Items.Count))</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </details>
+            }
+            else if (isAdmin)
+            {
+                <p class="hint">@T("To bring everyone's books and reading at once, connect with an Audiobookshelf admin's API key.")</p>
+            }
         }
         else if (items is not null)
         {
@@ -197,7 +292,16 @@ else
     private List<AbsItem>? items;
     private HashSet<string> onShelf = [];
     private HashSet<string> chosen = [];
-    private bool bringProgress = true;
+    private bool placeOn = true;
+    private bool bookmarksOn = true;
+    private bool historyOn = true;
+    private bool listsOn = true;
+    private bool updateExisting = true;
+
+    private AbsOptions Options => new(placeOn, bookmarksOn, historyOn, listsOn, updateExisting);
+
+    // The books already here whose reading comes across, when asked for.
+    private HashSet<string> Updating => updateExisting && Options.Any ? onShelf : [];
     private AbsImportJob? job;
     private int readerId;
     private bool isAdmin;
@@ -219,9 +323,10 @@ else
         {
             timer = new Timer(_ =>
             {
-                if (listing is not null || job is { Finished: false } || (job is not null && !shownFinished))
+                if (listing is not null || job is { Finished: false } || (job is not null && !shownFinished) || everyoneJobs.Any(item => !item.Finished) || everyoneJobs.Count > shownEveryone)
                 {
                     shownFinished = job?.Finished == true;
+                    shownEveryone = everyoneJobs.Count(item => item.Finished);
                     InvokeAsync(StateHasChanged);
                 }
             }, null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
@@ -229,6 +334,7 @@ else
     }
 
     private bool shownFinished;
+    private int shownEveryone;
     private (int Listed, int Total)? listing;
     private CancellationTokenSource? listingStop;
     private string filter = "";
@@ -365,14 +471,100 @@ else
             return;
         }
 
-        job = Importer.Start(readerId, connection, bringProgress, items.Where(item => chosen.Contains(item.Id)).ToList(), isAdmin);
+        var updating = Updating;
+        job = Importer.Start(readerId, connection, Options, items.Where(item => chosen.Contains(item.Id) || updating.Contains(item.Id)).ToList(), isAdmin);
         if (keepInStep && keptKey is not null)
         {
             await using var db = await DbFactory.CreateDbContextAsync();
             var library = connection.Libraries.FirstOrDefault(item => item.Id == libraryId);
-            await Keeper.KeepAsync(db, connection.Server, keptKey, libraryId, library?.Name ?? libraryId, bringProgress);
+            await Keeper.KeepAsync(db, connection.Server, keptKey, libraryId, library?.Name ?? libraryId, placeOn);
             kept = await AbsKeeper.StateAsync(db);
         }
+    }
+
+    private List<AbsUser>? absUsers;
+    private List<(int Id, string Name, string? Email)> shelfReaders = [];
+    private readonly Dictionary<string, string> mapping = [];
+    private bool everyoneStarted = true;
+    private string? everyoneNote;
+    private readonly List<AbsImportJob> everyoneJobs = [];
+
+    private string Site => EmailRules.PublicAddress(Configuration, null) is { Length: > 0 } configured ? configured : Navigation.BaseUri.TrimEnd('/');
+
+    // Audiobookshelf's users, each matched to the reader here with the same address, or else the same name.
+    private async Task LoadUsers()
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        busy = true;
+        problem = null;
+        try
+        {
+            absUsers = await AbsClient.UsersAsync(Http.CreateClient(AbsClient.ClientFor(isAdmin)), connection, CancellationToken.None);
+            await using var db = await DbFactory.CreateDbContextAsync();
+            shelfReaders = [.. (await db.Readers.AsNoTracking().Where(reader => reader.SandboxOf == null && !reader.Suspended)
+                .Select(reader => new { reader.Id, reader.Name, Email = reader.NormalizedEmail == null ? null : reader.Email }).ToListAsync())
+                .OrderBy(reader => reader.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(reader => (reader.Id, reader.Name, reader.Email))];
+            foreach (var absUser in absUsers)
+            {
+                var match = shelfReaders.FirstOrDefault(reader => absUser.Email is not null && string.Equals(reader.Email, absUser.Email, StringComparison.OrdinalIgnoreCase));
+                if (match.Name is null)
+                {
+                    match = shelfReaders.FirstOrDefault(reader => string.Equals(reader.Name, absUser.Name, StringComparison.OrdinalIgnoreCase));
+                }
+
+                mapping[absUser.Id] = match.Name is not null ? $"r:{match.Id}" : "";
+            }
+        }
+        catch (Exception ex) when (ex is AbsProblem or System.Text.Json.JsonException or KeyNotFoundException or InvalidOperationException)
+        {
+            problem = ex is AbsProblem ? ex.Message : T("Audiobookshelf did not list its users.");
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    // An import for each reader chosen, in turn, and an invitation for each to be invited.
+    private async Task BringEveryone()
+    {
+        if (connection is null || items is null || absUsers is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (!await ReaderRules.IsAdminAsync(db, db.ReaderId))
+        {
+            return;
+        }
+
+        var invites = new List<string>();
+        var brought = 0;
+        foreach (var absUser in absUsers)
+        {
+            var choice = mapping.GetValueOrDefault(absUser.Id) ?? "";
+            if (choice == "invite" && absUser.Email is not null)
+            {
+                invites.Add(absUser.Email);
+            }
+            else if (choice.StartsWith("r:", StringComparison.Ordinal) && int.TryParse(choice[2..], out var target) && shelfReaders.FirstOrDefault(reader => reader.Id == target) is { Name: not null } reader)
+            {
+                everyoneJobs.Add(Importer.Start(target, connection, Options, items, admin: true, absUserId: absUser.Id, forName: reader.Name, startedOnly: everyoneStarted));
+                brought++;
+            }
+        }
+
+        var invited = invites.Count == 0 ? [] : await Management.InviteAsync(db, Email, string.Join(',', invites), Site);
+        await Audit.NoteAsync(db, Say("Brought everyone's books from Audiobookshelf"), detail: $"{brought} readers, {invites.Count} invited");
+        everyoneNote = invites.Count == 0
+            ? T("Bringing books for {0}. Each reader sees how it goes on their own pages too.", Localization.Counts.Readers(brought))
+            : T("Bringing books for {0}, and invited {1}.", Localization.Counts.Readers(brought), string.Join(", ", invited.Where(made => made.Problem is null).Select(made => made.Email)));
     }
 
     private bool keepInStep;

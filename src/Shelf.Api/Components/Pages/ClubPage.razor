@@ -15,7 +15,7 @@
 else
 {
     <p class="hint"><a href="/clubs">@T("Book clubs")</a></p>
-    <h1>@club.Name</h1>
+    <div class="titled"><h1>@club.Name</h1><HelpLink Page="lending" Section="book-clubs" /></div>
     @if (club.Description is not null)
     {
         <p class="collection-description">@club.Description</p>

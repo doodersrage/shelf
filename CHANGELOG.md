@@ -4,9 +4,18 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.16.0] - 2026-10-15
+
 ### Added
 
+- **Help in the app**: a **Help** page, under **Settings** and at the foot of the menu (and found by Go to as "help", "docs", or "manual"), lists the guides in plain words and says who looks after the shelf; a **?** beside the name of many pages opens the guide to that page; **Server health** links each fix to how to make it; and the sign-in page links to help with signing in. `DocsUrl` points them at a shelf's own copy of the guides.
 - **[Features](https://doodersrage.github.io/shelf/features.html)**: a page of the documentation showing everything Shelf does, part by part, with screenshots, and screenshots in the guides beside what they describe: the library, Go to, the compact table, the reader, the player, loans, book clubs, adding books, devices, notifications and their emails, accounts, Shelf admin, invitations, and Server health.
+
+- **More from Audiobookshelf**: an import brings, if you like, your bookmarks, your listening history (so Insights, goals, and the streak include it), the days you started and finished each book, and your collections and playlists as collections, besides where you stopped; and all of it for books already on your shelf, without their files coming again. An admin of both can bring every Audiobookshelf user's books and reading to the shelf of the reader they are here, matched by email or name, only the books each started or every book, inviting those not here yet.
+
+### Fixed
+
+- **"This page's buttons cannot reach Shelf" when nothing was wrong**: the banner is for a live connection that never comes up (an extension or privacy setting blocking it). It also showed when a working connection dropped and was slow to come back, as after a laptop sleeps, a phone changes networks, or a tab sits in the background, and then stayed even once the connection was back. Now a dropped connection is left to Blazor's own reconnecting bar, a connection that comes up late takes the banner away, and time a tab spends hidden doesn't count.
 
 ## [2.15.0] - 2026-10-15
 
@@ -636,7 +645,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.15.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.16.0...HEAD
+[2.16.0]: https://github.com/doodersrage/shelf/compare/v2.15.0...v2.16.0
 [2.15.0]: https://github.com/doodersrage/shelf/compare/v2.14.2...v2.15.0
 [2.14.2]: https://github.com/doodersrage/shelf/compare/v2.14.1...v2.14.2
 [2.14.1]: https://github.com/doodersrage/shelf/compare/v2.14.0...v2.14.1

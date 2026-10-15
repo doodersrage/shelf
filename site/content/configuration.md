@@ -22,6 +22,7 @@ Settings can come from environment variables, from `appsettings.json` beside the
 | --- | --- | --- |
 | `Accounts:AllowSignUp` | `true` | Whether new accounts can be made, until an admin chooses under **Who may sign up** on **Shelf admin**, which then decides. The first account can always be made. |
 | `Accounts:SignInsPerMinute` | `10` | Sign-in and sign-up attempts allowed a minute from one address. |
+| `DocsUrl` | `https://doodersrage.github.io/shelf/` | Where **Help** and the **?** beside a page's name send readers, for a shelf that keeps its own copy of these guides. |
 
 ### Cloudflare Turnstile
 

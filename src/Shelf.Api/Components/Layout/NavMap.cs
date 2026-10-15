@@ -94,6 +94,7 @@ public static class NavMap
             new("/account/legacy", T("Your library's future"), "legacy estate plan", NavNeed.Grown),
             new("/sync", T("Devices"), "kobo koreader sync opds e-reader"),
             new("/offline.html", T("Offline reading"), "offline"),
+            new("/help", T("Help"), "help docs documentation guide manual how support faq question"),
         ], Hideable: false),
         new("admin", T("Admin"),
         [

@@ -15,7 +15,11 @@ public enum HealthState
 
 // One thing about the server: how it stands in plain words, what to do about it, and the detail behind it for whoever
 // looks after the machine.
-public sealed record HealthItem(string Area, string Name, HealthState State, string Says, string? Fix = null, string? Detail = null);
+public sealed record HealthItem(string Area, string Name, HealthState State, string Says, string? Fix = null, string? Detail = null)
+{
+    // Where the documentation explains it, as a guide and a section of it (see Docs).
+    public DocsPlace? Help { get; init; }
+}
 
 public sealed record HealthReport(DateTimeOffset At, string Version, HealthItem[] Items, Heartbeat[] Jobs)
 {
@@ -203,7 +207,19 @@ public sealed class ShelfHealth(
             recaps.Ready ? T("Recaps, and questions in your own words, can ask Anthropic.") : T("Recaps are off: no Anthropic key is set."),
             recaps.Ready ? null : T("Set Recap:ApiKey to turn them on; everything else works without it.")));
 
-        return new HealthReport(now, version, [.. items], [.. Heartbeats.All]);
+        // Each thing that can need fixing links to how to fix it.
+        var help = new Dictionary<string, DocsPlace>
+        {
+            [T("Updates")] = new("install", "updating"),
+            [T("Nightly backups")] = new("configuration", "nightly-backups"),
+            [T("Copies elsewhere")] = new("configuration", "nightly-backups"),
+            [T("Stored files")] = new("backups", "checking-files"),
+            [T("Disk space")] = new("server", "disk-space"),
+            [T("Email")] = new("configuration", "email"),
+            [T("Turnstile")] = new("configuration", "cloudflare-turnstile"),
+            [T("Reading scanned pages")] = new("server", "ocr-for-scanned-pdfs"),
+        };
+        return new HealthReport(now, version, [.. items.Select(item => help.TryGetValue(item.Name, out var where) ? item with { Help = where } : item)], [.. Heartbeats.All]);
     }
 
     public static string StateLabel(HealthState state) => state switch

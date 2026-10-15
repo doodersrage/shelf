@@ -2196,6 +2196,90 @@ progress.goal {
     margin: 0;
 }
 
+/* Audiobookshelf's users, each with where their books go. */
+.abs-users {
+    list-style: none;
+    padding: 0;
+    margin: var(--space-3) 0;
+}
+
+.abs-users li {
+    border-top: 1px solid var(--color-rule);
+    padding: var(--space-2) 0;
+}
+
+.abs-users label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-4);
+    margin: 0;
+}
+
+.abs-users select {
+    flex: 0 1 20rem;
+}
+
+/* Help: a small "?" beside a heading, opening the guide to the page; and the Help page's lists. */
+.titled {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--space-2);
+}
+
+.help-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex: none;
+    border: 1px solid var(--color-rule);
+    border-radius: 50%;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--color-muted);
+    text-decoration: none;
+}
+
+.help-link:hover,
+.help-link:focus-visible {
+    color: var(--color-ink);
+    border-color: var(--color-ink);
+}
+
+.help-guides,
+.help-tips {
+    list-style: none;
+    padding: 0;
+    margin: var(--space-2) 0;
+}
+
+.help-guides li {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-3) 0;
+    border-top: 1px solid var(--color-rule);
+}
+
+.help-guides a {
+    font-weight: 600;
+}
+
+.help-guides span {
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+}
+
+.help-tips li {
+    padding: var(--space-1) 0;
+}
+
 /* Cloudflare Turnstile in a public form: room kept for it, so the button doesn't jump when it is drawn. */
 .cf-turnstile {
     min-height: 65px;
