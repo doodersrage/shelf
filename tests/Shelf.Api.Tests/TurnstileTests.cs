@@ -42,12 +42,21 @@ public sealed class TurnstileTests(ShelfApiFactory factory) : IClassFixture<Shel
 
         // Made for another form, or on another site.
         Assert.False(await turnstile.VerifyAsync("token", TurnstileActions.SignUp, null, CancellationToken.None));
+        Assert.Equal(TurnstileTrouble.Action, Turnstile.Problem?.Trouble);
         Assert.False(await Make(Settings(), () => Json("""{"success":true,"action":"signin","hostname":"evil.example"}""")).Turnstile.VerifyAsync("token", "signin", null, CancellationToken.None));
+
+        // Each refusal is kept for Server health, saying why, until a check passes.
+        Assert.Equal(new { Trouble = TurnstileTrouble.Hostname, Detail = "evil.example" }, new { Turnstile.Problem!.Trouble, Turnstile.Problem.Detail });
+        Assert.False(await Make(Settings(), () => Json("""{"success":false,"error-codes":["invalid-input-secret"]}""")).Turnstile.VerifyAsync("token", "signin", null, CancellationToken.None));
+        Assert.Equal(TurnstileTrouble.Secret, Turnstile.Problem?.Trouble);
+        Assert.True(await turnstile.VerifyAsync("token", TurnstileActions.SignIn, null, CancellationToken.None));
+        Assert.Null(Turnstile.Problem);
 
         // Turned down, an error, or no answer at all: no.
         Assert.False(await Make(Settings(), () => Json("""{"success":false,"error-codes":["timeout-or-duplicate"]}""")).Turnstile.VerifyAsync("token", "signin", null, CancellationToken.None));
         Assert.False(await Make(Settings(), () => Json("{}", HttpStatusCode.InternalServerError)).Turnstile.VerifyAsync("token", "signin", null, CancellationToken.None));
         Assert.False(await Make(Settings(), () => throw new HttpRequestException("unreachable")).Turnstile.VerifyAsync("token", "signin", null, CancellationToken.None));
+        Assert.Equal(TurnstileTrouble.Unreachable, Turnstile.Problem?.Trouble);
         Assert.False(await Make(Settings(), () => Json("not json")).Turnstile.VerifyAsync("token", "signin", null, CancellationToken.None));
 
         // No token, or one too long to be real, is never sent.

@@ -3342,5 +3342,14 @@
   "Which books": "Qué libros",
   "You are an admin of this shelf and of Audiobookshelf, so you can bring each Audiobookshelf user's books and reading to the shelf of the reader they are here, with the choices above. Each reader's books are copies of their own, so this takes room for each.": "Eres administrador de este Shelf y de Audiobookshelf, así que puedes traer los libros y la lectura de cada usuario de Audiobookshelf a la estantería del lector que es aquí, con las opciones de arriba. Los libros de cada lector son copias propias, así que esto ocupa espacio por cada uno.",
   "{0} brought, {1} already there, {2} could not come": "{0} traídos, {1} ya estaban, {2} no pudieron venir",
-  "{0} of {1} done": "{0} de {1} hechos"
+  "{0} of {1} done": "{0} de {1} hechos",
+  "The last check was made on {0}, which isn't a host the shelf expects ({1}), so the form was refused.": "La última comprobación se hizo en {0}, que no es un host que Shelf espera ({1}), así que el formulario se rechazó.",
+  "Add {0} to Turnstile:Hostnames if the shelf is reached there, or reach it at {1}.": "Añade {0} a Turnstile:Hostnames si Shelf se abre allí, o ábrelo en {1}.",
+  "Cloudflare doesn't know Turnstile:SecretKey, so every form it guards is refused.": "Cloudflare no reconoce Turnstile:SecretKey, así que se rechazan todos los formularios que protege.",
+  "Copy the secret key again from the widget in Cloudflare's dashboard.": "Vuelve a copiar la clave secreta del widget en el panel de Cloudflare.",
+  "The last check was made for another form ({0}), so it was refused.": "La última comprobación se hizo para otro formulario ({0}), así que se rechazó.",
+  "The last check could not reach Cloudflare ({0}), so the form was refused.": "La última comprobación no pudo contactar con Cloudflare ({0}), así que el formulario se rechazó.",
+  "Shelf must be able to reach challenges.cloudflare.com.": "Shelf tiene que poder conectarse a challenges.cloudflare.com.",
+  "Cloudflare refused the last check ({0}).": "Cloudflare rechazó la última comprobación ({0}).",
+  "A check lasts five minutes and is used once. If it keeps happening, make sure the site key and secret key are from the same widget.": "Una comprobación dura cinco minutos y se usa una sola vez. Si sigue pasando, asegúrate de que la clave del sitio y la clave secreta son del mismo widget."
 }

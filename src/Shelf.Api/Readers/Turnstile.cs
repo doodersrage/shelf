@@ -27,6 +27,18 @@ public static class TurnstileActions
     public const string Field = "cf-turnstile-response";
 }
 
+// Why the last check refused a form, for Server health: kept until a check passes.
+public enum TurnstileTrouble
+{
+    Hostname,
+    Action,
+    Secret,
+    Refused,
+    Unreachable,
+}
+
+public sealed record TurnstileProblem(TurnstileTrouble Trouble, string Detail, DateTimeOffset At);
+
 public sealed class Turnstile(HttpClient http, IConfiguration configuration, ILogger<Turnstile> logger) : ITurnstile
 {
     private const string Siteverify = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
@@ -35,6 +47,9 @@ public sealed class Turnstile(HttpClient http, IConfiguration configuration, ILo
     public string? SiteKey => configuration["Turnstile:SiteKey"] is { Length: > 0 } key ? key.Trim() : null;
 
     private string? Secret => configuration["Turnstile:SecretKey"] is { Length: > 0 } secret ? secret.Trim() : null;
+
+    // The last refusal that was not the visitor's own doing, until a check passes; one for the whole shelf.
+    public static TurnstileProblem? Problem { get; private set; }
 
     public bool Enabled => SiteKey is not null && Secret is not null && Hostnames(configuration).Count > 0;
 
@@ -73,24 +88,41 @@ public sealed class Turnstile(HttpClient http, IConfiguration configuration, ILo
             using var response = await http.PostAsync(Siteverify, new FormUrlEncodedContent(form), timeout.Token);
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogWarning("Turnstile's check answered {Status}; the form was refused.", (int)response.StatusCode);
-                return false;
+                return Refuse(TurnstileTrouble.Unreachable, $"HTTP {(int)response.StatusCode}");
             }
 
             var answer = await response.Content.ReadFromJsonAsync<Answer>(timeout.Token);
-            if (answer?.ErrorCodes is { Length: > 0 } codes && codes.Contains("invalid-input-secret"))
+            if (answer is not { Success: true })
             {
-                logger.LogWarning("Turnstile does not know Turnstile:SecretKey; every form it guards is refused until it is right.");
+                var codes = answer?.ErrorCodes is { Length: > 0 } given ? given : ["no answer"];
+                return Refuse(codes.Contains("invalid-input-secret") ? TurnstileTrouble.Secret : TurnstileTrouble.Refused, string.Join(", ", codes));
             }
 
-            return answer is { Success: true }
-                && string.Equals(answer.Action, action, StringComparison.Ordinal)
-                && answer.Hostname is { } hostname && hostnames.Contains(hostname.ToLowerInvariant());
+            if (!string.Equals(answer.Action, action, StringComparison.Ordinal))
+            {
+                return Refuse(TurnstileTrouble.Action, $"{answer.Action ?? "none"} ≠ {action}");
+            }
+
+            if (answer.Hostname is not { } hostname || !hostnames.Contains(hostname.ToLowerInvariant()))
+            {
+                return Refuse(TurnstileTrouble.Hostname, answer.Hostname ?? "none");
+            }
+
+            Problem = null;
+            return true;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             // Out of reach, too slow, or an answer that is not Turnstile's: no.
             logger.LogWarning(ex, "Turnstile's check did not finish; the form was refused.");
+            Problem = new TurnstileProblem(TurnstileTrouble.Unreachable, ex.Message, DateTimeOffset.UtcNow);
+            return false;
+        }
+
+        bool Refuse(TurnstileTrouble trouble, string detail)
+        {
+            logger.LogWarning("Turnstile refused a {Action} form: {Trouble} ({Detail}); expected hosts {Hostnames}.", action, trouble, detail, string.Join(", ", hostnames));
+            Problem = new TurnstileProblem(trouble, detail, DateTimeOffset.UtcNow);
             return false;
         }
     }

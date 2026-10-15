@@ -3342,5 +3342,14 @@
   "Which books": "Welche Bücher",
   "You are an admin of this shelf and of Audiobookshelf, so you can bring each Audiobookshelf user's books and reading to the shelf of the reader they are here, with the choices above. Each reader's books are copies of their own, so this takes room for each.": "Du bist Admin dieses Shelf und von Audiobookshelf, also kannst du die Bücher und den Lesestand jedes Audiobookshelf-Nutzers in das Regal des Lesers bringen, der er hier ist, mit den Einstellungen oben. Die Bücher jedes Lesers sind eigene Kopien, das braucht also für jeden Platz.",
   "{0} brought, {1} already there, {2} could not come": "{0} gebracht, {1} schon da, {2} konnten nicht kommen",
-  "{0} of {1} done": "{0} von {1} erledigt"
+  "{0} of {1} done": "{0} von {1} erledigt",
+  "The last check was made on {0}, which isn't a host the shelf expects ({1}), so the form was refused.": "Die letzte Prüfung wurde auf {0} gemacht, einem Host, den Shelf nicht erwartet ({1}); das Formular wurde deshalb abgelehnt.",
+  "Add {0} to Turnstile:Hostnames if the shelf is reached there, or reach it at {1}.": "Füge {0} zu Turnstile:Hostnames hinzu, wenn Shelf dort erreicht wird, oder öffne es unter {1}.",
+  "Cloudflare doesn't know Turnstile:SecretKey, so every form it guards is refused.": "Cloudflare kennt Turnstile:SecretKey nicht; jedes Formular, das es schützt, wird deshalb abgelehnt.",
+  "Copy the secret key again from the widget in Cloudflare's dashboard.": "Kopiere den geheimen Schlüssel erneut aus dem Widget im Cloudflare-Dashboard.",
+  "The last check was made for another form ({0}), so it was refused.": "Die letzte Prüfung wurde für ein anderes Formular gemacht ({0}) und deshalb abgelehnt.",
+  "The last check could not reach Cloudflare ({0}), so the form was refused.": "Die letzte Prüfung konnte Cloudflare nicht erreichen ({0}); das Formular wurde deshalb abgelehnt.",
+  "Shelf must be able to reach challenges.cloudflare.com.": "Shelf muss challenges.cloudflare.com erreichen können.",
+  "Cloudflare refused the last check ({0}).": "Cloudflare hat die letzte Prüfung abgelehnt ({0}).",
+  "A check lasts five minutes and is used once. If it keeps happening, make sure the site key and secret key are from the same widget.": "Eine Prüfung gilt fünf Minuten und nur einmal. Passiert es weiter, prüfe, ob Website-Schlüssel und geheimer Schlüssel zum selben Widget gehören."
 }

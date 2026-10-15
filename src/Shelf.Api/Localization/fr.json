@@ -3342,5 +3342,14 @@
   "Which books": "Quels livres",
   "You are an admin of this shelf and of Audiobookshelf, so you can bring each Audiobookshelf user's books and reading to the shelf of the reader they are here, with the choices above. Each reader's books are copies of their own, so this takes room for each.": "Vous êtes administrateur de ce Shelf et d'Audiobookshelf : vous pouvez donc apporter les livres et la lecture de chaque utilisateur d'Audiobookshelf dans la bibliothèque du lecteur qu'il est ici, avec les choix ci-dessus. Les livres de chaque lecteur sont des copies à lui, ce qui prend de la place pour chacun.",
   "{0} brought, {1} already there, {2} could not come": "{0} apportés, {1} déjà là, {2} n'ont pas pu venir",
-  "{0} of {1} done": "{0} sur {1} faits"
+  "{0} of {1} done": "{0} sur {1} faits",
+  "The last check was made on {0}, which isn't a host the shelf expects ({1}), so the form was refused.": "La dernière vérification a été faite sur {0}, qui n'est pas un hôte attendu par Shelf ({1}) : le formulaire a donc été refusé.",
+  "Add {0} to Turnstile:Hostnames if the shelf is reached there, or reach it at {1}.": "Ajoutez {0} à Turnstile:Hostnames si Shelf est ouvert à cette adresse, ou ouvrez-le sur {1}.",
+  "Cloudflare doesn't know Turnstile:SecretKey, so every form it guards is refused.": "Cloudflare ne reconnaît pas Turnstile:SecretKey : tous les formulaires qu'il protège sont donc refusés.",
+  "Copy the secret key again from the widget in Cloudflare's dashboard.": "Copiez de nouveau la clé secrète du widget depuis le tableau de bord de Cloudflare.",
+  "The last check was made for another form ({0}), so it was refused.": "La dernière vérification a été faite pour un autre formulaire ({0}) : elle a donc été refusée.",
+  "The last check could not reach Cloudflare ({0}), so the form was refused.": "La dernière vérification n'a pas pu joindre Cloudflare ({0}) : le formulaire a donc été refusé.",
+  "Shelf must be able to reach challenges.cloudflare.com.": "Shelf doit pouvoir joindre challenges.cloudflare.com.",
+  "Cloudflare refused the last check ({0}).": "Cloudflare a refusé la dernière vérification ({0}).",
+  "A check lasts five minutes and is used once. If it keeps happening, make sure the site key and secret key are from the same widget.": "Une vérification dure cinq minutes et ne sert qu'une fois. Si cela continue, vérifiez que la clé du site et la clé secrète viennent du même widget."
 }

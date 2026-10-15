@@ -191,6 +191,7 @@ public sealed class ShelfHealth(
             (false, false, _) => new HealthItem(T("Connections"), T("Turnstile"), HealthState.Off,
                 T("Turnstile is off: signing in, signing up, and forgotten passwords have no check for scripts beyond the limit on attempts."),
                 T("Set Turnstile:SiteKey and Turnstile:SecretKey from a Cloudflare Turnstile widget of your own.")),
+            (true, true, true) when Readers.Turnstile.Problem is { } trouble => TurnstileTrouble(trouble, hosts),
             (true, true, true) => new HealthItem(T("Connections"), T("Turnstile"), HealthState.Good,
                 T("Turnstile guards signing in, signing up, and forgotten passwords."), null, string.Join(", ", hosts)),
             (true, true, false) => new HealthItem(T("Connections"), T("Turnstile"), HealthState.Wrong,
@@ -220,6 +221,31 @@ public sealed class ShelfHealth(
             [T("Reading scanned pages")] = new("server", "ocr-for-scanned-pdfs"),
         };
         return new HealthReport(now, version, [.. items.Select(item => help.TryGetValue(item.Name, out var where) ? item with { Help = where } : item)], [.. Heartbeats.All]);
+    }
+
+    // Turnstile's last refusal, in words, with what would fix it; kept until a check passes.
+    private static HealthItem TurnstileTrouble(Readers.TurnstileProblem problem, IReadOnlySet<string> hosts)
+    {
+        var expected = string.Join(", ", hosts);
+        var (text, fix) = problem.Trouble switch
+        {
+            Readers.TurnstileTrouble.Hostname => (
+                T("The last check was made on {0}, which isn't a host the shelf expects ({1}), so the form was refused.", problem.Detail, expected),
+                T("Add {0} to Turnstile:Hostnames if the shelf is reached there, or reach it at {1}.", problem.Detail, expected)),
+            Readers.TurnstileTrouble.Secret => (
+                T("Cloudflare doesn't know Turnstile:SecretKey, so every form it guards is refused."),
+                T("Copy the secret key again from the widget in Cloudflare's dashboard.")),
+            Readers.TurnstileTrouble.Action => (
+                T("The last check was made for another form ({0}), so it was refused.", problem.Detail),
+                (string?)null),
+            Readers.TurnstileTrouble.Unreachable => (
+                T("The last check could not reach Cloudflare ({0}), so the form was refused.", problem.Detail),
+                T("Shelf must be able to reach challenges.cloudflare.com.")),
+            _ => (
+                T("Cloudflare refused the last check ({0}).", problem.Detail),
+                T("A check lasts five minutes and is used once. If it keeps happening, make sure the site key and secret key are from the same widget.")),
+        };
+        return new HealthItem(T("Connections"), T("Turnstile"), HealthState.Wrong, text, fix, $"{problem.At:u}");
     }
 
     public static string StateLabel(HealthState state) => state switch

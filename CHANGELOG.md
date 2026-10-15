@@ -4,6 +4,12 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.16.1] - 2026-10-15
+
+### Fixed
+
+- **Turnstile refusals say why**: a form Turnstile turns down, while the widget shows its tick, is logged with the reason and shown on **Server health** until a check passes: a token made on a host the shelf doesn't expect (with the host it came from and the ones expected), a secret key Cloudflare doesn't know, a token made for another form, one expired or used already, or Cloudflare out of reach. Before, Server health said only that Turnstile was on.
+
 ## [2.16.0] - 2026-10-15
 
 ### Added
@@ -645,7 +651,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.16.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.16.1...HEAD
+[2.16.1]: https://github.com/doodersrage/shelf/compare/v2.16.0...v2.16.1
 [2.16.0]: https://github.com/doodersrage/shelf/compare/v2.15.0...v2.16.0
 [2.15.0]: https://github.com/doodersrage/shelf/compare/v2.14.2...v2.15.0
 [2.14.2]: https://github.com/doodersrage/shelf/compare/v2.14.1...v2.14.2

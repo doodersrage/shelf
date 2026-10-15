@@ -34,7 +34,7 @@ Settings can come from environment variables, from `appsettings.json` beside the
 | `Turnstile:SecretKey` | none | The widget's secret key. Keep it as you would a password. |
 | `Turnstile:Hostnames` | the host of `Email:PublicAddress` | The host names the forms are on, separated by commas. Cloudflare says which site a token was made on, and one made anywhere else is refused. Leave out `localhost` on a shelf others reach. |
 
-With Turnstile on, a form whose check fails, or cannot reach Cloudflare, is refused, so a shelf that cannot reach `challenges.cloudflare.com` cannot be signed in to with a password; passkeys and single sign-on still work. Scripts signing in with a password stop working too: give them an [API token](api.md#api-tokens). **Server health** says whether Turnstile is on, or set up only partly.
+With Turnstile on, a form whose check fails, or cannot reach Cloudflare, is refused, so a shelf that cannot reach `challenges.cloudflare.com` cannot be signed in to with a password; passkeys and single sign-on still work. Scripts signing in with a password stop working too: give them an [API token](api.md#api-tokens). **Server health** says whether Turnstile is on, or set up only partly, and why the last form was refused, until a check passes: most often a token made on a host that isn't in `Turnstile:Hostnames` (or, without it, isn't the host of `Email:PublicAddress`), such as an address inside your network or one with `www.`. The widget shows its tick either way, since it has no way of knowing what the shelf expects.
 
 ## Single sign-on
 
