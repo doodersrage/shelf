@@ -2743,7 +2743,6 @@
   "{0} linked shelves, all heard from lately.": "{0} estanterías enlazadas, todas con noticias recientes.",
   "Not heard from in three days: {0}.": "Sin noticias desde hace tres días: {0}.",
   "Check the other shelf is running and can reach this one.": "Comprueba que la otra estantería esté en marcha y pueda llegar a esta.",
-  "Email is set up, for password resets and reminders.": "El correo está configurado, para restablecer contraseñas y recordatorios.",
   "Email is not set up: readers can't reset a forgotten password by email.": "El correo no está configurado: los lectores no pueden restablecer por correo una contraseña olvidada.",
   "Set Email:Host and Email:From.": "Configura Email:Host y Email:From.",
   "Reading scanned pages": "Lectura de páginas escaneadas",
@@ -3141,5 +3140,8 @@
   "Hello {0},\n\nTo sign in to Shelf with this address, and to get your notifications here, open this link within a day:\n\n{1}\n\nIf you did not ask for this, ignore this email and nothing changes.": "Hola, {0}:\n\nPara iniciar sesión en Shelf con esta dirección y recibir aquí tus notificaciones, abre este enlace antes de un día:\n\n{1}\n\nSi no lo pediste tú, ignora este correo y no cambiará nada.",
   "Confirmed the email address": "Confirmó el correo electrónico",
   "That link has expired or was used already. Ask for a new one on your account.": "Ese enlace ha caducado o ya se usó. Pide uno nuevo en tu cuenta.",
-  "After a pause, start a few seconds back, more the longer it was": "Tras una pausa, empezar unos segundos antes, más cuanto más larga haya sido"
+  "After a pause, start a few seconds back, more the longer it was": "Tras una pausa, empezar unos segundos antes, más cuanto más larga haya sido",
+  "The last email did not go: {0}": "El último correo no salió: {0}",
+  "Check Email:Host, Email:Port, Email:Security, Email:User, and Email:Password, then send a test email from Account.": "Revisa Email:Host, Email:Port, Email:Security, Email:User y Email:Password, y envía un correo de prueba desde Cuenta.",
+  "Email is set up, for password resets and notifications.": "El correo está configurado, para restablecer contraseñas y para las notificaciones."
 }

@@ -166,9 +166,18 @@ public sealed class ShelfHealth(
                 string.Join("; ", links.Select(link => $"{link.Name}: {link.LastSeenAt?.ToString("u") ?? "never"}"))));
         }
 
-        items.Add(new HealthItem(T("Connections"), T("Email"), email.Enabled ? HealthState.Good : HealthState.Off,
-            email.Enabled ? T("Email is set up, for password resets and reminders.") : T("Email is not set up: readers can't reset a forgotten password by email."),
-            email.Enabled ? null : T("Set Email:Host and Email:From."), email.Enabled ? configuration["Email:Host"] : null));
+        if (email.Enabled && email.Problem is { } mailProblem)
+        {
+            items.Add(new HealthItem(T("Connections"), T("Email"), HealthState.Wrong, T("The last email did not go: {0}", mailProblem),
+                T("Check Email:Host, Email:Port, Email:Security, Email:User, and Email:Password, then send a test email from Account."),
+                $"{configuration["Email:Host"]}:{configuration.GetValue("Email:Port", 587)}, {configuration["Email:Security"] ?? "auto"}"));
+        }
+        else
+        {
+            items.Add(new HealthItem(T("Connections"), T("Email"), email.Enabled ? HealthState.Good : HealthState.Off,
+                email.Enabled ? T("Email is set up, for password resets and notifications.") : T("Email is not set up: readers can't reset a forgotten password by email."),
+                email.Enabled ? null : T("Set Email:Host and Email:From."), email.Enabled ? configuration["Email:Host"] : null));
+        }
         items.Add(new HealthItem(T("Connections"), T("Reading scanned pages"), ocr.Available ? HealthState.Good : HealthState.Off,
             ocr.Available ? T("Tesseract is installed: scanned PDFs and photos of spines can be read.") : T("Tesseract isn't installed: scanned PDFs and photos of spines can't be read."),
             ocr.Available ? null : T("Install tesseract-ocr and poppler-utils, as the Docker image has them."), ocr.Tesseract));

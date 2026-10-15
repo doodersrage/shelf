@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shelf.Api.Readers;
 
 namespace Shelf.Api.Tests;
@@ -23,7 +24,7 @@ public sealed class SmtpTests
                 ["Email:From"] = "shelf@example.org",
             })
             .Build();
-        var sender = new SmtpEmailSender(configuration);
+        var sender = new SmtpEmailSender(configuration, NullLogger<SmtpEmailSender>.Instance);
         Assert.True(sender.Enabled);
 
         await sender.SendAsync(new EmailMessage("reader@example.org", "Your loans on Shelf", "Hello Ged,\n\nA book is overdue."), CancellationToken.None);
@@ -34,7 +35,7 @@ public sealed class SmtpTests
         Assert.Contains("AUTH PLAIN", mail.Envelope);
         Assert.Contains("Subject: Your loans on Shelf", mail.Data);
         Assert.Contains("A book is overdue.", mail.Data);
-        Assert.False(new SmtpEmailSender(new ConfigurationBuilder().Build()).Enabled);
+        Assert.False(new SmtpEmailSender(new ConfigurationBuilder().Build(), NullLogger<SmtpEmailSender>.Instance).Enabled);
     }
 
     [Fact]
@@ -54,7 +55,7 @@ public sealed class SmtpTests
         await File.WriteAllBytesAsync(file, Encoding.ASCII.GetBytes("pretend this is an EPUB"));
         try
         {
-            await new SmtpEmailSender(configuration).SendAsync(
+            await new SmtpEmailSender(configuration, NullLogger<SmtpEmailSender>.Instance).SendAsync(
                 new EmailMessage("someone@kindle.com", "The Dispossessed", "Sent from Shelf.", [new EmailAttachment("Le Guin - The Dispossessed.epub", "application/epub+zip", file)]),
                 CancellationToken.None);
             var mail = await server.Received.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -141,4 +142,50 @@ public sealed class SmtpTests
             }
         }
     }
+
+    [Fact]
+    public async Task An_email_that_does_not_go_is_kept_as_the_problem_until_one_does()
+    {
+        // A port nothing listens on.
+        var closed = new TcpListener(IPAddress.Loopback, 0);
+        closed.Start();
+        var port = ((IPEndPoint)closed.LocalEndpoint).Port;
+        closed.Stop();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Email:Host"] = "127.0.0.1",
+                ["Email:Port"] = port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["Email:Security"] = "none",
+                ["Email:From"] = "Shelf <shelf@example.org>",
+            })
+            .Build();
+        var sender = new SmtpEmailSender(configuration, NullLogger<SmtpEmailSender>.Instance);
+        await Assert.ThrowsAnyAsync<Exception>(() => sender.SendAsync(new EmailMessage("reader@example.org", "Hello", "Hello."), CancellationToken.None));
+        Assert.NotNull(sender.Problem);
+
+        await using var server = new LoopbackSmtpServer();
+        var working = new SmtpEmailSender(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Email:Host"] = "127.0.0.1",
+            ["Email:Port"] = server.Port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["Email:Security"] = "none",
+            ["Email:From"] = "Shelf <shelf@example.org>",
+        }).Build(), NullLogger<SmtpEmailSender>.Instance);
+        await working.SendAsync(new EmailMessage("reader@example.org", "Hello", "Hello."), CancellationToken.None);
+        Assert.Contains("MAIL FROM:<shelf@example.org>", (await server.Received.Task.WaitAsync(TimeSpan.FromSeconds(10))).Envelope);
+        Assert.Null(working.Problem);
+    }
+
+    [Theory]
+    [InlineData("shelf@example.org", "Shelf", "shelf@example.org")]
+    [InlineData("Shelf <shelf@example.org>", "Shelf", "shelf@example.org")]
+    [InlineData("\"Our Books\" <books@example.org>", "Our Books", "books@example.org")]
+    [InlineData(" spaced@example.org ", "Shelf", "spaced@example.org")]
+    public void Email_from_may_be_a_bare_address_or_carry_a_name(string from, string name, string address)
+    {
+        var sender = Shelf.Api.Readers.SmtpEmailSender.Sender(from);
+        Assert.Equal((name, address), (sender.Name, sender.Address));
+    }
+
 }

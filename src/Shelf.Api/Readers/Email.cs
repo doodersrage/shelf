@@ -18,6 +18,9 @@ public interface IEmailSender
     // False when no mail server is set up; the shelf then offers nothing that needs email.
     bool Enabled { get; }
 
+    // Why the last email did not go, with when; null once one goes. Server health shows it.
+    string? Problem => null;
+
     Task SendAsync(EmailMessage message, CancellationToken cancellationToken);
 }
 
@@ -29,15 +32,39 @@ public sealed class NoEmailSender : IEmailSender
 }
 
 // Sends with MailKit through the SMTP server in Email:Host, as Email:From, signing in with Email:User and
-// Email:Password. Email:Security picks the connection: auto (the default), starttls, ssl, or none.
-public sealed class SmtpEmailSender(IConfiguration configuration) : IEmailSender
+// Email:Password. Email:Security picks the connection: auto (the default), starttls, ssl, or none. An email that
+// does not go is logged, and kept as the Problem until one goes.
+public sealed class SmtpEmailSender(IConfiguration configuration, ILogger<SmtpEmailSender> logger) : IEmailSender
 {
     public bool Enabled => !string.IsNullOrWhiteSpace(configuration["Email:Host"]) && !string.IsNullOrWhiteSpace(configuration["Email:From"]);
 
+    public string? Problem { get; private set; }
+
+    // Email:From as a bare address (shelf@example.org), named Shelf, or with a name of its own ("My Shelf" <...>).
+    public static MimeKit.MailboxAddress Sender(string from) =>
+        MimeKit.MailboxAddress.TryParse(from.Trim(), out var parsed)
+            ? string.IsNullOrWhiteSpace(parsed.Name) ? new MimeKit.MailboxAddress("Shelf", parsed.Address) : parsed
+            : new MimeKit.MailboxAddress("Shelf", from.Trim());
+
     public async Task SendAsync(EmailMessage message, CancellationToken cancellationToken)
     {
+        try
+        {
+            await DeliverAsync(message, cancellationToken);
+            Problem = null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Problem = $"{DateTimeOffset.UtcNow:u}: {ex.Message}";
+            logger.LogWarning(ex, "An email through {Host}:{Port} did not go: {Problem}", configuration["Email:Host"], configuration.GetValue("Email:Port", 587), ex.Message);
+            throw;
+        }
+    }
+
+    private async Task DeliverAsync(EmailMessage message, CancellationToken cancellationToken)
+    {
         var mail = new MimeKit.MimeMessage();
-        mail.From.Add(new MimeKit.MailboxAddress("Shelf", configuration["Email:From"]!));
+        mail.From.Add(Sender(configuration["Email:From"]!));
         mail.To.Add(MimeKit.MailboxAddress.Parse(message.To));
         mail.Subject = message.Subject;
         var streams = new List<Stream>();

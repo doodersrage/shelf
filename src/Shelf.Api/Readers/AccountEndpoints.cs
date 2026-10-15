@@ -214,7 +214,14 @@ public static class AccountEndpoints
 
         if (confirms)
         {
-            await EmailRules.SendConfirmationAsync(db, mail, reader, link!, cancellationToken);
+            try
+            {
+                await EmailRules.SendConfirmationAsync(db, mail, reader, link!, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // The sender logged it; the account asks to send the link again.
+            }
         }
 
         await SignInAsync(http, db, reader, cancellationToken);
@@ -271,7 +278,14 @@ public static class AccountEndpoints
     {
         if (EmailRules.ResetAddress(configuration, http.Request) is { } address)
         {
-            await EmailRules.RequestResetAsync(db, email, who, address, cancellationToken);
+            try
+            {
+                await EmailRules.RequestResetAsync(db, email, who, address, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // The sender logged it, and Server health shows it; the page says the same either way.
+            }
         }
         else if (email.Enabled)
         {
@@ -305,7 +319,17 @@ public static class AccountEndpoints
         IConfiguration configuration,
         CancellationToken cancellationToken)
     {
-        var (problem, pending) = await EmailRules.ChangeAsync(db, mail, db.ReaderId, request.Email, request.Reminders, EmailRules.ResetAddress(configuration, http.Request), cancellationToken);
+        AccountProblem? problem;
+        bool pending;
+        try
+        {
+            (problem, pending) = await EmailRules.ChangeAsync(db, mail, db.ReaderId, request.Email, request.Reminders, EmailRules.ResetAddress(configuration, http.Request), cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Email)] = [Localization.Words.T("The mail server did not take it: {0}", ex.Message)] });
+        }
+
         return problem is not null
             ? TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Email)] = [ReaderRules.Describe(problem.Value)] })
             : pending ? TypedResults.Accepted((string?)null) : TypedResults.NoContent();
@@ -340,7 +364,15 @@ public static class AccountEndpoints
             return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Email"] = [Localization.Words.T("Add an address, and an admin has to set up a mail server, first.")] });
         }
 
-        await email.SendAsync(new EmailMessage(reader.Email, Localization.Words.T("Shelf can reach you"), Localization.Words.T("Hello {0},\n\nThis is a test from your shelf. Email works.", reader.Name)), cancellationToken);
+        try
+        {
+            await email.SendAsync(new EmailMessage(reader.Email, Localization.Words.T("Shelf can reach you"), Localization.Words.T("Hello {0},\n\nThis is a test from your shelf. Email works.", reader.Name)), cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Email"] = [Localization.Words.T("The mail server did not take it: {0}", ex.Message)] });
+        }
+
         return TypedResults.NoContent();
     }
 

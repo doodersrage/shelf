@@ -2743,7 +2743,6 @@
   "{0} linked shelves, all heard from lately.": "{0} verknüpfte Regale, von allen kürzlich gehört.",
   "Not heard from in three days: {0}.": "Seit drei Tagen nichts gehört von: {0}.",
   "Check the other shelf is running and can reach this one.": "Prüfe, ob das andere Regal läuft und dieses erreichen kann.",
-  "Email is set up, for password resets and reminders.": "E-Mail ist eingerichtet, für Passwort-Zurücksetzungen und Erinnerungen.",
   "Email is not set up: readers can't reset a forgotten password by email.": "E-Mail ist nicht eingerichtet: Leser können ein vergessenes Passwort nicht per E-Mail zurücksetzen.",
   "Set Email:Host and Email:From.": "Setze Email:Host und Email:From.",
   "Reading scanned pages": "Gescannte Seiten lesen",
@@ -3141,5 +3140,8 @@
   "Hello {0},\n\nTo sign in to Shelf with this address, and to get your notifications here, open this link within a day:\n\n{1}\n\nIf you did not ask for this, ignore this email and nothing changes.": "Hallo {0},\n\num dich mit dieser Adresse bei Shelf anzumelden und deine Benachrichtigungen hierhin zu bekommen, öffne diesen Link innerhalb eines Tages:\n\n{1}\n\nWenn du das nicht angefordert hast, ignoriere diese E-Mail; es ändert sich nichts.",
   "Confirmed the email address": "Hat die E-Mail-Adresse bestätigt",
   "That link has expired or was used already. Ask for a new one on your account.": "Dieser Link ist abgelaufen oder wurde schon benutzt. Fordere in deinem Konto einen neuen an.",
-  "After a pause, start a few seconds back, more the longer it was": "Nach einer Pause ein paar Sekunden früher weitermachen, umso mehr, je länger sie war"
+  "After a pause, start a few seconds back, more the longer it was": "Nach einer Pause ein paar Sekunden früher weitermachen, umso mehr, je länger sie war",
+  "The last email did not go: {0}": "Die letzte E-Mail ging nicht raus: {0}",
+  "Check Email:Host, Email:Port, Email:Security, Email:User, and Email:Password, then send a test email from Account.": "Prüfe Email:Host, Email:Port, Email:Security, Email:User und Email:Password und sende dann unter Konto eine Test-E-Mail.",
+  "Email is set up, for password resets and notifications.": "E-Mail ist eingerichtet, für Passwort-Links und Benachrichtigungen."
 }

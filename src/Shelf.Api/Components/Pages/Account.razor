@@ -1632,13 +1632,23 @@ else if (pushState is not null)
     {
         emailNote = null;
         await using var db = await DbFactory.CreateDbContextAsync();
-        (emailProblem, var pending) = await EmailRules.ChangeAsync(db, Email, db.ReaderId, emailAddress, noticeSettings?.EmailNotices ?? true, Site);
+        bool pending;
+        try
+        {
+            (emailProblem, pending) = await EmailRules.ChangeAsync(db, Email, db.ReaderId, emailAddress, noticeSettings?.EmailNotices ?? true, Site);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            (emailProblem, pending) = (null, true);
+            emailNote = T("The mail server did not take it: {0}", ex.Message);
+        }
+
         if (emailProblem is null)
         {
             var me = await db.Readers.AsNoTracking().FirstAsync(item => item.Id == db.ReaderId);
             (savedEmail, pendingEmail) = (me.Email, me.PendingEmail);
             await LoadNoticesAsync(db);
-            emailNote = pending ? null : T("Saved.");
+            emailNote = pending ? emailNote : T("Saved.");
         }
     }
 
@@ -1647,7 +1657,14 @@ else if (pushState is not null)
         await using var db = await DbFactory.CreateDbContextAsync();
         var me = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
         emailProblem = null;
-        emailNote = await EmailRules.SendConfirmationAsync(db, Email, me, Site) ? T("Sent to {0}.", me.PendingEmail!) : T("A link went a moment ago. Wait a minute before asking again.");
+        try
+        {
+            emailNote = await EmailRules.SendConfirmationAsync(db, Email, me, Site) ? T("Sent to {0}.", me.PendingEmail!) : T("A link went a moment ago. Wait a minute before asking again.");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            emailNote = T("The mail server did not take it: {0}", ex.Message);
+        }
     }
 
     private async Task SendTest()

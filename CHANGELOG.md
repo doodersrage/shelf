@@ -4,6 +4,14 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.14.2] - 2026-10-15
+
+### Fixed
+
+- **Email with a named sender**: `Email:From` written with a name, such as `Shelf <shelf@example.org>` or `"My Shelf" <shelf@example.org>`, stopped every email from going; it now sends, under that name.
+- An email that does not go is logged with the mail server's answer, and **Server health** shows it ("The last email did not go: …") until one goes, rather than saying email is set up.
+- A mail server that refuses an email no longer breaks signing up, asking for a password reset, changing an address, or **Send a test email**, which now says what the server answered.
+
 ## [2.14.1] - 2026-10-15
 
 ### Added
@@ -603,7 +611,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.14.1...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.14.2...HEAD
+[2.14.2]: https://github.com/doodersrage/shelf/compare/v2.14.1...v2.14.2
 [2.14.1]: https://github.com/doodersrage/shelf/compare/v2.14.0...v2.14.1
 [2.14.0]: https://github.com/doodersrage/shelf/compare/v2.13.0...v2.14.0
 [2.13.0]: https://github.com/doodersrage/shelf/compare/v2.12.3...v2.13.0

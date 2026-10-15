@@ -2743,7 +2743,6 @@
   "{0} linked shelves, all heard from lately.": "{0} bibliothèques liées, toutes en contact récemment.",
   "Not heard from in three days: {0}.": "Sans nouvelles depuis trois jours : {0}.",
   "Check the other shelf is running and can reach this one.": "Vérifiez que l'autre bibliothèque fonctionne et peut joindre celle-ci.",
-  "Email is set up, for password resets and reminders.": "L'e-mail est configuré, pour les réinitialisations de mot de passe et les rappels.",
   "Email is not set up: readers can't reset a forgotten password by email.": "L'e-mail n'est pas configuré : les lecteurs ne peuvent pas réinitialiser un mot de passe oublié par e-mail.",
   "Set Email:Host and Email:From.": "Configurez Email:Host et Email:From.",
   "Reading scanned pages": "Lecture des pages numérisées",
@@ -3141,5 +3140,8 @@
   "Hello {0},\n\nTo sign in to Shelf with this address, and to get your notifications here, open this link within a day:\n\n{1}\n\nIf you did not ask for this, ignore this email and nothing changes.": "Bonjour {0},\n\nPour vous connecter à Shelf avec cette adresse et y recevoir vos notifications, ouvrez ce lien dans la journée :\n\n{1}\n\nSi vous n'avez rien demandé, ignorez cet e-mail : rien ne change.",
   "Confirmed the email address": "A confirmé l'adresse e-mail",
   "That link has expired or was used already. Ask for a new one on your account.": "Ce lien a expiré ou a déjà servi. Demandez-en un nouveau depuis votre compte.",
-  "After a pause, start a few seconds back, more the longer it was": "Après une pause, reprendre quelques secondes avant, d'autant plus que la pause a été longue"
+  "After a pause, start a few seconds back, more the longer it was": "Après une pause, reprendre quelques secondes avant, d'autant plus que la pause a été longue",
+  "The last email did not go: {0}": "Le dernier e-mail n'est pas parti : {0}",
+  "Check Email:Host, Email:Port, Email:Security, Email:User, and Email:Password, then send a test email from Account.": "Vérifiez Email:Host, Email:Port, Email:Security, Email:User et Email:Password, puis envoyez un e-mail d'essai depuis Compte.",
+  "Email is set up, for password resets and notifications.": "L'e-mail est configuré, pour les réinitialisations de mot de passe et les notifications."
 }
