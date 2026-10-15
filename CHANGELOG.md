@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.17.1] - 2026-10-15
+
 ### Fixed
 
 - **Not found suggests on PostgreSQL too**: on a shelf using PostgreSQL, the page for an address with nothing at it was sent before its suggestions were found, so it offered only the search; they are now found before the page is drawn.
@@ -667,7 +669,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.17.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.17.1...HEAD
+[2.17.1]: https://github.com/doodersrage/shelf/compare/v2.17.0...v2.17.1
 [2.17.0]: https://github.com/doodersrage/shelf/compare/v2.16.2...v2.17.0
 [2.16.2]: https://github.com/doodersrage/shelf/compare/v2.16.1...v2.16.2
 [2.16.1]: https://github.com/doodersrage/shelf/compare/v2.16.0...v2.16.1
