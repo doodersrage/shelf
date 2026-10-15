@@ -18,9 +18,16 @@ else
     <p class="hint"><a href="/shelves">@T("Shelves")</a> · @server</p>
     <h1>@T("{0}'s shelf", owner)</h1>
     <p class="hint">@T("{0} is a reader on {1}, a shelf linked to this one. Ask for a book, and when they lend it, a copy comes to your shelf while it is out.", owner, server ?? "")</p>
+    @if (more || Skip > 0 || !string.IsNullOrWhiteSpace(Q))
+    {
+        <form class="filters" action="/shelves/linked/@LinkId/@OwnerId" method="get" role="search" aria-label="@T("Search {0}'s shelf", owner)">
+            <input type="search" name="q" value="@Q" maxlength="200" placeholder="@T("Title or author")" aria-label="@T("Search {0}'s shelf", owner)" />
+            <button type="submit">@T("Search")</button>
+        </form>
+    }
     @if (books.Length == 0)
     {
-        <p class="hint">@T("Nothing on it yet.")</p>
+        <p class="hint">@(string.IsNullOrWhiteSpace(Q) && Skip == 0 ? T("Nothing on it yet.") : T("No books here match that."))</p>
     }
     else
     {
@@ -60,6 +67,19 @@ else
                 </li>
             }
         </ul>
+        @if (more || Skip > 0)
+        {
+            <nav class="actions" aria-label="@T("Pages")">
+                @if (Skip > 0)
+                {
+                    <a class="button" href="@PageHref(Page - 1)">@T("Previous")</a>
+                }
+                @if (more)
+                {
+                    <a class="button" href="@PageHref(Page + 1)">@T("Next")</a>
+                }
+            </nav>
+        }
     }
     @if (message is not null)
     {
@@ -77,16 +97,31 @@ else
     private bool loaded;
     private string? owner;
     private string? server;
+    private const int PageSize = 60;
     private LinkedBook[] books = [];
+    private bool more;
     private string? message;
+
+    [SupplyParameterFromQuery(Name = "q")]
+    public string? Q { get; set; }
+
+    [SupplyParameterFromQuery(Name = "page")]
+    public int? PageNumber { get; set; }
+
+    private int Page => Math.Max(1, PageNumber ?? 1);
+
+    private int Skip => (Page - 1) * PageSize;
+
+    private string PageHref(int page) =>
+        $"/shelves/linked/{LinkId}/{OwnerId}?page={page}" + (string.IsNullOrWhiteSpace(Q) ? "" : $"&q={Uri.EscapeDataString(Q)}");
 
     protected override async Task OnParametersSetAsync() => await LoadAsync();
 
     private async Task LoadAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        var shelf = await Federation.ShelfAsync(db, LinkId, OwnerId);
-        (owner, server, books, loaded) = shelf is { } found ? (found.Owner, found.Server, found.Books, true) : (null, null, [], true);
+        var shelf = await Federation.ShelfAsync(db, LinkId, OwnerId, Q, Skip, PageSize);
+        (owner, server, books, more, loaded) = shelf is { } found ? (found.Owner, found.Server, found.Books, found.More, true) : (null, null, [], false, true);
     }
 
     [SupplyParameterFromForm]

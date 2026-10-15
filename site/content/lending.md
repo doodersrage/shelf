@@ -65,7 +65,7 @@ For a friend who isn't a reader on your shelf, type their name in the book's **L
 
 ## Open shelves
 
-From **Account**, a reader can **open their shelf** to the others. The other readers then see its books under **Shelves**: titles, authors, covers, and whether each has an e-book or audiobook, but never notes, reviews, quotes, highlights, or where the owner stopped.
+From **Account**, a reader can **open their shelf** to the others. The other readers then see its books under **Shelves**: titles, authors, covers, and whether each has an e-book or audiobook, but never notes, reviews, quotes, highlights, or where the owner stopped. It is searched, sorted, and shown as covers, a list, or a compact table as your own library is, 60 books at a time: by title, author, series, or ISBN; by author, title, series, year, or the most recently added; only those not lent out now, or with an e-book or audiobook; and by an author or series, from their names. Nothing about the owner's reading narrows it, so there is no status, stars, tags, or loved. Your own shelf isn't listed under **Shelves** for you; that page lists the shelves others have opened.
 
 On an open shelf, **Ask to borrow** sends an ask. Asks wait on the owner's **Loans** page until they lend the book or decline, and the reader who asked can take an ask back.
 

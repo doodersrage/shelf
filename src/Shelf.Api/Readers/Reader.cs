@@ -153,6 +153,19 @@ public sealed record TemporaryPassword(string Password);
 
 public sealed record OpenShelf(int Id, string Name, int Books);
 
+public sealed record OpenShelfPage(string Owner, int Total, ShelfBook[] Books, OpenShelfCounts Counts);
+
+// How many of the books matching a search are there in all, have an e-book or audiobook, or are not lent out now.
+public sealed record OpenShelfCounts(int All, int Ebook, int Audio, int Available);
+
+// What another reader's open shelf is narrowed to and ordered by: only what the owner shows, never their reading.
+public sealed record OpenShelfFilter(string? Search = null, string? Sort = null, string? Has = null, string? Author = null, string? Series = null)
+{
+    public static readonly string[] Sorts = ["author", "title", "series", "year", "added"];
+
+    public static readonly string[] Kinds = ["ebook", "audio", "available"];
+}
+
 public sealed record ShelfBook(
     int Id,
     string Title,
@@ -162,7 +175,9 @@ public sealed record ShelfBook(
     bool OnLoan,
     bool HasEbook,
     bool HasAudio,
-    bool Asked);
+    bool Asked,
+    string? Series = null,
+    int? SeriesNumber = null);
 
 // A book on another reader's open shelf: what the borrowing hints need to match it and offer to ask.
 public sealed record OpenCopy(

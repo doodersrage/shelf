@@ -766,7 +766,7 @@ button:disabled {
     cursor: not-allowed;
 }
 
-button.loved, button.queued, button[aria-pressed="true"] {
+button.loved, button.queued, button[aria-pressed="true"], a.button[aria-current="true"] {
     border-color: var(--color-brand);
     color: var(--color-brand);
     background: color-mix(in srgb, var(--color-brand) 10%, transparent);
@@ -800,14 +800,14 @@ form.inline {
     margin: var(--space-2) 0;
 }
 
-.segmented button {
+.segmented button, .segmented .button {
     margin: 0;
     border: 0;
     border-radius: 0;
     min-height: 2.25rem;
 }
 
-.segmented button + button {
+.segmented button + button, .segmented .button + .button {
     border-left: 1px solid var(--color-control);
 }
 
@@ -819,6 +819,15 @@ form.inline {
 }
 
 .filters label {
+    margin: 0;
+}
+
+/* A search that is a link to its own results (another reader's shelf), its button beside the fields. */
+form.filters:has(> button) {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto;
+}
+
+form.filters > button {
     margin: 0;
 }
 
@@ -2669,7 +2678,7 @@ details.menu > summary .player-icon {
     border-radius: var(--radius-pill);
 }
 
-.chip[aria-pressed="true"] {
+.chip[aria-pressed="true"], .chip[aria-current="true"] {
     background: var(--color-brand);
     border-color: var(--color-brand);
     color: var(--color-on-brand);
@@ -2949,7 +2958,8 @@ label.volume > input[type=range] {
 }
 
 @media (max-width: 40rem) {
-    .filters {
+    .filters,
+    form.filters:has(> button) {
         grid-template-columns: 1fr 1fr;
     }
 
@@ -3945,7 +3955,7 @@ blockquote mark {
     border-color: var(--color-control);
 }
 
-.chip[aria-pressed="true"] {
+.chip[aria-pressed="true"], .chip[aria-current="true"] {
     background: var(--color-brand);
     border-color: var(--color-brand);
     color: var(--color-on-brand);
@@ -3957,7 +3967,7 @@ blockquote mark {
     font-variant-numeric: tabular-nums;
 }
 
-.chip[aria-pressed="true"] .chip-count {
+.chip[aria-pressed="true"] .chip-count, .chip[aria-current="true"] .chip-count {
     color: inherit;
     opacity: 0.8;
 }
@@ -6141,6 +6151,26 @@ dialog.jump input {
 
 .book-table th:nth-child(2) {
     width: 30%;
+}
+
+/* Another reader's open shelf: no column to choose books by, a button to ask for each. */
+.book-table.open-shelf th:first-child { width: 30%; }
+.book-table.open-shelf th:nth-child(2) { width: 20%; }
+.book-table.open-shelf th:nth-child(4) { width: 4.5rem; }
+.book-table.open-shelf th:nth-child(5) { width: 9rem; }
+.book-table.open-shelf th:last-child { width: 9.5rem; }
+.book-table.open-shelf td:last-child { overflow: visible; }
+.book-table.open-shelf td form,
+.book-table.open-shelf td .saved { margin: 0; }
+.book-table.open-shelf td .badges { display: inline-flex; gap: var(--space-1); }
+
+@media (max-width: 40rem) {
+    .book-table.open-shelf th:nth-child(3), .book-table.open-shelf td:nth-child(3),
+    .book-table.open-shelf th:nth-child(4), .book-table.open-shelf td:nth-child(4),
+    .book-table.open-shelf th:nth-child(5), .book-table.open-shelf td:nth-child(5) { display: none; }
+    .book-table.open-shelf th:first-child { width: auto; }
+    .book-table.open-shelf th:nth-child(2) { width: 35%; }
+    .book-table.open-shelf th:last-child { width: 8.5rem; }
 }
 
 .book-table tbody tr:hover {

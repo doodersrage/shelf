@@ -3351,5 +3351,10 @@
   "The last check could not reach Cloudflare ({0}), so the form was refused.": "Die letzte Prüfung konnte Cloudflare nicht erreichen ({0}); das Formular wurde deshalb abgelehnt.",
   "Shelf must be able to reach challenges.cloudflare.com.": "Shelf muss challenges.cloudflare.com erreichen können.",
   "Cloudflare refused the last check ({0}).": "Cloudflare hat die letzte Prüfung abgelehnt ({0}).",
-  "A check lasts five minutes and is used once. If it keeps happening, make sure the site key and secret key are from the same widget.": "Eine Prüfung gilt fünf Minuten und nur einmal. Passiert es weiter, prüfe, ob Website-Schlüssel und geheimer Schlüssel zum selben Widget gehören."
+  "A check lasts five minutes and is used once. If it keeps happening, make sure the site key and secret key are from the same widget.": "Eine Prüfung gilt fünf Minuten und nur einmal. Passiert es weiter, prüfe, ob Website-Schlüssel und geheimer Schlüssel zum selben Widget gehören.",
+  "Search {0}'s shelf": "Im Regal von {0} suchen",
+  "No books here match that.": "Hier passt kein Buch dazu.",
+  "{0}–{1} of {2}": "{0}–{1} von {2}",
+  "Title, author, series, ISBN": "Titel, Autor, Reihe, ISBN",
+  "Not lent out": "Nicht verliehen"
 }

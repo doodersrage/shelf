@@ -55,6 +55,8 @@ public sealed class FederationTests
             (await owner.PostAsync($"/books/{book.Id}/ebook", content)).EnsureSuccessStatusCode();
         }
 
+        await owner.PostAsJsonAsync("/books", new CreateBookRequest("Typee", "Herman Melville", BookStatus.Want, null), JsonOptions);
+        await owner.PostAsJsonAsync("/books", new CreateBookRequest("Billy Budd", "Herman Melville", BookStatus.Want, null), JsonOptions);
         await owner.PutAsJsonAsync("/books/shelves/open", new ShelfOpenChange(true), JsonOptions);
 
         // Away, a reader sees it and asks to borrow it.
@@ -64,7 +66,12 @@ public sealed class FederationTests
             var federation = scope.ServiceProvider.GetRequiredService<Federation>();
             var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
             var shelf = Assert.Single(await federation.ShelvesAsync(db));
-            var books = (await federation.ShelfAsync(db, shelf.LinkId, shelf.OwnerId))!.Value.Books;
+            // A page at a time, by title, and searched; the shelf there reads only what is shown.
+            var first = (await federation.ShelfAsync(db, shelf.LinkId, shelf.OwnerId, take: 2))!.Value;
+            Assert.Equal(("Billy Budd, Moby-Dick", true), (string.Join(", ", first.Books.Select(item => item.Title)), first.More));
+            var second = (await federation.ShelfAsync(db, shelf.LinkId, shelf.OwnerId, skip: 2, take: 2))!.Value;
+            Assert.Equal(("Typee", false), (Assert.Single(second.Books).Title, second.More));
+            var books = (await federation.ShelfAsync(db, shelf.LinkId, shelf.OwnerId, "moby"))!.Value.Books;
             Assert.Equal(("Moby-Dick", true, false), (Assert.Single(books).Title, books[0].HasEbook, books[0].Asked));
             Assert.True(await federation.AskAsync(db, shelf.LinkId, shelf.OwnerId, book.Id));
             Assert.Single(await Federation.LinkedAsksAsync(db));

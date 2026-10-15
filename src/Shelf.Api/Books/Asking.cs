@@ -50,7 +50,12 @@ public static class Asking
             .ToArray();
     }
 
-    public static async Task<(string Owner, ShelfBook[] Books)?> ShelfAsync(ShelfDb db, int ownerId, CancellationToken cancellationToken = default)
+    public static async Task<(string Owner, ShelfBook[] Books)?> ShelfAsync(ShelfDb db, int ownerId, CancellationToken cancellationToken = default) =>
+        await ShelfPageAsync(db, ownerId, new OpenShelfFilter(), 0, int.MaxValue, cancellationToken) is { } shelf ? (shelf.Owner, shelf.Books) : null;
+
+    // A page of another reader's open shelf, narrowed and ordered as the library is by what the owner shows (never
+    // their statuses, stars, tags, or notes): a shelf can hold tens of thousands of books, so only the page is read.
+    public static async Task<OpenShelfPage?> ShelfPageAsync(ShelfDb db, int ownerId, OpenShelfFilter filter, int skip, int take, CancellationToken cancellationToken = default)
     {
         var me = db.ReaderId;
         if (await Family.IsRestrictedAsync(db, me, cancellationToken))
@@ -65,13 +70,50 @@ public static class Asking
             return null;
         }
 
-        var asked = await db.LoanAsks.AsNoTracking()
-            .Where(ask => ask.ReaderId == me)
-            .Select(ask => ask.BookId)
-            .ToListAsync(cancellationToken);
-        var books = await db.Books.IgnoreQueryFilters()
-            .AsNoTracking()
-            .Where(book => book.OwnerId == ownerId)
+        var books = db.Books.IgnoreQueryFilters().AsNoTracking().Where(book => book.OwnerId == ownerId);
+        foreach (var term in (filter.Search ?? "").ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            books = books.Where(book => book.Title.ToLower().Contains(term)
+                || book.Author.ToLower().Contains(term)
+                || (book.Series != null && book.Series.ToLower().Contains(term))
+                || (book.Isbn != null && book.Isbn.ToLower().Contains(term)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Author))
+        {
+            var author = filter.Author.Trim().ToLowerInvariant();
+            books = books.Where(book => book.Author.ToLower() == author);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Series))
+        {
+            var series = filter.Series.Trim().ToLowerInvariant();
+            books = books.Where(book => book.Series != null && book.Series.ToLower() == series);
+        }
+
+        var counts = new OpenShelfCounts(
+            await books.CountAsync(cancellationToken),
+            await books.CountAsync(book => book.EbookStoredName != null, cancellationToken),
+            await books.CountAsync(book => book.AudioStoredName != null, cancellationToken),
+            await books.CountAsync(book => book.LoanedTo == null, cancellationToken));
+        (books, var total) = filter.Has switch
+        {
+            "ebook" => (books.Where(book => book.EbookStoredName != null), counts.Ebook),
+            "audio" => (books.Where(book => book.AudioStoredName != null), counts.Audio),
+            "available" => (books.Where(book => book.LoanedTo == null), counts.Available),
+            _ => (books, counts.All),
+        };
+
+        var ordered = filter.Sort switch
+        {
+            "title" => books.OrderBy(book => book.Title.ToLower()).ThenBy(book => book.Author.ToLower()),
+            "series" => books.OrderBy(book => book.Series == null).ThenBy(book => book.Series!.ToLower()).ThenBy(book => book.SeriesNumber).ThenBy(book => book.Title.ToLower()),
+            "year" => books.OrderBy(book => book.Year == null).ThenByDescending(book => book.Year).ThenBy(book => book.Title.ToLower()),
+            "added" => books.OrderByDescending(book => book.Id),
+            _ => books.OrderBy(book => book.Author.ToLower()).ThenBy(book => book.Title.ToLower()),
+        };
+        var shown = await ordered.ThenBy(book => book.Id)
+            .Skip(Math.Max(0, skip)).Take(Math.Max(0, take))
             .Select(book => new ShelfBook(
                 book.Id,
                 book.Title,
@@ -81,14 +123,16 @@ public static class Asking
                 book.LoanedTo != null,
                 book.EbookStoredName != null,
                 book.AudioStoredName != null,
-                false))
+                false,
+                book.Series,
+                book.SeriesNumber))
             .ToListAsync(cancellationToken);
-        var shown = books
-            .Select(book => book with { Asked = asked.Contains(book.Id) })
-            .OrderBy(book => book.Author, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        return (owner.Name, shown);
+        var ids = shown.Select(book => book.Id).ToList();
+        var asked = (await db.LoanAsks.AsNoTracking()
+            .Where(ask => ask.ReaderId == me && ids.Contains(ask.BookId))
+            .Select(ask => ask.BookId)
+            .ToListAsync(cancellationToken)).ToHashSet();
+        return new OpenShelfPage(owner.Name, total, [.. shown.Select(book => book with { Asked = asked.Contains(book.Id) })], counts);
     }
 
     // Books on other readers' open shelves, for "you could borrow this" hints. Given a title or ISBN, only the

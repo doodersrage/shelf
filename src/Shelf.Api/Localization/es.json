@@ -3351,5 +3351,10 @@
   "The last check could not reach Cloudflare ({0}), so the form was refused.": "La última comprobación no pudo contactar con Cloudflare ({0}), así que el formulario se rechazó.",
   "Shelf must be able to reach challenges.cloudflare.com.": "Shelf tiene que poder conectarse a challenges.cloudflare.com.",
   "Cloudflare refused the last check ({0}).": "Cloudflare rechazó la última comprobación ({0}).",
-  "A check lasts five minutes and is used once. If it keeps happening, make sure the site key and secret key are from the same widget.": "Una comprobación dura cinco minutos y se usa una sola vez. Si sigue pasando, asegúrate de que la clave del sitio y la clave secreta son del mismo widget."
+  "A check lasts five minutes and is used once. If it keeps happening, make sure the site key and secret key are from the same widget.": "Una comprobación dura cinco minutos y se usa una sola vez. Si sigue pasando, asegúrate de que la clave del sitio y la clave secreta son del mismo widget.",
+  "Search {0}'s shelf": "Buscar en la estantería de {0}",
+  "No books here match that.": "Ningún libro de aquí coincide.",
+  "{0}–{1} of {2}": "{0}–{1} de {2}",
+  "Title, author, series, ISBN": "Título, autor, serie, ISBN",
+  "Not lent out": "Sin prestar"
 }

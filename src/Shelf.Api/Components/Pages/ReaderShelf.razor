@@ -13,48 +13,163 @@ else
     <p class="hint"><a href="/shelves">@T("Shelves")</a></p>
     <h1>@T("{0}'s shelf", owner)</h1>
     <p class="hint">@T("Ask for a book and it waits on {0}'s Loans page until they lend it or decline. You see titles here, never their notes.", owner)</p>
+
+    @* The library's search and order, by what the owner shows: never their statuses, stars, tags, or notes. *@
+    <form class="filters" action="/shelves/@Id" method="get" role="search" aria-label="@T("Search {0}'s shelf", owner)">
+        <label>
+            @T("Search")
+            <input type="search" name="q" value="@Q" maxlength="200" placeholder="@T("Title, author, series, ISBN")" />
+        </label>
+        <label>
+            @T("Sort")
+            <select name="sort">
+                <option value="author" selected="@(SortBy == "author")">@T("Author")</option>
+                <option value="title" selected="@(SortBy == "title")">@T("Title")</option>
+                <option value="series" selected="@(SortBy == "series")">@T("Series")</option>
+                <option value="year" selected="@(SortBy == "year")">@T("Year")</option>
+                <option value="added" selected="@(SortBy == "added")">@T("Recently added")</option>
+            </select>
+        </label>
+        @foreach (var (name, value) in Kept("q", "sort", "page"))
+        {
+            <input type="hidden" name="@name" value="@value" />
+        }
+        <button type="submit">@T("Show")</button>
+    </form>
+
+    <div class="chips" role="group" aria-label="@T("Show")">
+        <a class="button chip" aria-current="@Current(Has is null)" href="@Href(("has", null))">@T("All") <span class="chip-count">@counts.All.ToString("N0")</span></a>
+        @if (counts.Available < counts.All || Has == "available")
+        {
+            <a class="button chip" aria-current="@Current(Has == "available")" href="@Href(("has", Has == "available" ? null : "available"))">@T("Not lent out") <span class="chip-count">@counts.Available.ToString("N0")</span></a>
+        }
+        @if (counts.Ebook > 0 || Has == "ebook")
+        {
+            <a class="button chip" aria-current="@Current(Has == "ebook")" href="@Href(("has", Has == "ebook" ? null : "ebook"))">@T("E-book") <span class="chip-count">@counts.Ebook.ToString("N0")</span></a>
+        }
+        @if (counts.Audio > 0 || Has == "audio")
+        {
+            <a class="button chip" aria-current="@Current(Has == "audio")" href="@Href(("has", Has == "audio" ? null : "audio"))">@T("Audiobook") <span class="chip-count">@counts.Audio.ToString("N0")</span></a>
+        }
+    </div>
+
+    <div class="toolbar">
+        <div class="segmented" role="group" aria-label="@T("Show books as")">
+            <a class="button" aria-current="@Current(Look == "covers")" href="@Href(("view", "covers"))">@T("Covers")</a>
+            <a class="button" aria-current="@Current(Look == "list")" href="@Href(("view", "list"))">@T("List")</a>
+            <a class="button" aria-current="@Current(Look == "compact")" href="@Href(("view", "compact"))">@T("Compact")</a>
+        </div>
+        @if (Filtered)
+        {
+            <a class="button quiet" href="@($"/shelves/{Id}?view={Look}")">@T("Clear filters")</a>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Author) || !string.IsNullOrWhiteSpace(Series))
+    {
+        <ul class="active-filters" aria-label="@T("Filters on")">
+            @if (!string.IsNullOrWhiteSpace(Author))
+            {
+                <li><a class="button chip removable" href="@Href(("author", null))" aria-label="@T("Take away the filter {0}", $"{T("By")} {Author}")">@T("By") @Author <span aria-hidden="true">×</span></a></li>
+            }
+            @if (!string.IsNullOrWhiteSpace(Series))
+            {
+                <li><a class="button chip removable" href="@Href(("series", null))" aria-label="@T("Take away the filter {0}", $"{T("In")} {Series}")">@T("In") @Series <span aria-hidden="true">×</span></a></li>
+            }
+        </ul>
+    }
+
     @if (books.Count == 0)
     {
-        <p class="hint">@T("Nothing on it yet.")</p>
+        <p class="hint">@(Filtered ? T("No books here match that.") : T("Nothing on it yet."))</p>
     }
     else
     {
-        <ul class="book-grid">
-            @foreach (var book in books)
-            {
-                <li class="book-card">
-                    <BookCover Title="@book.Title" Url="@book.CoverUrl" />
-                    <h2 class="title">@book.Title</h2>
-                    <p class="by">@book.Author@(book.Year is int year ? $" · {year}" : "")</p>
-                    <div class="badges">
-                        @if (book.OnLoan)
-                        {
-                            <span class="badge loan">@T("On loan")</span>
-                        }
-                        @if (book.HasEbook)
-                        {
-                            <span class="badge plain">@T("E-book")</span>
-                        }
-                        @if (book.HasAudio)
-                        {
-                            <span class="badge plain">@T("Audio")</span>
-                        }
-                    </div>
-                    @if (book.Asked)
+        <p class="hint" role="status">@(total > PageSize ? T("{0}–{1} of {2}", Skip + 1, Skip + books.Count, total.ToString("N0")) : Localization.Counts.Books(total))</p>
+        @if (Look == "compact")
+        {
+            <table class="book-table open-shelf">
+                <thead>
+                    <tr>
+                        <th scope="col">@T("Title")</th>
+                        <th scope="col">@T("Author")</th>
+                        <th scope="col">@T("Series")</th>
+                        <th scope="col">@T("Year")</th>
+                        <th scope="col">@T("Formats")</th>
+                        <th scope="col"><span class="visually-hidden">@T("Ask to borrow")</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var book in books)
                     {
-                        <p class="saved">@T("Asked")</p>
+                        <tr @key="book.Id">
+                            <td class="title-cell" title="@book.Title">@book.Title</td>
+                            <td><a href="@Href(("author", book.Author), ("page", null))">@book.Author</a></td>
+                            <td>@SeriesLink(book)</td>
+                            <td>@book.Year</td>
+                            <td><span class="badges">@Badges(book)</span></td>
+                            <td>@AskButton(book)</td>
+                        </tr>
                     }
-                    else
-                    {
-                        <form method="post" @formname="@($"ask-{book.Id}")" @onsubmit="Ask" data-enhance>
-                            <AntiforgeryToken />
-                            <input type="hidden" name="BookId" value="@book.Id" />
-                            <button type="submit" aria-label="@T("Ask to borrow {0}", book.Title)">@T("Ask to borrow")</button>
-                        </form>
-                    }
-                </li>
-            }
-        </ul>
+                </tbody>
+            </table>
+        }
+        else if (Look == "list")
+        {
+            <ul class="book-list">
+                @foreach (var book in books)
+                {
+                    <li class="book" @key="book.Id">
+                        <div class="book-pick"><BookCover Title="@book.Title" Url="@book.CoverUrl" /></div>
+                        <div>
+                            <h2>@book.Title</h2>
+                            <p class="by">
+                                <a href="@Href(("author", book.Author), ("page", null))">@book.Author</a>
+                                @if (book.Year is int year)
+                                {
+                                    <span> (@year)</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(book.Series))
+                                {
+                                    <span> · </span>
+                                    @SeriesLink(book)
+                                }
+                            </p>
+                            <div class="badges">@Badges(book)</div>
+                            @AskButton(book)
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <ul class="book-grid">
+                @foreach (var book in books)
+                {
+                    <li class="book-card" @key="book.Id">
+                        <BookCover Title="@book.Title" Url="@book.CoverUrl" />
+                        <h2 class="title">@book.Title</h2>
+                        <p class="by"><a href="@Href(("author", book.Author), ("page", null))">@book.Author</a>@(book.Year is int year ? $" · {year}" : "")</p>
+                        <div class="badges">@Badges(book)</div>
+                        @AskButton(book)
+                    </li>
+                }
+            </ul>
+        }
+        @if (total > PageSize)
+        {
+            <nav class="actions" aria-label="@T("Pages")">
+                @if (Skip > 0)
+                {
+                    <a class="button" href="@Href(("page", (Page - 1).ToString()))">@T("Previous")</a>
+                }
+                @if (Skip + books.Count < total)
+                {
+                    <a class="button" href="@Href(("page", (Page + 1).ToString()))">@T("Next")</a>
+                }
+            </nav>
+        }
     }
     @if (message is not null)
     {
@@ -63,22 +178,133 @@ else
 }
 
 @code {
+    private const int PageSize = 60;
     private string? owner;
     private List<ShelfBook> books = [];
+    private int total;
+    private OpenShelfCounts counts = new(0, 0, 0, 0);
+    private string defaultLook = "covers";
     private string? message;
 
     [Parameter]
     public int Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "q")]
+    public string? Q { get; set; }
+
+    [SupplyParameterFromQuery(Name = "sort")]
+    public string? Sort { get; set; }
+
+    [SupplyParameterFromQuery(Name = "has")]
+    public string? HasQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "author")]
+    public string? Author { get; set; }
+
+    [SupplyParameterFromQuery(Name = "series")]
+    public string? Series { get; set; }
+
+    [SupplyParameterFromQuery(Name = "view")]
+    public string? View { get; set; }
+
+    [SupplyParameterFromQuery(Name = "page")]
+    public int? PageNumber { get; set; }
+
+    private string SortBy => OpenShelfFilter.Sorts.Contains(Sort) ? Sort! : "author";
+
+    private string? Has => OpenShelfFilter.Kinds.Contains(HasQuery) ? HasQuery : null;
+
+    // As asked, or else as the viewer keeps their own library.
+    private string Look => View is "covers" or "list" or "compact" ? View : defaultLook;
+
+    private int Page => Math.Max(1, PageNumber ?? 1);
+
+    private int Skip => (Page - 1) * PageSize;
+
+    private bool Filtered => !string.IsNullOrWhiteSpace(Q) || Has is not null || !string.IsNullOrWhiteSpace(Author) || !string.IsNullOrWhiteSpace(Series);
+
+    private Dictionary<string, string?> State() => new()
+    {
+        ["q"] = string.IsNullOrWhiteSpace(Q) ? null : Q.Trim(),
+        ["sort"] = SortBy == "author" ? null : SortBy,
+        ["has"] = Has,
+        ["author"] = string.IsNullOrWhiteSpace(Author) ? null : Author,
+        ["series"] = string.IsNullOrWhiteSpace(Series) ? null : Series,
+        ["view"] = View is "covers" or "list" or "compact" ? View : null,
+        ["page"] = Page > 1 ? Page.ToString() : null,
+    };
+
+    // This page with some of what it shows changed; any change but the page starts again from the first.
+    private string Href(params (string Name, string? Value)[] changes)
+    {
+        var state = State();
+        if (!changes.Any(change => change.Name == "page"))
+        {
+            state["page"] = null;
+        }
+
+        foreach (var (name, value) in changes)
+        {
+            state[name] = value;
+        }
+
+        var query = string.Join("&", state.Where(pair => pair.Value is not null).Select(pair => $"{pair.Key}={Uri.EscapeDataString(pair.Value!)}"));
+        return query.Length == 0 ? $"/shelves/{Id}" : $"/shelves/{Id}?{query}";
+    }
+
+    // What the search form carries along besides what it asks for.
+    private IEnumerable<(string Name, string Value)> Kept(params string[] asked) =>
+        State().Where(pair => pair.Value is not null && !asked.Contains(pair.Key)).Select(pair => (pair.Key, pair.Value!));
+
+    private static string? Current(bool on) => on ? "true" : null;
 
     protected override async Task OnParametersSetAsync() => await LoadAsync();
 
     private async Task LoadAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        var shelf = await Asking.ShelfAsync(db, Id);
+        var (listView, compact, _) = await BookRules.GetLibraryLookAsync(db);
+        defaultLook = compact ? "compact" : listView ? "list" : "covers";
+        var shelf = await Asking.ShelfPageAsync(db, Id, new OpenShelfFilter(Q, SortBy, Has, Author, Series), Skip, PageSize);
         owner = shelf?.Owner;
+        total = shelf?.Total ?? 0;
+        counts = shelf?.Counts ?? new(0, 0, 0, 0);
         books = shelf?.Books.ToList() ?? [];
     }
+
+    private RenderFragment SeriesLink(ShelfBook book) =>
+        @<text>@if (!string.IsNullOrWhiteSpace(book.Series))
+        {
+            <a href="@Href(("series", book.Series), ("page", null))">@book.Series</a>@(book.SeriesNumber is int number ? $" {number}" : "")
+        }</text>;
+
+    private RenderFragment Badges(ShelfBook book) =>
+        @<text>@if (book.OnLoan)
+        {
+            <span class="badge loan">@T("On loan")</span>
+        }
+        @if (book.HasEbook)
+        {
+            <span class="badge plain">@T("E-book")</span>
+        }
+        @if (book.HasAudio)
+        {
+            <span class="badge plain">@T("Audio")</span>
+        }</text>;
+
+    private RenderFragment AskButton(ShelfBook book) =>
+        @<text>@if (book.Asked)
+        {
+            <p class="saved">@T("Asked")</p>
+        }
+        else
+        {
+            <form method="post" @formname="@($"ask-{book.Id}")" @onsubmit="Ask" data-enhance>
+                <AntiforgeryToken />
+                <input type="hidden" name="BookId" value="@book.Id" />
+                <button type="submit" aria-label="@T("Ask to borrow {0}", book.Title)">@T("Ask to borrow")</button>
+            </form>
+        }</text>;
 
     [SupplyParameterFromForm]
     private int? BookId { get; set; }

@@ -329,6 +329,7 @@ public sealed class Federation(IServiceScopeFactory scopes, LinkClient client, E
         linked.MapGet("/hello", () => TypedResults.Ok(new LinkHello(Name)));
         linked.MapGet("/shelves", OpenShelves);
         linked.MapGet("/shelves/{ownerId:int}", OpenShelf);
+        linked.MapGet("/shelves/{ownerId:int}/books", OpenShelf);
         linked.MapPost("/asks", Ask);
         linked.MapGet("/asks", Asked);
         linked.MapDelete("/asks/{bookId:int}", Unask);
@@ -373,7 +374,18 @@ public sealed class Federation(IServiceScopeFactory scopes, LinkClient client, E
             .Select(shelf => new LinkedShelf(0, "", shelf.Id, shelf.Name, shelf.Books)).ToArray());
     }
 
-    private static async Task<Results<Ok<LinkedBook[]>, NotFound>> OpenShelf(int ownerId, int? readerId, ShelfDb db, HttpContext http, CancellationToken cancellationToken)
+    // The books of an open shelf, by title: all of them, as shelves before 2.16.2 ask, or, at /books, those matching q,
+    // or the one bookId, take at a time from skip.
+    private static async Task<Results<Ok<LinkedBook[]>, NotFound>> OpenShelf(
+        int ownerId,
+        int? readerId,
+        string? q,
+        int? bookId,
+        int? skip,
+        int? take,
+        ShelfDb db,
+        HttpContext http,
+        CancellationToken cancellationToken)
     {
         if (!await db.Readers.AnyAsync(reader => reader.Id == ownerId && reader.ShelfOpen && !reader.Restricted, cancellationToken))
         {
@@ -384,14 +396,36 @@ public sealed class Federation(IServiceScopeFactory scopes, LinkClient client, E
         var asked = readerId is int asker
             ? (await db.RemoteAsks.AsNoTracking().Where(ask => ask.Reader!.LinkId == link.Id && ask.Reader.RemoteId == asker).Select(ask => ask.BookId).ToListAsync(cancellationToken)).ToHashSet()
             : [];
-        var books = await db.Books.IgnoreQueryFilters().AsNoTracking().Where(book => book.OwnerId == ownerId && book.VisitingLinkId == null)
+        var query = db.Books.IgnoreQueryFilters().AsNoTracking().Where(book => book.OwnerId == ownerId && book.VisitingLinkId == null);
+        if (bookId is int id)
+        {
+            query = query.Where(book => book.Id == id);
+        }
+
+        foreach (var term in Terms(q))
+        {
+            query = query.Where(book => book.Title.ToLower().Contains(term) || book.Author.ToLower().Contains(term));
+        }
+
+        var ordered = query.OrderBy(book => book.Title.ToLower()).ThenBy(book => book.Id).Skip(Math.Max(0, skip ?? 0));
+        if (take is int most)
+        {
+            ordered = ordered.Take(Math.Clamp(most, 0, MaxShelfPage));
+        }
+
+        var books = await ordered
             .Select(book => new { book.Id, book.Title, book.Author, book.CoverUrl, book.Year, book.LoanedTo, book.EbookStoredName, book.AudioStoredName })
             .ToListAsync(cancellationToken);
-        return TypedResults.Ok(books.OrderBy(book => book.Title, StringComparer.CurrentCultureIgnoreCase)
+        return TypedResults.Ok(books
             .Select(book => new LinkedBook(book.Id, book.Title, book.Author, book.CoverUrl is { } cover && cover.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ? cover : null,
                 book.Year, book.LoanedTo is not null, book.EbookStoredName is not null, book.AudioStoredName is not null, asked.Contains(book.Id)))
             .ToArray());
     }
+
+    private const int MaxShelfPage = 200;
+
+    private static string[] Terms(string? search) =>
+        (search ?? "").ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private async Task<RemoteReader> ReaderAsync(ShelfDb db, ShelfLink link, int remoteId, string? name, CancellationToken cancellationToken)
     {
@@ -555,7 +589,10 @@ public sealed class Federation(IServiceScopeFactory scopes, LinkClient client, E
         return [.. found];
     }
 
-    public async Task<(string Server, string Owner, LinkedBook[] Books)?> ShelfAsync(ShelfDb db, int linkId, int ownerId, CancellationToken cancellationToken = default)
+    // A page of a reader's open shelf on a linked shelf, and whether there are more. A linked shelf from before
+    // 2.16.2 sends every book whatever is asked, so the page is cut from that here.
+    public async Task<(string Server, string Owner, LinkedBook[] Books, bool More)?> ShelfAsync(
+        ShelfDb db, int linkId, int ownerId, string? search = null, int skip = 0, int take = 60, CancellationToken cancellationToken = default)
     {
         if (await Family.IsRestrictedAsync(db, cancellationToken: cancellationToken) || await db.ShelfLinks.AsNoTracking().FirstOrDefaultAsync(link => link.Id == linkId && link.Active, cancellationToken) is not { } link)
         {
@@ -563,15 +600,39 @@ public sealed class Federation(IServiceScopeFactory scopes, LinkClient client, E
         }
 
         var shelves = await client.GetAsync<LinkedShelf[]>(link, "/federation/shelves", cancellationToken);
-        var books = await client.GetAsync<LinkedBook[]>(link, $"/federation/shelves/{ownerId}?readerId={db.ReaderId}", cancellationToken);
-        return books is null ? null : (link.Name, shelves?.FirstOrDefault(shelf => shelf.OwnerId == ownerId)?.Name ?? "", books);
+        var path = $"/federation/shelves/{ownerId}/books?readerId={db.ReaderId}&skip={skip}&take={take + 1}"
+            + (string.IsNullOrWhiteSpace(search) ? "" : $"&q={Uri.EscapeDataString(search)}");
+        var books = await client.GetAsync<LinkedBook[]>(link, path, cancellationToken);
+        if (books is null)
+        {
+            // A shelf before 2.16.2 has no /books, and sends every book.
+            var terms = Terms(search);
+            books = (await client.GetAsync<LinkedBook[]>(link, $"/federation/shelves/{ownerId}?readerId={db.ReaderId}", cancellationToken))?
+                .Where(book => terms.All(term => book.Title.Contains(term, StringComparison.OrdinalIgnoreCase) || book.Author.Contains(term, StringComparison.OrdinalIgnoreCase)))
+                .OrderBy(book => book.Title, StringComparer.OrdinalIgnoreCase).ThenBy(book => book.Id)
+                .Skip(skip).Take(take + 1)
+                .ToArray();
+        }
+
+        return books is null ? null : (link.Name, shelves?.FirstOrDefault(shelf => shelf.OwnerId == ownerId)?.Name ?? "", [.. books.Take(take)], books.Length > take);
+    }
+
+    // One book of a reader's open shelf on a linked shelf; from a shelf before 2.16.2, found among them all.
+    private async Task<(string Server, string Owner, LinkedBook Book)?> LinkedBookAsync(ShelfDb db, ShelfLink link, int ownerId, int bookId, CancellationToken cancellationToken)
+    {
+        var shelves = await client.GetAsync<LinkedShelf[]>(link, "/federation/shelves", cancellationToken);
+        var books = await client.GetAsync<LinkedBook[]>(link, $"/federation/shelves/{ownerId}/books?readerId={db.ReaderId}&bookId={bookId}&take=1", cancellationToken)
+            ?? await client.GetAsync<LinkedBook[]>(link, $"/federation/shelves/{ownerId}?readerId={db.ReaderId}", cancellationToken);
+        return books?.FirstOrDefault(book => book.Id == bookId) is { } book
+            ? (link.Name, shelves?.FirstOrDefault(shelf => shelf.OwnerId == ownerId)?.Name ?? "", book)
+            : null;
     }
 
     public async Task<bool> AskAsync(ShelfDb db, int linkId, int ownerId, int bookId, CancellationToken cancellationToken = default)
     {
         var me = await db.Readers.AsNoTracking().FirstOrDefaultAsync(reader => reader.Id == db.ReaderId, cancellationToken);
         var link = await db.ShelfLinks.AsNoTracking().FirstOrDefaultAsync(item => item.Id == linkId && item.Active, cancellationToken);
-        if (me is null || me.Restricted || link is null || await ShelfAsync(db, linkId, ownerId, cancellationToken) is not { } shelf || shelf.Books.FirstOrDefault(book => book.Id == bookId) is not { } book)
+        if (me is null || me.Restricted || link is null || await LinkedBookAsync(db, link, ownerId, bookId, cancellationToken) is not { } shelf || shelf.Book is not { } book)
         {
             return false;
         }

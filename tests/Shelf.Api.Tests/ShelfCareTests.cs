@@ -197,6 +197,60 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
     }
 
     [Fact]
+    public async Task A_big_open_shelf_is_shown_a_page_at_a_time_and_searched()
+    {
+        var owner = await factory.SignUpAsync("Ogion");
+        var ownerId = await factory.ReaderIdAsync("Ogion");
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            db.Books.AddRange(Enumerable.Range(1, 130).Select(n => new Book { OwnerId = ownerId, Title = $"Volume {n:D3}", Author = n % 2 == 0 ? "Even Author" : "odd author", Status = BookStatus.Want }));
+            await db.SaveChangesAsync();
+        }
+
+        await owner.PutAsJsonAsync("/books/shelves/open", new ShelfOpenChange(true), JsonOptions);
+        var first = System.Net.WebUtility.HtmlDecode(await _admin.GetStringAsync($"/shelves/{ownerId}"));
+        Assert.Contains("1–60 of 130", first);
+        Assert.Contains("Volume 002", first);
+        Assert.DoesNotContain("Volume 001", first);
+        Assert.Contains($"/shelves/{ownerId}?page=2", first);
+
+        // By author, whatever their case, then title.
+        var last = System.Net.WebUtility.HtmlDecode(await _admin.GetStringAsync($"/shelves/{ownerId}?page=3"));
+        Assert.Contains("121–130 of 130", last);
+        Assert.Contains("Volume 129", last);
+        Assert.DoesNotContain("?page=4", last);
+
+        var found = System.Net.WebUtility.HtmlDecode(await _admin.GetStringAsync($"/shelves/{ownerId}?q=volume+07"));
+        Assert.Contains("Volume 070", found);
+        Assert.Contains("Volume 079", found);
+        Assert.DoesNotContain("Volume 080", found);
+        Assert.Contains("No books here match that.", System.Net.WebUtility.HtmlDecode(await _admin.GetStringAsync($"/shelves/{ownerId}?q=nothing+like+it")));
+
+        // As the library narrows and orders: by an author, by title, by what can be borrowed now, in another look.
+        var byAuthor = System.Net.WebUtility.HtmlDecode(await _admin.GetStringAsync($"/shelves/{ownerId}?author=odd+author&sort=title"));
+        Assert.Contains("1–60 of 65", byAuthor);
+        Assert.Contains("Volume 001", byAuthor);
+        Assert.DoesNotContain("Volume 002", byAuthor);
+        Assert.Contains("By odd author", byAuthor);
+        Assert.Contains("href=\"/shelves/" + ownerId + "?sort=title&author=odd%20author&page=2\"", byAuthor);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            var lent = Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.IgnoreQueryFilters(db.Books).First(book => book.OwnerId == ownerId && book.Title == "Volume 002");
+            lent.LoanedTo = "A friend";
+            await db.SaveChangesAsync();
+        }
+
+        var available = System.Net.WebUtility.HtmlDecode(await _admin.GetStringAsync($"/shelves/{ownerId}?has=available&view=compact"));
+        Assert.Contains("Not lent out <span class=\"chip-count\">129</span>", available);
+        Assert.Contains("class=\"book-table open-shelf\"", available);
+        Assert.DoesNotContain("Volume 002", available);
+        Assert.DoesNotContain(">E-book <span", available);
+    }
+
+    [Fact]
     public async Task Late_and_nearly_due_loans_are_called_out()
     {
         var borrower = await factory.SignUpAsync("Lark");

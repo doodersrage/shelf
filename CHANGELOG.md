@@ -4,6 +4,12 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.16.2] - 2026-10-15
+
+### Fixed
+
+- **Big open shelves open**: another reader's open shelf is searched, sorted, and shown as your library is, as covers, a list, or a compact table, 60 books at a time: by title, author, series, or ISBN, sorted by author, title, series, year, or the most recently added, narrowed to those not lent out or with an e-book or audiobook, and to an author or a series from their names (never by the owner's statuses, stars, or tags), reading only the page shown from the database, where before every book was read and drawn at once and a shelf of 80,000 timed out. A reader's shelf on a linked Shelf is shown the same way, and asked for a page at a time and for the one book asked to borrow; a linked Shelf from before sends its whole shelf as it did, and the page is cut from it here.
+
 ## [2.16.1] - 2026-10-15
 
 ### Fixed
@@ -651,7 +657,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.16.1...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.16.2...HEAD
+[2.16.2]: https://github.com/doodersrage/shelf/compare/v2.16.1...v2.16.2
 [2.16.1]: https://github.com/doodersrage/shelf/compare/v2.16.0...v2.16.1
 [2.16.0]: https://github.com/doodersrage/shelf/compare/v2.15.0...v2.16.0
 [2.15.0]: https://github.com/doodersrage/shelf/compare/v2.14.2...v2.15.0
