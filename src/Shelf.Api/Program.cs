@@ -476,6 +476,20 @@ app.UseRateLimiter();
 app.UseAuthorization();
 app.UseAntiforgery();
 app.Use(ApiTokens.Guard);
+
+// Shown in place of a page that isn't there, Not found is given what the address may have meant before it is drawn:
+// a page drawn in a 404's place is sent as it first renders, without waiting for anything it awaits.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path == "/not-found"
+        && context.Features.Get<Microsoft.AspNetCore.Diagnostics.IStatusCodeReExecuteFeature>() is { } original
+        && context.User.Identity?.IsAuthenticated == true)
+    {
+        context.Items[Lost.Key] = await Lost.SuggestAsync(context.RequestServices.GetRequiredService<ShelfDb>(), original.OriginalPath, context.RequestAborted);
+    }
+
+    await next();
+});
 app.MapDefaultEndpoints();
 
 if (app.Environment.IsDevelopment())

@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Fixed
+
+- **Not found suggests on PostgreSQL too**: on a shelf using PostgreSQL, the page for an address with nothing at it was sent before its suggestions were found, so it offered only the search; they are now found before the page is drawn.
+
 ## [2.17.0] - 2026-10-15
 
 ### Added

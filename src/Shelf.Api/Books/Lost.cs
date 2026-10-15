@@ -11,6 +11,9 @@ namespace Shelf.Api.Books;
 // a letter or two off, and what Go to finds for the address's words.
 public static partial class Lost
 {
+    // Where the suggestions for the address asked for wait, on the request, for the page to show.
+    public const string Key = "shelf.lost";
+
     private const int Most = 6;
     private const int MostWords = 3;
     private static readonly HashSet<string> Noise = new(["html", "htm", "php", "aspx", "index", "www", "api", "the", "and"], StringComparer.Ordinal);

@@ -370,9 +370,9 @@ public sealed class TimeMachineTests(ShelfApiFactory factory) : IClassFixture<Sh
         // A damaged backup fails its drill.
         var path = factory.Services.GetRequiredService<BackupSchedule>().PathOf(taken.Name)!;
         var broken = Path.Combine(Path.GetDirectoryName(path)!, BackupSchedule.Prefix + "broken.zip");
+        // Cut off halfway, as a copy that stopped would be: a changed byte can land where the drill never reads.
         var bytes = await File.ReadAllBytesAsync(path);
-        bytes[bytes.Length / 2] ^= 0xFF;
-        await File.WriteAllBytesAsync(broken, bytes);
+        await File.WriteAllBytesAsync(broken, bytes[..(bytes.Length / 2)]);
         var verdict = (await (await factory.Client.PostAsync($"/admin/backups/{Path.GetFileName(broken)}/drill", null)).Content.ReadFromJsonAsync<BackupVerdict>(JsonOptions))!;
         Assert.False(verdict.Ok);
         File.Delete(broken);
