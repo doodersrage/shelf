@@ -28,6 +28,7 @@ public static class Connections
             {
                 item.KosyncHash, item.KoboTokenHash, item.ReadwiseToken, item.ReadwiseAuto, item.ReadwiseAutoImport, item.ReadwiseSentAt,
                 item.ReadwiseImportedAt, item.HardcoverToken, item.HardcoverAuto,
+                item.ReadwiseProblem, item.ReadwiseProblemAt, item.HardcoverProblem, item.HardcoverProblemAt,
             })
             .FirstOrDefaultAsync(cancellationToken);
         var list = new List<ConnectionStatus>();
@@ -70,6 +71,8 @@ public static class Connections
         var readwiseLast = new[] { reader.ReadwiseSentAt, reader.ReadwiseImportedAt }.Max();
         list.Add(reader.ReadwiseToken is null
             ? new("Readwise", ConnectionHealth.Off, T("Not connected."), "/account#readwise")
+            : reader.ReadwiseProblem is SyncProblem readwiseProblem
+                ? new("Readwise", ConnectionHealth.Trouble, Trouble(readwiseProblem, reader.ReadwiseProblemAt, "Readwise"), "/account#readwise")
             : readwiseLast is DateTimeOffset traded
                 ? new("Readwise", ConnectionHealth.Working, T("Connected. Highlights last traded {0}.", traded.Medium()), "/account#readwise")
                 : new("Readwise", ConnectionHealth.Waiting, reader.ReadwiseAuto || reader.ReadwiseAutoImport
@@ -78,6 +81,8 @@ public static class Connections
 
         list.Add(reader.HardcoverToken is null
             ? new("Hardcover", ConnectionHealth.Off, T("Not connected."), "/account#hardcover")
+            : reader.HardcoverProblem is SyncProblem hardcoverProblem
+                ? new("Hardcover", ConnectionHealth.Trouble, Trouble(hardcoverProblem, reader.HardcoverProblemAt, "Hardcover"), "/account#hardcover")
             : new("Hardcover", ConnectionHealth.Working, reader.HardcoverAuto
                 ? T("Connected. Changes go every hour.")
                 : T("Connected. Changes go when you send them, from Account."), "/account#hardcover"));
@@ -88,6 +93,11 @@ public static class Connections
             : new(T("Another shelf"), ConnectionHealth.Working, T("Trading with {0}.", sync), "/sync#another-shelf"));
         return list;
     }
+
+    // What went wrong the last time, and when, said so the reader knows what to do.
+    public static string Trouble(SyncProblem problem, DateTimeOffset? at, string service) => at is DateTimeOffset when
+        ? T("The last try, {0}, went wrong. {1}", when.Medium(), SyncProblems.Describe(problem, service))
+        : SyncProblems.Describe(problem, service);
 
     public static string Label(ConnectionHealth health) => health switch
     {

@@ -37,10 +37,27 @@ public interface IReadwiseClient
 
     // Every book with highlights changed after a moment, or all of them; null when Readwise could not be read.
     Task<IReadOnlyList<ReadwiseBook>?> ExportAsync(string token, DateTimeOffset? updatedAfter, CancellationToken cancellationToken);
+
+    // Why a trade went wrong, asked once it has: the token refused, Readwise busy or out of reach; null when it takes the token.
+    Task<SyncProblem?> DiagnoseAsync(string token, CancellationToken cancellationToken);
 }
 
 public sealed class ReadwiseClient(HttpClient http) : IReadwiseClient
 {
+    public async Task<SyncProblem?> DiagnoseAsync(string token, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "https://readwise.io/api/v2/auth/");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Token", token);
+        try
+        {
+            return SyncProblems.FromStatus((await http.SendAsync(request, cancellationToken)).StatusCode);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or Polly.ExecutionRejectedException)
+        {
+            return SyncProblem.Unreachable;
+        }
+    }
+
     public async Task<bool> CheckAsync(string token, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://readwise.io/api/v2/auth/");
@@ -195,6 +212,11 @@ public sealed class ReadwiseSync(IServiceScopeFactory scopes, IReadwiseClient cl
 
         if (token.Length == 0)
         {
+            if (reader.ReadwiseToken is not null)
+            {
+                await NoteAsync(db, reader, SyncProblem.Unsealed, cancellationToken);
+            }
+
             return new ReadwiseSent(false, 0);
         }
 
@@ -203,11 +225,13 @@ public sealed class ReadwiseSync(IServiceScopeFactory scopes, IReadwiseClient cl
         var highlights = await ItemsAsync(db, since, cancellationToken);
         if (highlights.Count > 0 && !await client.SendAsync(token, highlights, cancellationToken))
         {
+            await NoteAsync(db, reader, await client.DiagnoseAsync(token, cancellationToken) ?? SyncProblem.Failed, cancellationToken);
             return new ReadwiseSent(false, 0);
         }
 
         reader.ReadwiseSentAt = started;
         await db.SaveChangesAsync(cancellationToken);
+        await NoteAsync(db, reader, null, cancellationToken);
         return new ReadwiseSent(true, highlights.Count);
     }
 
@@ -219,6 +243,11 @@ public sealed class ReadwiseSync(IServiceScopeFactory scopes, IReadwiseClient cl
         var token = Open(reader.ReadwiseToken);
         if (token.Length == 0)
         {
+            if (reader.ReadwiseToken is not null)
+            {
+                await NoteAsync(db, reader, SyncProblem.Unsealed, cancellationToken);
+            }
+
             return new ReadwiseBrought(false, null);
         }
 
@@ -226,6 +255,7 @@ public sealed class ReadwiseSync(IServiceScopeFactory scopes, IReadwiseClient cl
         var books = await client.ExportAsync(token, everything ? null : reader.ReadwiseImportedAt, cancellationToken);
         if (books is null)
         {
+            await NoteAsync(db, reader, await client.DiagnoseAsync(token, cancellationToken) ?? SyncProblem.Failed, cancellationToken);
             return new ReadwiseBrought(false, null);
         }
 
@@ -239,7 +269,21 @@ public sealed class ReadwiseSync(IServiceScopeFactory scopes, IReadwiseClient cl
         var imported = await KindleClippings.ImportAsync(db, store, clippings, Say("Brought highlights from Readwise"), cancellationToken);
         reader.ReadwiseImportedAt = started;
         await db.SaveChangesAsync(cancellationToken);
+        await NoteAsync(db, reader, null, cancellationToken);
         return new ReadwiseBrought(true, imported);
+    }
+
+    // How the last trade went, kept on the reader for Connections and Account; written only when it changes.
+    private static async Task NoteAsync(ShelfDb db, Reader reader, SyncProblem? problem, CancellationToken cancellationToken)
+    {
+        if (reader.ReadwiseProblem is null && problem is null)
+        {
+            return;
+        }
+
+        DateTimeOffset? at = problem is null ? null : DateTimeOffset.UtcNow;
+        await db.Readers.Where(item => item.Id == reader.Id).ExecuteUpdateAsync(set => set.SetProperty(item => item.ReadwiseProblem, problem).SetProperty(item => item.ReadwiseProblemAt, at), cancellationToken);
+        (reader.ReadwiseProblem, reader.ReadwiseProblemAt) = (problem, at);
     }
 
     private string Open(string? sealedToken)
@@ -289,6 +333,22 @@ public sealed class ReadwiseSync(IServiceScopeFactory scopes, IReadwiseClient cl
         }
     }
 
+    // A round that went wrong in a way nothing expected is still told to the reader, from a fresh start.
+    private async Task NoteFailedAsync(int readerId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var scope = scopes.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            var now = DateTimeOffset.UtcNow;
+            await db.Readers.Where(item => item.Id == readerId).ExecuteUpdateAsync(set => set.SetProperty(item => item.ReadwiseProblem, SyncProblem.Failed).SetProperty(item => item.ReadwiseProblemAt, now), cancellationToken);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Could not note the Readwise trouble for reader {ReaderId}.", readerId);
+        }
+    }
+
     public async Task<int> SendDueAsync(CancellationToken cancellationToken)
     {
         List<int> due;
@@ -321,6 +381,7 @@ public sealed class ReadwiseSync(IServiceScopeFactory scopes, IReadwiseClient cl
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
                 logger.LogWarning(ex, "Could not keep reader {ReaderId}'s highlights in step with Readwise; the others go on.", readerId);
+                await NoteFailedAsync(readerId, cancellationToken);
             }
         }
 

@@ -15,7 +15,7 @@ namespace Shelf.Api.Data.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.14");
 
             modelBuilder.Entity("BookTag", b =>
                 {
@@ -3180,6 +3180,13 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<bool>("HardcoverAuto")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("HardcoverProblem")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("HardcoverProblemAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("HardcoverToken")
                         .HasMaxLength(6000)
                         .HasColumnType("TEXT");
@@ -3289,6 +3296,13 @@ namespace Shelf.Api.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTimeOffset?>("ReadwiseImportedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ReadwiseProblem")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("ReadwiseProblemAt")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset?>("ReadwiseSentAt")

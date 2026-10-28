@@ -1030,6 +1030,16 @@ else if (pushState is not null)
         hardcoverAddMissing = me.HardcoverAddMissing;
         readwiseAutoImport = me.ReadwiseAutoImport;
         readwiseAuto = me.ReadwiseAuto;
+        // What went wrong the last time, here as on Connections, until a trade goes right.
+        if (me.ReadwiseToken is not null && me.ReadwiseProblem is SyncProblem readwiseTrouble)
+        {
+            (readwiseProblem, readwiseNote) = (true, Connections.Trouble(readwiseTrouble, me.ReadwiseProblemAt, "Readwise"));
+        }
+
+        if (me.HardcoverToken is not null && me.HardcoverProblem is SyncProblem hardcoverTrouble)
+        {
+            (hardcoverProblem, hardcoverNote) = (true, Connections.Trouble(hardcoverTrouble, me.HardcoverProblemAt, "Hardcover"));
+        }
         hiddenNav = NavMap.Hidden(me.HiddenNav);
         await LoadNoticesAsync(db);
         webhooks = await Webhooks.ListAsync(db);
@@ -1091,6 +1101,15 @@ else if (pushState is not null)
         }
     }
 
+    // Why a trade just went wrong, as it was noted on the reader.
+    private static async Task<string> WhyAsync(ShelfDb db, bool readwise)
+    {
+        var me = await db.Readers.AsNoTracking().Where(item => item.Id == db.ReaderId)
+            .Select(item => new { item.ReadwiseProblem, item.HardcoverProblem }).FirstAsync();
+        var service = readwise ? "Readwise" : "Hardcover";
+        return SyncProblems.Describe((readwise ? me.ReadwiseProblem : me.HardcoverProblem) ?? SyncProblem.Failed, service);
+    }
+
     private async Task SendToReadwise()
     {
         readwiseBusy = true;
@@ -1099,7 +1118,7 @@ else if (pushState is not null)
             await using var db = await DbFactory.CreateDbContextAsync();
             var sent = await Readwise.SendAsync(db, everything: true);
             readwiseProblem = !sent.Done;
-            readwiseNote = sent.Done ? T("Sent {0} highlights and quotes to Readwise.", sent.Count) : T("Readwise could not be reached, or no longer takes the token.");
+            readwiseNote = sent.Done ? T("Sent {0} highlights and quotes to Readwise.", sent.Count) : await WhyAsync(db, readwise: true);
         }
         finally
         {
@@ -1449,7 +1468,7 @@ else if (pushState is not null)
             await using var db = await DbFactory.CreateDbContextAsync();
             var sent = await Hardcover.SendAsync(db);
             hardcoverProblem = !sent.Done;
-            hardcoverNote = !sent.Done ? T("Hardcover no longer takes the token. Connect again.")
+            hardcoverNote = !sent.Done ? await WhyAsync(db, readwise: false)
                 : T("Sent {0} books to Hardcover.", sent.Books) + (sent.NotFound > 0 ? " " + T("{0} could not be found there by ISBN or title.", sent.NotFound) : "")
                     + (sent.Books + sent.NotFound >= HardcoverSync.MostAtOnce ? " " + T("More are waiting; send again, or let the hourly send take them.") : "");
         }
@@ -1488,7 +1507,7 @@ else if (pushState is not null)
             await using var db = await DbFactory.CreateDbContextAsync();
             var brought = await Hardcover.PullAsync(db);
             hardcoverProblem = !brought.Done;
-            hardcoverNote = !brought.Done ? T("Hardcover could not be reached, or no longer takes the token.")
+            hardcoverNote = !brought.Done ? await WhyAsync(db, readwise: false)
                 : T("{0} books took changes from Hardcover.", brought.Changed) + (brought.Added > 0 ? " " + T("{0} were added from it.", brought.Added) : "");
         }
         finally
@@ -1505,7 +1524,7 @@ else if (pushState is not null)
             await using var db = await DbFactory.CreateDbContextAsync();
             var brought = await Readwise.ImportAsync(db, Ebooks, everything: true);
             readwiseProblem = !brought.Done;
-            readwiseNote = brought.Import is not { } import ? T("Readwise could not be reached, or no longer takes the token.")
+            readwiseNote = brought.Import is not { } import ? await WhyAsync(db, readwise: true)
                 : T("Brought {0} highlights and {1} quotes onto {2} books; {3} were here already.", import.Highlights, import.Quotes, import.Books, import.AlreadyHere)
                     + (import.NotFound.Count > 0 ? " " + T("Not on your shelf: {0}.", string.Join(", ", import.NotFound.Take(10))) + (import.NotFound.Count > 10 ? " " + T("and {0} more", import.NotFound.Count - 10) : "") : "");
         }

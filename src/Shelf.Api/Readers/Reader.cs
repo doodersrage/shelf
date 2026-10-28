@@ -78,9 +78,17 @@ public sealed class Reader
     public bool ReadwiseAutoImport { get; set; }
     public DateTimeOffset? ReadwiseImportedAt { get; set; }
 
+    // Why the last trade with Readwise went wrong, and when; cleared when one goes right.
+    public Books.SyncProblem? ReadwiseProblem { get; set; }
+    public DateTimeOffset? ReadwiseProblemAt { get; set; }
+
     // Hardcover: the API token, sealed with the shelf's keys, and whether changes go there on their own.
     public string? HardcoverToken { get; set; }
     public bool HardcoverAuto { get; set; }
+
+    // Why the last trade with Hardcover went wrong, and when; cleared when one goes right.
+    public Books.SyncProblem? HardcoverProblem { get; set; }
+    public DateTimeOffset? HardcoverProblemAt { get; set; }
 
     // Whether books only on Hardcover are added here when its changes are brought back.
     public bool HardcoverAddMissing { get; set; }

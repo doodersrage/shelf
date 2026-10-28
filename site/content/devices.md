@@ -16,7 +16,7 @@ Shelf talks to e-reader apps and to other shelves, and works on a phone like an 
 - **Off**: not set up, with a link to set it up.
 - **Waiting**: set up, and nothing has come from it yet, with what to do next, such as syncing the Kobo.
 - **Working**: when it was last heard from, and from which device.
-- **Needs a look**: the last try went wrong, and why.
+- **Needs a look**: the last try went wrong, when, and what to do: for Readwise and Hardcover, whether the token was turned down (connect again with a new one), the service was busy or out of reach (it tries again), or the token kept here can no longer be read, as after restoring without the `keys` folder (connect again). **Account** says the same beside each, until a trade goes right.
 
 A connection that's set up and simply has nothing new says so; it isn't shown as trouble.
 

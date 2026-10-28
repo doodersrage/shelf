@@ -208,6 +208,22 @@ Success means a reader can reliably:
 - [x] Docs: `backups.md` and `CHANGELOG.md`.
 - Trade-off: on PostgreSQL without `pg_dump`, nightly backups (which now fail their drill) are no longer copied offsite, including their covers and, with `Backup:IncludeFiles`, their files.
 
+### Follow-up task 11: Readwise and Hardcover sync problems shown to the reader (P2), done 2026-10-28
+
+- [x] New `SyncProblem` (Refused, Busy, Unreachable, Failed, Unsealed), stored on `Reader` as `ReadwiseProblem`/`ReadwiseProblemAt` and `HardcoverProblem`/`HardcoverProblemAt`. The migrations (`SyncProblems`, `PostgresSyncProblems`) add four nullable columns and nothing else.
+- [x] Each client gains `DiagnoseAsync(token)` (401/403 refused, 429 busy, 5xx or timeout unreachable; Hardcover also treats a GraphQL `errors` reply as refused). It is called after a failed send or import.
+- [x] Problems are recorded by sends and imports, by an unexpected error in the hourly round, and when a token can't be unsealed. A success clears them.
+- [x] Connections shows **Needs a look** with the time and the reason. The Account sections show the same on load, and a manual send or fetch that fails gives the specific reason.
+- [x] Hardcover send diagnoses before looking books up. An outage or a revoked token no longer marks books "not on Hardcover" (`HardcoverState`), which stopped them from being looked up again.
+- [x] Tests:
+  - `ReadwiseTests.Readwise_trouble_is_told_to_the_reader_until_a_trade_goes_right` (refused, unsealed, then cleared; Connections and Account).
+  - `HardcoverTests.Hardcover_trouble_is_told_and_books_are_not_given_up_on`.
+  - 6 new strings in es/fr/de; 3 obsolete ones removed.
+- [x] Docs: `devices.md` and `CHANGELOG.md`.
+- Limits:
+  - Readwise send and import share one problem field, so a successful import clears a send's problem from the same round.
+  - The PostgreSQL migration runs only in CI.
+
 ---
 
 # M1 — Reliability, security, and data integrity

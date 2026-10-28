@@ -814,6 +814,8 @@ public class ShelfDb : DbContext
             reader.Property(r => r.KindleEmail).HasMaxLength(EmailRules.MaxAddressLength);
             reader.Property(r => r.ReadwiseToken).HasMaxLength(1000);
             reader.Property(r => r.HardcoverToken).HasMaxLength(6000);
+            reader.Property(r => r.ReadwiseProblem).HasConversion<string>().HasMaxLength(20);
+            reader.Property(r => r.HardcoverProblem).HasConversion<string>().HasMaxLength(20);
             reader.Property(r => r.NtfyUrl).HasMaxLength(500);
             reader.Property(r => r.CalendarTokenHash).HasMaxLength(64);
             reader.Property(r => r.PublicToken).HasMaxLength(40);

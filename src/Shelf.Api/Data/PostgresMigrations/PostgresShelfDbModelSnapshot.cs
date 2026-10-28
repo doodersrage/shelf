@@ -17,7 +17,7 @@ namespace Shelf.Api.Data.PostgresMigrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -3325,6 +3325,13 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Property<bool>("HardcoverAuto")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("HardcoverProblem")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset?>("HardcoverProblemAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("HardcoverToken")
                         .HasMaxLength(6000)
                         .HasColumnType("character varying(6000)");
@@ -3434,6 +3441,13 @@ namespace Shelf.Api.Data.PostgresMigrations
                         .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset?>("ReadwiseImportedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ReadwiseProblem")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset?>("ReadwiseProblemAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset?>("ReadwiseSentAt")

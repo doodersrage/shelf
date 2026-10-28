@@ -159,6 +159,58 @@ public sealed class ReadwiseTests(ShelfApiFactory factory) : IClassFixture<Shelf
         Assert.DoesNotContain(factory.Readwise.Sent, item => item.Text == "A line that never arrives.");
     }
 
+    // A token Readwise turns down, or one the shelf can no longer read, is told on Connections and Account with what
+    // to do, where before the hourly send failed quietly; it goes once a trade goes right.
+    [Fact]
+    public async Task Readwise_trouble_is_told_to_the_reader_until_a_trade_goes_right()
+    {
+        var reader = await factory.SignUpAsync("Readwise Revoked");
+        var readerId = await factory.ReaderIdAsync("Readwise Revoked");
+        var book = (await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("Emma", "Jane Austen", BookStatus.Reading, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        await reader.PostAsJsonAsync($"/books/{book.Id}/quotes", new { text = "A line kept for Readwise.", page = 1 }, JsonOptions);
+        var sync = factory.Services.GetRequiredService<ReadwiseSync>();
+        async Task SealAsync(string sealedToken)
+        {
+            await using var scope = Scope(readerId);
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            var me = await db.Readers.FirstAsync(item => item.Id == readerId);
+            (me.ReadwiseToken, me.ReadwiseAuto) = (sealedToken, true);
+            await db.SaveChangesAsync();
+        }
+
+        async Task<ConnectionStatus> ReadwiseAsync()
+        {
+            await using var scope = Scope(readerId);
+            return (await Connections.ForReaderAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>())).Single(item => item.Name == "Readwise");
+        }
+
+        // Turned down: said so, here and on Account.
+        await using (var scope = Scope(readerId))
+        {
+            await SealAsync(scope.ServiceProvider.GetRequiredService<IDataProtectionProvider>().CreateProtector("Shelf.Readwise.Token").Protect("a-revoked-token"));
+        }
+
+        await sync.SendDueAsync(CancellationToken.None);
+        var trouble = await ReadwiseAsync();
+        Assert.Equal(ConnectionHealth.Trouble, trouble.Health);
+        Assert.Contains("turned the token down", trouble.Note);
+        Assert.Contains("turned the token down", System.Net.WebUtility.HtmlDecode(await reader.GetStringAsync("/account?tab=tab-connections")));
+
+        // A token the shelf's keys can no longer open says that instead.
+        await SealAsync("not sealed with this shelf's keys");
+        await sync.SendDueAsync(CancellationToken.None);
+        Assert.Contains("can't be read", (await ReadwiseAsync()).Note);
+
+        // Connected again, a trade that goes right clears it.
+        await using (var scope = Scope(readerId))
+        {
+            Assert.True(await sync.ConnectAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), StubReadwise.Good));
+        }
+
+        await sync.SendDueAsync(CancellationToken.None);
+        Assert.Equal(ConnectionHealth.Working, (await ReadwiseAsync()).Health);
+    }
+
     private AsyncServiceScope Scope(int readerId)
     {
         var scope = factory.Services.CreateAsyncScope();
@@ -181,6 +233,10 @@ public sealed class StubReadwise : IReadwiseClient
     public ConcurrentQueue<DateTimeOffset?> ExportedAfter { get; } = new();
 
     public Task<bool> CheckAsync(string token, CancellationToken cancellationToken) => Task.FromResult(token == Good);
+
+    // A token Readwise takes answers its check whatever its answers say; any other is turned down.
+    public Task<SyncProblem?> DiagnoseAsync(string token, CancellationToken cancellationToken) =>
+        Task.FromResult<SyncProblem?>(token is Good or Broken ? null : SyncProblem.Refused);
 
     public Task<IReadOnlyList<ReadwiseBook>?> ExportAsync(string token, DateTimeOffset? updatedAfter, CancellationToken cancellationToken)
     {

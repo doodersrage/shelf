@@ -22,6 +22,9 @@ public interface IHardcoverClient
     // The account's name when Hardcover takes the token; null when it does not.
     Task<string?> WhoAsync(string token, CancellationToken cancellationToken);
 
+    // Whether a trade can go now: the token refused, Hardcover busy or out of reach; null when it takes the token.
+    Task<SyncProblem?> DiagnoseAsync(string token, CancellationToken cancellationToken);
+
     // Hardcover's id for a book, by ISBN first, then by title and author.
     Task<int?> FindAsync(string token, string? isbn, string title, string author, CancellationToken cancellationToken);
 
@@ -39,6 +42,32 @@ public interface IHardcoverClient
 public sealed class HardcoverClient(HttpClient http) : IHardcoverClient
 {
     private const string Endpoint = "https://api.hardcover.app/v1/graphql";
+
+    public async Task<SyncProblem?> DiagnoseAsync(string token, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint) { Content = JsonContent.Create(new { query = "query { me { username } }" }) };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? token[7..] : token);
+        try
+        {
+            var answer = await http.SendAsync(request, cancellationToken);
+            if (SyncProblems.FromStatus(answer.StatusCode) is { } problem)
+            {
+                return problem;
+            }
+
+            // A token Hardcover doesn't take still answers 200, with errors in place of the account.
+            var document = await answer.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            return document.TryGetProperty("errors", out _) ? SyncProblem.Refused : null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or Polly.ExecutionRejectedException)
+        {
+            return SyncProblem.Unreachable;
+        }
+        catch (JsonException)
+        {
+            return SyncProblem.Failed;
+        }
+    }
 
     public async Task<string?> WhoAsync(string token, CancellationToken cancellationToken)
     {
@@ -356,8 +385,19 @@ public sealed class HardcoverSync(IServiceScopeFactory scopes, IHardcoverClient 
     {
         var reader = await db.Readers.AsNoTracking().FirstAsync(item => item.Id == db.ReaderId, cancellationToken);
         var token = Open(reader.HardcoverToken);
-        if (token.Length == 0 || await client.ShelfAsync(token, cancellationToken) is not { } theirs)
+        if (token.Length == 0)
         {
+            if (reader.HardcoverToken is not null)
+            {
+                await NoteAsync(db, reader, SyncProblem.Unsealed, cancellationToken);
+            }
+
+            return new HardcoverBrought(false, 0, 0);
+        }
+
+        if (await client.ShelfAsync(token, cancellationToken) is not { } theirs)
+        {
+            await NoteAsync(db, reader, await client.DiagnoseAsync(token, cancellationToken) ?? SyncProblem.Failed, cancellationToken);
             return new HardcoverBrought(false, 0, 0);
         }
 
@@ -439,6 +479,7 @@ public sealed class HardcoverSync(IServiceScopeFactory scopes, IHardcoverClient 
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        await NoteAsync(db, reader, null, cancellationToken);
         return new HardcoverBrought(true, changed, added);
     }
 
@@ -453,6 +494,19 @@ public sealed class HardcoverSync(IServiceScopeFactory scopes, IHardcoverClient 
     {
         static string Simple(string? text) => new((text ?? "").ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
         return Simple(one).Length > 0 && Simple(one) == Simple(other);
+    }
+
+    // How the last trade went, kept on the reader for Connections and Account; written only when it changes.
+    private static async Task NoteAsync(ShelfDb db, Reader reader, SyncProblem? problem, CancellationToken cancellationToken)
+    {
+        if (reader.HardcoverProblem is null && problem is null)
+        {
+            return;
+        }
+
+        DateTimeOffset? at = problem is null ? null : DateTimeOffset.UtcNow;
+        await db.Readers.Where(item => item.Id == reader.Id).ExecuteUpdateAsync(set => set.SetProperty(item => item.HardcoverProblem, problem).SetProperty(item => item.HardcoverProblemAt, at), cancellationToken);
+        (reader.HardcoverProblem, reader.HardcoverProblemAt) = (problem, at);
     }
 
     private string Open(string? sealedToken)
@@ -483,12 +537,27 @@ public sealed class HardcoverSync(IServiceScopeFactory scopes, IHardcoverClient 
 
         if (token.Length == 0)
         {
+            if (reader.HardcoverToken is not null)
+            {
+                await NoteAsync(db, reader, SyncProblem.Unsealed, cancellationToken);
+            }
+
             return new HardcoverSent(false, 0, 0);
         }
 
         var books = await db.Books.ToListAsync(cancellationToken);
-        int sent = 0, missing = 0;
-        foreach (var book in books.Where(book => !Unchanged(book)).Take(MostAtOnce))
+        var changing = books.Where(book => !Unchanged(book)).Take(MostAtOnce).ToList();
+
+        // Asked first whether Hardcover takes the token and can be reached: otherwise every book it couldn't look up
+        // would be noted as not on Hardcover, and not looked for again until it changed.
+        if (changing.Count > 0 && await client.DiagnoseAsync(token, cancellationToken) is { } problem)
+        {
+            await NoteAsync(db, reader, problem, cancellationToken);
+            return new HardcoverSent(false, 0, 0);
+        }
+
+        int sent = 0, missing = 0, refused = 0;
+        foreach (var book in changing)
         {
             var status = StatusOf(book);
             // The reading dates go as a new read only when they changed, so Hardcover does not count the same read twice.
@@ -509,6 +578,10 @@ public sealed class HardcoverSync(IServiceScopeFactory scopes, IHardcoverClient 
                 book.HardcoverState = State(status);
                 sent++;
             }
+            else
+            {
+                refused++;
+            }
 
             await db.SaveChangesAsync(cancellationToken);
             if (Pause > TimeSpan.Zero)
@@ -518,6 +591,7 @@ public sealed class HardcoverSync(IServiceScopeFactory scopes, IHardcoverClient 
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        await NoteAsync(db, reader, refused > 0 ? await client.DiagnoseAsync(token, cancellationToken) ?? SyncProblem.Failed : null, cancellationToken);
         return new HardcoverSent(true, sent, missing);
     }
 
@@ -561,6 +635,17 @@ public sealed class HardcoverSync(IServiceScopeFactory scopes, IHardcoverClient 
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
                 logger.LogWarning(ex, "Could not keep reader {ReaderId}'s books in step with Hardcover; the others go on.", readerId);
+                try
+                {
+                    await using var scope = scopes.CreateAsyncScope();
+                    var now = DateTimeOffset.UtcNow;
+                    await scope.ServiceProvider.GetRequiredService<ShelfDb>().Readers.Where(item => item.Id == readerId)
+                        .ExecuteUpdateAsync(set => set.SetProperty(item => item.HardcoverProblem, SyncProblem.Failed).SetProperty(item => item.HardcoverProblemAt, now), cancellationToken);
+                }
+                catch (Exception noting) when (!cancellationToken.IsCancellationRequested)
+                {
+                    logger.LogWarning(noting, "Could not note the Hardcover trouble for reader {ReaderId}.", readerId);
+                }
             }
         }
 

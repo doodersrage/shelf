@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shelf.Api.Books;
@@ -74,6 +75,40 @@ public sealed class HardcoverTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.All(asked, item => Assert.Equal("Bearer secret", item.Auth));
         Assert.Contains(asked, item => item.Body.Contains("isbn_13", StringComparison.Ordinal));
         Assert.Contains(asked, item => item.Body.Contains("\"finished_at\":\"2025-01-09\"", StringComparison.Ordinal));
+    }
+
+    // A token Hardcover turns down is told on Connections, and no book is taken for one not on Hardcover because it
+    // couldn't be looked up; a send that goes right clears it.
+    [Fact]
+    public async Task Hardcover_trouble_is_told_and_books_are_not_given_up_on()
+    {
+        var reader = await factory.SignUpAsync("Hardcover Revoked");
+        var readerId = await factory.ReaderIdAsync("Hardcover Revoked");
+        var book = (await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("Waiting To Go", "Someone", BookStatus.Reading, null, Isbn: "9780000000040"), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        factory.Hardcover.Books["9780000000040"] = 640;
+        var sync = factory.Services.GetRequiredService<HardcoverSync>();
+        await using (var scope = Scope(readerId))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            var me = await db.Readers.FirstAsync(item => item.Id == readerId);
+            me.HardcoverToken = scope.ServiceProvider.GetRequiredService<IDataProtectionProvider>().CreateProtector("Shelf.Hardcover.Token").Protect("a-revoked-token");
+            me.HardcoverAuto = true;
+            await db.SaveChangesAsync();
+        }
+
+        await sync.SendDueAsync(CancellationToken.None);
+        await using (var scope = Scope(readerId))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            var hardcover = (await Connections.ForReaderAsync(db)).Single(item => item.Name == "Hardcover");
+            Assert.Equal(ConnectionHealth.Trouble, hardcover.Health);
+            Assert.Contains("turned the token down", hardcover.Note);
+            Assert.Null((await db.Books.AsNoTracking().FirstAsync(item => item.Id == book.Id)).HardcoverState);
+
+            await sync.ConnectAsync(db, StubHardcover.Good);
+            Assert.Equal(1, (await sync.SendAsync(db)).Books);
+            Assert.Equal(ConnectionHealth.Working, (await Connections.ForReaderAsync(db)).Single(item => item.Name == "Hardcover").Health);
+        }
     }
 
     [Fact]
@@ -189,6 +224,9 @@ public sealed class StubHardcover : IHardcoverClient
         Task.FromResult<IReadOnlyList<HardcoverShelfBook>?>(token == Good ? [.. Shelf] : null);
 
     public Task<string?> WhoAsync(string token, CancellationToken cancellationToken) => Task.FromResult(token == Good ? "reader42" : null);
+
+    public Task<SyncProblem?> DiagnoseAsync(string token, CancellationToken cancellationToken) =>
+        Task.FromResult<SyncProblem?>(token == Good ? null : SyncProblem.Refused);
 
     public Task<int?> FindAsync(string token, string? isbn, string title, string author, CancellationToken cancellationToken) =>
         Task.FromResult(isbn is not null && Books.TryGetValue(isbn, out var id) ? id : (int?)null);
