@@ -530,7 +530,7 @@ public sealed class HardcoverSync(IServiceScopeFactory scopes, IHardcoverClient 
             {
                 await SendDueAsync(stoppingToken);
             }
-            catch (Exception ex) when (ex is DbUpdateException or InvalidOperationException or HttpRequestException)
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {
                 logger.LogWarning(ex, "Could not send books to Hardcover; it will try again.");
             }
@@ -549,11 +549,19 @@ public sealed class HardcoverSync(IServiceScopeFactory scopes, IHardcoverClient 
         var sent = 0;
         foreach (var readerId in due)
         {
-            await using var scope = scopes.CreateAsyncScope();
-            scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
-            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
-            await PullAsync(db, cancellationToken);
-            sent += (await SendAsync(db, cancellationToken)).Books;
+            // One reader's trouble (a revoked token, say) is theirs alone: the readers after them still go.
+            try
+            {
+                await using var scope = scopes.CreateAsyncScope();
+                scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
+                var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+                await PullAsync(db, cancellationToken);
+                sent += (await SendAsync(db, cancellationToken)).Books;
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "Could not keep reader {ReaderId}'s books in step with Hardcover; the others go on.", readerId);
+            }
         }
 
         return sent;

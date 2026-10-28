@@ -282,7 +282,7 @@ public sealed class ReadwiseSync(IServiceScopeFactory scopes, IReadwiseClient cl
             {
                 await SendDueAsync(stoppingToken);
             }
-            catch (Exception ex) when (ex is DbUpdateException or InvalidOperationException or HttpRequestException)
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {
                 logger.LogWarning(ex, "Could not send highlights to Readwise; it will try again.");
             }
@@ -301,18 +301,26 @@ public sealed class ReadwiseSync(IServiceScopeFactory scopes, IReadwiseClient cl
         var sent = 0;
         foreach (var readerId in due)
         {
-            await using var scope = scopes.CreateAsyncScope();
-            scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
-            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
-            var reader = await db.Readers.AsNoTracking().FirstAsync(item => item.Id == readerId, cancellationToken);
-            if (reader.ReadwiseAutoImport)
+            // One reader's trouble (a revoked token, say) is theirs alone: the readers after them still go.
+            try
             {
-                await ImportAsync(db, scope.ServiceProvider.GetRequiredService<EbookStore>(), everything: false, cancellationToken);
-            }
+                await using var scope = scopes.CreateAsyncScope();
+                scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
+                var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+                var reader = await db.Readers.AsNoTracking().FirstAsync(item => item.Id == readerId, cancellationToken);
+                if (reader.ReadwiseAutoImport)
+                {
+                    await ImportAsync(db, scope.ServiceProvider.GetRequiredService<EbookStore>(), everything: false, cancellationToken);
+                }
 
-            if (reader.ReadwiseAuto)
+                if (reader.ReadwiseAuto)
+                {
+                    sent += (await SendAsync(db, everything: false, cancellationToken)).Count;
+                }
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
-                sent += (await SendAsync(db, everything: false, cancellationToken)).Count;
+                logger.LogWarning(ex, "Could not keep reader {ReaderId}'s highlights in step with Readwise; the others go on.", readerId);
             }
         }
 

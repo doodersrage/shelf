@@ -41,7 +41,7 @@ public sealed class FolderImport(IServiceScopeFactory scopes, BookImport import,
             {
                 await ScanAsync(stoppingToken);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DbUpdateException or InvalidOperationException)
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {
                 logger.LogWarning(ex, "Could not look in the import folder; it will try again.");
             }

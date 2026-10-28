@@ -277,7 +277,16 @@ public sealed class CalibreImporter(IServiceScopeFactory scopes, ShelfJobs regis
         {
             if (jobs.TryGetValue(id, out var job))
             {
-                await RunAsync(job, stoppingToken);
+                try
+                {
+                    await RunAsync(job, stoppingToken);
+                }
+                catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+                {
+                    // The job ends rather than showing as running for good, and the next one in the queue still runs.
+                    logger.LogError(ex, "A Calibre import stopped part way.");
+                    job.Finished = true;
+                }
             }
         }
     }

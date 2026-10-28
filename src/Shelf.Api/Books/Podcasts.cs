@@ -773,7 +773,7 @@ public sealed class PodcastService(IServiceScopeFactory scopes, IPodcastClient c
             {
                 await RefreshDueAsync(stoppingToken);
             }
-            catch (Exception ex) when (ex is DbUpdateException or InvalidOperationException or IOException)
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {
                 logger.LogWarning(ex, "Could not read podcast feeds; they will be read again in an hour.");
             }
