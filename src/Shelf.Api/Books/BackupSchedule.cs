@@ -117,31 +117,57 @@ public sealed class BackupSchedule(
         var name = $"{Prefix}{DateTimeOffset.UtcNow:yyyy-MM-dd-HHmmssfff}.zip";
         var path = Path.Combine(Folder, name);
         var partial = path + ".partial";
-        await using (var scope = scopes.CreateAsyncScope())
+        try
         {
+            await using var scope = scopes.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
             await Backup.WriteSnapshotAsync(db, ebooks, audio, covers, partial, cancellationToken, IncludeFiles, configuration["Database:PgDump"]);
+        }
+        catch
+        {
+            // A half-written backup is never kept to fill the disk; failing to clear it never hides why it failed.
+            try
+            {
+                File.Delete(partial);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
+
+            throw;
         }
 
         // Only a finished zip carries the real name, so a half-written one is never mistaken for a backup.
         File.Move(partial, path);
-        foreach (var old in List().Skip(Keep))
-        {
-            File.Delete(Path.Combine(Folder, old.Name));
-            File.Delete(Path.Combine(Folder, old.Name + ".check.json"));
-        }
-
         logger.LogInformation("Took the nightly backup {Name}.", name);
 
-        // Proved before it is sent anywhere: a backup that cannot be restored is worse than knowing there is none.
+        // Proved before anything is let go or sent anywhere: a backup that cannot be restored is worse than knowing
+        // there is none, and must never push out one that can.
         var verdict = await BackupCheck.DrillAndKeepAsync(path, cancellationToken);
-        if (!verdict.Ok)
+        foreach (var old in ToLetGo(List(), Keep, backup => BackupCheck.VerdictAt(Path.Combine(Folder, backup)) is { Ok: true }))
         {
-            logger.LogWarning("The backup {Name} did not pass its restore drill: {Problem}", name, verdict.Problem);
+            File.Delete(Path.Combine(Folder, old));
+            File.Delete(Path.Combine(Folder, old + ".check.json"));
         }
 
-        await offsite.SendAsync(path, Keep, cancellationToken);
+        if (verdict.Ok)
+        {
+            await offsite.SendAsync(path, Keep, cancellationToken);
+        }
+        else
+        {
+            logger.LogWarning("The backup {Name} did not pass its restore drill, so it was not copied elsewhere: {Problem}", name, verdict.Problem);
+        }
+
         return List().First(backup => backup.Name == name);
+    }
+
+    // The backups past the newest Keep, newest first given, but never the newest that passed its drill: however many
+    // fail after it, the last backup that restores stays until a newer one does.
+    public static IEnumerable<string> ToLetGo(IReadOnlyList<AutomaticBackup> newestFirst, int keep, Func<string, bool> proved)
+    {
+        var lastGood = newestFirst.FirstOrDefault(backup => proved(backup.Name))?.Name;
+        return newestFirst.Skip(keep).Select(backup => backup.Name).Where(name => name != lastGood).ToList();
     }
 
     public IReadOnlyList<AutomaticBackup> List()

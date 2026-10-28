@@ -60,6 +60,28 @@ public sealed class OffsiteBackupTests(ShelfApiFactory factory) : IClassFixture<
         Assert.Equal(3, s3.MultipartUploads);
     }
 
+    // Past the newest few, backups go, but never the newest that restores: a run of backups that fail their drill
+    // can't push out the last good one.
+    [Fact]
+    public void The_last_backup_that_restores_is_kept_however_many_fail_after_it()
+    {
+        static IReadOnlyList<AutomaticBackup> Backups(params string[] names) =>
+            [.. names.Select((name, age) => new AutomaticBackup(name, 1, DateTimeOffset.UtcNow.AddDays(-age)))];
+
+        // All restore: the oldest past the two kept go.
+        Assert.Equal(["c", "d"], BackupSchedule.ToLetGo(Backups("a", "b", "c", "d"), 2, _ => true));
+
+        // The newest two fail: the newest that restores stays, older ones go.
+        HashSet<string> good = ["c", "d"];
+        Assert.Equal(["d"], BackupSchedule.ToLetGo(Backups("a", "b", "c", "d"), 2, good.Contains));
+
+        // None restores: there is no good one to keep, and the newest few are kept as ever.
+        Assert.Equal(["c"], BackupSchedule.ToLetGo(Backups("a", "b", "c"), 2, _ => false));
+
+        // Fewer than kept: nothing goes.
+        Assert.Empty(BackupSchedule.ToLetGo(Backups("a"), 2, _ => true));
+    }
+
     [Fact]
     public async Task A_copy_that_fails_is_reported_and_the_backup_is_still_made()
     {

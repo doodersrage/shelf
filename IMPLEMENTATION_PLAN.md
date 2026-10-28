@@ -197,6 +197,17 @@ Success means a reader can reliably:
   - A pre-upgrade backup taken before the nightly hour counts as that day's backup.
   - The startup-exit path is tested through `BeforeMigratingAsync` directly, not through a full host start.
 
+### Follow-up task 10: backup retention after the drill (next tier, P2), done 2026-10-28
+
+- [x] `BackupSchedule.TakeAsync` now:
+  - drills the new backup first, then prunes with `ToLetGo`, which keeps the newest `Keep` backups plus the newest one that passed its drill;
+  - sends to `CopyTo`/S3 only when the drill passes;
+  - deletes the `.partial` file when writing fails.
+- [x] `BackupCheck.VerdictAt(path)` reads a backup's verdict without the schedule.
+- [x] `OffsiteBackupTests.The_last_backup_that_restores_is_kept_however_many_fail_after_it` unit-tests the choice. An end-to-end run of failing drills can't be produced on SQLite, where a fresh backup always passes.
+- [x] Docs: `backups.md` and `CHANGELOG.md`.
+- Trade-off: on PostgreSQL without `pg_dump`, nightly backups (which now fail their drill) are no longer copied offsite, including their covers and, with `Backup:IncludeFiles`, their files.
+
 ---
 
 # M1 — Reliability, security, and data integrity

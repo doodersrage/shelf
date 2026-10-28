@@ -26,9 +26,12 @@ public sealed class BackupCheck(BackupSchedule schedule, EbookStore ebooks, Audi
 
     private string OpenFolder => Path.Combine(schedule.Folder, ".open");
 
-    public BackupVerdict? VerdictOf(string name)
+    public BackupVerdict? VerdictOf(string name) => schedule.PathOf(name) is { } path ? VerdictAt(path) : null;
+
+    // The verdict kept beside a backup, if its drill has run.
+    public static BackupVerdict? VerdictAt(string backupPath)
     {
-        var path = schedule.PathOf(name) + VerdictSuffix;
+        var path = backupPath + VerdictSuffix;
         try
         {
             return File.Exists(path) ? JsonSerializer.Deserialize<BackupVerdict>(File.ReadAllText(path), History.JsonOptions) : null;
