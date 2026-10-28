@@ -113,7 +113,7 @@ Success means a reader can reliably:
 - [x] `dotnet test -c Release`: 403 passed, 0 failed.
 - [x] Docs: `devices.md`, the Sync page hint and its es/fr/de translations, and `CHANGELOG.md` (Unreleased / Security).
 - Limitation: sessions created from a token before this change carry no token id, so removing the token doesn't end them. Changing the password, or an admin's **Sign out everywhere**, does.
-- New finding (P2): the reader's own **Sign out everywhere else** on Account (`TwoFactor.EndOtherSessionsAsync`) only deletes browser sessions. It doesn't rotate `Stamp`, so it leaves Audiobookshelf apps signed in, contrary to what its name suggests.
+- New finding (P2): the reader's own **Sign out everywhere else** didn't sign out Audiobookshelf apps. **Resolved in task 13.**
 - **Next recommended:** gap 5, background loops that can stop the server.
 
 ### Follow-up task 4: background jobs can't stop the server (gap 5), done 2026-10-28, not yet committed
@@ -138,10 +138,7 @@ Success means a reader can reliably:
 - [x] `Kobo.cs` `PutState` sends the chapter through `Lending.KeepPlaceAsync` with KOReader's rule: only a later chapter moves the place. Moving on clears the stale CFI, and the Kobo is noted in `PositionReports` as source "Kobo".
 - [x] `KoboTests.A_kobo_that_is_behind_never_sends_the_reader_back` covers a backward report (place and CFI kept; the Kobo listed with `Kept=false`) and a forward report (chapter moved, CFI cleared, `Kept=true`). Against the old code it fails with chapter 0 still holding chapter 2's CFI.
 - [x] Docs: `devices.md`, `reading.md` (the Kobo listed under "Where each device has you"), and `CHANGELOG.md`.
-- Unchanged and still open in gap 4:
-  - **Part 2:** "Read again" doesn't reset `KosyncPlaces`, `KoboEntries`, or `PositionReports`. A Kobo that says Finished can mark the reread finished.
-  - **Part 3:** the Audiobookshelf apps and offline audio use last write wins.
-  - **Part 4:** an Audiobookshelf `isFinished` PATCH resets the place to 0:00.
+- The other parts of gap 4 are resolved in tasks 6 (reread reset), 8 (late audio places), and 7 (Audiobookshelf `isFinished`).
 - **Next recommended:** part 2, the reread reset.
 
 ### Follow-up task 6: reread resets device state (gap 4, part 2 of 4), done 2026-10-28
@@ -245,7 +242,10 @@ Success means a reader can reliably:
 - [x] `accessibility.spec.mjs` has a shared `audit()` helper and a second test. It runs axe (WCAG 2.1 AA and best practices) in both themes on `/signin`, `/signup`, `/forgot`, `/reset`, a shared list, an unknown shared link, and a 404 page, all signed out; and with Go to (Ctrl+K, with results) and the keyboard shortcuts dialog open.
 - [x] It found and fixed one real violation: Go to's chosen option rendered `.jump-kind` and `.jump-detail` in muted on sunken at 4.1:1. They now use ink (11.7:1) when the option is chosen or hovered (`app.css`). `docs/design-system.md` records the pairing.
 - [x] Chromium: both accessibility tests and the wayfinding spec pass (5 tests). Firefox runs in CI only.
-- Still not audited: the reader's settings and contents panels, the mini player, the bulk-edit bar, mobile width, and es/fr/de.
+- [x] Later the same day: two more tests in `accessibility.spec.mjs`.
+  - One audits the reader's Contents and Text settings, the mini player while playing, and the bulk-edit bar, at phone width (390×844) in both themes.
+  - The other audits `/`, `/library`, a book page, `/account`, `/stats`, `/backup`, `/signin`, and `/signup` in es-ES, fr-FR, and de-DE. It checks that `<html lang>` matches, so each page really renders in that language.
+  - Both pass in Chromium with no new violations. Firefox runs in CI.
 
 ### Follow-up task 15: catalog lookups tell an outage from "not found" (audit P2), done 2026-10-28
 
@@ -272,7 +272,7 @@ Success means a reader can reliably:
 - [x] `NextReads.BorrowableAsync` suggests open-shelf books by loved authors only, with an empty `Subjects`. It reads id, title, author, cover, and owner only, not tags.
 - [x] `AbsApi.BooksAsync` and `OpenAsync` clear `Tags` on books the reader doesn't own (lent or shared) before building the app's JSON (genres and tags).
 - [x] Tests: `NextReadsTests` gains a lender book tagged as the reader loves, by an unloved author, which must not be suggested; and `AbsApiTests.A_lent_book_reaches_the_borrowers_app_without_the_owners_tags`. Both fail against the old code.
-- Not changed (still P3): the borrower's webhook and event feed include the owner's reading `Status` on BookLent and Returned (`Webhooks.cs:218-222`).
+- The webhook and event-feed status leak noted here is **resolved in task 19**.
 
 ### Follow-up task 18: a merge can be taken apart (audit P2; decision by the user: full unmerge), done 2026-10-28
 

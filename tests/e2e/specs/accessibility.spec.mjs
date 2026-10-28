@@ -108,3 +108,75 @@ test("signed-out pages, shared lists, and what opens over a page pass an accessi
 
   expect(failures, failures.join("\n")).toEqual([]);
 });
+
+// What a reader opens while reading and listening, at a phone's width: the contents, the text settings, the mini
+// player on another page, and the bar for changing many books at once.
+test("the reader's panels, the mini player, and the bulk bar pass an accessibility audit on a phone", async ({ browser }) => {
+  test.slow();
+  const page = await signUp(browser, unique("Panel Auditor"), { viewport: { width: 390, height: 844 } });
+  const book = await createBook(page, { title: "The Harbour", author: "Someone", status: "Reading" });
+  await upload(page, book.id, "ebook", "koreader.epub", "application/epub+zip");
+  await upload(page, book.id, "audio", "chapters.m4b", "audio/mp4");
+  await createBook(page, { title: "A Second Book", author: "Someone Else", status: "Want" });
+
+  const failures = [];
+  for (const scheme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.goto(`/library/${book.id}/read`, { waitUntil: "networkidle" });
+    await ready(page);
+    await expect(page.locator(".reader-where")).toContainText("Chapter", { timeout: 20_000 });
+    await page.getByRole("button", { name: "Contents" }).click();
+    await expect(page.getByRole("navigation", { name: "Contents" })).toBeVisible();
+    failures.push(...(await audit(page, `${scheme} reader contents`)));
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Text settings" }).click();
+    await expect(page.getByRole("dialog", { name: "Text settings" })).toBeVisible();
+    failures.push(...(await audit(page, `${scheme} reader text settings`)));
+    await page.keyboard.press("Escape");
+
+    // Playing, then moved on: the mini player over the library.
+    await page.goto(`/library/${book.id}/listen`, { waitUntil: "networkidle" });
+    await ready(page);
+    await page.locator(".listen [data-player=toggle]").click();
+    await page.getByRole("link", { name: "Library", exact: true }).first().click();
+    await page.waitForURL((url) => url.pathname === "/library");
+    await ready(page);
+    await expect(page.locator("#mini-player")).toBeVisible();
+    failures.push(...(await audit(page, `${scheme} mini player`)));
+    await page.locator("#mini-player").getByRole("button", { name: "Close the player" }).click();
+
+    // Two books chosen in the list: the bar for changing them together.
+    await page.goto("/library?view=list", { waitUntil: "networkidle" });
+    await ready(page);
+    await page.check('input[aria-label="Choose The Harbour"]');
+    await page.check('input[aria-label="Choose A Second Book"]');
+    await expect(page.locator(".bulk-bar")).toBeVisible();
+    failures.push(...(await audit(page, `${scheme} bulk bar`)));
+  }
+
+  expect(failures, failures.join("\n")).toEqual([]);
+});
+
+// The pages most used, in each language Shelf speaks: longer words must not break them, and labels stay labels.
+test("the main pages pass an accessibility audit in Spanish, French, and German", async ({ browser }) => {
+  test.slow();
+  const failures = [];
+  for (const locale of ["es-ES", "fr-FR", "de-DE"]) {
+    const page = await signUp(browser, unique(`Auditor ${locale}`), { locale });
+    const book = await createBook(page, { title: "Moby-Dick", author: "Herman Melville", status: "Reading" });
+    for (const url of ["/", "/library", `/library/${book.id}`, "/account", "/stats", "/backup"]) {
+      await page.goto(url, { waitUntil: "networkidle" });
+      // Drawn in that language, or the audit says nothing of it.
+      await expect(page.locator("html")).toHaveAttribute("lang", locale.slice(0, 2));
+      failures.push(...(await audit(page, `${locale} ${url}`)));
+    }
+
+    const stranger = await (await browser.newContext({ locale })).newPage();
+    for (const url of ["/signin", "/signup"]) {
+      await stranger.goto(url, { waitUntil: "networkidle" });
+      failures.push(...(await audit(stranger, `${locale} signed out ${url}`)));
+    }
+  }
+
+  expect(failures, failures.join("\n")).toEqual([]);
+});
