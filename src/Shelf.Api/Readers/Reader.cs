@@ -49,6 +49,10 @@ public sealed class Reader
     // Changes when the password is reset or changed, which signs out every session made before.
     public string Stamp { get; set; } = ReaderRules.NewStamp();
 
+    // Changes when the reader signs out everywhere else, which signs out the Audiobookshelf apps signed in before
+    // while leaving this browser signed in, as changing Stamp would not. Null until it first changes.
+    public string? AppStamp { get; set; }
+
     // The address the reader signs in with, unique on the shelf, and where password resets and, when EmailNotices
     // is on and the shelf can send email, notifications go. Children's accounts, and accounts made before sign-in
     // was by email, may have none and sign in by name.

@@ -212,6 +212,9 @@ public static class TwoFactor
 
     public static async Task<int> EndOtherSessionsAsync(ShelfDb db, int readerId, string? keep, CancellationToken cancellationToken = default)
     {
+        // The Audiobookshelf apps too: their sessions carry AppStamp, which changes here, and this browser's stays.
+        var appStamp = ReaderRules.NewStamp();
+        await db.Readers.Where(item => item.Id == readerId).ExecuteUpdateAsync(set => set.SetProperty(item => item.AppStamp, appStamp), cancellationToken);
         var ended = await db.ReaderSessions.Where(item => item.ReaderId == readerId && item.Id != keep).ExecuteDeleteAsync(cancellationToken);
         if (ended > 0)
         {

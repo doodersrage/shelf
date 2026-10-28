@@ -96,11 +96,11 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
     // Who an app is signed in as, and the API token it signed in with, if it gave one rather than a password.
     private sealed record AbsSession(Reader Reader, int? ApiTokenId);
 
-    // A session signed in with an API token names it, so removing the token signs the app out.
+    // A session names the API token it signed in with, if any, so removing the token signs the app out; and the
+    // reader's AppStamp, so signing out everywhere else does too. Older sessions, of two or three parts, carry neither.
     private static string Token(ITimeLimitedDataProtector protector, AbsSession session, TimeSpan life) =>
-        protector.Protect(session.ApiTokenId is int apiToken
-            ? $"{session.Reader.Id}|{session.Reader.Stamp}|{apiToken.ToString(CultureInfo.InvariantCulture)}"
-            : $"{session.Reader.Id}|{session.Reader.Stamp}", life);
+        protector.Protect(
+            $"{session.Reader.Id}|{session.Reader.Stamp}|{session.ApiTokenId?.ToString(CultureInfo.InvariantCulture) ?? ""}|{session.Reader.AppStamp ?? ""}", life);
 
     private static async Task<AbsSession?> SessionOfAsync(ShelfDb db, ITimeLimitedDataProtector protector, string? token, CancellationToken cancellationToken)
     {
@@ -120,13 +120,13 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
         }
 
         var parts = payload.Split('|');
-        if (parts.Length is not (2 or 3) || !int.TryParse(parts[0], CultureInfo.InvariantCulture, out var id))
+        if (parts.Length is not (2 or 3 or 4) || !int.TryParse(parts[0], CultureInfo.InvariantCulture, out var id))
         {
             return null;
         }
 
         int? apiToken = null;
-        if (parts.Length == 3)
+        if (parts.Length >= 3 && parts[2].Length > 0)
         {
             if (!int.TryParse(parts[2], CultureInfo.InvariantCulture, out var tokenId)
                 || !await db.ApiTokens.AsNoTracking().AnyAsync(item => item.Id == tokenId && item.ReaderId == id, cancellationToken))
@@ -138,7 +138,12 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
         }
 
         var reader = await db.Readers.AsNoTracking().FirstOrDefaultAsync(reader => reader.Id == id && reader.Stamp == parts[1], cancellationToken);
-        return reader is null ? null : new AbsSession(reader, apiToken);
+        if (reader is null || (parts.Length == 4 && parts[3] != (reader.AppStamp ?? "")))
+        {
+            return null;
+        }
+
+        return new AbsSession(reader, apiToken);
     }
 
     // Every /api call carries the access token, as a header or, for covers, in the address.

@@ -3283,6 +3283,10 @@ namespace Shelf.Api.Data.PostgresMigrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AppStamp")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("CalendarTokenHash")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");

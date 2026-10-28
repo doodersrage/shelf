@@ -797,6 +797,7 @@ public class ShelfDb : DbContext
             reader.Property(r => r.KeyHash).HasMaxLength(64);
             reader.HasIndex(r => r.NormalizedName);
             reader.Property(r => r.Stamp).HasMaxLength(64).IsRequired();
+            reader.Property(r => r.AppStamp).HasMaxLength(64);
             reader.Property(r => r.Email).HasMaxLength(EmailRules.MaxAddressLength);
             reader.Property(r => r.NormalizedEmail).HasMaxLength(EmailRules.MaxAddressLength);
             reader.HasIndex(r => r.NormalizedEmail).IsUnique();

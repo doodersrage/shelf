@@ -7,7 +7,7 @@ description: Passwords, passkeys, two-step sign-in, signed-in devices, the activ
 
 ## Signing in
 
-Every page and every API call needs a signed-in reader, apart from a [reading list you share by link](library.md#sharing-a-reading-list). Scripts sign in with an [API token](api.md#api-tokens), which opens the books API but never the account. A sign-in lasts thirty days on that browser, and each one is listed on **Account** under **Signed-in devices**, with its browser and when it was last used. Sign out any of them from there, or **Sign out everywhere else**.
+Every page and every API call needs a signed-in reader, apart from a [reading list you share by link](library.md#sharing-a-reading-list). Scripts sign in with an [API token](api.md#api-tokens), which opens the books API but never the account. A sign-in lasts thirty days on that browser, and each one is listed on **Account** under **Signed-in devices**, with its browser and when it was last used. Sign out any of them from there, or **Sign out everywhere else**, which signs out the Audiobookshelf apps too and leaves you signed in where you are.
 
 ![Sign-in & security on Account: password, two-step sign-in, passkeys, and signed-in devices](assets/images/security.png)
 

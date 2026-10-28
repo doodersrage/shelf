@@ -232,6 +232,14 @@ Success means a reader can reliably:
 - [x] `FamilyTests.A_child_keeps_their_own_place_and_highlights_in_a_shared_book`. Against the old code, the child's own highlight is saved but their list comes back empty. The test also covers place separation, deleting a highlight, and the book closing when unshared.
 - [x] `CHANGELOG.md`. `lending.md` already promised this behavior.
 
+### Follow-up task 13: "Sign out everywhere else" signs out the Audiobookshelf apps (P2, found in task 3), done 2026-10-28
+
+- [x] New `Reader.AppStamp` column (migrations `AppStamp` and `PostgresAppStamp`, one nullable column). It is rotated by `TwoFactor.EndOtherSessionsAsync`.
+- [x] App tokens now carry `id|stamp|apiTokenId|appStamp`, and `SessionOfAsync` checks the app stamp. Older 2- and 3-part tokens are still accepted. They end on a password change, but this button doesn't reach them until the app signs in again.
+- [x] Rotating `Stamp` instead would also sign out the browser where the button was pressed, because a Blazor circuit can't reissue its cookie.
+- [x] `AbsApiTests.Signing_out_everywhere_else_signs_out_the_apps` (without the rotation: the app stays OK). `dotnet test -c Release`: 416 passed.
+- [x] Docs: `security.md` and `CHANGELOG.md` (Security).
+
 ---
 
 # M1 — Reliability, security, and data integrity

@@ -250,6 +250,42 @@ public sealed class AbsApiTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
         Assert.Equal(0, await TrackAsync());
     }
 
+    // Signing out everywhere else signs out the Audiobookshelf apps too, and leaves the reader's own browser signed
+    // in: their stamp stays as it was. Signed in again, the app works.
+    [Fact]
+    public async Task Signing_out_everywhere_else_signs_out_the_apps()
+    {
+        await factory.SignUpAsync("App Lost Phone");
+        var readerId = await factory.ReaderIdAsync("App Lost Phone");
+        async Task<(HttpClient App, string Refresh)> SignInAsync()
+        {
+            var app = factory.CreateClient();
+            var login = await (await app.PostAsJsonAsync("/login", new { username = "App Lost Phone", password = ShelfApiFactory.Password })).Content.ReadFromJsonAsync<JsonObject>();
+            app.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!["user"]!["accessToken"]!.GetValue<string>());
+            return (app, login["user"]!["refreshToken"]!.GetValue<string>());
+        }
+
+        var (phone, refresh) = await SignInAsync();
+        Assert.Equal(HttpStatusCode.OK, (await phone.GetAsync("/api/libraries")).StatusCode);
+        string stamp;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>();
+            stamp = db.Readers.Single(item => item.Id == readerId).Stamp;
+            await TwoFactor.EndOtherSessionsAsync(db, readerId, keep: null);
+        }
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await phone.GetAsync("/api/libraries")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await phone.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/auth/refresh") { Headers = { { "x-refresh-token", refresh } } })).StatusCode);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            Assert.Equal(stamp, scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>().Readers.Single(item => item.Id == readerId).Stamp);
+        }
+
+        var (again, _) = await SignInAsync();
+        Assert.Equal(HttpStatusCode.OK, (await again.GetAsync("/api/libraries")).StatusCode);
+    }
+
     [Fact]
     public async Task The_live_connection_speaks_socket_io_and_signs_in_with_the_token()
     {

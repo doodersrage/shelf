@@ -3138,6 +3138,10 @@ namespace Shelf.Api.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("AppStamp")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("CalendarTokenHash")
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
