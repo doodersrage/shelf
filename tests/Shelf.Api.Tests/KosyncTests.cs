@@ -157,6 +157,69 @@ public sealed class KosyncTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
         Assert.Null(KoreaderPlace.Compare("nonsense", "epubcfi(/6/4!/4)"));
     }
 
+    // Read again, the book starts over on the devices too: KOReader saying the end of the last time through again
+    // doesn't jump the reread there, nor is it handed back as the place to go; somewhere new it says still counts;
+    // the Kobo is told the book is being read again; and the last read's device places go.
+    [Fact]
+    public async Task A_book_read_again_starts_over_on_koreader_and_the_kobo()
+    {
+        var reader = await factory.SignUpAsync("Rereader");
+        var readerId = await factory.ReaderIdAsync("Rereader");
+        var book = (await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("Four Chapters Again", "Someone", BookStatus.Finished, null), JsonOptions))
+            .Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        var epub = FourChapters();
+        using (var content = new MultipartFormDataContent { { new ByteArrayContent(epub), "file", "four.epub" } })
+        {
+            await reader.PostAsync($"/books/{book.Id}/ebook", content);
+        }
+
+        var path = Path.Combine(Path.GetTempPath(), $"four-{Guid.NewGuid():N}.epub");
+        await File.WriteAllBytesAsync(path, epub);
+        var document = Kosync.Digest(path)!;
+        File.Delete(path);
+        var password = Kosync.NewPassword();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            (await db.Readers.FirstAsync(item => item.Id == readerId)).KosyncHash = Kosync.HashOf(password);
+            await db.SaveChangesAsync();
+        }
+
+        var device = factory.CreateClient();
+        device.DefaultRequestHeaders.Accept.ParseAdd(Kosync.AcceptType);
+        device.DefaultRequestHeaders.Add("x-auth-user", "rereader");
+        device.DefaultRequestHeaders.Add("x-auth-key", Md5(password));
+
+        // The first time through ends in the last chapter, on KOReader and on a Kobo.
+        const string end = "/body/DocFragment[4]/body/p[1]/text().0";
+        await device.PutAsJsonAsync("/kosync/syncs/progress", new { document, progress = end, percentage = 0.97, device = "Boox", device_id = "boox-1" });
+        Assert.Equal(3, (await reader.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!.EbookChapter);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            db.KoboEntries.Add(new KoboEntry { ReaderId = readerId, BookId = book.Id, Status = "Finished", Bookmark = "{\"ProgressPercent\":100}", SyncedAt = DateTimeOffset.UtcNow });
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Equal(HttpStatusCode.NoContent, (await reader.PostAsync($"/books/{book.Id}/again", null)).StatusCode);
+        Assert.Empty((await reader.GetFromJsonAsync<PositionsOfBook>($"/books/{book.Id}/positions", JsonOptions))!.Reports);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var entry = await scope.ServiceProvider.GetRequiredService<ShelfDb>().KoboEntries.IgnoreQueryFilters().SingleAsync(item => item.ReaderId == readerId && item.BookId == book.Id);
+            Assert.Equal(((string?)null, (string?)null), (entry.Status, entry.Bookmark));
+        }
+
+        // KOReader is sent to the start, not the old end; and saying the old end again moves nothing.
+        var back = await device.GetFromJsonAsync<JsonElement>($"/kosync/syncs/progress/{document}");
+        Assert.Equal("/body/DocFragment[1]/body", back.GetProperty("progress").GetString());
+        await device.PutAsJsonAsync("/kosync/syncs/progress", new { document, progress = end, percentage = 0.97, device = "Boox", device_id = "boox-1" });
+        Assert.Null((await reader.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!.EbookChapter);
+
+        // Reading on in the reread counts as ever.
+        await device.PutAsJsonAsync("/kosync/syncs/progress", new { document, progress = "/body/DocFragment[2]/body/p[1]/text().0", percentage = 0.3, device = "Boox", device_id = "boox-1" });
+        Assert.Equal(1, (await reader.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!.EbookChapter);
+    }
+
     private static string Md5(string text) => Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(text))).ToLowerInvariant();
 
     private static byte[] FourChapters()

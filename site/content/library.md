@@ -39,7 +39,7 @@ Every book is one of four, each shown with a different small shape as well as it
 
 ### Reading a book again
 
-**Read it again**, on a finished book's page, puts that read by, with its dates and the stars you gave it then, and starts the book over: Reading from today, its place in the e-book, the recording, and on paper back at the start. Every read is kept. Under the reading log, **Each read** lists them, with the sessions, highlights, and quotes from each one's days, and **Write about this read** keeps a few words about what you made of it then and what changed since. Each finish counts in its own year, on **Insights**, **Years**, the year's review, and your goal, so a book read in 2019 and again this year counts in both.
+**Read it again**, on a finished book's page, puts that read by, with its dates and the stars you gave it then, and starts the book over: Reading from today, its place in the e-book, the recording, and on paper back at the start. Devices start over too: KOReader is sent to the start, and its saying the old end again doesn't jump you there (reading on from anywhere else counts as ever); a Kobo is told at its next sync that you're reading the book again; and **Where each device has you** clears, as those were the last read's places. Every read is kept. Under the reading log, **Each read** lists them, with the sessions, highlights, and quotes from each one's days, and **Write about this read** keeps a few words about what you made of it then and what changed since. Each finish counts in its own year, on **Insights**, **Years**, the year's review, and your goal, so a book read in 2019 and again this year counts in both.
 
 Can't choose what to read next? `/books/pick` picks one book from the want list.
 
