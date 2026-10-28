@@ -184,6 +184,7 @@ public static class Positions
         ("Shelf", "reader") => T("Shelf's reader"),
         ("Shelf", "player") => T("Shelf's player"),
         ("Shelf", "offline") => T("Reading offline"),
+        ("Shelf", "listening offline") => T("Listening offline"),
         ("Shelf", "chosen") => T("Chosen by you"),
         ("Shelf", "") => "Shelf",
         (_, "") => source,

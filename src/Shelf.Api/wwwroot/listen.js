@@ -278,7 +278,8 @@
         const response = await fetch(`/books/${bookId}/audio/place`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ track: kept.track, seconds: kept.seconds }),
+          // Sent late, it moves the place on only: listening done elsewhere since is never undone.
+          body: JSON.stringify({ track: kept.track, seconds: kept.seconds, replayed: true }),
           credentials: "same-origin",
         });
         if (response.ok || response.status === 404 || response.status === 400) write(key, { ...kept, waiting: false });

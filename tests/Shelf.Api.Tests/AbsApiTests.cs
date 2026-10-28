@@ -217,6 +217,39 @@ public sealed class AbsApiTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
         Assert.Equal(BookStatus.Finished, (await reader.GetFromJsonAsync<BookResponse>($"/books/{paper.Id}", JsonOptions))!.Status);
     }
 
+    // Sessions the app played offline and sends late move the place on, never back: a phone reconnecting after
+    // listening went further elsewhere doesn't undo it. While playing, the app still moves it either way.
+    [Fact]
+    public async Task Sessions_an_app_played_offline_never_send_the_listener_back()
+    {
+        var reader = await factory.SignUpAsync("App Offline");
+        var book = (await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("Three Tracks Offline", "Someone", BookStatus.Reading, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        using (var content = new MultipartFormDataContent { { new StreamContent(File.OpenRead(Path.Combine(Fixtures, "three-tracks.zip"))), "file", "three-tracks.zip" } })
+        {
+            (await reader.PostAsync($"/books/{book.Id}/audio", content)).EnsureSuccessStatusCode();
+        }
+
+        var app = factory.CreateClient();
+        var login = await (await app.PostAsJsonAsync("/login", new { username = "App Offline", password = ShelfApiFactory.Password })).Content.ReadFromJsonAsync<JsonObject>();
+        app.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!["user"]!["accessToken"]!.GetValue<string>());
+        var play = await (await app.PostAsJsonAsync($"/api/items/{book.Id}/play", new { deviceInfo = new { deviceId = "phone" }, forceDirectPlay = true })).Content.ReadFromJsonAsync<JsonObject>();
+        var third = play!["audioTracks"]![2]!["startOffset"]!.GetValue<double>();
+        async Task<int?> TrackAsync() => (await reader.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!.AudioTrack;
+
+        // Listened into the third track; the phone, offline, stopped in the first and sends it late, one way or the other.
+        await app.PatchAsJsonAsync($"/api/me/progress/{book.Id}", new { currentTime = third + 1 });
+        Assert.Equal(2, await TrackAsync());
+        Assert.Equal(HttpStatusCode.OK, (await app.PostAsJsonAsync("/api/session/local", new { libraryItemId = book.Id.ToString(), currentTime = 1.0, timeListening = 30 })).StatusCode);
+        Assert.Equal(2, await TrackAsync());
+        var all = await (await app.PostAsJsonAsync("/api/session/local-all", new { sessions = new[] { new { id = "s1", libraryItemId = book.Id.ToString(), currentTime = 1.0, timeListening = 30 } } })).Content.ReadFromJsonAsync<JsonObject>();
+        Assert.True(all!["results"]![0]!["success"]!.GetValue<bool>());
+        Assert.Equal(2, await TrackAsync());
+
+        // While playing, the app moves the place back when the listener does.
+        await app.PatchAsJsonAsync($"/api/me/progress/{book.Id}", new { currentTime = 1.0 });
+        Assert.Equal(0, await TrackAsync());
+    }
+
     [Fact]
     public async Task The_live_connection_speaks_socket_io_and_signs_in_with_the_token()
     {

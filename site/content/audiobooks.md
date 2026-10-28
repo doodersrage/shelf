@@ -58,7 +58,7 @@ Leave the player and the book plays on in a bar at the foot of every page, with 
 
 ### Listening offline
 
-**Keep for listening offline** on a book's page saves every track in that browser, with a count of the tracks as they come down. From then on the book plays from the device, which spares your data; and when the shelf can't be reached, the offline page (the one any page turns into without a connection) lists it under **Kept for listening** with a player of its own. Where you stop, and how long you listened, go back to the shelf once it answers again. **Kept for listening offline · forget** removes the tracks.
+**Keep for listening offline** on a book's page saves every track in that browser, with a count of the tracks as they come down. From then on the book plays from the device, which spares your data; and when the shelf can't be reached, the offline page (the one any page turns into without a connection) lists it under **Kept for listening** with a player of its own. Where you stop, and how long you listened, go back to the shelf once it answers again. A place sent late like this moves your place on only: if you listened further elsewhere meanwhile, that is kept, and **Where each device has you** shows the offline place as **Listening offline**, for **Go here** to take on purpose. The same goes for listening the Audiobookshelf apps did offline. **Kept for listening offline · forget** removes the tracks.
 
 A long recording takes a lot of room, often several hundred megabytes. Shelf asks the browser to keep it rather than clear it when space runs short; a browser may still refuse, or clear it if you clear the site's data.
 
