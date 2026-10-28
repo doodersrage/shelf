@@ -533,7 +533,10 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
     - Fixes: the journal reads passages in one query and filters by time in memory. The page draws 300 items at a time with Show more and Show all, and printing shows the whole year. Result: **about 250 ms and 82 KB**.
     - Wider fix: `UseParameterizedCollectionMode(ParameterTranslationMode.Parameter)` on both providers (`Program.cs`), so the 52 `ids.Contains` queries send one JSON or array parameter. Without it, more than 32,766 ids fails outright (`SQLite Error 1: 'too many SQL variables'`, reproduced by `ReadingLifeTests.A_query_by_tens_of_thousands_of_ids_runs`).
     - Tests: `ReadingLifeTests.A_long_year_of_reading_opens_a_page_at_a_time` and the 40,000-id query test.
-  - **P3:** some pages send very large HTML: `/quotes` 8 MB, `/series` 3 MB, `/reading` 2.2 MB, `/years` 1.4 MB. Their server time is fine; the cost is on the browser.
+  - ~~**P3:** some pages send very large HTML.~~ Fixed later the same day:
+    - `/quotes` went from 8 MB to 89 KB (200 at a time), `/series` from 3 MB to 86 KB (100 at a time), `/reading` from 2.2 MB to 39 KB (24 open books, then a link), and `/years` from 1.4 MB to 180 KB (60 a year, then the year's page).
+    - `/years/2024` takes 334 ms.
+    - Test: `ReadingLifeTests.Long_lists_open_a_page_at_a_time`.
   - Large e-book and audiobook files weren't measured.
 - [x] Review dependency updates and security advisories using repository-supported tooling.
   - *Status 2026-10-28:* 2026-10-28: `dotnet list package --vulnerable` lists only MessagePack 2.5.302 (moderate), in the development-only `Shelf.AppHost`, from Aspire. `npm audit`: tests/e2e and site are clean. Vendored `epubjs` 0.3.93 bundles `@xmldom/xmldom`, which has a high advisory, but epubjs uses it only when there is no native `DOMParser` or `forceXMLDom` is passed, and nothing passes it. So it isn't reachable in the browser. The only fix is epubjs 0.4.2, a breaking change, best taken through Dependabot's vendored group. All open Dependabot PRs were merged after CI.

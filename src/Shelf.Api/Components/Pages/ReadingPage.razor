@@ -25,7 +25,7 @@ else
         else
         {
             <ul class="open-books">
-                @foreach (var book in open)
+                @foreach (var book in open.Take(MostOpen))
                 {
                     <li class="strip-card">
                         <BookCover Title="@book.Title" Url="@book.CoverShown" />
@@ -51,6 +51,10 @@ else
                     </li>
                 }
             </ul>
+            @if (open.Count > MostOpen)
+            {
+                <p class="hint"><a href="/library?status=Reading">@T("All {0} you are reading", open.Count)</a></p>
+            }
         }
     </section>
 
@@ -134,6 +138,9 @@ else
     private List<Book> queue = [];
     private List<(DateOnly Day, int BookId, string Title, string What)> log = [];
     private List<(int BookId, string Title, string Text, int? Page, int? ChapterIndex, DateTimeOffset At)> noted = [];
+
+    // The books opened latest; the rest are in the library, so a long list of open books keeps this page light.
+    private const int MostOpen = 24;
 
     protected override async Task OnInitializedAsync()
     {

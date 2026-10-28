@@ -52,7 +52,8 @@
 }
 else
 {
-    @foreach (var shelf in shelves)
+    @* A page at a time: drawn whole, a shelf of thousands of series made a page of megabytes. *@
+    @foreach (var shelf in shelves.Take(shown))
     {
         <h2><a href="@($"/library?series={Uri.EscapeDataString(shelf.Name)}")">@shelf.Name</a></h2>
         <ul class="tag-counts">
@@ -65,9 +66,19 @@ else
             }
         </ul>
     }
+
+    @if (shelves.Count > shown)
+    {
+        <p class="list-more">
+            <button type="button" @onclick="() => shown += PageSize">@T("Show {0} more", Math.Min(PageSize, shelves.Count - shown))</button>
+            <button type="button" class="quiet" @onclick="() => shown = shelves.Count">@T("Show all {0}", shelves.Count)</button>
+        </p>
+    }
 }
 
 @code {
+    private const int PageSize = 100;
+    private int shown = PageSize;
     private List<SeriesShelf> shelves = [];
     private SeriesAlertResponse[] alerts = [];
     private bool watching;

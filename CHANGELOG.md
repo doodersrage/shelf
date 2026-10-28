@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Fixed
+
+- **Long lists open light**: on a big shelf, **Quotes & highlights**, **Series**, **Reading**, and **Years** each drew everything at once, pages of up to several megabytes. Now quotes and highlights come 200 at a time and series 100, each with **Show more** and **Show all** (a search still looks through them all); **Reading** shows the 24 books opened latest, with a link to every one in the library; and **Years** shows up to 60 books a year, with a link to that year's page for the rest.
+
 ## [2.19.0] - 2026-10-28
 
 ### Added

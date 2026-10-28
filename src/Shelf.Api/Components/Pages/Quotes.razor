@@ -16,13 +16,13 @@ else
     <div class="filters">
         <label>
             @T("Search")
-            <input type="search" @bind="query" @bind:event="oninput" placeholder="@T("Words, notes, titles, authors")" />
+            <input type="search" @bind="query" @bind:event="oninput" @bind:after="() => shown = PageSize" placeholder="@T("Words, notes, titles, authors")" />
         </label>
     </div>
     <div class="segmented" role="group" aria-label="@T("Show")">
-        <button type="button" aria-pressed="@(kind == "" ? "true" : "false")" @onclick="@(() => kind = "")">@T("Both")</button>
-        <button type="button" aria-pressed="@(kind == "quote" ? "true" : "false")" @onclick="@(() => kind = "quote")">@T("Quotes")</button>
-        <button type="button" aria-pressed="@(kind == "highlight" ? "true" : "false")" @onclick="@(() => kind = "highlight")">@T("Highlights")</button>
+        <button type="button" aria-pressed="@(kind == "" ? "true" : "false")" @onclick="@(() => (kind, shown) = ("", PageSize))">@T("Both")</button>
+        <button type="button" aria-pressed="@(kind == "quote" ? "true" : "false")" @onclick="@(() => (kind, shown) = ("quote", PageSize))">@T("Quotes")</button>
+        <button type="button" aria-pressed="@(kind == "highlight" ? "true" : "false")" @onclick="@(() => (kind, shown) = ("highlight", PageSize))">@T("Highlights")</button>
     </div>
     @if (!Visible.Any())
     {
@@ -30,8 +30,10 @@ else
     }
     else
     {
+    @* A page at a time, the latest first: drawn whole, a long-kept shelf's passages made a page of many megabytes. *@
+    var matching = Visible.ToList();
     <ul class="quotes">
-        @foreach (var passage in Visible)
+        @foreach (var passage in matching.Take(shown))
         {
             <li>
                 <blockquote>
@@ -54,10 +56,19 @@ else
             </li>
         }
     </ul>
+    @if (matching.Count > shown)
+    {
+        <p class="list-more">
+            <button type="button" @onclick="() => shown += PageSize">@T("Show {0} more", Math.Min(PageSize, matching.Count - shown))</button>
+            <button type="button" class="quiet" @onclick="() => shown = matching.Count">@T("Show all {0}", matching.Count)</button>
+        </p>
+    }
     }
 }
 
 @code {
+    private const int PageSize = 200;
+    private int shown = PageSize;
     private List<Passage> passages = [];
     private string query = "";
     private string kind = "";

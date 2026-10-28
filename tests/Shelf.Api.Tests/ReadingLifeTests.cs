@@ -368,4 +368,35 @@ public sealed class ReadingLifeTests(ShelfApiFactory factory) : IClassFixture<Sh
         var ids = Enumerable.Range(1, 40_000).ToList();
         Assert.Equal(0, await db.Books.CountAsync(book => ids.Contains(book.Id)));
     }
+
+    // The long lists open light, with the way to the rest: quotes and series a page at a time, the open books and
+    // each year's finishes up to a limit, past which the library and the year's page hold them all.
+    [Fact]
+    public async Task Long_lists_open_a_page_at_a_time()
+    {
+        var reader = await factory.SignUpAsync("Long Lists Reader");
+        var readerId = await factory.ReaderIdAsync("Long Lists Reader");
+        var quoted = await CreateAsync(reader, new CreateBookRequest("Much Quoted", "Someone", BookStatus.Want, null));
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            db.Quotes.AddRange(Enumerable.Range(0, 210).Select(n => new Quote { BookId = quoted.Id, Text = $"Line {n}.", NotedAt = DateTimeOffset.UtcNow.AddMinutes(-n) }));
+            db.Books.AddRange(Enumerable.Range(0, 101).Select(n => new Book { OwnerId = readerId, Title = $"Series Book {n}", Author = "Someone", Series = $"Series {n}", SeriesNumber = 1, Status = BookStatus.Want, AddedAt = DateTimeOffset.UtcNow }));
+            db.Books.AddRange(Enumerable.Range(0, 25).Select(n => new Book { OwnerId = readerId, Title = $"Open Book {n}", Author = "Someone", Status = BookStatus.Reading, AddedAt = DateTimeOffset.UtcNow }));
+            db.Books.AddRange(Enumerable.Range(0, 61).Select(n => new Book { OwnerId = readerId, Title = $"Done Book {n}", Author = "Someone", Status = BookStatus.Finished, FinishedOn = new DateOnly(2021, 1, 1).AddDays(n), AddedAt = DateTimeOffset.UtcNow }));
+            await db.SaveChangesAsync();
+        }
+
+        var quotes = await reader.GetStringAsync("/quotes");
+        Assert.Equal(200, quotes.Split("<blockquote>").Length - 1);
+        Assert.Contains("Show all 210", quotes);
+        var series = await reader.GetStringAsync("/series");
+        Assert.Contains("Show 1 more", series);
+        Assert.Contains("Show all 101", series);
+        Assert.Contains("All 25 you are reading", await reader.GetStringAsync("/reading"));
+        var years = WebUtility.HtmlDecode(await reader.GetStringAsync("/years"));
+        Assert.Contains("and 1 more", years);
+        Assert.Contains("href=\"/years/2021\"", years);
+    }
 }

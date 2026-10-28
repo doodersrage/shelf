@@ -19,7 +19,7 @@ else
             <p class="hint"><a href="/years/@dated">@T("Your {0} in books", dated)</a></p>
         }
         <ul class="tag-counts">
-            @foreach (var book in year.Books)
+            @foreach (var book in year.Books.Take(MostAYear))
             {
                 <li>
                     <a href="/library/@book.Id">@book.Title</a>
@@ -30,10 +30,20 @@ else
                 </li>
             }
         </ul>
+        @if (year.Books.Length > MostAYear)
+        {
+            <p class="hint">@T("and {0} more", year.Books.Length - MostAYear)@if (year.Year is int all)
+                {
+                    <span> · <a href="/years/@all">@T("Your {0} in books", all)</a></span>
+                }</p>
+        }
     }
 }
 
 @code {
+    // A year's books past these are on the year's own page: a reader of thousands a year made this page of megabytes.
+    private const int MostAYear = 60;
+
     private List<FinishedYear> years = [];
 
     protected override async Task OnInitializedAsync()
