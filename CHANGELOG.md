@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Fixed
+
+- **Backups on PostgreSQL without pg_dump said they would restore when they held nothing**: in place of the database, a nightly backup kept a library as JSON, read as no reader at all and so with no books, which its check passed all the same; a snapshot an admin downloaded held only their own books. Now, without `pg_dump`, a backup keeps the files with a `NO-DATABASE.txt` saying why and fails its check, shown on **Readers** and **Server health**; **Download a snapshot** is refused rather than given without the database; and backups made the old way are shown as ones that would not restore. [Backups](https://doodersrage.github.io/shelf/backups.html#on-postgresql) says how to give Shelf `pg_dump` and how to restore `shelf.sql`.
+
 ### Security
 
 - **A year's card keeps to the internet**: the covers drawn into a year's card, fetched from the addresses books' covers were linked from, went to any address, this machine and its network included, and whatever answered was drawn into the card, so a reader could use it to read what a service inside the network said. They are now held to the same rule as podcast feeds: the open internet only, unless `Network:AllowPrivateAddresses` is set; only a JPEG, PNG, GIF, or WebP of a cover's size is drawn in, read no further than that, and anything else gets a spine.

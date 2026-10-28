@@ -68,7 +68,7 @@ public sealed class BackupSchedule(
         await using (var scope = scopes.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
-            await Backup.WriteSnapshotAsync(db, ebooks, audio, covers, partial, cancellationToken, IncludeFiles);
+            await Backup.WriteSnapshotAsync(db, ebooks, audio, covers, partial, cancellationToken, IncludeFiles, configuration["Database:PgDump"]);
         }
 
         // Only a finished zip carries the real name, so a half-written one is never mistaken for a backup.

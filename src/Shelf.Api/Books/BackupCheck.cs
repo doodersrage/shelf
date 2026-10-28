@@ -112,13 +112,17 @@ public sealed class BackupCheck(BackupSchedule schedule, EbookStore ebooks, Audi
                 return new BackupVerdict(name, true, now, zip.Entries.Count, books, readers, hasFiles, null);
             }
 
-            if (zip.GetEntry("library.json") is { } library)
+            // PostgreSQL without pg_dump: the files, and no database to bring the server back with.
+            if (zip.GetEntry(Backup.NoDatabaseEntry) is not null)
             {
-                await using var stream = library.Open();
-                var export = await JsonSerializer.DeserializeAsync<LibraryExport>(stream, new JsonSerializerOptions(JsonSerializerDefaults.Web) { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } }, cancellationToken);
-                return export?.Books is { } books
-                    ? new BackupVerdict(name, true, now, zip.Entries.Count, books.Length, 0, hasFiles, null)
-                    : Fail(T("The library inside could not be read."), zip.Entries.Count);
+                return Fail(Backup.NoDatabaseProblem(), zip.Entries.Count);
+            }
+
+            // Taken on PostgreSQL without pg_dump by an earlier Shelf: the library of whoever took it as JSON, often
+            // empty, never every reader's. It cannot restore the server, however many books it lists.
+            if (zip.GetEntry("library.json") is not null)
+            {
+                return Fail(T("This backup holds a library as JSON in place of the database, with one reader's books at most, so it cannot restore the server. Install pg_dump so backups copy the PostgreSQL database."), zip.Entries.Count);
             }
 
             if (zip.GetEntry("shelf.sql") is { } dump)

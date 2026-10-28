@@ -58,6 +58,20 @@ Shelf's tests carry out this restore on every change: they fill a shelf, downloa
 > [!WARNING]
 > The `keys` folder seals sign-ins and two-step secrets. Keep a copy of it somewhere private. Restored without it, everyone signs in again, and a reader with two-step sign-in needs a recovery code, a passkey, or an admin's new password to get in.
 
+## On PostgreSQL
+
+On a shelf kept in [PostgreSQL](configuration.md#postgresql), nightly copies and snapshots hold `shelf.sql`, PostgreSQL's own copy of the database made by `pg_dump`, in place of `shelf.db`. The Docker image doesn't include `pg_dump`, and it must be the same major version as the database server or newer: put one on the server's path, or set `Database__PgDump` to where it is.
+
+Without it, there is no copy of the database to keep. A nightly copy then holds the files and covers with a `NO-DATABASE.txt` saying so, and fails its check, which **Readers** and **Server health** show; **Download a snapshot** is refused rather than given without the database. Backups taken that way before this release held a library as JSON instead, with one reader's books at most and often none; they are now shown as backups that would not restore.
+
+Either way, back the database up with PostgreSQL's own tools as well, for example from the database's own container, whose `pg_dump` always matches it:
+
+```bash
+docker exec db pg_dump -U shelf --no-owner shelf > shelf.sql
+```
+
+To restore: stop the shelf, load `shelf.sql` into an empty database (`psql -U shelf -d shelf -f shelf.sql`), unpack `ebooks`, `audio`, and `covers` where the data lives, and start the shelf again.
+
 ## Health checks
 
 `/health` answers `Healthy` when the app and its database are up, and `/alive` when the app is. Both answer without signing in, with a single word. The Docker image checks `/alive` itself, and they suit an uptime monitor too.

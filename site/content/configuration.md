@@ -91,7 +91,7 @@ Shelf keeps its database in SQLite, one file beside everything else, which suits
 The keys, backups, and files stay in the folders above, so `/data` is still wanted in Docker. A few things differ:
 
 - **Search** finds a phrase anywhere, ignoring case, but doesn't rank the places it finds or overlook accents, as SQLite's full-text index does.
-- **Snapshots** hold `pg_dump`'s copy of the database when `pg_dump` is on the server (or at `Database__PgDump`), and otherwise the library as JSON, which **Restore** takes. Back the database up with PostgreSQL's own tools as well.
+- **Snapshots** hold `pg_dump`'s copy of the database, so `pg_dump` (the same major version as the server or newer, not in the Docker image) must be on the server's path or at `Database__PgDump`. Without it, nightly backups hold no database and fail their check, and **Download a snapshot** is refused; see [Backups](backups.md#on-postgresql). Back the database up with PostgreSQL's own tools as well.
 
 **Moving an existing shelf.** With PostgreSQL set up and empty, run Shelf once with the move command; it copies every reader, book, note, and setting from the SQLite file, ids and all, then stops:
 

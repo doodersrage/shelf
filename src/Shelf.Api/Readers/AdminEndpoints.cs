@@ -106,10 +106,16 @@ public static class AdminEndpoints
         CancellationToken cancellationToken) =>
         Answer(await ReaderRules.RemoveAsync(db, ebooks, audio, covers, id, cancellationToken));
 
-    private static async Task<TempFileResult> Snapshot(ShelfDb db, EbookStore ebooks, AudioStore audio, CoverStore covers, CancellationToken cancellationToken)
+    private static async Task<Results<TempFileResult, ProblemHttpResult>> Snapshot(ShelfDb db, EbookStore ebooks, AudioStore audio, CoverStore covers, IConfiguration configuration, CancellationToken cancellationToken)
     {
         var path = TempFileResult.NewPath(".zip");
-        await Backup.WriteSnapshotAsync(db, ebooks, audio, covers, path, cancellationToken);
+        if (!await Backup.WriteSnapshotAsync(db, ebooks, audio, covers, path, cancellationToken, pgDump: configuration["Database:PgDump"]))
+        {
+            // A snapshot without the database would be mistaken for one that can bring the server back.
+            File.Delete(path);
+            return TypedResults.Problem(Backup.NoDatabaseProblem(), statusCode: StatusCodes.Status503ServiceUnavailable, title: Localization.Words.T("No snapshot without the database"));
+        }
+
         await Audit.NoteAsync(db, Localization.Words.Say("Downloaded a snapshot of the whole server"), cancellationToken: cancellationToken);
         return new TempFileResult(path, "application/zip", $"shelf-snapshot-{DateTime.UtcNow:yyyy-MM-dd}.zip");
     }
