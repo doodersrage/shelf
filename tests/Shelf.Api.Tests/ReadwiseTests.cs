@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shelf.Api.Books;
@@ -119,6 +120,45 @@ public sealed class ReadwiseTests(ShelfApiFactory factory) : IClassFixture<Shelf
             Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(answer(request), System.Text.Encoding.UTF8, "application/json") });
     }
 
+    // One reader's Readwise failing in a way nothing expected doesn't stop the hourly round for the readers after them.
+    [Fact]
+    public async Task One_reader_s_readwise_failing_leaves_the_others_to_go()
+    {
+        var broken = await factory.SignUpAsync("Readwise Broken");
+        var brokenId = await factory.ReaderIdAsync("Readwise Broken");
+        var fine = await factory.SignUpAsync("Readwise After");
+        var fineId = await factory.ReaderIdAsync("Readwise After");
+        var sync = factory.Services.GetRequiredService<ReadwiseSync>();
+        foreach (var (client, text) in new[] { (broken, "A line that never arrives."), (fine, "A line that still goes.") })
+        {
+            var book = (await (await client.PostAsJsonAsync("/books", new CreateBookRequest("Persuasion", "Jane Austen", BookStatus.Reading, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+            await client.PostAsJsonAsync($"/books/{book.Id}/quotes", new { text, page = 3 }, JsonOptions);
+        }
+
+        await using (var scope = Scope(brokenId))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            var me = await db.Readers.FirstAsync(item => item.Id == brokenId);
+            me.ReadwiseToken = scope.ServiceProvider.GetRequiredService<IDataProtectionProvider>().CreateProtector("Shelf.Readwise.Token").Protect(StubReadwise.Broken);
+            me.ReadwiseAuto = true;
+            await db.SaveChangesAsync();
+        }
+
+        await using (var scope = Scope(fineId))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            Assert.True(await sync.ConnectAsync(db, StubReadwise.Good));
+            var me = await db.Readers.FirstAsync(item => item.Id == fineId);
+            me.ReadwiseAuto = true;
+            await db.SaveChangesAsync();
+        }
+
+        Assert.True(brokenId < fineId);
+        await sync.SendDueAsync(CancellationToken.None);
+        Assert.Contains(factory.Readwise.Sent, item => item.Text == "A line that still goes.");
+        Assert.DoesNotContain(factory.Readwise.Sent, item => item.Text == "A line that never arrives.");
+    }
+
     private AsyncServiceScope Scope(int readerId)
     {
         var scope = factory.Services.CreateAsyncScope();
@@ -130,6 +170,9 @@ public sealed class ReadwiseTests(ShelfApiFactory factory) : IClassFixture<Shelf
 public sealed class StubReadwise : IReadwiseClient
 {
     public const string Good = "readwise-token-that-works";
+
+    // A token whose answers come back in a shape nothing expected.
+    public const string Broken = "readwise-token-whose-answers-make-no-sense";
 
     public ConcurrentQueue<ReadwiseHighlight> Sent { get; } = new();
 
@@ -147,6 +190,11 @@ public sealed class StubReadwise : IReadwiseClient
 
     public Task<bool> SendAsync(string token, IReadOnlyList<ReadwiseHighlight> highlights, CancellationToken cancellationToken)
     {
+        if (token == Broken)
+        {
+            throw new JsonException("Not the answer Readwise gives.");
+        }
+
         if (token != Good)
         {
             return Task.FromResult(false);

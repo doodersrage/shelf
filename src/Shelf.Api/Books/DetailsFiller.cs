@@ -106,7 +106,16 @@ public sealed class DetailsFiller(IServiceScopeFactory scopes, ShelfJobs registe
     {
         await foreach (var job in _queue.Reader.ReadAllAsync(stoppingToken))
         {
-            await RunAsync(job, stoppingToken);
+            try
+            {
+                await RunAsync(job, stoppingToken);
+            }
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+            {
+                // The job ends, so the reader can start another, and the next one in the queue still runs.
+                logger.LogError(ex, "Filling in details stopped part way.");
+                job.Finished = true;
+            }
         }
     }
 

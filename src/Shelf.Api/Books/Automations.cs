@@ -647,7 +647,7 @@ public sealed class AutomationRunner(IServiceScopeFactory scopes, Notices notice
                 await OverdueAsync(stoppingToken);
                 Heartbeats.Beat(nameof(AutomationRunner));
             }
-            catch (Exception ex) when (ex is DbUpdateException or InvalidOperationException)
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {
                 logger.LogWarning(ex, "Could not run rules for overdue loans; they will try again in an hour.");
                 Heartbeats.Beat(nameof(AutomationRunner), ex.Message);

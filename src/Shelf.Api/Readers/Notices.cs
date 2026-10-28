@@ -719,7 +719,7 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
 
                 Heartbeats.Beat(nameof(Notices));
             }
-            catch (Exception ex) when (ex is DbUpdateException or InvalidOperationException)
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {
                 Heartbeats.Beat(nameof(Notices), ex.Message);
                 logger.LogWarning(ex, "Could not send notifications; they will try again shortly.");

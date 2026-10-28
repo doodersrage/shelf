@@ -33,7 +33,14 @@ public sealed class ReleaseWatch(IHttpClientFactory clients, IConfiguration conf
         using var timer = new PeriodicTimer(TimeSpan.FromHours(12));
         do
         {
-            await CheckAsync(stoppingToken);
+            try
+            {
+                await CheckAsync(stoppingToken);
+            }
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "Could not look for a newer release; it will look again later.");
+            }
         }
         while (await timer.WaitForNextTickAsync(stoppingToken));
     }

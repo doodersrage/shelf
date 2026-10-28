@@ -145,7 +145,15 @@ public sealed class M4bService(IServiceScopeFactory scopes, AudioStore audio, Co
     {
         await foreach (var id in _queue.Reader.ReadAllAsync(stoppingToken))
         {
-            await MakeAsync(id, stoppingToken);
+            try
+            {
+                await MakeAsync(id, stoppingToken);
+            }
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+            {
+                // The next book in the queue is still made.
+                logger.LogError(ex, "Could not make an M4B for book {BookId}.", id);
+            }
         }
     }
 

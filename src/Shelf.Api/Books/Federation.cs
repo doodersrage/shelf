@@ -825,12 +825,20 @@ public sealed class Federation(IServiceScopeFactory scopes, LinkClient client, E
 
                 foreach (var readerId in readers)
                 {
-                    await using var scope = scopes.CreateAsyncScope();
-                    scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
-                    await SyncAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), stoppingToken);
+                    // One reader's linked shelf being down or refusing is theirs alone: the readers after them still go.
+                    try
+                    {
+                        await using var scope = scopes.CreateAsyncScope();
+                        scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
+                        await SyncAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), stoppingToken);
+                    }
+                    catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+                    {
+                        logger.LogWarning(ex, "Could not bring reader {ReaderId}'s loans from linked shelves up to date; the others go on.", readerId);
+                    }
                 }
             }
-            catch (Exception ex) when (ex is DbUpdateException or InvalidOperationException or IOException)
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {
                 logger.LogWarning(ex, "Could not bring loans from linked shelves up to date; it will try again in an hour.");
             }

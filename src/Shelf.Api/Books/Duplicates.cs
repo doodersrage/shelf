@@ -169,7 +169,7 @@ public sealed class FileSweep(EbookStore ebooks, AudioStore audio, CoverStore co
             using var scope = scopes.CreateScope();
             await Covers.BackfillAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), ebooks, stoppingToken);
         }
-        catch (Exception ex) when (ex is IOException or Microsoft.EntityFrameworkCore.DbUpdateException or InvalidOperationException)
+        catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
         {
             logger.LogWarning(ex, "Could not look for covers inside e-books.");
         }
@@ -199,7 +199,7 @@ public sealed class FileSweep(EbookStore ebooks, AudioStore audio, CoverStore co
                     logger.LogInformation("Removed {Count} stored files no book uses.", removed);
                 }
             }
-            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or Microsoft.EntityFrameworkCore.DbUpdateException)
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {
                 logger.LogWarning(ex, "Could not sweep stored files.");
             }

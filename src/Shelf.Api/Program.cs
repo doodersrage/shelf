@@ -150,6 +150,10 @@ builder.Services.AddHttpClient<IAudibleCatalog, AudibleCatalog>(client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("Shelf/1.0 (personal library; +https://github.com/doodersrage/shelf)");
 });
 
+// A background job that fails in a way it didn't expect stops itself and is logged, never the whole server: reading,
+// listening, and the catalog go on. Each job also catches its own failures, so it tries again on its next round.
+builder.Services.Configure<HostOptions>(options => options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
+
 // Things that happen, told in the background to notifications and webhooks.
 builder.Services.AddSingleton<ShelfEvents>();
 builder.Services.AddHostedService(static services => services.GetRequiredService<ShelfEvents>());
