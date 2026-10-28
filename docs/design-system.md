@@ -39,7 +39,7 @@ This is the working version of the Shelf design guide. Update it when a token, a
 
 Space runs `--space-1` (4px) to `--space-12` (48px). Radii are `--radius-card` 12px, `--radius-control` 8px, and `--radius-pill`. Type sizes run `--text-xs` to `--text-2xl`. Controls are at least `--touch` (2.5rem) tall.
 
-Measured contrast on the canvas: ink 12.9:1, green 10.2:1, muted 4.5:1, danger 8.2:1; in dark mode, text 12.9:1, secondary 8.9:1, accent 5.8:1. Tan on paper is 2:1, which is why it never carries text. Check any new pairing against WCAG AA before using it.
+Measured contrast on the canvas: ink 12.9:1, green 10.2:1, muted 4.5:1, danger 8.2:1; in dark mode, text 12.9:1, secondary 8.9:1, accent 5.8:1. Tan on paper is 2:1, which is why it never carries text. Muted on sunken is 4.1:1, short of AA for small text: on a sunken background, such as a chosen option, small secondary text takes ink instead. Check any new pairing against WCAG AA before using it.
 
 ## Type
 

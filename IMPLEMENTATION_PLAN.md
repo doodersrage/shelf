@@ -240,6 +240,13 @@ Success means a reader can reliably:
 - [x] `AbsApiTests.Signing_out_everywhere_else_signs_out_the_apps` (without the rotation: the app stays OK). `dotnet test -c Release`: 416 passed.
 - [x] Docs: `security.md` and `CHANGELOG.md` (Security).
 
+### Follow-up task 14: accessibility audit of signed-out pages and dialogs (audit P2), done 2026-10-28
+
+- [x] `accessibility.spec.mjs` has a shared `audit()` helper and a second test. It runs axe (WCAG 2.1 AA and best practices) in both themes on `/signin`, `/signup`, `/forgot`, `/reset`, a shared list, an unknown shared link, and a 404 page, all signed out; and with Go to (Ctrl+K, with results) and the keyboard shortcuts dialog open.
+- [x] It found and fixed one real violation: Go to's chosen option rendered `.jump-kind` and `.jump-detail` in muted on sunken at 4.1:1. They now use ink (11.7:1) when the option is chosen or hovered (`app.css`). `docs/design-system.md` records the pairing.
+- [x] Chromium: both accessibility tests and the wayfinding spec pass (5 tests). Firefox runs in CI only.
+- Still not audited: the reader's settings and contents panels, the mini player, the bulk-edit bar, mobile width, and es/fr/de.
+
 ---
 
 # M1 — Reliability, security, and data integrity

@@ -1,9 +1,18 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { createBook, signUp, unique, upload } from "../helpers.mjs";
+import { createBook, ready, signUp, unique, upload } from "../helpers.mjs";
 
 const axe = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
+
+// What axe finds wrong with the page as it is now, each named with where it was found.
+async function audit(page, where) {
+  await page.addScriptTag({ content: axe });
+  const violations = await page.evaluate(async () =>
+    (await window.axe.run(document, { runOnly: ["wcag2a", "wcag2aa", "wcag21aa", "best-practice"] })).violations
+      .map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`));
+  return violations.map((violation) => `${where} ${violation}`);
+}
 
 test("every page passes an accessibility audit in both themes", async ({ browser }) => {
   // Every page twice, in both themes: longer than one test is given, and longer in Firefox.
@@ -48,12 +57,53 @@ test("every page passes an accessibility audit in both themes", async ({ browser
     await page.emulateMedia({ colorScheme: scheme });
     for (const url of pages) {
       await page.goto(url, { waitUntil: "networkidle" });
-      await page.addScriptTag({ content: axe });
-      const violations = await page.evaluate(async () =>
-        (await window.axe.run(document, { runOnly: ["wcag2a", "wcag2aa", "wcag21aa", "best-practice"] })).violations
-          .map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`));
-      failures.push(...violations.map((violation) => `${scheme} ${url} ${violation}`));
+      failures.push(...(await audit(page, `${scheme} ${url}`)));
     }
+  }
+
+  expect(failures, failures.join("\n")).toEqual([]);
+});
+
+// The pages someone signed out sees (signing in and up, a forgotten password, a list shared by link, an address with
+// nothing at it), and what opens over a page (Go to, the keyboard shortcuts), pass the same audit in both themes.
+test("signed-out pages, shared lists, and what opens over a page pass an accessibility audit", async ({ browser }) => {
+  test.slow();
+  const page = await signUp(browser, unique("Sharer"));
+  const book = await createBook(page, { title: "Kidnapped", author: "Robert Louis Stevenson" });
+  const collection = await (await page.request.post("/books/collections", { data: { name: "Adventures", description: "Books to read aloud." } })).json();
+  await page.request.post(`/books/collections/${collection.id}/books`, { data: { bookId: book.id } });
+  await page.goto(`/collections/${collection.id}`);
+  await ready(page);
+  await page.getByRole("button", { name: "Share by link" }).click();
+  const shared = new URL(await page.locator("#share-link input").inputValue()).pathname;
+
+  const stranger = await (await browser.newContext()).newPage();
+  const failures = [];
+  for (const scheme of ["light", "dark"]) {
+    await stranger.emulateMedia({ colorScheme: scheme });
+    for (const url of ["/signin", "/signup", "/forgot", "/reset", shared, "/shared/not-a-real-link", "/nowhere-at-all"]) {
+      await stranger.goto(url, { waitUntil: "networkidle" });
+      failures.push(...(await audit(stranger, `${scheme} signed out ${url}`)));
+    }
+
+    // Opened over a page: Go to, and the keyboard shortcuts.
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.goto("/library", { waitUntil: "networkidle" });
+    await ready(page);
+    await page.keyboard.press("Control+k");
+    const box = page.getByRole("combobox", { name: "Go to a page or a book" });
+    await expect(box).toBeFocused();
+    await box.fill("kid");
+    await expect(page.locator("#jump-list").getByRole("option").first()).toBeVisible();
+    failures.push(...(await audit(page, `${scheme} Go to`)));
+    await page.keyboard.press("Escape");
+    // From a page fresh, as "?" typed into a box would be only a question mark.
+    await page.goto("/library", { waitUntil: "networkidle" });
+    await ready(page);
+    await page.keyboard.press("?");
+    await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
+    failures.push(...(await audit(page, `${scheme} keyboard shortcuts`)));
+    await page.keyboard.press("Escape");
   }
 
   expect(failures, failures.join("\n")).toEqual([]);
