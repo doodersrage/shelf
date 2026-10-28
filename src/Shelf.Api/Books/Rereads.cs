@@ -94,6 +94,22 @@ public static class Rereads
         book.AudioTrack = null;
         book.AudioSeconds = null;
         BookRules.ChangeStatus(book, BookStatus.Reading);
+
+        // Devices still hold the last time through. KOReader's place is kept but marked, so the device saying it
+        // again doesn't jump the reread to the end; the Kobo is told at its next sync that the book is being read
+        // again, from the start; and where each device had the reader goes, as it was the last read's.
+        var readerId = db.ReaderId;
+        foreach (var kept in await db.KosyncPlaces.Where(item => item.ReaderId == readerId && item.BookId == book.Id).ToListAsync(cancellationToken))
+        {
+            kept.Chapter = KosyncPlace.BeforeReread;
+        }
+
+        foreach (var entry in await db.KoboEntries.Where(item => item.ReaderId == readerId && item.BookId == book.Id).ToListAsync(cancellationToken))
+        {
+            (entry.Status, entry.Bookmark, entry.ModifiedAt) = (null, null, DateTimeOffset.UtcNow);
+        }
+
+        db.PositionReports.RemoveRange(await db.PositionReports.Where(item => item.ReaderId == readerId && item.BookId == book.Id).ToListAsync(cancellationToken));
         await db.SaveChangesAsync(cancellationToken);
         return AgainResult.Started;
     }

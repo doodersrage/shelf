@@ -17,6 +17,9 @@ public sealed class KosyncPlace
     public int BookId { get; set; }
     public required string Progress { get; set; }
     public double Percentage { get; set; }
+    // The chapter, or BeforeReread once the book is read again: the place KOReader said is then from the last time
+    // through, so the device saying it again is not taken as reading on, and isn't handed back as somewhere to go.
+    public const int BeforeReread = -1;
     public int Chapter { get; set; }
     public string? Device { get; set; }
     public string? DeviceId { get; set; }
@@ -144,6 +147,14 @@ public static partial class Kosync
             // The very place in an EPUB, as the reader in Shelf keeps it, when the chapter can be read.
             var cfi = EpubPath(store, book) is { } epub && EpubFile.ChapterDocument(epub, chapter) is { } xhtml ? KoreaderPlace.ToCfi(progress.Progress, chapter, xhtml) : null;
             var kept = await db.KosyncPlaces.FirstOrDefaultAsync(item => item.ReaderId == reader.Id && item.BookId == book.Id, cancellationToken);
+
+            // The book read again, and KOReader still at the end of the last time through: kept as it was, and the
+            // reread's place left alone. Anywhere else it says is reading on, as ever.
+            if (kept is { Chapter: KosyncPlace.BeforeReread } && kept.Progress == progress.Progress)
+            {
+                return Results.Json(new { document = progress.Document, timestamp = now.ToUnixTimeSeconds() });
+            }
+
             if (kept is null)
             {
                 kept = new KosyncPlace { ReaderId = reader.Id, BookId = book.Id, Progress = progress.Progress };
