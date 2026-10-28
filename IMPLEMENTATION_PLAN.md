@@ -218,7 +218,7 @@ Success means a reader can reliably:
   - 6 new strings in es/fr/de; 3 obsolete ones removed.
 - [x] Docs: `devices.md` and `CHANGELOG.md`.
 - Limits:
-  - Readwise send and import share one problem field, so a successful import clears a send's problem from the same round.
+  - ~~Readwise send and import share one problem field.~~ Resolved later the same day: in the hourly round, a fetch problem is put back if the send that follows succeeds. `ReadwiseTests.Trouble_bringing_highlights_is_kept_when_sending_goes_right` fails against the old code.
   - The PostgreSQL migration runs only in CI.
 
 ### Follow-up task 12: child accounts read shared books with their own place and marks (audit P2), done 2026-10-28

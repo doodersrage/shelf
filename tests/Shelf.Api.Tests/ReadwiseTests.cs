@@ -211,6 +211,32 @@ public sealed class ReadwiseTests(ShelfApiFactory factory) : IClassFixture<Shelf
         Assert.Equal(ConnectionHealth.Working, (await ReadwiseAsync()).Health);
     }
 
+    // Bringing highlights going wrong is still told when sending them goes right in the same round.
+    [Fact]
+    public async Task Trouble_bringing_highlights_is_kept_when_sending_goes_right()
+    {
+        var reader = await factory.SignUpAsync("Readwise Half Way");
+        var readerId = await factory.ReaderIdAsync("Readwise Half Way");
+        var book = (await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("Mansfield Park", "Jane Austen", BookStatus.Reading, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        await reader.PostAsJsonAsync($"/books/{book.Id}/quotes", new { text = "A line that goes out.", page = 2 }, JsonOptions);
+        await using (var scope = Scope(readerId))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            var me = await db.Readers.FirstAsync(item => item.Id == readerId);
+            me.ReadwiseToken = scope.ServiceProvider.GetRequiredService<IDataProtectionProvider>().CreateProtector("Shelf.Readwise.Token").Protect(StubReadwise.SendsOnly);
+            (me.ReadwiseAuto, me.ReadwiseAutoImport) = (true, true);
+            await db.SaveChangesAsync();
+        }
+
+        await factory.Services.GetRequiredService<ReadwiseSync>().SendDueAsync(CancellationToken.None);
+        Assert.Contains(factory.Readwise.Sent, item => item.Text == "A line that goes out.");
+        await using (var scope = Scope(readerId))
+        {
+            var readwise = (await Connections.ForReaderAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>())).Single(item => item.Name == "Readwise");
+            Assert.Equal(ConnectionHealth.Trouble, readwise.Health);
+        }
+    }
+
     private AsyncServiceScope Scope(int readerId)
     {
         var scope = factory.Services.CreateAsyncScope();
@@ -226,6 +252,9 @@ public sealed class StubReadwise : IReadwiseClient
     // A token whose answers come back in a shape nothing expected.
     public const string Broken = "readwise-token-whose-answers-make-no-sense";
 
+    // A token highlights go out with, but nothing comes back by.
+    public const string SendsOnly = "readwise-token-that-only-sends";
+
     public ConcurrentQueue<ReadwiseHighlight> Sent { get; } = new();
 
     public List<ReadwiseBook> Export { get; } = [];
@@ -236,7 +265,7 @@ public sealed class StubReadwise : IReadwiseClient
 
     // A token Readwise takes answers its check whatever its answers say; any other is turned down.
     public Task<SyncProblem?> DiagnoseAsync(string token, CancellationToken cancellationToken) =>
-        Task.FromResult<SyncProblem?>(token is Good or Broken ? null : SyncProblem.Refused);
+        Task.FromResult<SyncProblem?>(token is Good or Broken or SendsOnly ? null : SyncProblem.Refused);
 
     public Task<IReadOnlyList<ReadwiseBook>?> ExportAsync(string token, DateTimeOffset? updatedAfter, CancellationToken cancellationToken)
     {
@@ -251,7 +280,7 @@ public sealed class StubReadwise : IReadwiseClient
             throw new JsonException("Not the answer Readwise gives.");
         }
 
-        if (token != Good)
+        if (token is not (Good or SendsOnly))
         {
             return Task.FromResult(false);
         }

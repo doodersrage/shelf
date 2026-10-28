@@ -334,14 +334,14 @@ public sealed class ReadwiseSync(IServiceScopeFactory scopes, IReadwiseClient cl
     }
 
     // A round that went wrong in a way nothing expected is still told to the reader, from a fresh start.
-    private async Task NoteFailedAsync(int readerId, CancellationToken cancellationToken)
+    private async Task NoteFailedAsync(int readerId, CancellationToken cancellationToken, SyncProblem why = SyncProblem.Failed)
     {
         try
         {
             await using var scope = scopes.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
             var now = DateTimeOffset.UtcNow;
-            await db.Readers.Where(item => item.Id == readerId).ExecuteUpdateAsync(set => set.SetProperty(item => item.ReadwiseProblem, SyncProblem.Failed).SetProperty(item => item.ReadwiseProblemAt, now), cancellationToken);
+            await db.Readers.Where(item => item.Id == readerId).ExecuteUpdateAsync(set => set.SetProperty(item => item.ReadwiseProblem, why).SetProperty(item => item.ReadwiseProblemAt, now), cancellationToken);
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
@@ -368,14 +368,20 @@ public sealed class ReadwiseSync(IServiceScopeFactory scopes, IReadwiseClient cl
                 scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
                 var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
                 var reader = await db.Readers.AsNoTracking().FirstAsync(item => item.Id == readerId, cancellationToken);
-                if (reader.ReadwiseAutoImport)
-                {
-                    await ImportAsync(db, scope.ServiceProvider.GetRequiredService<EbookStore>(), everything: false, cancellationToken);
-                }
-
+                // Both ways keep one note of trouble: one that goes right after the other went wrong doesn't clear it.
+                var brought = reader.ReadwiseAutoImport ? await ImportAsync(db, scope.ServiceProvider.GetRequiredService<EbookStore>(), everything: false, cancellationToken) : null;
+                SyncProblem? Kept() => db.Readers.AsNoTracking().Where(item => item.Id == readerId).Select(item => item.ReadwiseProblem).First();
+                var bringing = brought is { Done: false } ? Kept() : null;
                 if (reader.ReadwiseAuto)
                 {
-                    sent += (await SendAsync(db, everything: false, cancellationToken)).Count;
+                    var went = await SendAsync(db, everything: false, cancellationToken);
+                    sent += went.Count;
+
+                    // Cleared by the send going right: what went wrong bringing them is put back.
+                    if (bringing is SyncProblem problem && Kept() is null)
+                    {
+                        await NoteFailedAsync(readerId, cancellationToken, problem);
+                    }
                 }
             }
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)

@@ -6,6 +6,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Fixed
 
+- **Readwise trouble bringing highlights stays told**: when bringing highlights from Readwise went wrong in the same hour that sending them went right, the send cleared the trouble, so Connections said all was well. Now it stays until bringing them goes right too.
 - **The backup taken before an update is proved too**: it waited for the next night's backup to be checked, so **Server health** said the newest backup hadn't been proved. Now it is proved in the background as soon as Shelf is up, without holding up the start.
 - **Scanning books in and reviewing details say when the catalogs are out of reach**: a book scanned in while Open Library and Google Books couldn't be reached was counted among those they didn't know, and **Review details** said nothing matched. Now scanning counts them apart and keeps them on the list to try again a little later, and a review marks such a book as failed, worth trying again.
 
