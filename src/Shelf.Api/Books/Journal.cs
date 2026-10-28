@@ -145,17 +145,16 @@ public static class Journal
             .Select(session => new { session.Date, session.BookId, session.Book!.Title, session.FromPage, session.ToPage, session.Note }).ToListAsync(cancellationToken);
         items.AddRange(sessions.Select(session => new JournalItem(session.Date, JournalKind.Session, session.BookId, session.Title, session.Note, Pages(session.FromPage, session.ToPage))));
 
-        // SQLite can't compare the times kept as text, so which passages fall in the year is told here from their
-        // times alone, and only those are read in full.
-        var marked = (await db.Highlights.AsNoTracking().Select(mark => new { mark.Id, mark.NotedAt }).ToListAsync(cancellationToken))
-            .Where(mark => mark.NotedAt >= start && mark.NotedAt < end).Select(mark => mark.Id).ToList();
-        items.AddRange((await db.Highlights.AsNoTracking().Where(mark => marked.Contains(mark.Id))
+        // SQLite can't compare the times kept as text, so which passages fall in the year is told here, from one read
+        // of them each. Not by listing the year's ids back to the database: a long-kept shelf has tens of thousands,
+        // and a query naming each one took over a minute to build.
+        items.AddRange((await db.Highlights.AsNoTracking()
             .Select(mark => new { mark.NotedAt, mark.BookId, mark.Book!.Title, mark.Text, mark.Note }).ToListAsync(cancellationToken))
+            .Where(mark => mark.NotedAt >= start && mark.NotedAt < end)
             .Select(mark => new JournalItem(Day(mark.NotedAt), JournalKind.Highlight, mark.BookId, mark.Title, mark.Text, mark.Note)));
-        var kept = (await db.Quotes.AsNoTracking().Select(quote => new { quote.Id, quote.NotedAt }).ToListAsync(cancellationToken))
-            .Where(quote => quote.NotedAt >= start && quote.NotedAt < end).Select(quote => quote.Id).ToList();
-        items.AddRange((await db.Quotes.AsNoTracking().Where(quote => kept.Contains(quote.Id))
+        items.AddRange((await db.Quotes.AsNoTracking()
             .Select(quote => new { quote.NotedAt, quote.BookId, quote.Book!.Title, quote.Text, quote.Page }).ToListAsync(cancellationToken))
+            .Where(quote => quote.NotedAt >= start && quote.NotedAt < end)
             .Select(quote => new JournalItem(Day(quote.NotedAt), JournalKind.Quote, quote.BookId, quote.Title, quote.Text, quote.Page is int page ? T("page {0}", page) : null)));
 
         return [.. Ordered(items)];

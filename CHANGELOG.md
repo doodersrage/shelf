@@ -14,6 +14,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Fixed
 
+- **The journal opens quickly on a big shelf**: a year with tens of thousands of sessions and quotes took over a minute to open, and drew every one of them at once. Now it opens in a fraction of a second with the latest 300, and **Show more** or **Show all** draws the rest; printing still prints the whole year.
+- **Very large shelves no longer hit a database limit**: an action over tens of thousands of books at once (choosing them all to change together, say) asked the database with a parameter for each, which took minutes to put together and, past 32,766, failed outright. A list now goes as one.
 - **The Docker image's health check asks the database too**: it checked `/alive`, so a shelf whose database had gone still showed as healthy. It now checks `/health`.
 - **Another reader's book has no pictures to list**: asking for the pictures of a copy on someone else's shelf answered with an empty list, where every other part of a book answers that there's no such book. A test now asks every part of a book as a reader it isn't lent to, and each refuses.
 - **Readwise trouble bringing highlights stays told**: when bringing highlights from Readwise went wrong in the same hour that sending them went right, the send cleared the trouble, so Connections said all was well. Now it stays until bringing them goes right too.

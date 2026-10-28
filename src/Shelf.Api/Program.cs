@@ -74,12 +74,14 @@ if (onPostgres)
 {
     var postgres = builder.Configuration.GetConnectionString("Postgres")
         ?? throw new InvalidOperationException("Database:Provider is Postgres, but ConnectionStrings:Postgres is missing.");
-    builder.Services.AddDbContextFactory<PostgresShelfDb>(options => options.UseNpgsql(postgres, npgsql => npgsql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)), ServiceLifetime.Scoped);
+    builder.Services.AddDbContextFactory<PostgresShelfDb>(options => options.UseNpgsql(postgres, npgsql => npgsql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery).UseParameterizedCollectionMode(ParameterTranslationMode.Parameter)), ServiceLifetime.Scoped);
     builder.Services.AddScoped<IDbContextFactory<ShelfDb>, PostgresShelfDbFactory>();
 }
 else
 {
-    builder.Services.AddDbContextFactory<ShelfDb>(options => options.UseSqlite(sqlite.ConnectionString, sqlite => sqlite.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)), ServiceLifetime.Scoped);
+    // A list of ids in a query goes as one parameter, not one each: EF 10's default names every id apart, which on a
+    // shelf of tens of thousands took over a minute to build, and past SQLite's 32,766 parameters failed outright.
+    builder.Services.AddDbContextFactory<ShelfDb>(options => options.UseSqlite(sqlite.ConnectionString, sqlite => sqlite.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery).UseParameterizedCollectionMode(ParameterTranslationMode.Parameter)), ServiceLifetime.Scoped);
 }
 
 builder.Services.AddScoped(static services =>

@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shelf.Api.Books;
 using Shelf.Api.Data;
@@ -330,4 +331,41 @@ public sealed class ReadingLifeTests(ShelfApiFactory factory) : IClassFixture<Sh
         write.LoanedTo, [.. write.Tags], write.Subtitle, write.Publisher, write.Language, write.Format, write.Series, write.SeriesNumber, write.CoverUrl, write.Review,
         write.Loved, write.LoanedOn, write.Location, write.AcquiredOn, write.Translator, write.OriginalTitle, write.RecommendedBy, write.Inscription, write.DueOn,
         write.Queued, write.Acquisition, write.Condition, write.Narrator, write.PreviousOwners, write.Signed);
+
+    // A long year of reading opens a page at a time, the latest first, with the way to the rest: drawn whole, tens
+    // of thousands of lines took minutes.
+    [Fact]
+    public async Task A_long_year_of_reading_opens_a_page_at_a_time()
+    {
+        var reader = await factory.SignUpAsync("Long Year Reader");
+        var readerId = await factory.ReaderIdAsync("Long Year Reader");
+        var book = await CreateAsync(reader, new CreateBookRequest("Read All Year", "Someone", BookStatus.Reading, null));
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            db.Sessions.AddRange(Enumerable.Range(0, 350).Select(n => new ReadingSession { BookId = book.Id, Date = new DateOnly(today.Year, 1, 1).AddDays(n % 300), FromPage = n, ToPage = n + 1 }));
+            await db.SaveChangesAsync();
+        }
+
+        var journal = await reader.GetStringAsync("/journal");
+        Assert.Equal(300, journal.Split("class=\"journal-item").Length - 1);
+        // 350 sessions, and the day the book was begun.
+        Assert.Contains("Show 51 more", journal);
+        Assert.Contains("Show all 351", journal);
+    }
+
+    // A list of ids in a query goes as one parameter, whatever its length: past SQLite's 32,766 parameters, one each
+    // failed, and tens of thousands took over a minute to build.
+    [Fact]
+    public async Task A_query_by_tens_of_thousands_of_ids_runs()
+    {
+        await factory.SignUpAsync("Many Ids Reader");
+        await using var scope = factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(await factory.ReaderIdAsync("Many Ids Reader"));
+        var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+        var ids = Enumerable.Range(1, 40_000).ToList();
+        Assert.Equal(0, await db.Books.CountAsync(book => ids.Contains(book.Id)));
+    }
 }

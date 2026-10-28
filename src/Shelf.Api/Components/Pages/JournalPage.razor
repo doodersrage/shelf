@@ -68,7 +68,8 @@
 }
 else
 {
-    @foreach (var month in items.GroupBy(item => Searching ? item.Date.Year * 100 + item.Date.Month : item.Date.Month))
+    @* A long year is drawn a page at a time, the latest first: drawn whole, tens of thousands of lines took minutes. *@
+    @foreach (var month in items.Take(shown).GroupBy(item => Searching ? item.Date.Year * 100 + item.Date.Month : item.Date.Month))
     {
         var first = month.First().Date;
         <section class="journal-month">
@@ -123,10 +124,20 @@ else
             </ol>
         </section>
     }
+
+    @if (items.Length > shown)
+    {
+        <p class="journal-more">
+            <button type="button" @onclick="() => shown += PageSize">@T("Show {0} more", Math.Min(PageSize, items.Length - shown))</button>
+            <button type="button" class="quiet" @onclick="() => shown = items.Length">@T("Show all {0}", items.Length)</button>
+        </p>
+    }
 }
 
 @code {
+    private const int PageSize = 300;
     private JournalItem[] items = [];
+    private int shown = PageSize;
     private int[] years = [];
     private int year = DateTime.UtcNow.Year;
     private string query = "";
@@ -140,7 +151,18 @@ else
 
     private bool Searching => !string.IsNullOrWhiteSpace(query);
 
-    private async Task Print() => await Js.InvokeVoidAsync("print");
+    // The whole year goes to the printer, not only the part drawn so far.
+    private async Task Print()
+    {
+        if (shown < items.Length)
+        {
+            shown = items.Length;
+            StateHasChanged();
+            await Task.Yield();
+        }
+
+        await Js.InvokeVoidAsync("print");
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -158,8 +180,11 @@ else
         await LoadAsync(db);
     }
 
-    private async Task LoadAsync(ShelfDb db) =>
+    private async Task LoadAsync(ShelfDb db)
+    {
         items = Searching ? await Journal.SearchAsync(db, query) : await Journal.YearAsync(db, year);
+        shown = PageSize;
+    }
 
     private async Task ChangeYear(ChangeEventArgs change)
     {
