@@ -290,6 +290,12 @@ Success means a reader can reliably:
 - [x] Docs: `library.md` (merging) and `CHANGELOG.md`.
 - Limits: merges made before this release have no receipt and still restore as before. Unmerging into a kept book that has since been deleted brings the merged-away book back with only what it kept.
 
+### Follow-up task 19: loan events omit the owner's reading status for the borrower (audit P3, privacy), done 2026-10-28
+
+- [x] `WebhookBook.Status` is now nullable. `Webhooks` sends `book.lent` and `book.returned` to the other reader with `Status = null`, in both the webhook and the event feed. The owner's copy is unchanged.
+- [x] `WebhookTests.A_loan_reaches_the_borrower_without_the_owners_reading_of_it` (with the old payload, it fails). Docs: `notifications.md` and `CHANGELOG.md`.
+- **With this, every finding in the M0 audit's top five and next tier is addressed.** What remains is the limits recorded under each task.
+
 ---
 
 # M1 — Reliability, security, and data integrity

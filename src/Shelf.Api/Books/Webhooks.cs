@@ -223,8 +223,11 @@ public sealed class Webhooks(IServiceScopeFactory scopes, IWebhookPoster poster,
             shelfEvent.Kind == EventKinds.SeriesFound ? shelfEvent.Count : null,
             text);
 
-        // A book's title goes only to its owner and the other reader in a loan; club members see the club.
-        WebhookPayload For(int reader) => reader == book?.OwnerId || shelfEvent.Kind is EventKinds.BookLent or EventKinds.BookReturned ? payload : payload with { Book = null };
+        // A book's title goes only to its owner and the other reader in a loan, who never sees how the owner is
+        // getting on with it; club members see the club.
+        WebhookPayload For(int reader) => reader == book?.OwnerId ? payload
+            : shelfEvent.Kind is EventKinds.BookLent or EventKinds.BookReturned ? payload with { Book = payload.Book! with { Status = null } }
+            : payload with { Book = null };
 
         // Every reader concerned keeps it in their feed, webhooks or not, as they'd have been sent it.
         await EventFeed.RecordAsync(db, concerned.ToDictionary(reader => reader, reader => JsonSerializer.Serialize(For(reader), Json)), shelfEvent.Kind, cancellationToken);
@@ -320,6 +323,7 @@ public sealed record WebhookPayload(string Event, DateTimeOffset At, WebhookPers
 
 public sealed record WebhookPerson(int Id, string Name);
 
-public sealed record WebhookBook(int Id, string Title, string Author, BookStatus Status, string? Isbn, string? Url);
+// Status is the owner's reading of it: null in what goes to anyone else, the other reader in a loan included.
+public sealed record WebhookBook(int Id, string Title, string Author, BookStatus? Status, string? Isbn, string? Url);
 
 public sealed record WebhookClub(int Id, string Name);

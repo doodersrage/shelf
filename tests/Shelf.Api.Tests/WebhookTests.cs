@@ -75,6 +75,31 @@ public sealed class WebhookTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal((true, 0), (Assert.Single(await Webhooks.ListAsync(db)).Enabled, Assert.Single(await Webhooks.ListAsync(db)).Failures));
     }
 
+    // A loan tells both readers of the book, and only its owner how they are getting on with it.
+    [Fact]
+    public async Task A_loan_reaches_the_borrower_without_the_owners_reading_of_it()
+    {
+        var owner = await factory.SignUpAsync("Hook Lender");
+        await factory.SignUpAsync("Hook Borrower");
+        var ownerId = await factory.ReaderIdAsync("Hook Lender");
+        var borrowerId = await factory.ReaderIdAsync("Hook Borrower");
+        var webhooks = factory.Services.GetRequiredService<Webhooks>();
+        foreach (var (readerId, url) in new[] { (ownerId, "https://hooks.example.com/lender"), (borrowerId, "https://hooks.example.com/borrower") })
+        {
+            await using var scope = Scope(readerId);
+            await webhooks.AddAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), url, WebhookFormat.Json, [EventKinds.BookLent]);
+        }
+
+        var book = (await (await owner.PostAsJsonAsync("/books", new CreateBookRequest("Lent Status", "Someone", BookStatus.Reading, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        (await owner.PostAsJsonAsync($"/books/{book.Id}/lend", new LendRequest(borrowerId), JsonOptions)).EnsureSuccessStatusCode();
+
+        var lender = JsonDocument.Parse((await factory.Posts.WaitAsync(post => post.Url == "https://hooks.example.com/lender" && post.Body.Contains("Lent Status", StringComparison.Ordinal))).Body);
+        var borrower = JsonDocument.Parse((await factory.Posts.WaitAsync(post => post.Url == "https://hooks.example.com/borrower" && post.Body.Contains("Lent Status", StringComparison.Ordinal))).Body);
+        Assert.Equal("reading", lender.RootElement.GetProperty("book").GetProperty("status").GetString());
+        Assert.Equal("Lent Status", borrower.RootElement.GetProperty("book").GetProperty("title").GetString());
+        Assert.Equal(JsonValueKind.Null, borrower.RootElement.GetProperty("book").GetProperty("status").ValueKind);
+    }
+
     private async Task WaitIdleAsync()
     {
         var events = factory.Services.GetRequiredService<ShelfEvents>();
