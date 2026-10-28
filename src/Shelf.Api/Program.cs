@@ -236,6 +236,16 @@ builder.Services.AddHttpClient(FreeCatalog.ClientName, client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd($"Shelf/{ShelfVersion.Response.Version} (personal library; +https://github.com/doodersrage/shelf)");
 }).Patient(attempt: TimeSpan.FromSeconds(45), total: TimeSpan.FromMinutes(2));
 builder.Services.AddSingleton<FreeBooks>();
+// A year card's covers, from the addresses readers linked them from. The answer is drawn into the card the reader
+// gets back, so these are kept to the open internet like any address a reader gives. One quick try: a spine stands in.
+#pragma warning disable EXTEXP0001
+builder.Services.AddHttpClient(YearCard.ClientName, client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(5);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd($"Shelf/{ShelfVersion.Response.Version} (personal library; +https://github.com/doodersrage/shelf)");
+}).ConfigurePrimaryHttpMessageHandler(() => OutboundGuard.Handler(OutboundGuard.ReaderReach(builder.Configuration)))
+    .RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
 
 // Audiobookshelf, to bring a library across. Its address is the reader's to give.
 // A large library takes a while to list.

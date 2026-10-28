@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Security
+
+- **A year's card keeps to the internet**: the covers drawn into a year's card, fetched from the addresses books' covers were linked from, went to any address, this machine and its network included, and whatever answered was drawn into the card, so a reader could use it to read what a service inside the network said. They are now held to the same rule as podcast feeds: the open internet only, unless `Network:AllowPrivateAddresses` is set; only a JPEG, PNG, GIF, or WebP of a cover's size is drawn in, read no further than that, and anything else gets a spine.
+
 ## [2.17.1] - 2026-10-15
 
 ### Fixed
