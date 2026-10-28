@@ -332,7 +332,7 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
 ### Audit and candidate tasks
 
 - [x] Verify server-side authorization for every reader-owned record, file, API endpoint, shared link, lending action, and administrative action.
-  - *Status 2026-10-28:* M0 audit §1 (query filters plus about 120 `IgnoreQueryFilters` sites traced). Fixed: API-token sessions (task 3) and app sign-out (task 13). Tested in ReadersTests, FamilyTests, AbsApiTests. Not done: a route-by-route sweep of other readers' ids (audit next tier).
+  - *Status 2026-10-28:* M0 audit §1 (query filters plus about 120 `IgnoreQueryFilters` sites traced). Fixed: API-token sessions (task 3) and app sign-out (task 13). Tested in ReadersTests, FamilyTests, AbsApiTests. Later the same day: `ReadersTests.No_route_of_a_book_opens_it_to_a_reader_it_isnt_lent_to` asks every GET and DELETE `/books/{id}…` route (more than 40) as a stranger and expects refusal. It found `GET /books/{id}/photos` answering 200 with an empty list (no data leaked, since photos are owner-filtered); that now answers 404.
 - [x] Test privacy boundaries between readers: reading progress, notes, highlights, files, personal reading history, and account settings.
   - *Status 2026-10-28:* ReadersTests borrower test; FamilyTests (task 12); tags and status leaks fixed (tasks 17 and 19).
 - [~] Review account recovery, passkeys, two-step sign-in, OpenID Connect, API tokens, session handling, and security-sensitive logs against the current implementation.
@@ -521,11 +521,11 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
 - [~] Test upgrades from supported previous versions with persistent data.
   - *Status 2026-10-28:* `UpgradeTests` covers one migration step on SQLite. A multi-version upgrade on PostgreSQL wasn't tested.
 - [~] Verify startup diagnostics, health checks, graceful shutdown, database locking/error handling, and useful logs.
-  - *Status 2026-10-28:* Server health reviewed (audit). P3 still open: the Docker HEALTHCHECK uses `/alive`, so a broken database still looks healthy.
+  - *Status 2026-10-28:* Server health reviewed (audit). Later the same day: the Docker HEALTHCHECK uses `/health` (app plus database), so a lost database shows unhealthy. Graceful shutdown and SQLite busy handling weren't reviewed.
 - [~] Review configuration defaults and documentation for reverse proxies, HTTPS, email, storage, and optional integrations.
   - *Status 2026-10-28:* Documentation for the changed settings was updated (`Backup:BeforeMigrating`, `Database:PgDump`, `Network:AllowPrivateAddresses`). The proxy, HTTPS, and email docs weren't re-reviewed.
 - [x] Ensure secrets are not printed in logs or accidentally exposed in diagnostics.
-  - *Status 2026-10-28:* Audit §3: tokens hashed or sealed; grep found no secrets in log calls. P3: `pg_dump` gets the password on its command line.
+  - *Status 2026-10-28:* Audit §3: tokens hashed or sealed; grep found no secrets in log calls. Later the same day: `pg_dump` gets the password in `PGPASSWORD`, not on its command line (`Tools.RunAsync` takes an environment; `ShelfCareTests.A_tool_is_given_its_password_in_its_environment`).
 - [!] Check performance with a realistically large catalog, many reading records, and large ebook/audiobook files.
   - *Status 2026-10-28:* Not measured in this environment. One fix in task 17 stopped loading every open-shelf book's tags.
 - [x] Review dependency updates and security advisories using repository-supported tooling.

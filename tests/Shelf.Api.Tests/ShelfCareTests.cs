@@ -482,7 +482,7 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
         var restored = (await target.GetFromJsonAsync<CollectionResponse>($"/books/collections/{collection.Id}", JsonOptions))!;
         Assert.Equal(("Earthsea", "Read in order.", new DateOnly(2027, 3, 1)), (restored.Name, restored.Description, restored.ReadBy));
         Assert.Equal(["The Farthest Shore", "The Tombs of Atuan"], restored.Books.Select(book => book.Title));
-        Assert.Equal([null, "Start here."], restored.Notes);
+        Assert.Equal(new string?[] { null, "Start here." }, restored.Notes);
         var lent = restored.Books.First().Id;
         var loan = Assert.Single(await target.GetFromJsonAsync<LoanRecordItem[]>($"/books/{lent}/loans", JsonOptions) ?? []);
         Assert.Equal(("Ged", "Came back with a bookmark."), (loan.Borrower, loan.Note));
@@ -492,6 +492,20 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.Contains("collections=0&loans=0", (await RestoreAsync()).RequestMessage?.RequestUri?.Query);
         Assert.Equal(2, (await target.GetFromJsonAsync<CollectionResponse>($"/books/collections/{collection.Id}", JsonOptions))!.Books.Length);
         Assert.Single(await target.GetFromJsonAsync<LoanRecordItem[]>($"/books/{lent}/loans", JsonOptions) ?? []);
+    }
+
+    // A program Shelf runs is given a secret, such as pg_dump's password, in its own environment: never in its
+    // arguments, which the machine's process list shows to anyone on it.
+    [Fact]
+    public async Task A_tool_is_given_its_password_in_its_environment()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var output = await Tools.RunAsync("sh", ["-c", "printf %s \"$PGPASSWORD\""], TimeSpan.FromSeconds(10), CancellationToken.None, new Dictionary<string, string> { ["PGPASSWORD"] = "s3cret" });
+        Assert.Equal("s3cret", output);
     }
 
     [Fact]

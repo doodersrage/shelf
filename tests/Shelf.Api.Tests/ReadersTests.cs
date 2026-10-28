@@ -3,6 +3,8 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Shelf.Api.Books;
@@ -538,4 +540,44 @@ public sealed partial class ReadersTests(ShelfApiFactory factory) : IClassFixtur
     [System.Text.RegularExpressions.GeneratedRegex(@"/account/email/confirm\?token=[A-Za-z0-9_-]+")]
     private static partial System.Text.RegularExpressions.Regex ConfirmLink();
 
+    // Every route of a book, asked by a reader it was never lent to, answers that there is no such book: none gives
+    // the book or anything of it, and none falls over. Deleting it is refused the same, and the book is still there.
+    [Fact]
+    public async Task No_route_of_a_book_opens_it_to_a_reader_it_isnt_lent_to()
+    {
+        var owner = await factory.SignUpAsync("Sweep Owner");
+        var stranger = await factory.SignUpAsync("Sweep Stranger");
+        var book = (await (await owner.PostAsJsonAsync("/books", new CreateBookRequest("Kept To Myself", "Someone", BookStatus.Reading, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        using (var content = new MultipartFormDataContent { { new ByteArrayContent(KoreaderHighlightsTests.Epub()), "file", "kept.epub" } })
+        {
+            (await owner.PostAsync($"/books/{book.Id}/ebook", content)).EnsureSuccessStatusCode();
+        }
+
+        await owner.PostAsJsonAsync($"/books/{book.Id}/highlights", new CreateHighlightRequest("Before.", 0, "A private note."), JsonOptions);
+
+        var routes = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints.OfType<RouteEndpoint>()
+            .Select(endpoint => (Pattern: endpoint.RoutePattern, Methods: endpoint.Metadata.GetMetadata<IHttpMethodMetadata>()?.HttpMethods ?? []))
+            .Where(route => route.Pattern.RawText is { } raw && raw.StartsWith("/books/{id:int}", StringComparison.Ordinal)
+                && route.Pattern.Parameters.All(parameter => parameter.Name == "id"))
+            .ToList();
+        Assert.True(routes.Count > 40, $"Only {routes.Count} routes of a book were found.");
+
+        var opened = new List<string>();
+        foreach (var (pattern, methods) in routes)
+        {
+            var path = pattern.RawText!.Replace("{id:int}", book.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
+            foreach (var method in methods.Where(method => method is "GET" or "DELETE"))
+            {
+                var answer = await stranger.SendAsync(new HttpRequestMessage(new HttpMethod(method), path));
+                if (answer.IsSuccessStatusCode || (int)answer.StatusCode >= 500)
+                {
+                    opened.Add($"{method} {path} -> {(int)answer.StatusCode}");
+                }
+            }
+        }
+
+        Assert.True(opened.Count == 0, string.Join("\n", opened));
+        Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync($"/books/{book.Id}")).StatusCode);
+        Assert.Equal("A private note.", Assert.Single(await owner.GetFromJsonAsync<HighlightResponse[]>($"/books/{book.Id}/highlights", JsonOptions) ?? []).Note);
+    }
 }

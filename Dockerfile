@@ -42,6 +42,7 @@ ENV ASPNETCORE_HTTP_PORTS=8080 \
 # The entry point runs Shelf as PUID:PGID (the app user, 1654, by default) once /data is theirs; see docker-entrypoint.sh.
 VOLUME /data
 EXPOSE 8080
+# /health asks the database too, so a shelf whose database is gone shows unhealthy rather than up.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -fsS http://localhost:8080/alive || exit 1
+    CMD curl -fsS http://localhost:8080/health || exit 1
 ENTRYPOINT ["shelf-entrypoint", "dotnet", "Shelf.Api.dll"]

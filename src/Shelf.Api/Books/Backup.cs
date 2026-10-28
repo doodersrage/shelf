@@ -347,9 +347,11 @@ public static class Backup
     {
         var connection = new Npgsql.NpgsqlConnectionStringBuilder(db.Database.GetConnectionString());
         string Quote(string? value) => "'" + (value ?? "").Replace("\\", "\\\\").Replace("'", "\\'") + "'";
-        var info = $"host={Quote(connection.Host)} port={connection.Port} dbname={Quote(connection.Database)} user={Quote(connection.Username)}" + (connection.Password is { Length: > 0 } password ? $" password={Quote(password)}" : "");
+        // The password goes to pg_dump in PGPASSWORD, never on its command line, which the machine's process list shows.
+        var info = $"host={Quote(connection.Host)} port={connection.Port} dbname={Quote(connection.Database)} user={Quote(connection.Username)}";
+        var environment = connection.Password is { Length: > 0 } password ? new Dictionary<string, string> { ["PGPASSWORD"] = password } : null;
         var tool = pgDump is { Length: > 0 } ? pgDump : Environment.GetEnvironmentVariable("Database__PgDump") ?? "pg_dump";
-        return await Tools.RunAsync(tool, ["--dbname", info, "--no-owner", "--file", target], TimeSpan.FromMinutes(30), cancellationToken) is not null && File.Exists(target);
+        return await Tools.RunAsync(tool, ["--dbname", info, "--no-owner", "--file", target], TimeSpan.FromMinutes(30), cancellationToken, environment) is not null && File.Exists(target);
     }
 
     private static async Task<(LibraryExport Export, List<Book> Books)> ExportWithBooksAsync(ShelfDb db, CancellationToken cancellationToken)

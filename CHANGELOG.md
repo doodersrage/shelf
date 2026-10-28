@@ -4,8 +4,14 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Security
+
+- **pg_dump's password stays off its command line**: backing up a PostgreSQL shelf gave `pg_dump` the database password among its arguments, where anyone on the machine could read it in the process list. It now goes in `pg_dump`'s own environment.
+
 ### Fixed
 
+- **The Docker image's health check asks the database too**: it checked `/alive`, so a shelf whose database had gone still showed as healthy. It now checks `/health`.
+- **Another reader's book has no pictures to list**: asking for the pictures of a copy on someone else's shelf answered with an empty list, where every other part of a book answers that there's no such book. A test now asks every part of a book as a reader it isn't lent to, and each refuses.
 - **Readwise trouble bringing highlights stays told**: when bringing highlights from Readwise went wrong in the same hour that sending them went right, the send cleared the trouble, so Connections said all was well. Now it stays until bringing them goes right too.
 - **The backup taken before an update is proved too**: it waited for the next night's backup to be checked, so **Server health** said the newest backup hadn't been proved. Now it is proved in the background as soon as Shelf is up, without holding up the start.
 - **Scanning books in and reviewing details say when the catalogs are out of reach**: a book scanned in while Open Library and Google Books couldn't be reached was counted among those they didn't know, and **Review details** said nothing matched. Now scanning counts them apart and keeps them on the list to try again a little later, and a review marks such a book as failed, worth trying again.

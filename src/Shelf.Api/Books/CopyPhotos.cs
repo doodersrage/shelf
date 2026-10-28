@@ -24,7 +24,9 @@ public static class CopyPhotos
 {
     public static void Map(RouteGroupBuilder books)
     {
-        books.MapGet("/{id:int}/photos", async (int id, ShelfDb db, CancellationToken cancellationToken) => TypedResults.Ok(await ListAsync(db, id, cancellationToken)));
+        // A book not on this reader's shelf is not there, as on every other route of a book, rather than one with no pictures.
+        books.MapGet("/{id:int}/photos", async Task<IResult> (int id, ShelfDb db, CancellationToken cancellationToken) =>
+            await db.Books.AnyAsync(book => book.Id == id, cancellationToken) ? TypedResults.Ok(await ListAsync(db, id, cancellationToken)) : TypedResults.NotFound());
         books.MapPost("/{id:int}/photos", Upload).DisableAntiforgery();
         books.MapGet("/{id:int}/photos/{photoId:int}", Serve);
         books.MapDelete("/{id:int}/photos/{photoId:int}", async Task<IResult> (int id, int photoId, ShelfDb db, CoverStore covers, CancellationToken cancellationToken) =>

@@ -417,7 +417,10 @@ public static class AudioDetails
 public static class Tools
 {
     // Runs an installed program and returns what it printed, or null when it is missing, fails, or takes too long.
-    public static async Task<string?> RunAsync(string tool, IReadOnlyList<string> arguments, TimeSpan timeout, CancellationToken cancellationToken)
+    // Environment: variables set for the program alone, as a password it reads there rather than from its command line,
+    // which anyone on the machine can see.
+    public static async Task<string?> RunAsync(string tool, IReadOnlyList<string> arguments, TimeSpan timeout, CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
         var start = new ProcessStartInfo(tool)
         {
@@ -425,6 +428,11 @@ public static class Tools
             RedirectStandardError = true,
             UseShellExecute = false,
         };
+        foreach (var (name, value) in environment ?? new Dictionary<string, string>())
+        {
+            start.Environment[name] = value;
+        }
+
         foreach (var argument in arguments)
         {
             start.ArgumentList.Add(argument);

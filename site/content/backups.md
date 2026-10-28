@@ -76,4 +76,4 @@ To restore: stop the shelf, load `shelf.sql` into an empty database (`psql -U sh
 
 ## Health checks
 
-`/health` answers `Healthy` when the app and its database are up, and `/alive` when the app is. Both answer without signing in, with a single word. The Docker image checks `/alive` itself, and they suit an uptime monitor too.
+`/health` answers `Healthy` when the app and its database are up, and `/alive` when the app is. Both answer without signing in, with a single word. The Docker image checks `/health` itself, so a shelf that can't reach its database shows as unhealthy, and they suit an uptime monitor too.
