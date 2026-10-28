@@ -16,7 +16,9 @@ public enum LendResult
 }
 
 // Lending to another reader of this shelf: the book stays on the owner's shelf, and shows on the borrower's loans.
-public sealed record OpenBook(Book Book, bool Borrowed);
+// Borrowed: not the reader's own, so their place and marks are kept apart from the owner's. Shared: borrowed by being
+// in a collection a child's guardian shares with them, rather than lent.
+public sealed record OpenBook(Book Book, bool Borrowed, bool Shared = false);
 
 public sealed record PlaceRequest(int? EbookChapter);
 
@@ -134,7 +136,24 @@ public static class Lending
         }
 
         // A child reads the books their guardian shares with them as if lent, with a place and highlights of their own.
-        return await Family.SharedBookAsync(db, bookId, cancellationToken) is { } shared ? new OpenBook(shared, Borrowed: true) : null;
+        return await Family.SharedBookAsync(db, bookId, cancellationToken) is { } shared ? new OpenBook(shared, Borrowed: true, Shared: true) : null;
+    }
+
+    // Whether a book opened a while ago may still be read: still lent to the reader, or still shared with them.
+    public static async Task<bool> StillOpenAsync(ShelfDb db, OpenBook open, CancellationToken cancellationToken = default)
+    {
+        if (!open.Borrowed)
+        {
+            return true;
+        }
+
+        if (open.Shared)
+        {
+            return await Family.SharedBookAsync(db, open.Book.Id, cancellationToken) is not null;
+        }
+
+        var readerId = db.ReaderId;
+        return await db.Books.IgnoreQueryFilters().AnyAsync(book => book.Id == open.Book.Id && book.BorrowerId == readerId, cancellationToken);
     }
 
     // The owner's marks, or the borrower's own marks on a book lent to them. Neither sees the other's.
@@ -147,8 +166,9 @@ public static class Lending
         }
 
         var readerId = db.ReaderId;
+        var shared = open.Shared;
         return db.Highlights.IgnoreQueryFilters()
-            .Where(mark => mark.BookId == bookId && mark.ReaderId == readerId && mark.Book!.BorrowerId == readerId);
+            .Where(mark => mark.BookId == bookId && mark.ReaderId == readerId && (shared || mark.Book!.BorrowerId == readerId));
     }
 
     // The owner's bookmarks, or the borrower's own on a book lent to them.
@@ -161,8 +181,9 @@ public static class Lending
         }
 
         var readerId = db.ReaderId;
+        var shared = open.Shared;
         return db.AudioBookmarks.IgnoreQueryFilters()
-            .Where(mark => mark.BookId == bookId && mark.ReaderId == readerId && mark.Book!.BorrowerId == readerId);
+            .Where(mark => mark.BookId == bookId && mark.ReaderId == readerId && (shared || mark.Book!.BorrowerId == readerId));
     }
 
     public static Highlight NewMark(ShelfDb db, OpenBook open, int chapterIndex, string text, string? note, string? prefix, string? suffix) => new()
@@ -225,7 +246,7 @@ public static class Lending
         }
 
         var readerId = db.ReaderId;
-        if (!await db.Books.IgnoreQueryFilters().AnyAsync(book => book.Id == open.Book.Id && book.BorrowerId == readerId, cancellationToken))
+        if (!await StillOpenAsync(db, open, cancellationToken))
         {
             return;
         }

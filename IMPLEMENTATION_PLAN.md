@@ -224,6 +224,14 @@ Success means a reader can reliably:
   - Readwise send and import share one problem field, so a successful import clears a send's problem from the same round.
   - The PostgreSQL migration runs only in CI.
 
+### Follow-up task 12: child accounts read shared books with their own place and marks (audit P2), done 2026-10-28
+
+- [x] `OpenBook` gains `Shared` (set only by `Lending.OpenAsync` through `Family.SharedBookAsync`).
+- [x] `Lending.Marks` and `Lending.Bookmarks` accept `Shared` as well as a current loan. They still require `ReaderId == me`, so a child sees only their own marks and the guardian's stay hidden.
+- [x] New `Lending.StillOpenAsync` (lent, or still shared) replaces the borrower-only checks in `KeepPlaceAsync` and in Listen's add-bookmark.
+- [x] `FamilyTests.A_child_keeps_their_own_place_and_highlights_in_a_shared_book`. Against the old code, the child's own highlight is saved but their list comes back empty. The test also covers place separation, deleting a highlight, and the book closing when unshared.
+- [x] `CHANGELOG.md`. `lending.md` already promised this behavior.
+
 ---
 
 # M1 — Reliability, security, and data integrity

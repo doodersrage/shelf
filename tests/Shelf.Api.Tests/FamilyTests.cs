@@ -87,6 +87,62 @@ public sealed class FamilyTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
         }
     }
 
+    // A child reads a shared book as a borrower does: with a place and highlights of their own, kept, shown, and
+    // removable, never mixed with the guardian's; and once the book is no longer shared, it closes to them.
+    [Fact]
+    public async Task A_child_keeps_their_own_place_and_highlights_in_a_shared_book()
+    {
+        var parent = await factory.SignUpAsync("Reading Parent");
+        var parentId = await factory.ReaderIdAsync("Reading Parent");
+        await using (var scope = Scope(parentId))
+        {
+            Assert.Null((await Family.CreateChildAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), "Reading Kid", ShelfApiFactory.Password)).Problem);
+        }
+
+        var kid = factory.CreateClient();
+        await ShelfApiFactory.PostFormAsync(kid, "/signin", "/account/signin", new() { ["name"] = "Reading Kid", ["password"] = ShelfApiFactory.Password });
+        var book = (await (await parent.PostAsJsonAsync("/books", new CreateBookRequest("Shared Pages", "Someone", BookStatus.Reading, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        using (var content = new MultipartFormDataContent { { new ByteArrayContent(KoreaderHighlightsTests.Epub()), "file", "shared.epub" } })
+        {
+            Assert.True((await parent.PostAsync($"/books/{book.Id}/ebook", content)).IsSuccessStatusCode);
+        }
+
+        int collectionId;
+        await using (var scope = Scope(parentId))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            var (collection, _) = await Collections.CreateAsync(db, "Kid's shelf", null);
+            await Collections.AddAsync(db, collection!.Id, book.Id);
+            await Family.SetSharedAsync(db, collection.Id, true);
+            collectionId = collection.Id;
+        }
+
+        await parent.PostAsJsonAsync($"/books/{book.Id}/highlights", new CreateHighlightRequest("Before.", 0, "The parent's note."), JsonOptions);
+        Assert.Empty(await kid.GetFromJsonAsync<HighlightResponse[]>($"/books/{book.Id}/highlights", JsonOptions) ?? []);
+
+        // The child's highlight is theirs: shown to them, kept from the parent, and theirs to remove.
+        Assert.Equal(HttpStatusCode.Created, (await kid.PostAsJsonAsync($"/books/{book.Id}/highlights", new CreateHighlightRequest("After.", 0, "The child's note."), JsonOptions)).StatusCode);
+        var mine = Assert.Single(await kid.GetFromJsonAsync<HighlightResponse[]>($"/books/{book.Id}/highlights", JsonOptions) ?? []);
+        Assert.Equal("The child's note.", mine.Note);
+        Assert.Equal("The parent's note.", Assert.Single(await parent.GetFromJsonAsync<HighlightResponse[]>($"/books/{book.Id}/highlights", JsonOptions) ?? []).Note);
+
+        // Their place is kept, apart from the parent's, which stays at the start the upload gave it.
+        Assert.Equal(HttpStatusCode.NoContent, (await kid.PutAsJsonAsync($"/books/{book.Id}/place", new PlaceRequest(2), JsonOptions)).StatusCode);
+        Assert.Equal(2, (await kid.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!.EbookChapter);
+        Assert.Equal(0, (await parent.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!.EbookChapter);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await kid.DeleteAsync($"/books/{book.Id}/highlights/{mine.Id}")).StatusCode);
+        Assert.Empty(await kid.GetFromJsonAsync<HighlightResponse[]>($"/books/{book.Id}/highlights", JsonOptions) ?? []);
+
+        // No longer shared, the book closes to the child.
+        await using (var scope = Scope(parentId))
+        {
+            await Family.SetSharedAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), collectionId, false);
+        }
+
+        Assert.Equal(HttpStatusCode.NotFound, (await kid.GetAsync($"/books/{book.Id}/place")).StatusCode);
+    }
+
     private AsyncServiceScope Scope(int readerId)
     {
         var scope = factory.Services.CreateAsyncScope();

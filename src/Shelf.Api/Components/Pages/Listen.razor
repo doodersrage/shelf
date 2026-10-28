@@ -399,7 +399,7 @@ else if (book is not null)
         }
 
         await using var db = await DbFactory.CreateDbContextAsync();
-        if (open.Borrowed && !await db.Books.IgnoreQueryFilters().AnyAsync(item => item.Id == open.Book.Id && item.BorrowerId == db.ReaderId))
+        if (!await Lending.StillOpenAsync(db, open))
         {
             return;
         }
