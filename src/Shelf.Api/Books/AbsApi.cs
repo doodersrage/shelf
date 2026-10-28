@@ -699,28 +699,38 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
     }
 
     // Seconds from the start of the book, kept as Shelf keeps a place: a track and the seconds into it.
-    private async Task<bool> KeepAsync(ShelfDb db, int bookId, double currentTime, double listened, bool finished, CancellationToken cancellationToken)
+    // The place in the recording, when the app gives a time; with none (an app marking a book finished, say), the
+    // place stays where it is rather than going back to the start.
+    private async Task<bool> KeepAsync(ShelfDb db, int bookId, double? currentTime, double listened, bool finished, CancellationToken cancellationToken)
     {
-        if (await OpenAsync(db, bookId, cancellationToken) is not { } found || found.Book.AudioStoredName is null || double.IsNaN(currentTime))
+        if (await OpenAsync(db, bookId, cancellationToken) is not { } found)
         {
             return false;
         }
 
-        var lengths = audio.Lengths(found.Book.AudioStoredName);
-        var (track, before) = (0, 0.0);
-        while (track < lengths.Count - 1 && lengths[track] is double length && currentTime >= before + length)
+        if (currentTime is double time && !double.IsNaN(time) && found.Book.AudioStoredName is { } stored)
         {
-            before += length;
-            track++;
-        }
+            var lengths = audio.Lengths(stored);
+            var (track, before) = (0, 0.0);
+            while (track < lengths.Count - 1 && lengths[track] is double length && time >= before + length)
+            {
+                before += length;
+                track++;
+            }
 
-        using (Positions.Reporting("Audiobookshelf"))
-        {
-            await Lending.KeepPlaceAsync(db, found.Open, place => (place.AudioTrack, place.AudioSeconds) = (track, (int)Math.Max(0, currentTime - before)), cancellationToken);
+            using (Positions.Reporting("Audiobookshelf"))
+            {
+                await Lending.KeepPlaceAsync(db, found.Open, place => (place.AudioTrack, place.AudioSeconds) = (track, (int)Math.Max(0, time - before)), cancellationToken);
+            }
+
+            if (listened >= 1)
+            {
+                await AudioPlayback.NoteListeningAsync(db, bookId, null, listened, cancellationToken);
+            }
         }
-        if (listened >= 1)
+        else if (!finished)
         {
-            await AudioPlayback.NoteListeningAsync(db, bookId, null, listened, cancellationToken);
+            return false;
         }
 
         if (finished && !found.Open.Borrowed && await db.Books.FirstOrDefaultAsync(item => item.Id == bookId, cancellationToken) is { Status: not BookStatus.Finished } book)
@@ -827,7 +837,7 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
 
         if (body.ContainsKey("currentTime") || finished)
         {
-            if (!await KeepAsync(db, id, Number(body["currentTime"]), 0, finished, cancellationToken))
+            if (!await KeepAsync(db, id, body.ContainsKey("currentTime") ? Number(body["currentTime"]) : null, 0, finished, cancellationToken))
             {
                 return await Lending.OpenAsync(db, id, cancellationToken) is null ? Results.NotFound() : Results.Ok();
             }

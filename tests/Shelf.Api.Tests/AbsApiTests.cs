@@ -180,6 +180,43 @@ public sealed class AbsApiTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
         Assert.Equal(HttpStatusCode.OK, (await byPassword.SendAsync(Refresh(passwordRefresh))).StatusCode);
     }
 
+    // An app marking a book finished without saying a time finishes it and leaves the place where it was, where it
+    // once went back to the start of the recording; a book with only an e-book can be finished that way too.
+    [Fact]
+    public async Task An_app_marking_a_book_finished_keeps_the_place()
+    {
+        var reader = await factory.SignUpAsync("App Finisher");
+        var book = (await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("Three Tracks Done", "Someone", BookStatus.Reading, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        using (var content = new MultipartFormDataContent { { new StreamContent(File.OpenRead(Path.Combine(Fixtures, "three-tracks.zip"))), "file", "three-tracks.zip" } })
+        {
+            (await reader.PostAsync($"/books/{book.Id}/audio", content)).EnsureSuccessStatusCode();
+        }
+
+        var paper = (await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("A Sea Story Done", "Someone", BookStatus.Reading, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        using (var content = new MultipartFormDataContent { { new ByteArrayContent(KoreaderHighlightsTests.Epub()), "file", "sea.epub" } })
+        {
+            (await reader.PostAsync($"/books/{paper.Id}/ebook", content)).EnsureSuccessStatusCode();
+        }
+
+        var app = factory.CreateClient();
+        var login = await (await app.PostAsJsonAsync("/login", new { username = "App Finisher", password = ShelfApiFactory.Password })).Content.ReadFromJsonAsync<JsonObject>();
+        app.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!["user"]!["accessToken"]!.GetValue<string>());
+        var play = await (await app.PostAsJsonAsync($"/api/items/{book.Id}/play", new { deviceInfo = new { deviceId = "phone" }, forceDirectPlay = true })).Content.ReadFromJsonAsync<JsonObject>();
+        var second = play!["audioTracks"]![1]!["startOffset"]!.GetValue<double>();
+
+        Assert.Equal(HttpStatusCode.OK, (await app.PatchAsJsonAsync($"/api/me/progress/{book.Id}", new { currentTime = second + 1 })).StatusCode);
+        var before = (await reader.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!;
+        Assert.Equal(1, before.AudioTrack);
+
+        Assert.Equal(HttpStatusCode.OK, (await app.PatchAsJsonAsync($"/api/me/progress/{book.Id}", new { isFinished = true })).StatusCode);
+        var after = (await reader.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!;
+        Assert.Equal((before.AudioTrack, before.AudioSeconds), (after.AudioTrack, after.AudioSeconds));
+        Assert.Equal(BookStatus.Finished, (await reader.GetFromJsonAsync<BookResponse>($"/books/{book.Id}", JsonOptions))!.Status);
+
+        Assert.Equal(HttpStatusCode.OK, (await app.PatchAsJsonAsync($"/api/me/progress/{paper.Id}", new { isFinished = true })).StatusCode);
+        Assert.Equal(BookStatus.Finished, (await reader.GetFromJsonAsync<BookResponse>($"/books/{paper.Id}", JsonOptions))!.Status);
+    }
+
     [Fact]
     public async Task The_live_connection_speaks_socket_io_and_signs_in_with_the_token()
     {
