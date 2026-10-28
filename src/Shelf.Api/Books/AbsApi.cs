@@ -701,7 +701,8 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
     // Seconds from the start of the book, kept as Shelf keeps a place: a track and the seconds into it.
     // The place in the recording, when the app gives a time; with none (an app marking a book finished, say), the
     // place stays where it is rather than going back to the start.
-    private async Task<bool> KeepAsync(ShelfDb db, int bookId, double? currentTime, double listened, bool finished, CancellationToken cancellationToken)
+    // Sessions the app played offline and sends late are forwardOnly: they move the place on, never back.
+    private async Task<bool> KeepAsync(ShelfDb db, int bookId, double? currentTime, double listened, bool finished, CancellationToken cancellationToken, bool forwardOnly = false)
     {
         if (await OpenAsync(db, bookId, cancellationToken) is not { } found)
         {
@@ -720,7 +721,14 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
 
             using (Positions.Reporting("Audiobookshelf"))
             {
-                await Lending.KeepPlaceAsync(db, found.Open, place => (place.AudioTrack, place.AudioSeconds) = (track, (int)Math.Max(0, time - before)), cancellationToken);
+                var seconds = (int)Math.Max(0, time - before);
+                await Lending.KeepPlaceAsync(db, found.Open, place =>
+                {
+                    if (!forwardOnly || AudioPlayback.Further(place, track, seconds))
+                    {
+                        (place.AudioTrack, place.AudioSeconds) = (track, seconds);
+                    }
+                }, cancellationToken);
             }
 
             if (listened >= 1)
@@ -789,7 +797,7 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
             return Results.BadRequest();
         }
 
-        await KeepAsync(db, bookId, Number(body["currentTime"]), Number(body["timeListening"]), false, cancellationToken);
+        await KeepAsync(db, bookId, Number(body["currentTime"]), Number(body["timeListening"]), false, cancellationToken, forwardOnly: true);
         return Results.Ok();
     }
 
@@ -799,7 +807,7 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
         foreach (var session in body["sessions"]?.AsArray().OfType<JsonObject>() ?? [])
         {
             var synced = int.TryParse(session["libraryItemId"]?.ToString(), CultureInfo.InvariantCulture, out var bookId)
-                && await KeepAsync(db, bookId, Number(session["currentTime"]), Number(session["timeListening"]), false, cancellationToken);
+                && await KeepAsync(db, bookId, Number(session["currentTime"]), Number(session["timeListening"]), false, cancellationToken, forwardOnly: true);
             results.Add(new JsonObject { ["id"] = session["id"]?.ToString(), ["success"] = synced, ["progressSynced"] = synced });
         }
 

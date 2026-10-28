@@ -11,6 +11,34 @@ public sealed class ListeningTests(ShelfApiFactory factory) : IClassFixture<Shel
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
+    // The player moves the place back or forward as the listener does; a place sent late, from listening offline,
+    // moves it on only, so a phone catching up never undoes listening done elsewhere since. Its time still counts.
+    [Fact]
+    public async Task A_place_sent_late_from_listening_offline_never_sends_the_listener_back()
+    {
+        var listener = await factory.SignUpAsync("Late Phone Listener");
+        var book = await WithAudioAsync(listener, "Heard Offline");
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        async Task<(int?, int?)> PlaceAsync()
+        {
+            var place = (await listener.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!;
+            return (place.AudioTrack, place.AudioSeconds);
+        }
+
+        // Listened on to 3:00 here; the phone, offline, stopped at 1:00 and says so late.
+        Assert.Equal(HttpStatusCode.NoContent, (await listener.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 180), JsonOptions)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await listener.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 60, 20, today, Replayed: true), JsonOptions)).StatusCode);
+        Assert.Equal((0, 180), await PlaceAsync());
+        var positions = (await listener.GetFromJsonAsync<PositionsOfBook>($"/books/{book.Id}/positions", JsonOptions))!;
+        Assert.False(Assert.Single(positions.Reports, report => report.Device == "listening offline").Kept);
+
+        // Sent late and further on, it moves the place; and the player itself still goes back when asked.
+        await listener.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 240, Replayed: true), JsonOptions);
+        Assert.Equal((0, 240), await PlaceAsync());
+        await listener.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 30), JsonOptions);
+        Assert.Equal((0, 30), await PlaceAsync());
+    }
+
     [Fact]
     public async Task Time_listened_is_kept_by_day_for_each_listener()
     {

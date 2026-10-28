@@ -25,7 +25,8 @@ public sealed record AudioPlanChapter(int Index, string Title, int Track, double
 
 // Listened is how many seconds the player played since it last said, by the clock rather than the book, and Day
 // the day it was played (in UTC, as the shelf counts days), which matters for time sent late.
-public sealed record AudioPlaceRequest(int Track, double Seconds, double? Listened = null, DateOnly? Day = null);
+// Replayed: a place kept on the device while the shelf couldn't be reached, sent once it can; it moves the place on only.
+public sealed record AudioPlaceRequest(int Track, double Seconds, double? Listened = null, DateOnly? Day = null, bool Replayed = false);
 
 // Time spent listening to one book on one day, by one reader.
 public sealed class ListeningDay
@@ -100,7 +101,8 @@ public static class AudioPlayback
     private static async Task<Results<Ok<AudioPlan>, NotFound>> Plan(int id, ShelfDb db, AudioStore store, CancellationToken cancellationToken) =>
         await PlanAsync(db, store, id, cancellationToken) is { } plan ? TypedResults.Ok(plan) : TypedResults.NotFound();
 
-    // Where the player is: kept as it is, back or forward, since a listener moves both ways.
+    // Where the player is: kept as it is, back or forward, since a listener moves both ways; a place sent late, from
+    // listening offline, moves it on only, so a device catching up never undoes listening done elsewhere since.
     private static async Task<Results<NoContent, NotFound, ValidationProblem>> Place(int id, AudioPlaceRequest request, ShelfDb db, AudioStore store, CancellationToken cancellationToken)
     {
         if (await Lending.OpenAsync(db, id, cancellationToken) is not { } open || string.IsNullOrWhiteSpace(open.Book.AudioStoredName))
@@ -113,11 +115,14 @@ public static class AudioPlayback
             return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Track"] = [Localization.Words.T("Give a track of this recording, and a time in it.")] });
         }
 
-        using var _ = Positions.Reporting("Shelf", "player");
+        using var _ = Positions.Reporting("Shelf", request.Replayed ? "listening offline" : "player");
         await Lending.KeepPlaceAsync(db, open, place =>
         {
-            place.AudioTrack = request.Track;
-            place.AudioSeconds = (int)request.Seconds;
+            if (!request.Replayed || Further(place, request.Track, (int)request.Seconds))
+            {
+                place.AudioTrack = request.Track;
+                place.AudioSeconds = (int)request.Seconds;
+            }
         }, cancellationToken);
         if (request.Listened is double listened && listened >= 1)
         {
@@ -126,6 +131,10 @@ public static class AudioPlayback
 
         return TypedResults.NoContent();
     }
+
+    // Whether a place in the recording is further on than the one kept: a later track, or later in the same one.
+    public static bool Further(LoanPlace place, int track, int seconds) =>
+        track > (place.AudioTrack ?? -1) || (track == place.AudioTrack && seconds > (place.AudioSeconds ?? -1));
 
     // The player says every fifteen seconds or so; more than two minutes at once is not believed.
     private const int MostAtOnce = 120;
