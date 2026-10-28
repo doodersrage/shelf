@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Fixed
+
+- **Scanning books in and reviewing details say when the catalogs are out of reach**: a book scanned in while Open Library and Google Books couldn't be reached was counted among those they didn't know, and **Review details** said nothing matched. Now scanning counts them apart and keeps them on the list to try again a little later, and a review marks such a book as failed, worth trying again.
+
 ## [2.18.0] - 2026-10-28
 
 ### Added

@@ -2329,6 +2329,7 @@
   "Added {0} books.": "{0} libros añadidos.",
   "The catalogs knew none of them; they stay on the list to add by hand.": "Los catálogos no conocían ninguno; se quedan en la lista para añadirlos a mano.",
   "Added {0}; the catalogs did not know {1}, which stay on the list to add by hand.": "Añadidos {0}; los catálogos no conocían {1}, que se quedan en la lista para añadirlos a mano.",
+  "The catalogs couldn't be reached for {0}; they stay on the list to try again a little later.": "No se pudo contactar con los catálogos para {0}; siguen en la lista para volver a intentarlo un poco más tarde.",
   "Checked: all {0} were there.": "Revisado: estaban los {0}.",
   "Checked: {0} seen, {1} not found.": "Revisado: {0} vistos, {1} no encontrados.",
   "Checked: {0} seen; {1} not found, tagged \"{2}\".": "Revisado: {0} vistos; {1} no encontrados, etiquetados como \"{2}\".",

@@ -786,6 +786,11 @@ else
                 (0, _) => T("The catalogs knew none of them; they stay on the list to add by hand."),
                 _ => T("Added {0}; the catalogs did not know {1}, which stay on the list to add by hand.", result.Added, result.Skipped),
             };
+            if (result.Unreachable > 0)
+            {
+                problem = result.Added == 0;
+                note = (result.Added == 0 && result.Skipped == 0 ? "" : note + " ") + T("The catalogs couldn't be reached for {0}; they stay on the list to try again a little later.", result.Unreachable);
+            }
             chosen.Clear();
             await LoadAsync();
             if (open.All(run => run.Id != session.Id))

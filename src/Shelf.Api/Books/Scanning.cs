@@ -68,7 +68,9 @@ public sealed record CheckedBook(int Id, string Title, string Author, string? Is
 
 public sealed record ScanAddRequest(string[] Isbns, string? Location, BookStatus Status = BookStatus.Want, BookFormat? Format = null);
 
-public sealed record ScanAdded(int Added, int Skipped, int? BatchId);
+// Unreachable: codes the catalogs couldn't be asked about, which stay on the list to try again, apart from those
+// they don't know.
+public sealed record ScanAdded(int Added, int Skipped, int? BatchId, int Unreachable = 0);
 
 public sealed record ScanFinishRequest(bool TagMissing);
 
@@ -304,12 +306,18 @@ public static class Scanning
         var location = string.IsNullOrWhiteSpace(request.Location) ? session.Location : request.Location.Trim();
         location = location is { Length: > 80 } ? location[..80] : location;
         var status = Enum.IsDefined(request.Status) ? request.Status : BookStatus.Want;
-        var (added, skipped) = (0, 0);
+        var (added, skipped, unreachable) = (0, 0, 0);
         var done = new HashSet<string>();
         int? batchId = null;
         foreach (var isbn in isbns)
         {
             var match = await lookup.FindAsync(isbn, null, null, cancellationToken);
+            if (match is null && lookup.CouldNotAsk)
+            {
+                unreachable++;
+                continue;
+            }
+
             if (match is null || string.IsNullOrWhiteSpace(match.Title) || string.IsNullOrWhiteSpace(match.Author))
             {
                 skipped++;
@@ -356,7 +364,7 @@ public static class Scanning
 
         await db.SaveChangesAsync(cancellationToken);
         await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
-        return new ScanAdded(added, skipped, batchId);
+        return new ScanAdded(added, skipped, batchId, unreachable);
     }
 
     // The check is done: the books not seen can be tagged "missing", together, so the tag can be undone at once.

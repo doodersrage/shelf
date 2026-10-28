@@ -9,14 +9,20 @@ namespace Shelf.Api.Books;
 public interface ICatalogSources
 {
     Task<(CatalogMatch? OpenLibrary, CatalogMatch? Google)> BothAsync(string? isbn, string? title, string? author, CancellationToken cancellationToken);
+
+    // After BothAsync found nothing: true when neither catalog could be asked, rather than neither knew the book.
+    bool CouldNotAsk => false;
 }
 
 public sealed class CatalogSources(OpenLibraryLookup openLibrary, GoogleBooksLookup google) : ICatalogSources
 {
+    public bool CouldNotAsk { get; private set; }
+
     public async Task<(CatalogMatch? OpenLibrary, CatalogMatch? Google)> BothAsync(string? isbn, string? title, string? author, CancellationToken cancellationToken)
     {
         var first = await openLibrary.FindAsync(isbn, title, author, cancellationToken);
         var second = await google.FindAsync(isbn ?? first?.Isbn, title, author, cancellationToken);
+        CouldNotAsk = first is null && second is null && openLibrary.CouldNotAsk && (google.CouldNotAsk || !google.Enabled);
         return (first, second);
     }
 }

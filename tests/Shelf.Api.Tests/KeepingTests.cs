@@ -454,4 +454,28 @@ public sealed class KeepingTests(ShelfApiFactory factory) : IClassFixture<ShelfA
             await Task.Delay(50);
         }
     }
+
+    // A code the catalogs couldn't be asked about is counted apart from one they don't know, and stays on the list.
+    [Fact]
+    public async Task A_scan_tells_catalogs_out_of_reach_from_a_book_they_dont_know()
+    {
+        var reader = await factory.SignUpAsync("Scanning In Outage");
+        var readerId = await factory.ReaderIdAsync("Scanning In Outage");
+        var run = (await (await reader.PostAsJsonAsync("/books/scans", new Scanning.ScanStart(ScanKind.Add, "Hall"), JsonOptions)).Content.ReadFromJsonAsync<ScanSessionView>(JsonOptions))!;
+        await reader.PostAsJsonAsync($"/books/scans/{run.Id}/codes", new Scanning.ScanCode("9780441013593"), JsonOptions);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
+        var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+        var added = (await Scanning.AddAsync(db, new UnreachableLookup(), run.Id, new ScanAddRequest(["9780441013593"], null, BookStatus.Want)))!;
+        Assert.Equal((0, 0, 1), (added.Added, added.Skipped, added.Unreachable));
+        Assert.Contains("9780441013593", (await db.ScanSessions.AsNoTracking().FirstAsync(item => item.Id == run.Id)).Codes);
+    }
+
+    private sealed class UnreachableLookup : IBookLookup
+    {
+        public bool CouldNotAsk => true;
+
+        public Task<CatalogMatch?> FindAsync(string? isbn, string? title, string? author, CancellationToken cancellationToken) => Task.FromResult<CatalogMatch?>(null);
+    }
 }

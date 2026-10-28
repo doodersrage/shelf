@@ -107,6 +107,16 @@ public sealed class GoogleBooksTests
         Assert.Null(await alone.FindAsync("9780000000002", null, null, CancellationToken.None));
         Assert.True(alone.CouldNotAsk);
 
+        // The details review asks both catalogs apart, and tells the same.
+        static GoogleBooksLookup Google(Func<string, HttpResponseMessage> answer) => new(new HttpClient(new Answering(answer)) { BaseAddress = new Uri("https://www.googleapis.com/") },
+            new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Lookup:GoogleBooks"] = "true" }).Build());
+        var reviewDown = new CatalogSources(new OpenLibraryLookup(new HttpClient(new Answering(_ => Down())) { BaseAddress = new Uri("https://openlibrary.org/") }), Google(_ => Busy()));
+        Assert.Equal((null, null), await reviewDown.BothAsync("9780000000002", null, null, CancellationToken.None));
+        Assert.True(reviewDown.CouldNotAsk);
+        var reviewAnswered = new CatalogSources(new OpenLibraryLookup(new HttpClient(new Answering(_ => Down())) { BaseAddress = new Uri("https://openlibrary.org/") }), Google(_ => Json("{\"totalItems\":0}")));
+        await reviewAnswered.BothAsync("9780000000002", null, null, CancellationToken.None);
+        Assert.False(reviewAnswered.CouldNotAsk);
+
         // Find's search the same.
         var search = new OpenLibrarySearch(new HttpClient(new Answering(_ => Down())) { BaseAddress = new Uri("https://openlibrary.org/") });
         Assert.Empty(await search.SearchAsync("moby dick", CancellationToken.None));

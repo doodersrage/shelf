@@ -188,10 +188,13 @@ public sealed class DetailsFiller(IServiceScopeFactory scopes, ShelfJobs registe
 
         if (job.Kind is DetailsKind.Review or DetailsKind.ReviewAll)
         {
-            var (openLibrary, google) = await scope.ServiceProvider.GetRequiredService<ICatalogSources>().BothAsync(book.Isbn, book.Title, book.Author, cancellationToken);
+            var sources = scope.ServiceProvider.GetRequiredService<ICatalogSources>();
+            var (openLibrary, google) = await sources.BothAsync(book.Isbn, book.Title, book.Author, cancellationToken);
             if (openLibrary is null && google is null)
             {
-                return new ImportLine(title, ImportLineState.Skipped, T("Nothing matched."), id, 0);
+                return sources.CouldNotAsk
+                    ? new ImportLine(title, ImportLineState.Failed, T("The catalogs did not answer."), id, 0)
+                    : new ImportLine(title, ImportLineState.Skipped, T("Nothing matched."), id, 0);
             }
 
             var proposed = await DetailReview.ProposeAsync(db, book, openLibrary, google, cancellationToken);
