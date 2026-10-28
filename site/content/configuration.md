@@ -131,6 +131,7 @@ Without a mail server, an admin resets forgotten passwords and notifications com
 | `Backup:Enabled` | `true` | Take a copy of the database each night. |
 | `Backup:Hour` | `3` | The hour, in UTC, after which it is taken. |
 | `Backup:Keep` | `7` | How many to keep. |
+| `Backup:BeforeMigrating` | `true` | Back the database up, among these, before a new version changes it, and stop rather than change it when that can't be done. `false` updates without it. On PostgreSQL this needs `pg_dump`, as the nightly backups do; without it, the update goes on with a warning in the log. |
 | `Backup:Folder` | `backups` beside the database | Where they go. |
 | `Backup:IncludeFiles` | `false` | Put every e-book and audiobook in each copy too. They never change once saved, so most people back up their folders separately instead. |
 | `Backup:CopyTo` | none | A second folder to copy each backup to, such as another disk or a mounted network share. It keeps as many as `Backup:Keep`. |

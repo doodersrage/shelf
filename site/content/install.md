@@ -140,7 +140,7 @@ dotnet run --project Shelf.AppHost --launch-profile http
 
 ## Updating
 
-Shelf updates its own database when it starts, so updating is replacing the app:
+Shelf updates its own database when it starts, so updating is replacing the app. Before it changes the database for a new version, it backs it up as it was, among the [nightly backups](backups.md#nightly-copies) (`shelf-backup-…-before-upgrade.zip`); if it can't (the backup folder full, or not its to write), it leaves the database alone and stops, saying why.
 
 ```bash
 docker pull ghcr.io/doodersrage/shelf:latest
@@ -154,7 +154,7 @@ With Compose, `docker compose pull && docker compose up -d`. The [changelog](cha
 Shelf asks GitHub twice a day whether a newer release is out, and tells admins at the top of every page, with what's new and how to update, until they update or choose **Not now** for that release. Only the release's number is read; nothing about your shelf is sent. `Updates:Check` set to `false` turns it off.
 
 > [!TIP]
-> Take a snapshot from **Readers** before a big update. It holds the whole server, and restoring it is unpacking it over a stopped shelf. See [Backups](backups.md).
+> The backup taken before updating holds the database and covers. For everything, e-books and audiobooks too, take a snapshot from **Readers** before a big update; restoring it is unpacking it over a stopped shelf. See [Backups](backups.md).
 
 ## Putting it on the internet
 
