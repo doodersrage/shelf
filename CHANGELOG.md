@@ -13,6 +13,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - **A damaged e-book is turned away when it's added**: a file cut short in downloading, or one named `.epub`, `.pdf`, or `.cbz` that isn't one, was kept with "The e-book is on the shelf" and failed only when you opened it. Now it's refused there and then, with a message that it looks damaged or incomplete; the book keeps whatever file it had.
 - **Long lists open light**: on a big shelf, **Quotes & highlights**, **Series**, **Reading**, and **Years** each drew everything at once, pages of up to several megabytes. Now quotes and highlights come 200 at a time and series 100, each with **Show more** and **Show all** (a search still looks through them all); **Reading** shows the 24 books opened latest, with a link to every one in the library; and **Years** shows up to 60 books a year, with a link to that year's page for the rest.
 
+### Changed
+
+- **A release waits for all of CI**: tagging a version publishes it only once CI has passed on that very commit, PostgreSQL and both browsers included, where it ran the SQLite tests alone.
+
 ## [2.19.0] - 2026-10-28
 
 ### Added

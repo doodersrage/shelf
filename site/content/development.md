@@ -76,7 +76,7 @@ Shelf follows [semantic versioning](https://semver.org). The version is set once
 git tag v1.3.0 && git push origin v1.3.0
 ```
 
-The release workflow checks the tag against `Directory.Build.props`, runs the tests, publishes `ghcr.io/doodersrage/shelf:1.3.0` and `:latest`, and makes a GitHub release from the changelog entry.
+The release workflow checks the tag against `Directory.Build.props`, waits for CI to pass on the tagged commit (all of it: PostgreSQL, both browsers, and the image; a tag on a commit CI failed, or never ran on, publishes nothing), runs the tests, publishes `ghcr.io/doodersrage/shelf:1.3.0` and `:latest`, and makes a GitHub release from the changelog entry.
 
 ## This documentation
 

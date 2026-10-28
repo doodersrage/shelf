@@ -7,6 +7,7 @@ on:
     tags: ["v*.*.*"]
 
 permissions:
+  actions: read
   contents: write
   packages: write
 
@@ -26,6 +27,27 @@ jobs:
             exit 1
           fi
           echo "number=$tag" >> "$GITHUB_OUTPUT"
+
+      # The tests below are SQLite's only: the whole of CI (PostgreSQL, both browsers, the vendored files, the image)
+      # must have passed on this very commit. A tag pushed while CI is still running waits for it.
+      - name: Wait for CI to pass on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          id=""
+          for attempt in $(seq 1 30); do
+            id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$GITHUB_SHA" --event push --json databaseId --jq '.[0].databaseId // empty')"
+            [ -n "$id" ] && break
+            sleep 20
+          done
+          if [ -z "$id" ]; then
+            echo "CI never ran on $GITHUB_SHA. Push the commit to main, let CI pass, then tag it." >&2
+            exit 1
+          fi
+          if ! gh run watch "$id" --repo "$GITHUB_REPOSITORY" --interval 60 --exit-status > /dev/null; then
+            echo "CI did not pass on $GITHUB_SHA: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$id" >&2
+            exit 1
+          fi
 
       # Only the newest version is latest: tags pushed together finish in any order, and an older one must not win.
       - name: Decide whether this is the latest
