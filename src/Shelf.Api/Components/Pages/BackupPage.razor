@@ -79,7 +79,12 @@
     </form>
     @if (Restore == "done")
     {
-        <p class="saved" role="status">@T("Restored. Added {0} with {1}, and skipped {2} already on your shelf.", Localization.Counts.Books(Added), Localization.Counts.Files(Files), Skipped)</p>
+        <p class="saved" role="status">@T("Restored. Added {0} with {1}, and skipped {2} already on your shelf.", Localization.Counts.Books(Added), Localization.Counts.Files(Files), Skipped)
+            @if (Collections > 0 || Loans > 0)
+            {
+                @(" " + T("Brought back {0} collections and {1} past loans.", Collections, Loans))
+            }
+        </p>
         @if (Damaged > 0)
         {
             <p class="validation-message" role="alert">@T("{0} files in the download did not match its manifest: they were damaged or changed after it was made. Bring back from another copy if you have one.", Damaged)</p>
@@ -230,6 +235,12 @@
 
     [SupplyParameterFromQuery]
     public int Files { get; set; }
+
+    [SupplyParameterFromQuery]
+    public int Collections { get; set; }
+
+    [SupplyParameterFromQuery]
+    public int Loans { get; set; }
 
     [SupplyParameterFromQuery]
     public string? Csv { get; set; }

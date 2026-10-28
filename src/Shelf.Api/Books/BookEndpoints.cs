@@ -400,12 +400,12 @@ public static class BookEndpoints
 
             if (result is not null)
             {
-                await Readers.Audit.NoteAsync(db, Localization.Words.Say("Restored a backup"), detail: $"{result.Added} books added, {result.Skipped} already there, {result.Files} files", cancellationToken: cancellationToken);
+                await Readers.Audit.NoteAsync(db, Localization.Words.Say("Restored a backup"), detail: $"{result.Added} books added, {result.Skipped} already there, {result.Files} files, {result.Collections} collections, {result.Loans} past loans", cancellationToken: cancellationToken);
             }
 
             return TypedResults.Redirect(result is null
                 ? "/backup?restore=unreadable"
-                : $"/backup?restore=done&added={result.Added}&skipped={result.Skipped}&files={result.Files}&damaged={result.Damaged}");
+                : $"/backup?restore=done&added={result.Added}&skipped={result.Skipped}&files={result.Files}&damaged={result.Damaged}&collections={result.Collections}&loans={result.Loans}");
         }
         finally
         {

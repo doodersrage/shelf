@@ -257,6 +257,15 @@ Success means a reader can reliably:
 - [x] Tests: `GoogleBooksTests.A_lookup_tells_catalogs_out_of_reach_from_a_book_none_knows` and `BooksEndpointTests.Lookup_says_when_no_catalog_could_be_asked`. 2 new strings in es/fr/de.
 - Not changed: the background "Fill in details" job (`DetailsFiller`) and scanning still treat an outage as no match. Their per-book notes could use the same flag.
 
+### Follow-up task 16: a reader's zip restores collections and past loans (audit P2), done 2026-10-28
+
+- [x] `Backup.RestoreShelfAsync` now maps each book in the download to its book on this shelf, using the new `BookRules.ImportKey`, which matches books the way `ImportAsync` skips them. This covers both books just added and books skipped as already present.
+- [x] Collections are restored by name (case-insensitive), or created through `Collections.CreateAsync`, then filled with `AddAsync`, `NoteAsync`, and `PlanAsync`. An existing collection keeps its books, notes, and read-by date, and gains what it lacks.
+- [x] Loans: only returned loans are restored, deduplicated on (book, borrower, lent on). An open loan comes back as the book's own loan from `shelf.json`.
+- [x] `RestoreResult` gains `Collections` and `Loans`. The redirect, the audit detail, and the Backup page report them (1 new string in es/fr/de). The zip's README and `backups.md` say what comes back. `borrowed-highlights.json` is export-only.
+- [x] `ShelfCareTests.A_readers_zip_brings_back_their_collections_and_past_loans` checks order, note, read-by date, a returned loan, and that a second restore duplicates nothing.
+- Limit: restored collections and loans aren't part of the import's single undo batch, so undoing the restore doesn't remove them. I didn't check what happens to a collection's entries for books the undo removes.
+
 ---
 
 # M1 — Reliability, security, and data integrity

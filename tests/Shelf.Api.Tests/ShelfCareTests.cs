@@ -454,6 +454,46 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
         }
     }
 
+    // A reader's zip brings back their collections, with the books' order, notes, and day to read by, and the loans
+    // of their books that came back; restored again, nothing comes twice.
+    [Fact]
+    public async Task A_readers_zip_brings_back_their_collections_and_past_loans()
+    {
+        var source = await factory.SignUpAsync("Collecting Reader");
+        var first = await CreateAsync(source, new CreateBookRequest("The Tombs of Atuan", "Ursula K. Le Guin", BookStatus.Finished, null));
+        var second = await CreateAsync(source, new CreateBookRequest("The Farthest Shore", "Ursula K. Le Guin", BookStatus.Want, null, LoanedTo: "Ged"));
+        await source.PostAsJsonAsync($"/books/{second.Id}/return", new ReturnRequest(Note: "Came back with a bookmark."), JsonOptions);
+        var made = await (await source.PostAsJsonAsync("/books/collections", new { name = "Earthsea", description = "Read in order." }, JsonOptions)).Content.ReadFromJsonAsync<CollectionResponse>(JsonOptions);
+        await source.PostAsJsonAsync($"/books/collections/{made!.Id}/books", new { bookId = second.Id }, JsonOptions);
+        await source.PostAsJsonAsync($"/books/collections/{made.Id}/books", new { bookId = first.Id }, JsonOptions);
+        await source.PutAsJsonAsync($"/books/collections/{made.Id}/books/{first.Id}", new { note = "Start here." }, JsonOptions);
+        await source.PutAsJsonAsync($"/books/collections/{made.Id}/plan", new { readBy = "2027-03-01" }, JsonOptions);
+        var zip = await source.GetByteArrayAsync("/books/export/full");
+
+        var target = await factory.SignUpAsync("Collection Restorer");
+        async Task<HttpResponseMessage> RestoreAsync()
+        {
+            using var content = new MultipartFormDataContent { { new ByteArrayContent(zip), "file", "backup.zip" } };
+            return await target.PostAsync("/books/import/full", content);
+        }
+
+        Assert.Contains("collections=1&loans=1", (await RestoreAsync()).RequestMessage?.RequestUri?.Query);
+        var collection = Assert.Single(await target.GetFromJsonAsync<CollectionSummary[]>("/books/collections", JsonOptions) ?? []);
+        var restored = (await target.GetFromJsonAsync<CollectionResponse>($"/books/collections/{collection.Id}", JsonOptions))!;
+        Assert.Equal(("Earthsea", "Read in order.", new DateOnly(2027, 3, 1)), (restored.Name, restored.Description, restored.ReadBy));
+        Assert.Equal(["The Farthest Shore", "The Tombs of Atuan"], restored.Books.Select(book => book.Title));
+        Assert.Equal([null, "Start here."], restored.Notes);
+        var lent = restored.Books.First().Id;
+        var loan = Assert.Single(await target.GetFromJsonAsync<LoanRecordItem[]>($"/books/{lent}/loans", JsonOptions) ?? []);
+        Assert.Equal(("Ged", "Came back with a bookmark."), (loan.Borrower, loan.Note));
+        Assert.NotNull(loan.ReturnedOn);
+
+        // Again: the books are skipped, and so are the collection's books and the loan already here.
+        Assert.Contains("collections=0&loans=0", (await RestoreAsync()).RequestMessage?.RequestUri?.Query);
+        Assert.Equal(2, (await target.GetFromJsonAsync<CollectionResponse>($"/books/collections/{collection.Id}", JsonOptions))!.Books.Length);
+        Assert.Single(await target.GetFromJsonAsync<LoanRecordItem[]>($"/books/{lent}/loans", JsonOptions) ?? []);
+    }
+
     [Fact]
     public async Task The_library_opens_as_a_reader_last_left_it()
     {

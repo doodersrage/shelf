@@ -148,9 +148,132 @@ public static class Backup
             await db.SaveChangesAsync(cancellationToken);
         }
 
+        // The download's collections and past loans, onto the books here they were of: those just brought back, and
+        // those skipped as already on the shelf.
+        var onShelf = await OnShelfAsync(db, export, cancellationToken);
+        var collections = await RestoreCollectionsAsync(db, zip, onShelf, cancellationToken);
+        var loans = await RestoreLoansAsync(db, zip, onShelf, cancellationToken);
+
         // A download with a manifest is held up against it, and what doesn't match is said.
         var check = Preservation.Check(zipPath);
-        return new RestoreResult(result.Added, result.Skipped, files, check.Damaged.Length + check.Missing.Length);
+        return new RestoreResult(result.Added, result.Skipped, files, check.Damaged.Length + check.Missing.Length, collections, loans);
+    }
+
+    // For each book in the download, by its place there, the id of the book on this shelf it is now.
+    private static async Task<int?[]> OnShelfAsync(ShelfDb db, LibraryExport export, CancellationToken cancellationToken)
+    {
+        var here = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var book in await db.Books.AsNoTracking().OrderBy(book => book.Id).Select(book => new { book.Id, book.Title, book.Author, book.Isbn }).ToListAsync(cancellationToken))
+        {
+            here.TryAdd(BookRules.ImportKey(book.Title, book.Author, book.Isbn), book.Id);
+        }
+
+        return [.. export.Books.Select(book => here.TryGetValue(BookRules.ImportKey(book.Title ?? "", book.Author ?? "", book.Isbn), out var id) ? id : (int?)null)];
+    }
+
+    private static async Task<T?> ReadEntryAsync<T>(ZipArchive zip, string name, CancellationToken cancellationToken)
+    {
+        if (zip.GetEntry(name) is not { } entry)
+        {
+            return default;
+        }
+
+        try
+        {
+            await using var stream = entry.Open();
+            return await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, cancellationToken);
+        }
+        catch (JsonException)
+        {
+            return default;
+        }
+    }
+
+    // Each collection comes back by its name, made if there is none, with its books in order, their notes, and its
+    // day to read by; one already here keeps what it has and gains what it lacks. How many came back or grew.
+    private static async Task<int> RestoreCollectionsAsync(ShelfDb db, ZipArchive zip, int?[] onShelf, CancellationToken cancellationToken)
+    {
+        var restored = 0;
+        foreach (var kept in await ReadEntryAsync<CollectionExport[]>(zip, "collections.json", cancellationToken) ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(kept.Name))
+            {
+                continue;
+            }
+
+            var name = kept.Name.Trim();
+            var collection = (await db.Collections.ToListAsync(cancellationToken)).FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (collection is null)
+            {
+                var (made, problem) = await Collections.CreateAsync(db, name, kept.Description, cancellationToken);
+                if (made is null || problem is not null)
+                {
+                    continue;
+                }
+
+                collection = made;
+            }
+
+            if (kept.ReadBy is not null && collection.ReadBy is null)
+            {
+                await Collections.PlanAsync(db, collection.Id, kept.ReadBy, cancellationToken);
+            }
+
+            var grew = false;
+            foreach (var entry in kept.Books ?? [])
+            {
+                if (entry.Book < 0 || entry.Book >= onShelf.Length || onShelf[entry.Book] is not int bookId)
+                {
+                    continue;
+                }
+
+                var added = await Collections.AddAsync(db, collection.Id, bookId, cancellationToken);
+                grew |= added == Collections.AddResult.Added;
+                if (added is Collections.AddResult.Added && !string.IsNullOrWhiteSpace(entry.Note))
+                {
+                    await Collections.NoteAsync(db, collection.Id, bookId, entry.Note, cancellationToken);
+                }
+            }
+
+            restored += grew ? 1 : 0;
+        }
+
+        return restored;
+    }
+
+    private sealed record LoanExport(int? Book, string? Borrower, DateOnly LentOn, DateOnly? DueOn, DateOnly? ReturnedOn, int Renewals,
+        CopyCondition? ConditionOut, CopyCondition? ConditionBack, string? Note);
+
+    // Past loans come back onto their books, each once. A loan still out is not: the book's own loan, in shelf.json,
+    // brings that back as a loan here. How many came back.
+    private static async Task<int> RestoreLoansAsync(ShelfDb db, ZipArchive zip, int?[] onShelf, CancellationToken cancellationToken)
+    {
+        var restored = 0;
+        foreach (var loan in await ReadEntryAsync<LoanExport[]>(zip, "loans.json", cancellationToken) ?? [])
+        {
+            if (loan.ReturnedOn is null || loan.Book is not int at || at < 0 || at >= onShelf.Length || onShelf[at] is not int bookId
+                || string.IsNullOrWhiteSpace(loan.Borrower))
+            {
+                continue;
+            }
+
+            var borrower = loan.Borrower.Trim() is { Length: > 120 } longName ? longName[..120] : loan.Borrower.Trim();
+            if (await db.LoanRecords.AnyAsync(item => item.BookId == bookId && item.Borrower == borrower && item.LentOn == loan.LentOn, cancellationToken))
+            {
+                continue;
+            }
+
+            db.LoanRecords.Add(new LoanRecord
+            {
+                OwnerId = db.ReaderId, BookId = bookId, Borrower = borrower, LentOn = loan.LentOn, DueOn = loan.DueOn, ReturnedOn = loan.ReturnedOn,
+                Renewals = Math.Max(0, loan.Renewals), ConditionOut = loan.ConditionOut, ConditionBack = loan.ConditionBack,
+                Note = loan.Note is { Length: > LoanRecord.MaxNoteLength } note ? note[..LoanRecord.MaxNoteLength] : loan.Note,
+            });
+            restored++;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return restored;
     }
 
     // In a snapshot holding no copy of the database, saying why: for its restore drill, and for whoever unpacks it.
@@ -342,7 +465,7 @@ public static class Backup
     }
 }
 
-public sealed record RestoreResult(int Added, int Skipped, int Files, int Damaged = 0);
+public sealed record RestoreResult(int Added, int Skipped, int Files, int Damaged = 0, int Collections = 0, int Loans = 0);
 
 // Sends a file made for this one response, then deletes it.
 public sealed class TempFileResult(string path, string contentType, string? downloadName = null) : IResult

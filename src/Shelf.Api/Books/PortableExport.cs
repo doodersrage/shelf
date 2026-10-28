@@ -114,13 +114,15 @@ public static class PortableExport
         Everything of yours on Shelf, in formats any program can read. Nothing in it belongs to anyone else on the shelf.
 
         - `shelf.json` — every book, with its reads, sessions, quotes, highlights, notes, and tags; your journal; the links
-          between books; and your goals. Shelf brings this file back in, under Backup, on this shelf or another.
+          between books; and your goals. Restoring the zip, under Backup, on this shelf or another, brings this file back
+          in, with `collections.json` and the returned loans in `loans.json`.
         - `books.csv` — the books again as a spreadsheet, a row each. Dates are written year-month-day. "Number" is the
           book's place in `shelf.json`, counting from 1.
         - `collections.json` — your collections, with the note on each book. `book` counts from 0 in `shelf.json`.
         - `loans.json` — each time one of your books was lent: to whom, when, how often renewed, and the state it went out
           and came back in.
-        - `borrowed-highlights.json` — what you marked in books you borrowed from others.
+        - `borrowed-highlights.json` — what you marked in books you borrowed from others. It is yours to keep, but is not
+          brought back in: those books are other readers'.
         - `books/0001/` and on — the e-book, audiobook tracks, and cover picture of each book, numbered as in `books.csv`.
         - `manifest.json` — every other file with its size and SHA-256, to show the download is whole; `SCHEMA.md` says
           what each file holds, field by field.

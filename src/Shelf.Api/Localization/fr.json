@@ -1392,6 +1392,7 @@
   "Restore from this zip": "Restaurer depuis ce zip",
   "Restored a backup": "A restauré une sauvegarde",
   "Restored. Added {0} with {1}, and skipped {2} already on your shelf.": "Restauré. Ajoutés : {0}, avec {1}. Ignorés car déjà présents : {2}.",
+  "Brought back {0} collections and {1} past loans.": "{0} collections et {1} prêts passés ont été récupérés.",
   "Restored. Added {0}, and skipped {1} already on your shelf.": "Restauré. Ajoutés : {0}. Ignorés car déjà présents : {1}.",
   "Resume": "Reprendre",
   "Resume listening": "Reprendre l'écoute",

@@ -1687,6 +1687,9 @@ public static class BookRules
             && uri.Scheme is "http" or "https";
     }
 
+    // The key a backup's book is matched to one on the shelf by, as ImportAsync skips it: its ISBN, or title and author.
+    public static string ImportKey(string title, string author, string? isbn) => Key(new ExistingBook(title.Trim(), author.Trim(), NormalizeIsbn(isbn)));
+
     private static string Key(ExistingBook book)
     {
         if (!string.IsNullOrWhiteSpace(book.Isbn))

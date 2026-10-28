@@ -29,7 +29,7 @@ The zip also carries your records in plainer forms, with a `README.md` saying wh
 
 Every file in it is listed in `manifest.json` with its size and SHA-256, and `SCHEMA.md` says what each file holds, field by field, so the download can be checked and read without Shelf. Restoring one holds it against its manifest and says if any file was damaged or changed since.
 
-To restore one, here or on another shelf, upload it on the same page. Books already on the shelf are skipped, so restoring twice does no harm.
+To restore one, here or on another shelf, upload it on the same page. Your collections come back too, with each book's note, their order, and the day to read them by, as do the past loans of your books; a collection of the same name already here gains the books it lacks. Books already on the shelf are skipped, and so are books and loans a collection or book already has, so restoring twice does no harm. What you marked in books you borrowed stays in the download for you, but isn't brought back, as those books are other readers'.
 
 Your quotes, highlights, notes, and reviews also download as Markdown, one file a book, for a notes app.
 
