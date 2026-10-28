@@ -124,13 +124,60 @@ public sealed class AbsApiTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
         NewApiToken made;
         await using (var scope = factory.Services.CreateAsyncScope())
         {
-            made = (await ApiTokens.CreateAsync(scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>(), readerId, "Phone", false)).Made!;
+            made = (await ApiTokens.CreateAsync(scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>(), readerId, "Phone", true)).Made!;
         }
 
         var app = factory.CreateClient();
         Assert.Equal(HttpStatusCode.Unauthorized, (await app.PostAsJsonAsync("/login", new { username = "App Careful", password = ShelfApiFactory.Password })).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await app.PostAsJsonAsync("/login", new { username = "App Careful", password = made.Token })).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await app.PostAsJsonAsync("/login", new { username = "Somebody Else", password = made.Token })).StatusCode);
+    }
+
+    // An app signed in with an API token stays signed in only while the token does: removing it ends the access and
+    // refresh tokens made from it. A token that can only read, or opens only some of the shelf, can't sign an app in,
+    // since the app has to play and keep the place. Signing in by password is untouched by any of it.
+    [Fact]
+    public async Task An_app_signed_in_with_an_api_token_is_signed_out_when_the_token_is_removed()
+    {
+        await factory.SignUpAsync("App Revoker");
+        var readerId = await factory.ReaderIdAsync("App Revoker");
+        NewApiToken full, readOnly, narrow;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>();
+            full = (await ApiTokens.CreateAsync(db, readerId, "Phone", true)).Made!;
+            readOnly = (await ApiTokens.CreateAsync(db, readerId, "Read only", false)).Made!;
+            narrow = (await ApiTokens.CreateAsync(db, readerId, "Files only", true, areas: [ApiTokens.Files])).Made!;
+        }
+
+        var refused = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await refused.PostAsJsonAsync("/login", new { username = "App Revoker", password = readOnly.Token })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await refused.PostAsJsonAsync("/login", new { username = "App Revoker", password = narrow.Token })).StatusCode);
+
+        async Task<(HttpClient App, string Refresh)> SignInAsync(string password)
+        {
+            var app = factory.CreateClient();
+            var login = await (await app.PostAsJsonAsync("/login", new { username = "App Revoker", password })).Content.ReadFromJsonAsync<JsonObject>();
+            app.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!["user"]!["accessToken"]!.GetValue<string>());
+            return (app, login["user"]!["refreshToken"]!.GetValue<string>());
+        }
+
+        HttpRequestMessage Refresh(string refresh) => new(HttpMethod.Post, "/auth/refresh") { Headers = { { "x-refresh-token", refresh } } };
+
+        var (byToken, tokenRefresh) = await SignInAsync(full.Token);
+        var (byPassword, passwordRefresh) = await SignInAsync(ShelfApiFactory.Password);
+        Assert.Equal(HttpStatusCode.OK, (await byToken.GetAsync("/api/libraries")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await byToken.SendAsync(Refresh(tokenRefresh))).StatusCode);
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            Assert.True(await ApiTokens.RemoveAsync(scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>(), readerId, full.Id));
+        }
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await byToken.GetAsync("/api/libraries")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await byToken.SendAsync(Refresh(tokenRefresh))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await byPassword.GetAsync("/api/libraries")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await byPassword.SendAsync(Refresh(passwordRefresh))).StatusCode);
     }
 
     [Fact]

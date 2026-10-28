@@ -25,9 +25,10 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
 
     private static ITimeLimitedDataProtector AccessProtector(IDataProtectionProvider protection) => protection.CreateProtector("Shelf.Abs.Access").ToTimeLimitedDataProtector();
 
-    // The reader an access token was made for, while it lasts and their password is the same; for the live connection too.
-    public static Task<Reader?> ReaderOfAccessAsync(ShelfDb db, IDataProtectionProvider protection, string? token, CancellationToken cancellationToken = default) =>
-        ReaderOfAsync(db, AccessProtector(protection), token, cancellationToken);
+    // The reader an access token was made for, while it lasts, their password is the same, and the API token they signed
+    // in with (if they did) is still there; for the live connection too.
+    public static async Task<Reader?> ReaderOfAccessAsync(ShelfDb db, IDataProtectionProvider protection, string? token, CancellationToken cancellationToken = default) =>
+        (await SessionOfAsync(db, AccessProtector(protection), token, cancellationToken))?.Reader;
 
     private ITimeLimitedDataProtector Refresh => protection.CreateProtector("Shelf.Abs.Refresh").ToTimeLimitedDataProtector();
 
@@ -92,10 +93,16 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
 
     // ---- Signing in ----
 
-    private string Token(ITimeLimitedDataProtector protector, Reader reader, TimeSpan life) =>
-        protector.Protect($"{reader.Id}|{reader.Stamp}", life);
+    // Who an app is signed in as, and the API token it signed in with, if it gave one rather than a password.
+    private sealed record AbsSession(Reader Reader, int? ApiTokenId);
 
-    private static async Task<Reader?> ReaderOfAsync(ShelfDb db, ITimeLimitedDataProtector protector, string? token, CancellationToken cancellationToken)
+    // A session signed in with an API token names it, so removing the token signs the app out.
+    private static string Token(ITimeLimitedDataProtector protector, AbsSession session, TimeSpan life) =>
+        protector.Protect(session.ApiTokenId is int apiToken
+            ? $"{session.Reader.Id}|{session.Reader.Stamp}|{apiToken.ToString(CultureInfo.InvariantCulture)}"
+            : $"{session.Reader.Id}|{session.Reader.Stamp}", life);
+
+    private static async Task<AbsSession?> SessionOfAsync(ShelfDb db, ITimeLimitedDataProtector protector, string? token, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(token))
         {
@@ -113,9 +120,25 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
         }
 
         var parts = payload.Split('|');
-        return parts.Length == 2 && int.TryParse(parts[0], CultureInfo.InvariantCulture, out var id)
-            ? await db.Readers.AsNoTracking().FirstOrDefaultAsync(reader => reader.Id == id && reader.Stamp == parts[1], cancellationToken)
-            : null;
+        if (parts.Length is not (2 or 3) || !int.TryParse(parts[0], CultureInfo.InvariantCulture, out var id))
+        {
+            return null;
+        }
+
+        int? apiToken = null;
+        if (parts.Length == 3)
+        {
+            if (!int.TryParse(parts[2], CultureInfo.InvariantCulture, out var tokenId)
+                || !await db.ApiTokens.AsNoTracking().AnyAsync(item => item.Id == tokenId && item.ReaderId == id, cancellationToken))
+            {
+                return null;
+            }
+
+            apiToken = tokenId;
+        }
+
+        var reader = await db.Readers.AsNoTracking().FirstOrDefaultAsync(reader => reader.Id == id && reader.Stamp == parts[1], cancellationToken);
+        return reader is null ? null : new AbsSession(reader, apiToken);
     }
 
     // Every /api call carries the access token, as a header or, for covers, in the address.
@@ -125,7 +148,7 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
         var header = http.Request.Headers.Authorization.ToString();
         var token = header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? header[7..].Trim() : http.Request.Query["token"].ToString();
         var db = http.RequestServices.GetRequiredService<ShelfDb>();
-        if (await ReaderOfAsync(db, Access, token, http.RequestAborted) is not { } reader)
+        if ((await SessionOfAsync(db, Access, token, http.RequestAborted))?.Reader is not { } reader)
         {
             return Results.Unauthorized();
         }
@@ -140,13 +163,22 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
     public sealed record LoginRequest(string? Username, string? Password);
 
     // A name and password; a reader with two-step sign-in, or single sign-on only, gives one of their API tokens instead.
+    // The app plays, downloads, and keeps the place, so the token must open every part of the shelf and change things:
+    // a read-only or narrower one is refused here, rather than let the app in to fail at every play and sync.
     private async Task<IResult> Login(LoginRequest request, HttpContext http, ShelfDb db, CancellationToken cancellationToken)
     {
         Reader? reader = null;
-        if (request.Password?.StartsWith(ApiTokens.Prefix, StringComparison.Ordinal) == true && await ApiTokens.ReaderOfAsync(db, request.Password, cancellationToken) is { } byToken
+        int? apiToken = null;
+        if (request.Password?.StartsWith(ApiTokens.Prefix, StringComparison.Ordinal) == true && await ApiTokens.FindAsync(db, request.Password, cancellationToken) is { } token
+            && await ApiTokens.ReaderOfAsync(db, request.Password, cancellationToken) is { } byToken
             && (await ReaderRules.FindAsync(db, request.Username, cancellationToken))?.Id == byToken.Id)
         {
-            reader = byToken;
+            if (!token.CanChange || token.Areas is { Length: > 0 })
+            {
+                return Results.Text("This API token can't sign in an Audiobookshelf app: make one that can change things and opens every part of the shelf.", statusCode: StatusCodes.Status401Unauthorized);
+            }
+
+            (reader, apiToken) = (byToken, token.Id);
         }
         else if (await ReaderRules.VerifyAsync(db, request.Username, request.Password, cancellationToken) is { TwoFactorEnabled: false } byPassword)
         {
@@ -160,18 +192,19 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
 
         http.RequestServices.GetRequiredService<ShelfReader>().Use(reader.Id);
         await Audit.NoteAsync(db, Localization.Words.Say("Signed in from an Audiobookshelf app"), reader, cancellationToken: cancellationToken);
-        return Results.Json(await SignedInAsync(http, reader, Token(Access, reader, AccessLife), Token(Refresh, reader, RefreshLife), cancellationToken));
+        var session = new AbsSession(reader, apiToken);
+        return Results.Json(await SignedInAsync(http, reader, Token(Access, session, AccessLife), Token(Refresh, session, RefreshLife), cancellationToken));
     }
 
     private async Task<IResult> RefreshTokens(HttpContext http, ShelfDb db, CancellationToken cancellationToken)
     {
-        if (await ReaderOfAsync(db, Refresh, http.Request.Headers["x-refresh-token"].ToString(), cancellationToken) is not { } reader)
+        if (await SessionOfAsync(db, Refresh, http.Request.Headers["x-refresh-token"].ToString(), cancellationToken) is not { } session)
         {
             return Results.Unauthorized();
         }
 
-        http.RequestServices.GetRequiredService<ShelfReader>().Use(reader.Id);
-        return Results.Json(await SignedInAsync(http, reader, Token(Access, reader, AccessLife), Token(Refresh, reader, RefreshLife), cancellationToken));
+        http.RequestServices.GetRequiredService<ShelfReader>().Use(session.Reader.Id);
+        return Results.Json(await SignedInAsync(http, session.Reader, Token(Access, session, AccessLife), Token(Refresh, session, RefreshLife), cancellationToken));
     }
 
     // What signing in answers: the user, with their progress and bookmarks, and the server's settings.

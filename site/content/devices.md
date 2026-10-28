@@ -40,7 +40,7 @@ The catalog lists your e-books by status, and the books lent to you, ready to do
 
 [Audiobookshelf](https://www.audiobookshelf.org)'s own apps, for Android and iPhone, can sign in to Shelf as they would to an Audiobookshelf server. That gives Shelf phone apps: listening with the screen off and from the lock screen, downloads to listen offline, Android Auto and CarPlay, sleep timers, and the apps' own e-book reader.
 
-In the app, add a server with Shelf's address (as `Email:PublicAddress` gives it, or as you reach Shelf), then sign in with your Shelf name and password. With two-step sign-in on, use an [API token](api.md#api-tokens) from **Account** as the password instead. **Devices** shows what to enter.
+In the app, add a server with Shelf's address (as `Email:PublicAddress` gives it, or as you reach Shelf), then sign in with your Shelf name and password. With two-step sign-in on, use an [API token](api.md#api-tokens) from **Account** as the password instead: one with **Let it change things** ticked that opens every part of the shelf, since the app plays and keeps your place. The app stays signed in only while the token does; removing the token signs it out. **Devices** shows what to enter.
 
 The app then sees one library, your shelf: every book of yours, or lent to you, with a recording or an EPUB, with its series, authors, narrators, and tags, and your collections. Playing a book streams its tracks from Shelf; where you stop, your bookmarks, and the time you listen come back to Shelf as you go, and books you finish in the app are finished on Shelf. Listening offline in the app catches up when it's back online.
 
