@@ -188,7 +188,9 @@ test("Home's Shared with you passes an accessibility audit", async ({ browser })
   const lender = await signUp(browser, unique("Shared Home Lender"));
   const lent = await createBook(lender, { title: "Lent Over", author: "Someone", status: "Finished" });
   await upload(lender, lent.id, "ebook", "koreader.epub", "application/epub+zip");
-  await createBook(lender, { title: "On The Open Shelf", author: "Someone Else", status: "Want" });
+  // Named apart: the shelves other runs opened on this server show here too, as they should.
+  const openTitle = unique("On The Open Shelf");
+  await createBook(lender, { title: openTitle, author: "Someone Else", status: "Want" });
   await lender.request.put("/books/shelves/open", { data: { open: true } });
   const readers = await (await lender.request.get("/readers")).json();
   const readerId = readers.find((reader) => reader.name === readerName).id;
@@ -200,7 +202,7 @@ test("Home's Shared with you passes an accessibility audit", async ({ browser })
     await page.goto("/", { waitUntil: "networkidle" });
     await expect(page.getByRole("heading", { name: "Shared with you" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Read" }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /On The Open Shelf/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: new RegExp(openTitle) })).toBeVisible();
     failures.push(...(await audit(page, `${scheme} Home shared`)));
   }
 
