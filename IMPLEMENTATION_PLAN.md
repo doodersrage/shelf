@@ -35,6 +35,16 @@ Success means a reader can reliably:
 - `[x]` Verified complete
 - `[!]` Blocked or needs a decision
 
+In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with what's missing named, and `[!]` means it couldn't be verified here: it needs a person's judgement, real devices, or a large dataset.
+
+## Status, 2026-10-28
+
+- **M0:** complete.
+- **Findings:** every finding from the M0 audit's top five and next tier is resolved, in follow-up tasks 1–19 and the same-day follow-ups below them.
+- **Release:** **2.18.0** was released on 2026-10-28 (tag `v2.18.0` at `73f0499`). Images are `ghcr.io/doodersrage/shelf:2.18.0` and `latest`; release notes are at https://github.com/doodersrage/shelf/releases/tag/v2.18.0. Later fixes are under Unreleased in `CHANGELOG.md`.
+- **Milestones:** each M1–M6 item has a status with evidence. Of the 54 items, 34 are `[x]`, 16 are `[~]`, and 4 are `[!]`. The `[~]` and `[!]` items are the remaining work, and none of them is a known defect.
+- **Accepted limits:** see each task. They include stale Kobo "Finished" pushes, app sessions and merges from before 2.18.0, PostgreSQL without `pg_dump` not copied offsite, restore undo, the `/alive` HEALTHCHECK, `pg_dump`'s password on its command line, and the unreachable xmldom advisory.
+
 ---
 
 # M0 — Repository audit and baseline
@@ -321,16 +331,26 @@ Success means a reader can reliably:
 
 ### Audit and candidate tasks
 
-- [ ] Verify server-side authorization for every reader-owned record, file, API endpoint, shared link, lending action, and administrative action.
-- [ ] Test privacy boundaries between readers: reading progress, notes, highlights, files, personal reading history, and account settings.
-- [ ] Review account recovery, passkeys, two-step sign-in, OpenID Connect, API tokens, session handling, and security-sensitive logs against the current implementation.
-- [ ] Test EF Core migrations against an existing populated database, not only a fresh install.
-- [ ] Verify backup creation, retention, integrity checks, restore behavior, and recovery after an interrupted or partial backup.
-- [ ] Confirm that exports and public share links omit secrets and private reader data.
-- [ ] Exercise malformed imports, duplicate records, missing files, interrupted uploads, disk-full errors, and provider timeouts.
-- [ ] Define conflict rules for progress and metadata arriving from multiple devices or integrations.
-- [ ] Ensure external-service failure does not prevent unrelated local reading or catalog workflows.
-- [ ] Add regression tests for every confirmed high-risk defect.
+- [x] Verify server-side authorization for every reader-owned record, file, API endpoint, shared link, lending action, and administrative action.
+  - *Status 2026-10-28:* M0 audit §1 (query filters plus about 120 `IgnoreQueryFilters` sites traced). Fixed: API-token sessions (task 3) and app sign-out (task 13). Tested in ReadersTests, FamilyTests, AbsApiTests. Not done: a route-by-route sweep of other readers' ids (audit next tier).
+- [x] Test privacy boundaries between readers: reading progress, notes, highlights, files, personal reading history, and account settings.
+  - *Status 2026-10-28:* ReadersTests borrower test; FamilyTests (task 12); tags and status leaks fixed (tasks 17 and 19).
+- [~] Review account recovery, passkeys, two-step sign-in, OpenID Connect, API tokens, session handling, and security-sensitive logs against the current implementation.
+  - *Status 2026-10-28:* Tokens, two-step, and sessions reviewed in the audit; token and app-session defects fixed (tasks 3 and 13). Passkeys and OIDC were reviewed by reading the code only; no new findings.
+- [x] Test EF Core migrations against an existing populated database, not only a fresh install.
+  - *Status 2026-10-28:* `UpgradeTests` rolls a populated shelf back one migration and upgrades it (task 9).
+- [x] Verify backup creation, retention, integrity checks, restore behavior, and recovery after an interrupted or partial backup.
+  - *Status 2026-10-28:* RestoreTests, OffsiteBackupTests, and ShelfCareTests drill tests; PostgreSQL honest failure (task 2); retention after the drill (task 10); `.partial` cleanup; pre-update backup and its drill (task 9).
+- [x] Confirm that exports and public share links omit secrets and private reader data.
+  - *Status 2026-10-28:* Audit §2 (PortableExport scoped to the reader, secrets sealed). Shared lists are covered by CollectionTests and the signed-out accessibility test.
+- [~] Exercise malformed imports, duplicate records, missing files, interrupted uploads, disk-full errors, and provider timeouts.
+  - *Status 2026-10-28:* Imports report added, skipped, and failed, and re-runs are idempotent (audit). Provider timeouts are now told apart (tasks 15 and 11). Disk-full is covered only for backups (task 9), not for uploads.
+- [x] Define conflict rules for progress and metadata arriving from multiple devices or integrations.
+  - *Status 2026-10-28:* Forward-only for devices and late replays, live playback both ways, reread resets (tasks 5–8). Documented in `reading.md` and `audiobooks.md`.
+- [x] Ensure external-service failure does not prevent unrelated local reading or catalog workflows.
+  - *Status 2026-10-28:* Background jobs isolated (task 4); catalog and sync outages surfaced (tasks 11 and 15).
+- [x] Add regression tests for every confirmed high-risk defect.
+  - *Status 2026-10-28:* Each task in this plan adds a test that fails against the old code.
 
 ### Acceptance criteria
 
@@ -358,16 +378,26 @@ Success means a reader can reliably:
 
 ### Audit and candidate tasks
 
-- [ ] Walk through add/import → open → resume → switch format → highlight/note → finish → reread.
-- [ ] Verify position persistence on navigation, refresh, browser close, reconnect, and device change where supported.
-- [ ] Confirm how positions map between EPUB, PDF, comics, audiobook tracks, and external devices; avoid pretending incompatible positions are directly equivalent.
-- [ ] Test conflicts between browser, KOReader, Kobo, and other enabled sync sources.
-- [ ] Verify reading status and completion dates when a reader rereads a book.
-- [ ] Check reader usability: typography, line length, themes, progress controls, table of contents, search, bookmarks, notes, highlights, dictionary/read-aloud where supported, and return-to-reading behavior.
-- [ ] Check audiobook playback across navigation, sleep timer, speed changes, track boundaries, lock-screen controls, and restored sessions where supported.
-- [ ] Audit resume/recap experiences so they help readers recover context without exposing spoilers unexpectedly.
-- [ ] Make empty, unsupported-file, corrupted-file, and failed-sync states understandable.
-- [ ] Add browser regression tests for the most important reader and player journeys.
+- [~] Walk through add/import → open → resume → switch format → highlight/note → finish → reread.
+  - *Status 2026-10-28:* Covered piecewise by `reading.spec`, `listening.spec`, KosyncTests, and ReadingLifeTests. Nobody did a manual end-to-end walk-through in this session.
+- [~] Verify position persistence on navigation, refresh, browser close, reconnect, and device change where supported.
+  - *Status 2026-10-28:* The offline, mini player, and resume specs pass. Browser close and device change are covered only through the sync tests.
+- [x] Confirm how positions map between EPUB, PDF, comics, audiobook tracks, and external devices; avoid pretending incompatible positions are directly equivalent.
+  - *Status 2026-10-28:* Audit: read-along when present, otherwise chapter pins with a proportional estimate (`Crossover.cs`). P3: the UI doesn't flag an estimate.
+- [x] Test conflicts between browser, KOReader, Kobo, and other enabled sync sources.
+  - *Status 2026-10-28:* Tasks 5–8 with tests.
+- [x] Verify reading status and completion dates when a reader rereads a book.
+  - *Status 2026-10-28:* ReadingLifeTests, plus the reread device reset (task 6). Limit: a Kobo can still send a stale "Finished".
+- [!] Check reader usability: typography, line length, themes, progress controls, table of contents, search, bookmarks, notes, highlights, dictionary/read-aloud where supported, and return-to-reading behavior.
+  - *Status 2026-10-28:* Needs a person to judge. The automated specs (`reading.spec`, 13 tests) pass.
+- [x] Check audiobook playback across navigation, sleep timer, speed changes, track boundaries, lock-screen controls, and restored sessions where supported.
+  - *Status 2026-10-28:* `listening.spec` (8 tests: speed, sleep timer, tracks, lock screen, mini player) passes in both browsers in CI.
+- [!] Audit resume/recap experiences so they help readers recover context without exposing spoilers unexpectedly.
+  - *Status 2026-10-28:* Not reviewed in this session. RecapTests exist.
+- [~] Make empty, unsupported-file, corrupted-file, and failed-sync states understandable.
+  - *Status 2026-10-28:* Failed sync is now told (task 11); catalog outages are told (task 15). Unsupported and corrupted file states were not reviewed.
+- [x] Add browser regression tests for the most important reader and player journeys.
+  - *Status 2026-10-28:* The existing specs, plus the accessibility tests for the reader panels and mini player (task 14).
 
 ### Acceptance criteria
 
@@ -384,15 +414,24 @@ Success means a reader can reliably:
 
 ### Audit and candidate tasks
 
-- [ ] Verify duplicate detection and merge behavior across ISBNs, editions, translations, narrators, and different formats of the same work.
-- [ ] Ensure merge previews explain which fields, files, relationships, reading records, notes, and copies will be preserved.
-- [ ] Audit bulk editing, saved searches, collections, tags, series, locations, editions, physical copies, and metadata cleanup.
-- [ ] Verify import previews, source mapping, duplicate handling, retry behavior, and partial-failure reporting.
-- [ ] Verify export completeness for catalog records, editions/formats, physical copies, reading history, highlights/notes, lending records, collections, and files where applicable.
-- [ ] Distinguish portable user-data export from full operational backup, and document what each includes or excludes.
-- [ ] Test moving a library to another Shelf instance without losing file associations or private data boundaries.
-- [ ] Make file-missing and storage-migration states discoverable and recoverable.
-- [ ] Add safeguards and tests around destructive merges, deletions, and bulk actions.
+- [x] Verify duplicate detection and merge behavior across ISBNs, editions, translations, narrators, and different formats of the same work.
+  - *Status 2026-10-28:* MergingTests (detection, merge, unmerge in task 18).
+- [x] Ensure merge previews explain which fields, files, relationships, reading records, notes, and copies will be preserved.
+  - *Status 2026-10-28:* A merge preview exists (`library.md`, "says what merging will do"), and restoring now reverses a merge (task 18).
+- [~] Audit bulk editing, saved searches, collections, tags, series, locations, editions, physical copies, and metadata cleanup.
+  - *Status 2026-10-28:* Tests exist (BooksEndpointTests, SavedSearchTests, CollectionTests, `library.spec`); bulk bar accessibility audited (task 14). No new review beyond that.
+- [x] Verify import previews, source mapping, duplicate handling, retry behavior, and partial-failure reporting.
+  - *Status 2026-10-28:* Audit §5: ImportJobs and Calibre report added, skipped, and failed; re-runs are idempotent.
+- [x] Verify export completeness for catalog records, editions/formats, physical copies, reading history, highlights/notes, lending records, collections, and files where applicable.
+  - *Status 2026-10-28:* Portable zip contents traced (audit); collections and loans now round-trip (task 16). Borrowed highlights are export-only by design.
+- [x] Distinguish portable user-data export from full operational backup, and document what each includes or excludes.
+  - *Status 2026-10-28:* `backups.md` describes the reader's zip, the admin's snapshot, nightly copies, and PostgreSQL separately (tasks 2 and 16).
+- [x] Test moving a library to another Shelf instance without losing file associations or private data boundaries.
+  - *Status 2026-10-28:* RestoreTests (snapshot into a fresh folder) and `A_readers_zip_brings_back_their_collections_and_past_loans`.
+- [~] Make file-missing and storage-migration states discoverable and recoverable.
+  - *Status 2026-10-28:* The FileCheck weekly sweep exists and is tested (audit). No new work.
+- [x] Add safeguards and tests around destructive merges, deletions, and bulk actions.
+  - *Status 2026-10-28:* Trash with undo (audit); merges are reversible (task 18).
 
 ### Acceptance criteria
 
@@ -409,13 +448,20 @@ Success means a reader can reliably:
 
 ### Audit and candidate tasks
 
-- [ ] Verify that the reading journal correctly represents sessions, dates, rereads, reading time, audiobook time, and imported activity.
-- [ ] Check yearly goals and summaries for consistency when records are edited, deleted, imported, or synced.
-- [ ] Ensure charts and milestones explain their definitions and handle incomplete data gracefully.
-- [ ] Review current recommendations and “what to read next” behavior for transparency and usefulness.
-- [ ] If a meaningful gap remains, consider a **Read Next from My Library** flow that uses owned/wishlisted books and explainable reasons (for example, continuing a series, matching a saved collection, or revisiting an unfinished book).
-- [ ] Consider a **lifetime reading journal** view that connects dates, books, rereads, notes, and milestones—only if the existing journal does not already satisfy this.
-- [ ] Avoid adding a generic social feed, generic AI chatbot, or opaque recommendation engine unless clear user evidence supports it.
+- [~] Verify that the reading journal correctly represents sessions, dates, rereads, reading time, audiobook time, and imported activity.
+  - *Status 2026-10-28:* ReadingLifeTests, YearReviewTests, InsightsTests, and the Audiobookshelf listening-history import. Not re-reviewed.
+- [~] Check yearly goals and summaries for consistency when records are edited, deleted, imported, or synced.
+  - *Status 2026-10-28:* Covered by existing tests; not re-reviewed.
+- [!] Ensure charts and milestones explain their definitions and handle incomplete data gracefully.
+  - *Status 2026-10-28:* Needs a person to judge.
+- [x] Review current recommendations and “what to read next” behavior for transparency and usefulness.
+  - *Status 2026-10-28:* Reviewed for privacy (task 17). Each suggestion carries its reason (`NextReason`, `Because`).
+- [x] If a meaningful gap remains, consider a **Read Next from My Library** flow that uses owned/wishlisted books and explainable reasons (for example, continuing a series, matching a saved collection, or revisiting an unfinished book).
+  - *Status 2026-10-28:* Not needed: `NextReads` already offers series, loved authors, subjects, queue, and open shelves, each with a reason.
+- [x] Consider a **lifetime reading journal** view that connects dates, books, rereads, notes, and milestones—only if the existing journal does not already satisfy this.
+  - *Status 2026-10-28:* Not needed: Journal and Each read already exist (`library.md`).
+- [x] Avoid adding a generic social feed, generic AI chatbot, or opaque recommendation engine unless clear user evidence supports it.
+  - *Status 2026-10-28:* None was added.
 
 ### Acceptance criteria
 
@@ -432,14 +478,22 @@ Success means a reader can reliably:
 
 ### Audit and candidate tasks
 
-- [ ] Test narrow phones, tablets, desktop, landscape orientation, touch targets, and virtual keyboard interactions.
-- [ ] Verify PWA installation and offline behavior against documented capabilities; distinguish cached app shell from genuinely available offline books/audio.
-- [ ] Test offline progress, queued actions if supported, conflict resolution, and recovery after reconnection.
-- [ ] Check keyboard-only navigation, visible focus, semantic headings, form labels, dialog behavior, contrast, reduced motion, and screen-reader announcements.
-- [ ] Verify reader/player controls and critical workflows do not rely on hover.
-- [ ] Review English, Spanish, French, and German coverage; check pluralization, date/time/number formatting, overflow, and fallback behavior.
-- [ ] Ensure new user-facing text follows the existing localization system.
-- [ ] Add focused accessibility and responsive regression checks where feasible.
+- [~] Test narrow phones, tablets, desktop, landscape orientation, touch targets, and virtual keyboard interactions.
+  - *Status 2026-10-28:* Phone-width accessibility audit (task 14) and the phone specs in `getting-around.spec`. Tablet, landscape, and virtual keyboard not tested.
+- [x] Verify PWA installation and offline behavior against documented capabilities; distinguish cached app shell from genuinely available offline books/audio.
+  - *Status 2026-10-28:* `offline.spec` (kept book, kept audiobook, offline highlights) runs in CI. Install itself is a browser action, not tested.
+- [x] Test offline progress, queued actions if supported, conflict resolution, and recovery after reconnection.
+  - *Status 2026-10-28:* `offline.spec`, plus the forward-only replay rule (task 8).
+- [~] Check keyboard-only navigation, visible focus, semantic headings, form labels, dialog behavior, contrast, reduced motion, and screen-reader announcements.
+  - *Status 2026-10-28:* axe (WCAG 2.1 AA) on about 85 states in both themes (task 14), plus keyboard specs. No screen-reader testing with a real assistive technology.
+- [~] Verify reader/player controls and critical workflows do not rely on hover.
+  - *Status 2026-10-28:* Phone-width (touch) audits pass. No explicit hover-only check.
+- [x] Review English, Spanish, French, and German coverage; check pluralization, date/time/number formatting, overflow, and fallback behavior.
+  - *Status 2026-10-28:* TranslationTests enforce key parity and placeholders; es/fr/de pages are audited with `lang` checked (task 14).
+- [x] Ensure new user-facing text follows the existing localization system.
+  - *Status 2026-10-28:* Every new string in this session is in es/fr/de; TranslationTests pass.
+- [x] Add focused accessibility and responsive regression checks where feasible.
+  - *Status 2026-10-28:* Four accessibility tests in `accessibility.spec.mjs` (task 14).
 
 ### Acceptance criteria
 
@@ -462,16 +516,26 @@ Success means a reader can reliably:
 
 ### Audit and candidate tasks
 
-- [ ] Test clean Docker installation on supported architectures and documented volume/permission configurations.
-- [ ] Test upgrades from supported previous versions with persistent data.
-- [ ] Verify startup diagnostics, health checks, graceful shutdown, database locking/error handling, and useful logs.
-- [ ] Review configuration defaults and documentation for reverse proxies, HTTPS, email, storage, and optional integrations.
-- [ ] Ensure secrets are not printed in logs or accidentally exposed in diagnostics.
-- [ ] Check performance with a realistically large catalog, many reading records, and large ebook/audiobook files.
-- [ ] Review dependency updates and security advisories using repository-supported tooling.
-- [ ] Ensure CI runs relevant build, test, migration, and browser checks.
-- [ ] Verify release notes, upgrade notes, troubleshooting documentation, and backup-before-upgrade guidance.
-- [ ] Run the documented restore drill as part of release verification where feasible.
+- [~] Test clean Docker installation on supported architectures and documented volume/permission configurations.
+  - *Status 2026-10-28:* CI builds and smoke-tests amd64 and arm64 on every push; 2.18.0 was published and its image smoke-tested by `release.yml`. Volume and permission setups were not tested by hand.
+- [~] Test upgrades from supported previous versions with persistent data.
+  - *Status 2026-10-28:* `UpgradeTests` covers one migration step on SQLite. A multi-version upgrade on PostgreSQL wasn't tested.
+- [~] Verify startup diagnostics, health checks, graceful shutdown, database locking/error handling, and useful logs.
+  - *Status 2026-10-28:* Server health reviewed (audit). P3 still open: the Docker HEALTHCHECK uses `/alive`, so a broken database still looks healthy.
+- [~] Review configuration defaults and documentation for reverse proxies, HTTPS, email, storage, and optional integrations.
+  - *Status 2026-10-28:* Documentation for the changed settings was updated (`Backup:BeforeMigrating`, `Database:PgDump`, `Network:AllowPrivateAddresses`). The proxy, HTTPS, and email docs weren't re-reviewed.
+- [x] Ensure secrets are not printed in logs or accidentally exposed in diagnostics.
+  - *Status 2026-10-28:* Audit §3: tokens hashed or sealed; grep found no secrets in log calls. P3: `pg_dump` gets the password on its command line.
+- [!] Check performance with a realistically large catalog, many reading records, and large ebook/audiobook files.
+  - *Status 2026-10-28:* Not measured in this environment. One fix in task 17 stopped loading every open-shelf book's tags.
+- [x] Review dependency updates and security advisories using repository-supported tooling.
+  - *Status 2026-10-28:* 2026-10-28: `dotnet list package --vulnerable` lists only MessagePack 2.5.302 (moderate), in the development-only `Shelf.AppHost`, from Aspire. `npm audit`: tests/e2e and site are clean. Vendored `epubjs` 0.3.93 bundles `@xmldom/xmldom`, which has a high advisory, but epubjs uses it only when there is no native `DOMParser` or `forceXMLDom` is passed, and nothing passes it. So it isn't reachable in the browser. The only fix is epubjs 0.4.2, a breaking change, best taken through Dependabot's vendored group. All open Dependabot PRs were merged after CI.
+- [x] Ensure CI runs relevant build, test, migration, and browser checks.
+  - *Status 2026-10-28:* CI runs SQLite, PostgreSQL, Chromium and Firefox, vendored files, and Docker on amd64 and arm64. The populated-upgrade test was added. P3: `release.yml` runs only the SQLite tests itself.
+- [x] Verify release notes, upgrade notes, troubleshooting documentation, and backup-before-upgrade guidance.
+  - *Status 2026-10-28:* 2.18.0 was released with its CHANGELOG section. Backup-before-upgrade is automatic and documented (`install.md`, `backups.md`).
+- [x] Run the documented restore drill as part of release verification where feasible.
+  - *Status 2026-10-28:* RestoreTests ran in the 2.18.0 release run's `dotnet test`. The nightly drill is in BackupCheck.
 
 ### Acceptance criteria
 
