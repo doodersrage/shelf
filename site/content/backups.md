@@ -9,7 +9,7 @@ Shelf keeps three kinds of copy, from quick to complete.
 
 ## Nightly copies
 
-Each night after 03:00 UTC, Shelf saves a copy of its database in a `backups` folder beside it (`/data/backups` in Docker), keeping the last seven. An admin sees them on **Readers**, can download any of them, and can take one at once with **Back up now**.
+Each night after 03:00 UTC, Shelf saves a copy of its database in a `backups` folder beside it (`/data/backups` in Docker), keeping the last seven, and always the newest one that was proved to restore, however many after it weren't. Old copies go only once the new one has been proved. An admin sees them on **Readers**, can download any of them, and can take one at once with **Back up now**.
 
 Each one is proved as soon as it's taken, before it's sent anywhere: every entry is read back against its checksum, the database inside is opened on its own and passes SQLite's integrity check, and a copy is brought up to the running version, as a restore would have to. **Readers** shows what each would restore (how many books and readers) or why it wouldn't, and a backup taken before 2.10 can be checked there. **Tidy up** shows every reader the newest backup proved this way.
 
@@ -19,7 +19,7 @@ E-books and audiobooks never change once saved, so they are left out of the nigh
 
 ### Off the server
 
-A backup on the same disk as the shelf does not help if that disk fails. Set `Backup:CopyTo` to a folder on another disk or a mounted network share, or the `Backup:S3` settings to a bucket in S3-compatible storage (Amazon S3, Backblaze B2, Wasabi, Cloudflare R2, MinIO), and each night's backup is copied there too, keeping as many as the backups folder. **Readers** shows where copies go and whether the last one arrived; a copy that fails never stops the backup itself. See [Configuration](configuration.md#nightly-backups).
+A backup on the same disk as the shelf does not help if that disk fails. Set `Backup:CopyTo` to a folder on another disk or a mounted network share, or the `Backup:S3` settings to a bucket in S3-compatible storage (Amazon S3, Backblaze B2, Wasabi, Cloudflare R2, MinIO), and each night's backup is copied there too, keeping as many as the backups folder. **Readers** shows where copies go and whether the last one arrived; a copy that fails never stops the backup itself. Only a backup proved to restore is copied there, so one that wouldn't never pushes out a good copy elsewhere. See [Configuration](configuration.md#nightly-backups).
 
 ## A reader's full backup
 
