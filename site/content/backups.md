@@ -13,6 +13,8 @@ Each night after 03:00 UTC, Shelf saves a copy of its database in a `backups` fo
 
 Each one is proved as soon as it's taken, before it's sent anywhere: every entry is read back against its checksum, the database inside is opened on its own and passes SQLite's integrity check, and a copy is brought up to the running version, as a restore would have to. **Readers** shows what each would restore (how many books and readers) or why it wouldn't, and a backup taken before 2.10 can be checked there. **Tidy up** shows every reader the newest backup proved this way.
 
+Before a new version of Shelf changes the database, it takes one more, named `…-before-upgrade.zip`, with the database as it was; it is listed and kept as the nightly ones are, and **Readers** can check that it restores. It isn't checked on its own at startup, so the update isn't held up. If it can't be taken, Shelf leaves the database alone and stops, saying why (`Backup:BeforeMigrating` turns this off).
+
 E-books and audiobooks never change once saved, so they are left out of the nightly copy by default; back up their folders alongside, or set `Backup:IncludeFiles` to `true`. Cover pictures are small and always included. [Configuration](configuration.md#nightly-backups) has the settings.
 
 ### Off the server

@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Added
+
+- **A backup before every update**: before a new version changes the database, Shelf backs it up as it was, among the nightly backups (`shelf-backup-…-before-upgrade.zip`), listed and kept as they are. If it can't (the folder full, or not Shelf's to write), it leaves the database as it was and stops, saying why; `Backup:BeforeMigrating` set to `false` updates without it. A new shelf, and a start with nothing to change, take none.
+
 ### Fixed
 
 - **Listening offline no longer undoes listening done elsewhere**: a place kept while the shelf couldn't be reached, in Shelf's offline player or an Audiobookshelf app, was sent once it could and taken as it was, so a phone reconnecting after you'd listened further on another device sent you back. Now a place sent late moves yours on only; the time listened counts either way; **Where each device has you** lists it as **Listening offline**, for **Go here** to take on purpose; and the player and apps, while playing, still move it back when you do.

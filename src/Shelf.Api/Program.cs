@@ -375,6 +375,12 @@ if (!onPostgres && DataFolder.Problem(sqlite.DataSource) is { } folderProblem)
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+    if (await app.Services.GetRequiredService<BackupSchedule>().BeforeMigratingAsync(db) is { } notBackedUp)
+    {
+        Console.Error.WriteLine(notBackedUp);
+        return 1;
+    }
+
     await db.Database.MigrateAsync();
 
     await ReaderRules.AdoptEmailsAsync(db);

@@ -59,6 +59,58 @@ public sealed class BackupSchedule(
         while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 
+    public bool BeforeMigrating => configuration.GetValue("Backup:BeforeMigrating", true);
+
+    // Before a new version changes the database, a copy of it as it was, among the nightly backups: the database and
+    // covers, as e-books and audiobooks are never changed by it. Only for a shelf with data and changes waiting, never
+    // a new one. Null when done or not needed; otherwise why it could not be, and the database is left as it was.
+    public async Task<string?> BeforeMigratingAsync(ShelfDb db, CancellationToken cancellationToken = default)
+    {
+        if (!BeforeMigrating)
+        {
+            return null;
+        }
+
+        var waiting = (await db.Database.GetPendingMigrationsAsync(cancellationToken)).Count();
+        if (waiting == 0 || !(await db.Database.GetAppliedMigrationsAsync(cancellationToken)).Any())
+        {
+            return null;
+        }
+
+        var name = $"{Prefix}{DateTimeOffset.UtcNow:yyyy-MM-dd-HHmmssfff}-before-upgrade.zip";
+        var path = Path.Combine(Folder, name);
+        var partial = path + ".partial";
+        try
+        {
+            Directory.CreateDirectory(Folder);
+            var whole = await Backup.WriteSnapshotAsync(db, ebooks, audio, covers, partial, cancellationToken, includeFiles: false, pgDump: configuration["Database:PgDump"]);
+            File.Move(partial, path);
+            if (whole)
+            {
+                logger.LogInformation("Took the backup {Name} before bringing the database up to this version ({Count} changes).", name, waiting);
+            }
+            else
+            {
+                // PostgreSQL without pg_dump: as with the nightly backups, there is nothing to copy the database with.
+                logger.LogWarning("Bringing the database up to this version without a copy of it first: {Problem}", Backup.NoDatabaseProblem());
+            }
+
+            return null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            try
+            {
+                File.Delete(partial);
+            }
+            catch (IOException)
+            {
+            }
+
+            return $"Shelf left its database as it was: it brings the database up to a new version only after backing it up, and could not back it up to {Folder}: {ex.Message} Make room there or let Shelf write to it, or set Backup__BeforeMigrating=false to go on without the backup.";
+        }
+    }
+
     public async Task<AutomaticBackup> TakeAsync(CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(Folder);

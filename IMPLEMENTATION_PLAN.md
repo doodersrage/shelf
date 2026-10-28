@@ -179,6 +179,24 @@ Success means a reader can reliably:
 - [x] Docs: `audiobooks.md` and `CHANGELOG.md`.
 - **Gap 4 is now addressed in all four parts.** The Kobo stale-"Finished" limitation from task 6 remains.
 
+### Follow-up task 9: backup before startup migrations (next tier, P1), done 2026-10-28
+
+- [x] `BackupSchedule.BeforeMigratingAsync`, called from `Program.cs` before `MigrateAsync`. It runs only when the database has applied migrations and others pending, so a fresh install or a normal restart takes none.
+- [x] It writes `shelf-backup-<time>-before-upgrade.zip` (database and covers, using `Backup.WriteSnapshotAsync`) into the backups folder, where it is listed and rotated like the nightly backups.
+- [x] If the backup fails, startup stops with exit code 1 and an explanation, leaving the database untouched. `Backup:BeforeMigrating=false` turns the backup off. On PostgreSQL without `pg_dump`, a warning is logged and the upgrade continues.
+- [x] `UpgradeTests.A_shelf_from_the_version_before_is_backed_up_then_upgraded_with_its_books` also closes the audit's "no populated-upgrade test" gap. It:
+  - builds a real shelf with a reader and a book;
+  - rolls it back one migration with `IMigrator`;
+  - restarts it and checks for one backup that holds the pre-upgrade migration and the book, and that the upgraded shelf still has the book;
+  - checks that the off switch takes no backup;
+  - checks that a blocked folder leaves the database un-migrated, with the message.
+  - Without the startup hook it fails at "one backup". It is SQLite-only and returns early on PostgreSQL.
+- [x] Docs: `install.md` (Updating), `backups.md`, `configuration.md` (`Backup:BeforeMigrating`), and `CHANGELOG.md` (Unreleased / Added).
+- Limits:
+  - The pre-upgrade backup isn't drilled at startup, so Server health shows "not proved yet" until the next nightly backup.
+  - A pre-upgrade backup taken before the nightly hour counts as that day's backup.
+  - The startup-exit path is tested through `BeforeMigratingAsync` directly, not through a full host start.
+
 ---
 
 # M1 — Reliability, security, and data integrity
