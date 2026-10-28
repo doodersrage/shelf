@@ -2931,6 +2931,9 @@ namespace Shelf.Api.Data.PostgresMigrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
+                    b.Property<string>("MergeReceipt")
+                        .HasColumnType("text");
+
                     b.Property<int>("OwnerId")
                         .HasColumnType("integer");
 

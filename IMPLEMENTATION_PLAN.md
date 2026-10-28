@@ -273,6 +273,23 @@ Success means a reader can reliably:
 - [x] Tests: `NextReadsTests` gains a lender book tagged as the reader loves, by an unloved author, which must not be suggested; and `AbsApiTests.A_lent_book_reaches_the_borrowers_app_without_the_owners_tags`. Both fail against the old code.
 - Not changed (still P3): the borrower's webhook and event feed include the owner's reading `Status` on BookLent and Returned (`Webhooks.cs:218-222`).
 
+### Follow-up task 18: a merge can be taken apart (audit P2; decision by the user: full unmerge), done 2026-10-28
+
+- [x] `Merging.MergeAsync` builds a `MergeReceipt` (`Unmerging.cs`) as it goes:
+  - row ids moved, per table (quotes, highlights, sessions, audio bookmarks, KOReader places, past reads, copy photos, journal entries, OCR scans, book texts, and listening and reading days);
+  - links moved and removed, and collections whose place moved;
+  - days whose time was added into the kept book's day;
+  - the kept book's changed properties (before and after, from the EF change tracker), tags added, and stored files taken.
+  - It is stored as JSON on the merged-away book's `TrashItem.MergeReceipt` (new nullable column; migrations `MergeReceipts` and `PostgresMergeReceipts`).
+- [x] `Trash.RestoreManyAsync` runs `Unmerging.UnmergeAsync` after restoring such a book, inside the same transaction:
+  - each row goes back only if it is still on the kept book;
+  - each kept detail reverts only if it still equals what the merge left;
+  - day totals are split again;
+  - files go back only once the kept book has let them go.
+- [x] `MergingTests.Restoring_a_merged_away_book_takes_back_what_was_its_own` covers file, tags, quote, highlight, collection place, reading time, and kept details reverted, with one detail edited after the merge left as the reader set it. With the restore hook off, it fails.
+- [x] Docs: `library.md` (merging) and `CHANGELOG.md`.
+- Limits: merges made before this release have no receipt and still restore as before. Unmerging into a kept book that has since been deleted brings the merged-away book back with only what it kept.
+
 ---
 
 # M1 — Reliability, security, and data integrity

@@ -2802,6 +2802,9 @@ namespace Shelf.Api.Data.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("MergeReceipt")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("OwnerId")
                         .HasColumnType("INTEGER");
 

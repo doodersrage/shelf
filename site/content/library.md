@@ -200,6 +200,8 @@ Choose **Keep this one** on the entry to keep, and Shelf first says what merging
 
 A book out on loan can't be merged away until it's back.
 
+To take a merge back, restore the merged-away book from the [trash](#trash-and-undo). It comes back with what was its own: its file, tags, quotes, highlights, sessions, bookmarks, reading time, links, and places in collections, and the book kept has its details as they were before the merge. Anything changed since the merge stays as it is now: a detail you edited on the book kept, or a highlight you moved, is yours, and isn't undone.
+
 ## Changing many books at once
 
 In the list view, tick books to change their status, add or remove a tag, mark them loved, put them at a place, or delete them, up to a thousand at a time. **Choose all shown** ticks the books on screen; **Choose all that match** ticks every book the search and filters find. Each change is kept as one, undone from **Undo** beside the message that reports it, or later [under Trash & undo](#trash-and-undo).

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
@@ -243,10 +244,13 @@ public static partial class Merging
         }
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        // What moves is noted as it does, kept with the other entry in the trash, so restoring it takes it all back.
+        var receipt = new MergeReceipt { KeptBookId = keepId };
         FillDetails(keep, other);
         foreach (var tag in other.Tags.Where(tag => keep.Tags.All(mine => mine.Id != tag.Id)).ToList())
         {
             keep.Tags.Add(tag);
+            receipt.TagsAdded.Add(tag.Name);
         }
 
         // Files: one of a kind the book kept lacks comes across, with what belongs to it.
@@ -256,6 +260,9 @@ public static partial class Merging
         if (ebookMoves)
         {
             (keep.EbookStoredName, keep.EbookFileName, keep.EbookChapter, keep.FileCover, keep.KoreaderDigest) = (other.EbookStoredName, other.EbookFileName, other.EbookChapter, other.FileCover, other.KoreaderDigest);
+            receipt.Ebook = other.EbookStoredName;
+            Unmerging.Moved(receipt, nameof(ShelfDb.OcrScans), await db.OcrScans.Where(scan => scan.BookId == otherId).Select(scan => scan.Id).ToListAsync(cancellationToken));
+            Unmerging.Moved(receipt, nameof(ShelfDb.BookTexts), await db.BookTexts.Where(text => text.BookId == otherId).Select(text => text.Id).ToListAsync(cancellationToken));
             await db.OcrScans.Where(scan => scan.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(scan => scan.BookId, keepId), cancellationToken);
             await db.BookTexts.Where(text => text.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(text => text.BookId, keepId), cancellationToken);
         }
@@ -264,31 +271,46 @@ public static partial class Merging
         {
             (keep.AudioStoredName, keep.AudioFileName, keep.AudioTrack, keep.AudioSeconds) = (other.AudioStoredName, other.AudioFileName, other.AudioTrack, other.AudioSeconds);
             (keep.AudioChapterNames, keep.Asin) = (other.AudioChapterNames, keep.Asin ?? other.Asin);
+            receipt.Audio = other.AudioStoredName;
         }
 
         if (coverMoves)
         {
             keep.CoverImage = other.CoverImage;
+            receipt.Cover = other.CoverImage;
         }
 
         // Everything written about the book, by the owner and by anyone it was lent to.
         var keptQuotes = (await db.Quotes.Where(quote => quote.BookId == keepId).Select(quote => quote.Text).ToListAsync(cancellationToken)).ToHashSet(StringComparer.Ordinal);
+        Unmerging.Moved(receipt, nameof(ShelfDb.Quotes), (await db.Quotes.Where(quote => quote.BookId == otherId).Select(quote => new { quote.Id, quote.Text }).ToListAsync(cancellationToken))
+            .Where(quote => !keptQuotes.Contains(quote.Text)).Select(quote => quote.Id));
+        Unmerging.Moved(receipt, nameof(ShelfDb.Highlights), await db.Highlights.IgnoreQueryFilters().Where(mark => mark.BookId == otherId).Select(mark => mark.Id).ToListAsync(cancellationToken));
+        Unmerging.Moved(receipt, nameof(ShelfDb.Sessions), await db.Sessions.IgnoreQueryFilters().Where(session => session.BookId == otherId).Select(session => session.Id).ToListAsync(cancellationToken));
         await db.Quotes.Where(quote => quote.BookId == otherId && !keptQuotes.Contains(quote.Text)).ExecuteUpdateAsync(set => set.SetProperty(quote => quote.BookId, keepId), cancellationToken);
         await db.Highlights.IgnoreQueryFilters().Where(mark => mark.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(mark => mark.BookId, keepId), cancellationToken);
         await db.Sessions.IgnoreQueryFilters().Where(session => session.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(session => session.BookId, keepId), cancellationToken);
         if (audioMoves || keep.AudioStoredName is null)
         {
+            Unmerging.Moved(receipt, nameof(ShelfDb.AudioBookmarks), await db.AudioBookmarks.IgnoreQueryFilters().Where(mark => mark.BookId == otherId).Select(mark => mark.Id).ToListAsync(cancellationToken));
             await db.AudioBookmarks.IgnoreQueryFilters().Where(mark => mark.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(mark => mark.BookId, keepId), cancellationToken);
         }
 
         if (ebookMoves)
         {
             var keptDevices = await db.KosyncPlaces.Where(place => place.BookId == keepId).Select(place => place.ReaderId).ToListAsync(cancellationToken);
+            Unmerging.Moved(receipt, nameof(ShelfDb.KosyncPlaces), await db.KosyncPlaces.Where(place => place.BookId == otherId && !keptDevices.Contains(place.ReaderId)).Select(place => place.Id).ToListAsync(cancellationToken));
             await db.KosyncPlaces.Where(place => place.BookId == otherId && !keptDevices.Contains(place.ReaderId)).ExecuteUpdateAsync(set => set.SetProperty(place => place.BookId, keepId), cancellationToken);
         }
 
         // Earlier reads, pictures of the copy, and journal entries come across; links to the other book go to this
         // one, except those that would join it to itself.
+        Unmerging.Moved(receipt, nameof(ShelfDb.PastReads), await db.PastReads.Where(read => read.BookId == otherId).Select(read => read.Id).ToListAsync(cancellationToken));
+        Unmerging.Moved(receipt, nameof(ShelfDb.CopyPhotos), await db.CopyPhotos.Where(photo => photo.BookId == otherId).Select(photo => photo.Id).ToListAsync(cancellationToken));
+        Unmerging.Moved(receipt, nameof(ShelfDb.JournalEntries), await db.JournalEntries.Where(entry => entry.BookId == otherId).Select(entry => entry.Id).ToListAsync(cancellationToken));
+        receipt.LinksRemoved.AddRange((await db.BookLinks.Where(link => (link.FromBookId == otherId && link.ToBookId == keepId) || (link.FromBookId == keepId && link.ToBookId == otherId)).ToListAsync(cancellationToken))
+            .Select(link => new MergeLink(link.FromBookId == otherId, link.Kind, link.Note)));
+        receipt.LinksFrom.AddRange(await db.BookLinks.Where(link => link.FromBookId == otherId && link.ToBookId != keepId).Select(link => link.Id).ToListAsync(cancellationToken));
+        receipt.LinksTo.AddRange(await db.BookLinks.Where(link => link.ToBookId == otherId && link.FromBookId != keepId).Select(link => link.Id).ToListAsync(cancellationToken));
         await db.PastReads.Where(read => read.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(read => read.BookId, keepId), cancellationToken);
         await db.CopyPhotos.Where(photo => photo.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(photo => photo.BookId, keepId), cancellationToken);
         await db.JournalEntries.Where(entry => entry.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(entry => entry.BookId, keepId), cancellationToken);
@@ -297,17 +319,25 @@ public static partial class Merging
         await db.BookLinks.Where(link => link.ToBookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(link => link.ToBookId, keepId), cancellationToken);
 
         var keptIn = await db.CollectionBooks.IgnoreQueryFilters().Where(entry => entry.BookId == keepId).Select(entry => entry.CollectionId).ToListAsync(cancellationToken);
+        receipt.Collections.AddRange(await db.CollectionBooks.IgnoreQueryFilters().Where(entry => entry.BookId == otherId && !keptIn.Contains(entry.CollectionId)).Select(entry => entry.CollectionId).ToListAsync(cancellationToken));
         await db.CollectionBooks.IgnoreQueryFilters().Where(entry => entry.BookId == otherId && !keptIn.Contains(entry.CollectionId))
             .ExecuteUpdateAsync(set => set.SetProperty(entry => entry.BookId, keepId), cancellationToken);
-        await MoveDaysAsync(db, keepId, otherId, cancellationToken);
+        await MoveDaysAsync(db, keepId, otherId, receipt, cancellationToken);
 
         // The other entry goes to the trash with what is left of it and the files it kept, should the merge have been
         // a mistake; a file that came across is the kept book's now and no longer the other's.
         other.EbookStoredName = ebookMoves ? null : other.EbookStoredName;
         other.AudioStoredName = audioMoves ? null : other.AudioStoredName;
         other.CoverImage = coverMoves ? null : other.CoverImage;
+        Unmerging.NoteKept(db, keep, receipt);
         await db.SaveChangesAsync(cancellationToken);
         await Trash.DeleteBooksAsync(db, ebooks, audio, covers, [otherId], cancellationToken: cancellationToken);
+        if (await db.TrashItems.Where(item => item.Kind == TrashKind.Book && item.BookId == otherId).OrderByDescending(item => item.Id).FirstOrDefaultAsync(cancellationToken) is { } trashed)
+        {
+            trashed.MergeReceipt = JsonSerializer.Serialize(receipt, History.JsonOptions);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
         await transaction.CommitAsync(cancellationToken);
         await Audit.NoteAsync(db, Say("Merged two entries for one book"), detail: keep.Title, cancellationToken: cancellationToken);
         return MergeProblem.None;
@@ -364,33 +394,37 @@ public static partial class Merging
     }
 
     // Time on the same day, by the same reader, adds up; other days move across.
-    private static async Task MoveDaysAsync(ShelfDb db, int keepId, int otherId, CancellationToken cancellationToken)
+    private static async Task MoveDaysAsync(ShelfDb db, int keepId, int otherId, MergeReceipt receipt, CancellationToken cancellationToken)
     {
         var listened = await db.ListeningDays.IgnoreQueryFilters().Where(day => day.BookId == keepId || day.BookId == otherId).ToListAsync(cancellationToken);
-        foreach (var row in listened.Where(day => day.BookId == otherId))
+        foreach (var row in listened.Where(day => day.BookId == otherId).ToList())
         {
             if (listened.FirstOrDefault(day => day.BookId == keepId && day.ReaderId == row.ReaderId && day.Day == row.Day) is { } into)
             {
+                receipt.ListeningAdded.Add(new MergeDay(into.Id, row.ReaderId, row.Day, row.Seconds));
                 into.Seconds += row.Seconds;
                 db.ListeningDays.Remove(row);
             }
             else
             {
+                Unmerging.Moved(receipt, nameof(ShelfDb.ListeningDays), [row.Id]);
                 row.BookId = keepId;
             }
         }
 
         var read = await db.ReadingDays.IgnoreQueryFilters().Where(day => day.BookId == keepId || day.BookId == otherId).ToListAsync(cancellationToken);
-        foreach (var row in read.Where(day => day.BookId == otherId))
+        foreach (var row in read.Where(day => day.BookId == otherId).ToList())
         {
             if (read.FirstOrDefault(day => day.BookId == keepId && day.ReaderId == row.ReaderId && day.Day == row.Day) is { } into)
             {
+                receipt.ReadingAdded.Add(new MergeDay(into.Id, row.ReaderId, row.Day, row.Seconds, row.DeviceSeconds, into.DeviceSeconds));
                 into.Seconds += row.Seconds;
                 into.DeviceSeconds = Math.Max(into.DeviceSeconds, row.DeviceSeconds);
                 db.ReadingDays.Remove(row);
             }
             else
             {
+                Unmerging.Moved(receipt, nameof(ShelfDb.ReadingDays), [row.Id]);
                 row.BookId = keepId;
             }
         }

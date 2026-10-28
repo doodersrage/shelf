@@ -41,6 +41,10 @@ public sealed class TrashItem
 
     // The stored files to delete when it goes for good, a line each: "e:", "a:", "c:", or "p:" and the stored name.
     public string? Files { get; set; }
+
+    // A book merged into another: what the merge moved onto that one (a MergeReceipt as JSON), taken back when this
+    // is restored, so a merge made by mistake comes apart again.
+    public string? MergeReceipt { get; set; }
 }
 
 // The rows of one table, each as its properties' values.
@@ -209,6 +213,12 @@ public static class Trash
                     ? await RestoreBookAsync(db, payload, item.OwnerId, null, cancellationToken, known)
                     : await RestoreRowAsync(db, payload, item.BookId, cancellationToken);
                 db.ChangeTracker.Clear();
+                if (item.MergeReceipt is { } kept && results[item.Id] is { Restored: true, BookId: int restoredId }
+                    && JsonSerializer.Deserialize<MergeReceipt>(kept, History.JsonOptions) is { } receipt)
+                {
+                    await Unmerging.UnmergeAsync(db, receipt, restoredId, cancellationToken);
+                    db.ChangeTracker.Clear();
+                }
             }
 
             var restored = items.Where(item => results[item.Id].Restored).Select(item => item.Id).ToList();

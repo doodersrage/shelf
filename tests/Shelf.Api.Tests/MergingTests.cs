@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Shelf.Api.Books;
 using Shelf.Api.Readers;
 
@@ -44,6 +46,69 @@ public sealed class MergingTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal(120, (await reader.GetFromJsonAsync<ListeningSummary>("/books/reading-time", JsonOptions))!.TodaySeconds);
         Assert.Equal([paper.Id], (await reader.GetFromJsonAsync<CollectionResponse>($"/books/collections/{collection.Id}", JsonOptions))!.Books.Select(book => book.Id));
         Assert.Empty((await reader.GetFromJsonAsync<DuplicateGroup[]>("/books/duplicates", JsonOptions))!);
+    }
+
+    // A merge made by mistake comes apart: restoring the merged-away book from the trash takes back its file, tags,
+    // quotes, highlights, place in collections, and reading time, and the kept book's details as they were, except
+    // one changed since the merge, which is the reader's and stays.
+    [Fact]
+    public async Task Restoring_a_merged_away_book_takes_back_what_was_its_own()
+    {
+        var reader = await factory.SignUpAsync("Unmerging Reader");
+        var readerId = await factory.ReaderIdAsync("Unmerging Reader");
+        var paper = await CreateAsync(reader, new CreateBookRequest("The Dispossessed", "Ursula K. Le Guin", BookStatus.Finished, 5, Pages: 387, Tags: ["sf"]));
+        var ebook = await CreateAsync(reader, new CreateBookRequest("The dispossessed", "Ursula K. Le Guin", BookStatus.Want, null, Year: 1974, Isbn: "9780061054884", Tags: ["utopia"], Notes: "The ebook copy."));
+        using (var content = new MultipartFormDataContent { { new ByteArrayContent(KoreaderHighlightsTests.Epub()), "file", "dispossessed.epub" } })
+        {
+            Assert.True((await reader.PostAsync($"/books/{ebook.Id}/ebook", content)).IsSuccessStatusCode);
+        }
+
+        await reader.PostAsJsonAsync($"/books/{ebook.Id}/quotes", new { text = "You cannot buy the revolution.", page = 301 }, JsonOptions);
+        await reader.PostAsJsonAsync($"/books/{ebook.Id}/highlights", new CreateHighlightRequest("Before.", 0, "Marked in the ebook."), JsonOptions);
+        await reader.PostAsJsonAsync($"/books/{ebook.Id}/reading-time", new ReadingTimeRequest(null, 90), JsonOptions);
+        await reader.PostAsJsonAsync($"/books/{paper.Id}/reading-time", new ReadingTimeRequest(null, 30), JsonOptions);
+        var collection = (await (await reader.PostAsJsonAsync("/books/collections", new CollectionRequest("Anarres"), JsonOptions)).Content.ReadFromJsonAsync<CollectionResponse>(JsonOptions))!;
+        await reader.PostAsJsonAsync($"/books/collections/{collection.Id}/books", new CollectionBookRequest(ebook.Id), JsonOptions);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await reader.PostAsJsonAsync($"/books/{paper.Id}/merge", new MergeRequest(ebook.Id), JsonOptions)).StatusCode);
+        var merged = (await reader.GetFromJsonAsync<BookResponse>($"/books/{paper.Id}", JsonOptions))!;
+        Assert.Equal(("9780061054884", 1974, "dispossessed.epub"), (merged.Isbn, merged.Year, merged.EbookFileName));
+
+        // After the merge, the reader corrects the year the merge filled in: that is theirs now.
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
+            var db = scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>();
+            (await db.Books.FirstAsync(book => book.Id == paper.Id)).Year = 1975;
+            await db.SaveChangesAsync();
+        }
+
+        var trashed = Assert.Single(await reader.GetFromJsonAsync<TrashView[]>("/books/trash", JsonOptions) ?? [], item => item.BookId == ebook.Id);
+        var restore = (await (await reader.PostAsync($"/books/trash/{trashed.Id}/restore", null)).Content.ReadFromJsonAsync<TrashRestore>(JsonOptions))!;
+        Assert.True(restore.Restored);
+        var back = (await reader.GetFromJsonAsync<BookResponse>($"/books/{restore.BookId}", JsonOptions))!;
+        var kept = (await reader.GetFromJsonAsync<BookResponse>($"/books/{paper.Id}", JsonOptions))!;
+
+        // The restored book has what was its own again.
+        Assert.Equal(("The dispossessed", "dispossessed.epub"), (back.Title, back.EbookFileName));
+        Assert.Equal(["utopia"], back.Tags);
+        Assert.Equal("You cannot buy the revolution.", Assert.Single(back.Quotes).Text);
+        Assert.Equal("Marked in the ebook.", Assert.Single(await reader.GetFromJsonAsync<HighlightResponse[]>($"/books/{back.Id}/highlights", JsonOptions) ?? []).Note);
+        Assert.Equal(HttpStatusCode.OK, (await reader.GetAsync($"/books/{back.Id}/ebook/file")).StatusCode);
+        Assert.Equal([back.Id], (await reader.GetFromJsonAsync<CollectionResponse>($"/books/collections/{collection.Id}", JsonOptions))!.Books.Select(book => book.Id));
+
+        // The kept book is as it was, but for the year the reader changed.
+        Assert.Equal(((string?)null, (int?)1975, (string?)null, (string?)null), (kept.Isbn, kept.Year, kept.Notes, kept.EbookFileName));
+        Assert.Equal(["sf"], kept.Tags);
+        Assert.Empty(kept.Quotes);
+        Assert.Equal(HttpStatusCode.NotFound, (await reader.GetAsync($"/books/{paper.Id}/ebook/file")).StatusCode);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>();
+            var days = await db.ReadingDays.IgnoreQueryFilters().Where(day => day.ReaderId == readerId).ToListAsync();
+            Assert.Equal(30, days.Where(day => day.BookId == paper.Id).Sum(day => day.Seconds));
+            Assert.Equal(90, days.Where(day => day.BookId == back.Id).Sum(day => day.Seconds));
+        }
     }
 
     [Fact]
