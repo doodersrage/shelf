@@ -440,6 +440,10 @@ else if (book is not null)
     {
         <p class="validation-message" role="alert">@T("Choose an EPUB, a PDF, a comic (CBZ, CBR, or CB7), or a Kindle file.")</p>
     }
+    else if (EbookMessage == "damaged")
+    {
+        <p class="validation-message" role="alert">@T("That file looks damaged or incomplete, so Shelf could not open it. Try downloading it again.")</p>
+    }
     else if (EbookMessage == "large")
     {
         <p class="validation-message" role="alert">@T("That file is larger than {0}.", Localization.Counts.Size(EbookStore.MaxBytes))</p>

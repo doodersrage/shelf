@@ -1492,6 +1492,30 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         writer.Write(text);
     }
 
+    // A file cut short, or not what its name says, is turned away with that said, not kept as an e-book that
+    // would fail in the reader; the book keeps no file, and a whole EPUB still goes on.
+    [Theory]
+    [InlineData("broken.epub", false)]
+    [InlineData("half.epub", true)]
+    [InlineData("broken.pdf", false)]
+    [InlineData("broken.cbz", false)]
+    public async Task A_damaged_ebook_is_turned_away_as_damaged(string name, bool cutShort)
+    {
+        var reader = _client;
+        var book = await CreateAsync(new CreateBookRequest($"Damaged {name}", "Someone", BookStatus.Want, null));
+        var bytes = cutShort ? SampleEpub("Cut short.")[..200] : "not what it says"u8.ToArray();
+        using (var content = new MultipartFormDataContent { { new ByteArrayContent(bytes), "file", name } })
+        {
+            var response = await reader.PostAsync($"/books/{book.Id}/ebook", content);
+            Assert.EndsWith("?ebook=damaged", response.RequestMessage!.RequestUri!.PathAndQuery);
+            Assert.Contains("looks damaged or incomplete", await response.Content.ReadAsStringAsync());
+        }
+
+        Assert.Null((await reader.GetFromJsonAsync<BookResponse>($"/books/{book.Id}", JsonOptions))!.EbookFileName);
+        using var whole = new MultipartFormDataContent { { new ByteArrayContent(SampleEpub($"Whole after {name}.")), "file", "whole.epub" } };
+        Assert.EndsWith("?ebook=saved", (await reader.PostAsync($"/books/{book.Id}/ebook", whole)).RequestMessage!.RequestUri!.PathAndQuery);
+    }
+
     internal static byte[] SampleEpub(string sentence)
     {
         using var memory = new MemoryStream();

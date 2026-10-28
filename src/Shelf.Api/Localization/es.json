@@ -379,6 +379,7 @@
   "Choose all shown": "Elegir todos los mostrados",
   "Choose an audio file, or a zip of them.": "Elige un archivo de audio, o un zip con varios.",
   "Choose an EPUB, a PDF, a comic (CBZ, CBR, or CB7), or a Kindle file.": "Elige un EPUB, un PDF, un cómic (CBZ, CBR o CB7) o un archivo de Kindle.",
+  "That file looks damaged or incomplete, so Shelf could not open it. Try downloading it again.": "Ese archivo parece dañado o incompleto, así que Shelf no pudo abrirlo. Prueba a descargarlo de nuevo.",
   "Choose an OPML file of up to 5 MB.": "Elige un archivo OPML de hasta 5 MB.",
   "Choose at least one book.": "Elige al menos un libro.",
   "Choose books": "Elegir libros",

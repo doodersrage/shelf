@@ -70,6 +70,14 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
             }
         }
 
+        // A file that can't be what its name says (cut short, or not that kind at all) goes again, said plainly,
+        // rather than kept as an e-book the reader would fail to open.
+        if (!LooksWhole(fullPath, extension))
+        {
+            File.Delete(fullPath);
+            return new EbookSave(EbookSaveStatus.Damaged, null, null);
+        }
+
         // The fingerprint is taken while the file streams in, so sync never has to read it again.
         var hash = Convert.ToHexString(fingerprint.GetHashAndReset()).ToLowerInvariant();
         await Fingerprint.WriteAsync(fullPath + Fingerprint.Extension, hash, cancellationToken);
@@ -86,6 +94,28 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
         }
 
         return new EbookSave(EbookSaveStatus.Saved, storedName, displayName);
+    }
+
+    // A PDF carries its header within the first kilobyte; an EPUB or a CBZ is a zip that opens with something inside.
+    internal static bool LooksWhole(string path, string extension)
+    {
+        try
+        {
+            if (extension == ".pdf")
+            {
+                using var file = File.OpenRead(path);
+                var head = new byte[1024];
+                var read = file.ReadAtLeast(head, head.Length, throwOnEndOfStream: false);
+                return head.AsSpan(0, read).IndexOf("%PDF-"u8) >= 0;
+            }
+
+            using var zip = System.IO.Compression.ZipFile.OpenRead(path);
+            return zip.Entries.Count > 0;
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     // Comics in RAR, 7-Zip, or tar archives, which are repacked as CBZ, the zip every comic reader takes.
@@ -304,6 +334,9 @@ public enum EbookSaveStatus
     Unsupported,
     TooLarge,
     NeedsConverter,
+
+    // Named as an EPUB, PDF, or CBZ, but cut short or not that kind of file.
+    Damaged,
 }
 
 public sealed record EbookSave(EbookSaveStatus Status, string? StoredName, string? FileName);

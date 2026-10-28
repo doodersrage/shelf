@@ -395,7 +395,11 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
 - [!] Audit resume/recap experiences so they help readers recover context without exposing spoilers unexpectedly.
   - *Status 2026-10-28:* Not reviewed in this session. RecapTests exist.
 - [~] Make empty, unsupported-file, corrupted-file, and failed-sync states understandable.
-  - *Status 2026-10-28:* Failed sync is now told (task 11); catalog outages are told (task 15). Unsupported and corrupted file states were not reviewed.
+  - *Status 2026-10-28:* Failed sync is now told (task 11); catalog outages are told (task 15).
+  - *Reviewed later the same day:* an unsupported type was already refused ("Choose an EPUB, a PDF, a comic…"). A **damaged** file was not: a cut-short EPUB, a `.pdf` that isn't one, or an empty `.cbz` was saved with "The e-book is on the shelf.", and only failed in the reader (a broken PDF said nothing at all).
+    - Fixed: `EbookStore.LooksWhole` checks a PDF for its `%PDF-` header and an EPUB or CBZ for a zip that opens with entries. A damaged file is deleted and refused with `EbookSaveStatus.Damaged`, and the book page says "That file looks damaged or incomplete…". Imports count it as a file that failed.
+    - Tests: `BooksEndpointTests.A_damaged_ebook_is_turned_away_as_damaged`. `StorageTests` now uploads real zips.
+    - Not covered: a file that opens as a zip or carries a PDF header but is damaged inside still reaches the reader, which says it could not be opened (EPUB and comics) and offers the download.
 - [x] Add browser regression tests for the most important reader and player journeys.
   - *Status 2026-10-28:* The existing specs, plus the accessibility tests for the reader panels and mini player (task 14).
 

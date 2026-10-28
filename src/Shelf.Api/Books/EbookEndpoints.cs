@@ -40,6 +40,7 @@ public static class EbookEndpoints
             {
                 EbookSaveStatus.TooLarge => "large",
                 EbookSaveStatus.NeedsConverter => "convert",
+                EbookSaveStatus.Damaged => "damaged",
                 _ => "unsupported",
             };
             return TypedResults.Redirect($"/library/{id}?ebook={reason}");
