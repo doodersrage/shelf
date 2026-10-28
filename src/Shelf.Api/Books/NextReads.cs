@@ -109,40 +109,29 @@ public static class NextReadsRules
             })
             .ToArray();
 
-        return new NextReads(series, await SeriesWatch.ListAsync(db, cancellationToken), shelf, await BorrowableAsync(db, books, lovedAuthors, lovedTags, cancellationToken));
+        return new NextReads(series, await SeriesWatch.ListAsync(db, cancellationToken), shelf, await BorrowableAsync(db, books, lovedAuthors, cancellationToken));
     }
 
-    // Books on other readers' open shelves, not on this one, by loved authors or on loved subjects.
-    private static async Task<NextRead[]> BorrowableAsync(ShelfDb db, List<Book> mine, Dictionary<string, Book> lovedAuthors, Dictionary<string, int> lovedTags, CancellationToken cancellationToken)
+    // Books on other readers' open shelves, not on this one, by loved authors. Only what an open shelf shows anyone
+    // is weighed (title, author, cover), never the owner's own tags, stars, or statuses.
+    private static async Task<NextRead[]> BorrowableAsync(ShelfDb db, List<Book> mine, Dictionary<string, Book> lovedAuthors, CancellationToken cancellationToken)
     {
         var me = db.ReaderId;
-        if (me == 0 || (lovedAuthors.Count == 0 && lovedTags.Count == 0) || await Family.IsRestrictedAsync(db, me, cancellationToken))
+        if (me == 0 || lovedAuthors.Count == 0 || await Family.IsRestrictedAsync(db, me, cancellationToken))
         {
             return [];
         }
 
         var titles = mine.Select(book => Simple(book.Title)).ToHashSet(StringComparer.Ordinal);
-        var authors = lovedAuthors.Keys.ToList();
         var theirs = await db.Books.IgnoreQueryFilters().AsNoTracking()
             .Where(book => book.OwnerId != me && book.Owner != null && book.Owner.ShelfOpen && !book.Owner.Restricted)
-            .Include(book => book.Tags)
-            .Select(book => new { Book = book, Owner = book.Owner!.Name })
+            .Select(book => new { book.Id, book.Title, book.Author, book.CoverUrl, book.OwnerId, Owner = book.Owner!.Name })
             .ToListAsync(cancellationToken);
-        return theirs
-            .Where(item => !titles.Contains(Simple(item.Book.Title)))
-            .Select(item =>
-            {
-                var byAuthor = lovedAuthors.GetValueOrDefault(Simple(item.Book.Author));
-                var common = item.Book.Tags.Select(tag => tag.Name).Where(lovedTags.ContainsKey).OrderByDescending(name => lovedTags[name]).ToArray();
-                var score = (byAuthor is not null ? 50 : 0) + common.Sum(name => Math.Min(lovedTags[name], 5) * 5);
-                var reason = byAuthor is not null ? NextReason.Author : NextReason.Subjects;
-                return (Score: score, Read: Suggest(item.Book, reason, byAuthor?.Title, common.Take(3).ToArray()) with { OwnerId = item.Book.OwnerId, Owner = item.Owner, Cover = item.Book.CoverUrl, HasEbook = false, HasAudio = false });
-            })
-            .Where(item => item.Score > 0)
-            .OrderByDescending(item => item.Score)
+        return [.. theirs
+            .Where(item => !titles.Contains(Simple(item.Title)) && lovedAuthors.ContainsKey(Simple(item.Author)))
             .Take(MostShown)
-            .Select(item => item.Read)
-            .ToArray();
+            .Select(item => new NextRead(item.Id, item.Title, item.Author, item.CoverUrl, NextReason.Author, lovedAuthors[Simple(item.Author)].Title, [], false, false)
+                with { OwnerId = item.OwnerId, Owner = item.Owner, Cover = item.CoverUrl })];
     }
 
     private static NextRead Suggest(Book book, NextReason reason, string? because, string[] subjects) =>

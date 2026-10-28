@@ -266,6 +266,13 @@ Success means a reader can reliably:
 - [x] `ShelfCareTests.A_readers_zip_brings_back_their_collections_and_past_loans` checks order, note, read-by date, a returned loan, and that a second restore duplicates nothing.
 - Limit: restored collections and loans aren't part of the import's single undo batch, so undoing the restore doesn't remove them. I didn't check what happens to a collection's entries for books the undo removes.
 
+### Follow-up task 17: owners' tags no longer reach other readers (audit P3, privacy), done 2026-10-28
+
+- [x] `NextReads.BorrowableAsync` suggests open-shelf books by loved authors only, with an empty `Subjects`. It reads id, title, author, cover, and owner only, not tags.
+- [x] `AbsApi.BooksAsync` and `OpenAsync` clear `Tags` on books the reader doesn't own (lent or shared) before building the app's JSON (genres and tags).
+- [x] Tests: `NextReadsTests` gains a lender book tagged as the reader loves, by an unloved author, which must not be suggested; and `AbsApiTests.A_lent_book_reaches_the_borrowers_app_without_the_owners_tags`. Both fail against the old code.
+- Not changed (still P3): the borrower's webhook and event feed include the owner's reading `Status` on BookLent and Returned (`Webhooks.cs:218-222`).
+
 ---
 
 # M1 — Reliability, security, and data integrity

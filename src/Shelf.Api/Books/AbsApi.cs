@@ -253,9 +253,21 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
     private static async Task<List<Book>> BooksAsync(ShelfDb db, CancellationToken cancellationToken)
     {
         var me = db.ReaderId;
-        return await db.Books.IgnoreQueryFilters().AsNoTracking().Include(book => book.Tags)
+        var books = await db.Books.IgnoreQueryFilters().AsNoTracking().Include(book => book.Tags)
             .Where(book => (book.OwnerId == me || book.BorrowerId == me) && (book.AudioStoredName != null || (book.EbookStoredName != null && book.EbookStoredName.EndsWith(".epub"))))
             .ToListAsync(cancellationToken);
+        return [.. books.Select(book => OwnTagsOnly(book, me))];
+    }
+
+    // An owner's tags are their own: a book lent or shared to this reader goes to the app without them.
+    private static Book OwnTagsOnly(Book book, int me)
+    {
+        if (book.OwnerId != me)
+        {
+            book.Tags.Clear();
+        }
+
+        return book;
     }
 
     private async Task<(AbsJson.Recording? Recording, bool Finished, DateTimeOffset? Updated)> StateAsync(ShelfDb db, Book book, CancellationToken cancellationToken)
@@ -582,7 +594,7 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
         }
 
         var book = await db.Books.IgnoreQueryFilters().AsNoTracking().Include(item => item.Tags).FirstAsync(item => item.Id == id, cancellationToken);
-        return (open, book);
+        return (open, OwnTagsOnly(book, db.ReaderId));
     }
 
     private async Task<IResult> Item(int id, string? include, ShelfDb db, CancellationToken cancellationToken)

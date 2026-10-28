@@ -286,6 +286,32 @@ public sealed class AbsApiTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
         Assert.Equal(HttpStatusCode.OK, (await again.GetAsync("/api/libraries")).StatusCode);
     }
 
+    // A book lent to a reader reaches their app without its owner's tags; the owner's own app has them.
+    [Fact]
+    public async Task A_lent_book_reaches_the_borrowers_app_without_the_owners_tags()
+    {
+        var owner = await factory.SignUpAsync("Tagging Owner");
+        await factory.SignUpAsync("Tagless Borrower");
+        var borrowerId = await factory.ReaderIdAsync("Tagless Borrower");
+        var book = (await (await owner.PostAsJsonAsync("/books", new CreateBookRequest("Tagged Tracks", "Someone", BookStatus.Reading, null, Tags: ["private-shelving"]), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        using (var content = new MultipartFormDataContent { { new StreamContent(File.OpenRead(Path.Combine(Fixtures, "three-tracks.zip"))), "file", "three-tracks.zip" } })
+        {
+            (await owner.PostAsync($"/books/{book.Id}/audio", content)).EnsureSuccessStatusCode();
+        }
+
+        (await owner.PostAsJsonAsync($"/books/{book.Id}/lend", new LendRequest(borrowerId), JsonOptions)).EnsureSuccessStatusCode();
+        async Task<string> AppSeesAsync(string name)
+        {
+            var app = factory.CreateClient();
+            var login = await (await app.PostAsJsonAsync("/login", new { username = name, password = ShelfApiFactory.Password })).Content.ReadFromJsonAsync<JsonObject>();
+            app.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!["user"]!["accessToken"]!.GetValue<string>());
+            return await app.GetStringAsync($"/api/items/{book.Id}?expanded=1") + await app.GetStringAsync("/api/libraries/shelf/items?limit=50&page=0");
+        }
+
+        Assert.DoesNotContain("private-shelving", await AppSeesAsync("Tagless Borrower"));
+        Assert.Contains("private-shelving", await AppSeesAsync("Tagging Owner"));
+    }
+
     [Fact]
     public async Task The_live_connection_speaks_socket_io_and_signs_in_with_the_token()
     {

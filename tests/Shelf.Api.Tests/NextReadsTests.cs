@@ -27,6 +27,8 @@ public sealed class NextReadsTests(ShelfApiFactory factory) : IClassFixture<Shel
         await Add(reader, new CreateBookRequest("Nothing In Common", "Someone Else", BookStatus.Want, null));
         await Add(lender, new CreateBookRequest("The Lathe of Heaven", "Ursula K. Le Guin", BookStatus.Finished, null));
         await Add(lender, new CreateBookRequest("A Wizard of Earthsea", "Ursula K. Le Guin", BookStatus.Finished, null));
+        // Tagged as the reader loves, by no author they love: the lender's tags are the lender's own, never weighed.
+        await Add(lender, new CreateBookRequest("Tagged Like Yours", "Nobody Loved", BookStatus.Want, null, Tags: ["magic"]));
         await lender.PutAsJsonAsync("/books/shelves/open", new ShelfOpenChange(true), JsonOptions);
 
         var next = await reader.GetFromJsonAsync<NextReads>("/books/next", JsonOptions);
@@ -38,8 +40,9 @@ public sealed class NextReadsTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.Equal(NextReason.Subjects, next.Shelf[2].Reason);
         Assert.Equal(["magic"], next.Shelf[2].Subjects);
 
-        // From the open shelf: the one not already here.
+        // From the open shelf: the one by a loved author not already here, and none for its owner's tags.
         var borrow = Assert.Single(next.Borrowable);
         Assert.Equal(("The Lathe of Heaven", "Next Lender"), (borrow.Title, borrow.Owner));
+        Assert.Empty(borrow.Subjects);
     }
 }
