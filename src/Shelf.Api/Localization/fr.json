@@ -2000,7 +2000,7 @@
   "Your shelf": "Votre bibliothèque",
   "Your shelf at a glance": "Votre étagère en un coup d'œil",
   "Your shelf is empty. Start with a title and an author; an ISBN lets Shelf fill in the rest from Open Library.": "Votre bibliothèque est vide. Commencez par un titre et un auteur ; avec un ISBN, Shelf remplit le reste depuis Open Library.",
-  "Your Shelf password; with two-step sign-in on, an API token from Account in its place.": "Votre mot de passe Shelf ; avec la connexion en deux étapes, un jeton d'API du Compte à la place.",
+  "Your Shelf password; with two-step sign-in on, an API token from Account that can change things, in its place.": "Votre mot de passe Shelf ; avec la connexion en deux étapes, un jeton d'API du Compte qui peut modifier des choses, à la place.",
   "Your shelves, ratings, dates, and reviews from an exported CSV file.": "Vos étagères, notes, dates et critiques depuis un fichier CSV exporté.",
   "Your years in books": "Vos années en livres",
   "Your {0} in books": "Votre année {0} en livres",

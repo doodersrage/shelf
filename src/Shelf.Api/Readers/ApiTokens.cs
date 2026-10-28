@@ -213,6 +213,13 @@ public static class ApiTokens
     }
 
     // The reader a token belongs to, for an app that signs in with one in place of a password.
+    // The token a secret is, if it is one of this shelf's.
+    public static Task<ApiToken?> FindAsync(ShelfDb db, string secret, CancellationToken cancellationToken = default)
+    {
+        var hash = Hash(secret.Trim());
+        return db.ApiTokens.AsNoTracking().FirstOrDefaultAsync(item => item.Hash == hash, cancellationToken);
+    }
+
     public static async Task<Reader?> ReaderOfAsync(ShelfDb db, string secret, CancellationToken cancellationToken = default)
     {
         var hash = Hash(secret.Trim());
