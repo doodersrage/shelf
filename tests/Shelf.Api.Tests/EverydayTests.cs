@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -20,8 +21,51 @@ public sealed class EverydayTests(ShelfApiFactory factory) : IClassFixture<Shelf
         Assert.All(BookRules.HomeSections(null), section => Assert.True(section.Shown));
 
         var sections = BookRules.HomeSections("finished,-glance,nonsense,finished,next");
-        Assert.Equal(["finished", "glance", "next", "reading", "added"], sections.Select(section => section.Name));
-        Assert.Equal([true, false, true, true, true], sections.Select(section => section.Shown));
+        Assert.Equal(["finished", "glance", "next", "shared", "reading", "added"], sections.Select(section => section.Name));
+        Assert.Equal([true, false, true, true, true, true], sections.Select(section => section.Shown));
+    }
+
+    // Home leads with what other readers share: the books they've lent this reader, ready to read, and what is new on
+    // their open shelves, each a click from asking for it; with none of the owner's own reading, and nothing at all
+    // for a reader nothing is shared with. Hidden from Arrange Home, it goes.
+    [Fact]
+    public async Task Home_shows_what_other_readers_share()
+    {
+        var reader = await factory.SignUpAsync("Home Sharer Reader");
+        var lender = await factory.SignUpAsync("Home Sharer Lender");
+        var lenderId = await factory.ReaderIdAsync("Home Sharer Lender");
+        var readerId = await factory.ReaderIdAsync("Home Sharer Reader");
+        var lent = (await (await lender.PostAsJsonAsync("/books", new CreateBookRequest("Lent For Home", "Someone", BookStatus.Finished, 5), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        using (var content = new MultipartFormDataContent { { new ByteArrayContent(KoreaderHighlightsTests.Epub()), "file", "lent.epub" } })
+        {
+            (await lender.PostAsync($"/books/{lent.Id}/ebook", content)).EnsureSuccessStatusCode();
+        }
+
+        await lender.PostAsJsonAsync("/books", new CreateBookRequest("Open For Home", "Someone Else", BookStatus.Reading, null, Notes: "The lender's private note."), JsonOptions);
+        Assert.DoesNotContain("id=\"shared-heading\"", await reader.GetStringAsync("/"));
+
+        // Lent a book, a reader with none of their own yet has it on Home, ready to read.
+        (await lender.PostAsJsonAsync($"/books/{lent.Id}/lend", new LendRequest(readerId), JsonOptions)).EnsureSuccessStatusCode();
+        var lentHome = WebUtility.HtmlDecode(await reader.GetStringAsync("/"));
+        Assert.Contains("Lent to you", lentHome);
+        Assert.DoesNotContain("New on open shelves", lentHome);
+
+        await lender.PutAsJsonAsync("/books/shelves/open", new ShelfOpenChange(true), JsonOptions);
+        var home = WebUtility.HtmlDecode(await reader.GetStringAsync("/"));
+        Assert.Contains("id=\"shared-heading\"", home);
+        Assert.Contains("Lent For Home", home);
+        Assert.Contains($"/library/{lent.Id}/read", home);
+        Assert.Contains("Open For Home", home);
+        Assert.Contains($"/shelves/{lenderId}?q=Open%20For%20Home", home);
+        Assert.Contains("Home Sharer Lender's shelf", home);
+        Assert.DoesNotContain("The lender's private note.", home);
+        // A book lent to the reader is under Lent to you, not offered again as new on the shelf.
+        Assert.DoesNotContain($"/shelves/{lenderId}?q=Lent%20For%20Home", home);
+
+        // The lender, with nothing shared with them, has no such section; a reader who hides it from Home doesn't see it.
+        Assert.DoesNotContain("id=\"shared-heading\"", await lender.GetStringAsync("/"));
+        await ShelfApiFactory.PostFormAsync(reader, "/", "/books/home", new() { ["shown"] = "glance" });
+        Assert.DoesNotContain("id=\"shared-heading\"", await reader.GetStringAsync("/"));
     }
 
     [Fact]
@@ -47,7 +91,7 @@ public sealed class EverydayTests(ShelfApiFactory factory) : IClassFixture<Shelf
             scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
             var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
             Assert.Equal(
-                [("glance", true), ("reading", false), ("next", false), ("finished", false), ("added", false)],
+                [("glance", true), ("shared", false), ("reading", false), ("next", false), ("finished", false), ("added", false)],
                 await BookRules.GetHomeSectionsAsync(db));
             db.SeriesAlerts.Add(new SeriesAlert { OwnerId = readerId, Series = "The Murderbot Diaries", Author = "Martha Wells", Title = "System Collapse", WorkKey = "/works/OL1W", FoundAt = DateTimeOffset.UtcNow });
             await db.SaveChangesAsync();

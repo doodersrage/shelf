@@ -526,8 +526,12 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
   - *Status 2026-10-28:* Documentation for the changed settings was updated (`Backup:BeforeMigrating`, `Database:PgDump`, `Network:AllowPrivateAddresses`). The proxy, HTTPS, and email docs weren't re-reviewed.
 - [x] Ensure secrets are not printed in logs or accidentally exposed in diagnostics.
   - *Status 2026-10-28:* Audit §3: tokens hashed or sealed; grep found no secrets in log calls. Later the same day: `pg_dump` gets the password in `PGPASSWORD`, not on its command line (`Tools.RunAsync` takes an environment; `ShelfCareTests.A_tool_is_given_its_password_in_its_environment`).
-- [!] Check performance with a realistically large catalog, many reading records, and large ebook/audiobook files.
-  - *Status 2026-10-28:* Not measured in this environment. One fix in task 17 stopped loading every open-shelf book's tags.
+- [~] Check performance with a realistically large catalog, many reading records, and large ebook/audiobook files.
+  - *Status 2026-10-28:* Measured on a local Release build with SQLite. The data: one reader with 50,000 books, 100,000 sessions, 25,000 quotes, and 100,000 tag links, plus a second reader's open shelf of 30,000 books. Each page was requested once to warm up, then three times; the median is reported.
+  - **Fine:** every page and API except one answers in about a second or less. Slowest: `/books?take=60` 1.0 s, `/stats` 0.7 s, `/tidy` 0.65 s, `/library` 0.55 s.
+  - **P1 found: `/journal` takes about 81 s and sends 13.7 MB.** Every database query was 30 ms or less (from the EF command log). The time is in drawing the page: it shows the whole current year in one go (here about 14,000 sessions and all 25,000 quotes, roughly 40,000 lines). The fix is to show a year a page at a time, or a month at a time. Not done yet.
+  - **P3:** some pages send very large HTML: `/quotes` 8 MB, `/series` 3 MB, `/reading` 2.2 MB, `/years` 1.4 MB. Their server time is fine; the cost is on the browser.
+  - Large e-book and audiobook files weren't measured.
 - [x] Review dependency updates and security advisories using repository-supported tooling.
   - *Status 2026-10-28:* 2026-10-28: `dotnet list package --vulnerable` lists only MessagePack 2.5.302 (moderate), in the development-only `Shelf.AppHost`, from Aspire. `npm audit`: tests/e2e and site are clean. Vendored `epubjs` 0.3.93 bundles `@xmldom/xmldom`, which has a high advisory, but epubjs uses it only when there is no native `DOMParser` or `forceXMLDom` is passed, and nothing passes it. So it isn't reachable in the browser. The only fix is epubjs 0.4.2, a breaking change, best taken through Dependabot's vendored group. All open Dependabot PRs were merged after CI.
 - [x] Ensure CI runs relevant build, test, migration, and browser checks.

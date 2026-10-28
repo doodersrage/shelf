@@ -60,6 +60,12 @@
 
 @if (books.Count == 0)
 {
+    @* A reader with no books yet may still be lent some, or see open shelves: what is shared comes first. *@
+    @if (sections.Any(section => section is { Name: "shared", Shown: true }))
+    {
+        <SharedWithYou Borrowed="@borrowed" OpenShelves="@openShelves" NewOnShelves="@newOnShelves" />
+    }
+
     @* A new shelf: most people arrive with a library somewhere already, so the ways to bring it lead. *@
     <section class="welcome" aria-labelledby="welcome-heading">
         <h2 id="welcome-heading">@T("Welcome. Where are your books now?")</h2>
@@ -124,6 +130,9 @@ else
                     </li>
                     <li><a href="/loans"><strong>@books.Count(item => !string.IsNullOrWhiteSpace(item.LoanedTo))</strong> <span>@T("On loan")</span></a></li>
                 </ul>
+                break;
+            case "shared":
+                <SharedWithYou Borrowed="@borrowed" OpenShelves="@openShelves" NewOnShelves="@newOnShelves" />
                 break;
             case "reading":
                 if (others.Count > 0)
@@ -262,6 +271,9 @@ else
     private (string Guardian, FamilyBook[] Books)? family;
     private List<AttentionItem> attention = [];
     private List<(string Name, bool Shown)> sections = [];
+    private BorrowedBook[] borrowed = [];
+    private OpenShelf[] openShelves = [];
+    private OpenShelfBook[] newOnShelves = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -295,6 +307,12 @@ else
             .ToListAsync();
         attention = await Attention.ForHomeAsync(db);
         sections = await BookRules.GetHomeSectionsAsync(db);
+        if (sections.Any(section => section is { Name: "shared", Shown: true }))
+        {
+            borrowed = await Lending.BorrowedAsync(db);
+            openShelves = await Asking.OpenShelvesAsync(db);
+            newOnShelves = openShelves.Length > 0 ? await Asking.NewOnOpenShelvesAsync(db, 8) : [];
+        }
         goal = await BookRules.GetGoalAsync(db);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         finishedThisYear = books.Count(book => book.Status == BookStatus.Finished && book.FinishedOn?.Year == today.Year) + await Rereads.EarlierFinishesAsync(db, today.Year);
@@ -316,6 +334,7 @@ else
     private static string SectionLabel(string name) => name switch
     {
         "glance" => T("Your shelf at a glance"),
+        "shared" => T("Shared with you"),
         "reading" => T("Also reading"),
         "next" => T("Read next"),
         "added" => T("Recently added"),

@@ -1,0 +1,80 @@
+@* What other readers share with this one, for Home: the books they've lent, ready to read or listen to, what's
+   new on their open shelves, each a click from asking for it, and the shelves themselves. Only what an open shelf
+   shows anyone. *@
+@if (Borrowed.Length > 0 || OpenShelves.Length > 0)
+{
+    <section class="shared-with-you" aria-labelledby="shared-heading">
+        <h2 id="shared-heading">@T("Shared with you")</h2>
+        @if (Borrowed.Length > 0)
+        {
+            <h3>@T("Lent to you")</h3>
+            <ul class="shelf-strip">
+                @foreach (var lent in Borrowed.Take(StripSize))
+                {
+                    <li class="strip-card">
+                        <BookCover Title="@lent.Title" Url="@lent.CoverUrl" />
+                        <div>
+                            <p class="title">@lent.Title</p>
+                            <p class="by">@lent.Author</p>
+                            <p class="hint">@T("From {0}", lent.Owner)@(lent.DueOn is DateOnly due ? " · " + T("due {0}", due.Medium()) : "")</p>
+                            <p>
+                                @if (lent.HasEbook)
+                                {
+                                    <a href="/library/@lent.Id/read">@T("Read")</a>
+                                }
+                                @if (lent.HasAudio)
+                                {
+                                    @(lent.HasEbook ? " · " : "")<a href="/library/@lent.Id/listen">@T("Listen")</a>
+                                }
+                            </p>
+                        </div>
+                    </li>
+                }
+            </ul>
+            @if (Borrowed.Length > StripSize)
+            {
+                <p class="hint"><a href="/loans">@T("All {0} lent to you", Borrowed.Length)</a></p>
+            }
+        }
+        @if (NewOnShelves.Length > 0)
+        {
+            <h3>@T("New on open shelves")</h3>
+            <ul class="cover-row">
+                @foreach (var item in NewOnShelves)
+                {
+                    <li>
+                        <a href="/shelves/@item.OwnerId?q=@Uri.EscapeDataString(item.Title)">
+                            <BookCover Title="@item.Title" Url="@item.CoverUrl" />
+                            <span class="title">@item.Title</span>
+                            <span class="hint">@item.Author</span>
+                            <span class="hint">@T("{0}'s shelf", item.Owner)@(item.OnLoan ? " · " + T("On loan") : "")</span>
+                        </a>
+                    </li>
+                }
+            </ul>
+        }
+        @if (OpenShelves.Length > 0)
+        {
+            <ul class="chips">
+                @foreach (var shelf in OpenShelves.Take(8))
+                {
+                    <li class="chip-row"><a href="/shelves/@shelf.Id">@T("{0}'s shelf", shelf.Name)</a> <span class="hint">@Localization.Counts.Books(shelf.Books)</span></li>
+                }
+            </ul>
+            <p class="hint"><a href="/shelves">@T("All shared shelves")</a></p>
+        }
+    </section>
+}
+
+@code {
+    private const int StripSize = 6;
+
+    [Parameter]
+    public BorrowedBook[] Borrowed { get; set; } = [];
+
+    [Parameter]
+    public OpenShelf[] OpenShelves { get; set; } = [];
+
+    [Parameter]
+    public OpenShelfBook[] NewOnShelves { get; set; } = [];
+}

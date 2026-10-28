@@ -191,6 +191,9 @@ public sealed record ShelfBook(
     string? Series = null,
     int? SeriesNumber = null);
 
+// A book lately put on another reader's open shelf, with whose shelf it is: only what an open shelf shows anyone.
+public sealed record OpenShelfBook(int Id, string Title, string Author, string? CoverUrl, bool OnLoan, int OwnerId, string Owner);
+
 // A book on another reader's open shelf: what the borrowing hints need to match it and offer to ask.
 public sealed record OpenCopy(
     int Id,

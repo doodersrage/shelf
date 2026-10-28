@@ -472,9 +472,10 @@ public static class BookRules
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    // Home's sections besides Continue, in their usual order: the year at a glance, the other books open, what to
-    // read next, the books lately added, and those lately finished.
-    public static readonly string[] HomeSectionNames = ["glance", "reading", "next", "added", "finished"];
+    // Home's sections besides Continue, in their usual order: the year at a glance, what other readers share (books
+    // lent to this reader, and what is new on open shelves), the other books open, what to read next, the books
+    // lately added, and those lately finished.
+    public static readonly string[] HomeSectionNames = ["glance", "shared", "reading", "next", "added", "finished"];
 
     // The reader's order, each shown or hidden; a section they have never placed goes at the end, shown.
     public static List<(string Name, bool Shown)> HomeSections(string? stored)

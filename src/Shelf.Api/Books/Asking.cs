@@ -50,6 +50,27 @@ public static class Asking
             .ToArray();
     }
 
+    // The books lately put on other readers' open shelves, newest first, for Home: what an open shelf shows anyone
+    // (title, author, cover, whether it is out), never the owner's statuses, stars, tags, or notes. One query, read
+    // newest first by id, so it stays quick however big the shelves are.
+    public static async Task<OpenShelfBook[]> NewOnOpenShelvesAsync(ShelfDb db, int take, CancellationToken cancellationToken = default)
+    {
+        var me = db.ReaderId;
+        if (me == 0 || await Family.IsRestrictedAsync(db, me, cancellationToken))
+        {
+            return [];
+        }
+
+        return await db.Books.IgnoreQueryFilters().AsNoTracking()
+            // One lent to this reader already is under Lent to you.
+            .Where(book => book.OwnerId != me && book.BorrowerId != me && book.Owner != null && book.Owner.ShelfOpen && !book.Owner.Restricted)
+            .OrderByDescending(book => book.Id)
+            .Take(take)
+            .Select(book => new OpenShelfBook(book.Id, book.Title, book.Author, Covers.For(book.Id, book.CoverUrl, book.FileCover, book.CoverImage),
+                book.LoanedTo != null, book.OwnerId!.Value, book.Owner!.Name))
+            .ToArrayAsync(cancellationToken);
+    }
+
     public static async Task<(string Owner, ShelfBook[] Books)?> ShelfAsync(ShelfDb db, int ownerId, CancellationToken cancellationToken = default) =>
         await ShelfPageAsync(db, ownerId, new OpenShelfFilter(), 0, int.MaxValue, cancellationToken) is { } shelf ? (shelf.Owner, shelf.Books) : null;
 

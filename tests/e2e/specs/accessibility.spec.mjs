@@ -180,3 +180,31 @@ test("the main pages pass an accessibility audit in Spanish, French, and German"
 
   expect(failures, failures.join("\n")).toEqual([]);
 });
+
+// Home with something shared: a book lent to the reader and another reader's open shelf, drawn and audited.
+test("Home's Shared with you passes an accessibility audit", async ({ browser }) => {
+  const readerName = unique("Shared Home Reader");
+  const page = await signUp(browser, readerName);
+  const lender = await signUp(browser, unique("Shared Home Lender"));
+  const lent = await createBook(lender, { title: "Lent Over", author: "Someone", status: "Finished" });
+  await upload(lender, lent.id, "ebook", "koreader.epub", "application/epub+zip");
+  await createBook(lender, { title: "On The Open Shelf", author: "Someone Else", status: "Want" });
+  await lender.request.put("/books/shelves/open", { data: { open: true } });
+  const readers = await (await lender.request.get("/readers")).json();
+  const readerId = readers.find((reader) => reader.name === readerName).id;
+  await lender.request.post(`/books/${lent.id}/lend`, { data: { readerId } });
+
+  const failures = [];
+  for (const scheme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.goto("/", { waitUntil: "networkidle" });
+    await expect(page.getByRole("heading", { name: "Shared with you" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Read" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /On The Open Shelf/ })).toBeVisible();
+    failures.push(...(await audit(page, `${scheme} Home shared`)));
+  }
+
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.locator(".shared-with-you").screenshot({ path: test.info().outputPath("shared-with-you.png") });
+  expect(failures, failures.join("\n")).toEqual([]);
+});

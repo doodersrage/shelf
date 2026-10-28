@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Added
+
+- **Shared with you, on Home**: what other readers share is on Home, not three clicks away. The books they've lent you, with who lent them and when they're due, ready to read or listen to; the books newest on their open shelves, each opening its shelf at that book to ask for it; and every open shelf with how many books it holds. A reader with no books yet sees it above the welcome. Like Home's other parts, it can be moved or hidden under **Arrange Home**. Only what an open shelf shows anyone is there: titles, authors, and covers.
+
 ### Security
 
 - **pg_dump's password stays off its command line**: backing up a PostgreSQL shelf gave `pg_dump` the database password among its arguments, where anyone on the machine could read it in the process list. It now goes in `pg_dump`'s own environment.
