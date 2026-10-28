@@ -532,7 +532,11 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
     - SIGTERM during that load (what `docker stop` sends) stopped the server in 0.45 s, with no failed requests in the log and `PRAGMA integrity_check` = ok. That is well inside Docker's 10 s grace period.
     - A backup interrupted by a stop is written to `.partial` and renamed only when finished (`BackupSchedule.cs`), so it is never taken for a complete one.
 - [~] Review configuration defaults and documentation for reverse proxies, HTTPS, email, storage, and optional integrations.
-  - *Status 2026-10-28:* Documentation for the changed settings was updated (`Backup:BeforeMigrating`, `Database:PgDump`, `Network:AllowPrivateAddresses`). The proxy, HTTPS, and email docs weren't re-reviewed.
+  - *Status 2026-10-28:* Documentation for the changed settings was updated (`Backup:BeforeMigrating`, `Database:PgDump`, `Network:AllowPrivateAddresses`).
+  - *Proxy, HTTPS, and email reviewed later the same day* against `Program.cs` and `Email.cs`:
+    - `server.md` and `configuration.md` match the code: `BehindProxy`, `KnownProxies`, HSTS and the HTTPS redirect, the nginx WebSocket lines, and every `Email:` setting. The one exception is the older `Email:Ssl`, which is still read when `Email:Security` is unset and is left undocumented on purpose.
+    - **Found and fixed (security):** an unreadable `Hosting:KnownProxies` entry was skipped silently. With none left, forwarded headers were trusted from any address, so a direct request could spoof its IP past the sign-in limit. Now startup stops and names the entry. Test: `FeatureTests.A_proxy_address_that_cant_be_read_stops_the_start`, which also checks that a valid list still starts.
+    - Still `[~]`: storage and optional-integration docs weren't re-read line by line.
 - [x] Ensure secrets are not printed in logs or accidentally exposed in diagnostics.
   - *Status 2026-10-28:* Audit §3: tokens hashed or sealed; grep found no secrets in log calls. Later the same day: `pg_dump` gets the password in `PGPASSWORD`, not on its command line (`Tools.RunAsync` takes an environment; `ShelfCareTests.A_tool_is_given_its_password_in_its_environment`).
 - [~] Check performance with a realistically large catalog, many reading records, and large ebook/audiobook files.

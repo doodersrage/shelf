@@ -44,21 +44,27 @@ builder.Services.AddDataProtection()
 // Behind a reverse proxy that ends TLS, trust its forwarded scheme and address so HTTPS redirects,
 // secure cookies, and the sign-in limit all see the real request.
 var behindProxy = builder.Configuration.GetValue("Hosting:BehindProxy", false);
+// The proxy's own addresses, when given: forwarded headers from anywhere else are ignored, so a request that reaches
+// Shelf's port directly can't claim another address to get around the sign-in limit. Without them, any. One that
+// can't be read stops the start, said plainly: skipped, a typo could leave none, and so trust a proxy anywhere.
+var knownProxies = new List<System.Net.IPNetwork>();
+foreach (var item in (builder.Configuration["Hosting:KnownProxies"] ?? "").Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+{
+    var range = item.Contains('/') ? item : item + (item.Contains(':') ? "/128" : "/32");
+    if (!System.Net.IPNetwork.TryParse(range, out var network))
+    {
+        throw new InvalidOperationException($"Hosting:KnownProxies has \"{item}\", which isn't an address or a range such as 10.0.0.2 or 172.18.0.0/16.");
+    }
+
+    knownProxies.Add(network);
+}
+
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
     options.KnownIPNetworks.Clear();
     options.KnownProxies.Clear();
-    // The proxy's own addresses, when given: forwarded headers from anywhere else are ignored, so a request that
-    // reaches Shelf's port directly can't claim another address to get around the sign-in limit. Without them, any.
-    foreach (var item in (builder.Configuration["Hosting:KnownProxies"] ?? "").Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-    {
-        var range = item.Contains('/') ? item : item + (item.Contains(':') ? "/128" : "/32");
-        if (System.Net.IPNetwork.TryParse(range, out var network))
-        {
-            options.KnownIPNetworks.Add(network);
-        }
-    }
+    knownProxies.ForEach(options.KnownIPNetworks.Add);
 });
 
 // Scoped, so each context is built in the scope that knows which reader is signed in.

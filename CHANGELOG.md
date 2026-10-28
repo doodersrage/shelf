@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Security
+
+- **A mistyped proxy address no longer trusts every proxy**: an entry in `Hosting:KnownProxies` that wasn't an address or a range (a typo like `10.0.0.300`) was skipped without a word, and with none left, forwarded headers were trusted from anywhere, so a request straight to Shelf's port could claim another address to get around the sign-in limit. Now Shelf won't start with one, and the log names it.
+
 ### Fixed
 
 - **A damaged e-book is turned away when it's added**: a file cut short in downloading, or one named `.epub`, `.pdf`, or `.cbz` that isn't one, was kept with "The e-book is on the shelf" and failed only when you opened it. Now it's refused there and then, with a message that it looks damaged or incomplete; the book keeps whatever file it had.

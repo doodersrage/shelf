@@ -939,4 +939,19 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
     }
+
+    // A proxy address that can't be read stops the start, naming it: skipped, a typo could leave no address at all,
+    // which trusts forwarded headers from anywhere, the opposite of what the setting asks.
+    [Fact]
+    public async Task A_proxy_address_that_cant_be_read_stops_the_start()
+    {
+        await using (var listed = factory.WithWebHostBuilder(builder => builder.UseSetting("Hosting:BehindProxy", "true").UseSetting("Hosting:KnownProxies", "10.0.0.2, 172.18.0.0/16 ::1")))
+        {
+            Assert.Equal(System.Net.HttpStatusCode.OK, (await listed.CreateClient().GetAsync("/alive")).StatusCode);
+        }
+
+        using var mistyped = factory.WithWebHostBuilder(builder => builder.UseSetting("Hosting:BehindProxy", "true").UseSetting("Hosting:KnownProxies", "10.0.0.2, 10.0.0.300"));
+        var error = Assert.ThrowsAny<Exception>(() => mistyped.CreateClient());
+        Assert.Contains("10.0.0.300", (error.InnerException ?? error).Message);
+    }
 }
