@@ -255,7 +255,8 @@ Success means a reader can reliably:
 - [x] Where it shows: `/books/lookup` answers 503 with the reason, the add/edit form's lookup note explains it, and the Find page shows an error instead of "knows no book".
 - [x] `OpenLibrarySearch` now also catches `Polly.ExecutionRejectedException`, which used to escape.
 - [x] Tests: `GoogleBooksTests.A_lookup_tells_catalogs_out_of_reach_from_a_book_none_knows` and `BooksEndpointTests.Lookup_says_when_no_catalog_could_be_asked`. 2 new strings in es/fr/de.
-- Not changed: the background "Fill in details" job (`DetailsFiller`) and scanning still treat an outage as no match. Their per-book notes could use the same flag.
+- [x] Later the same day: `DetailsFiller` marks a book `Failed` ("The catalogs did not answer.") when `CouldNotAsk` is set, instead of `Skipped` ("Nothing matched."). `TidyTests.Details_say_when_the_catalogs_could_not_be_asked` fails against the old code.
+- Not changed: scanning (`Scanning.AddAsync`) and the details review (`ICatalogSources.BothAsync`) still treat an outage as no match.
 
 ### Follow-up task 16: a reader's zip restores collections and past loans (audit P2), done 2026-10-28
 

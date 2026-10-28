@@ -203,7 +203,10 @@ public sealed class DetailsFiller(IServiceScopeFactory scopes, ShelfJobs registe
         var match = await lookup.FindAsync(book.Isbn, book.Title, book.Author, cancellationToken);
         if (match is null)
         {
-            return new ImportLine(title, ImportLineState.Skipped, T("Nothing matched."), id, 0);
+            // Out of reach is not the same as unknown: failed, so it's worth filling in again later.
+            return lookup.CouldNotAsk
+                ? new ImportLine(title, ImportLineState.Failed, T("The catalogs did not answer."), id, 0)
+                : new ImportLine(title, ImportLineState.Skipped, T("Nothing matched."), id, 0);
         }
 
         var before = (book.Year, book.Pages, book.Publisher, book.Language, book.CoverUrl, book.Isbn);

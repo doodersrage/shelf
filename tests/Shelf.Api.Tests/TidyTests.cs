@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Shelf.Api.Books;
 using Shelf.Api.Data;
@@ -88,5 +89,31 @@ public sealed class TidyTests(ShelfApiFactory factory) : IClassFixture<ShelfApiF
         var earthsea = (await client.GetFromJsonAsync<List<BookResponse>>("/books", JsonOptions))!.Single(book => book.Title == "A Wizard of Earthsea");
         Assert.Equal((1968, 205), (earthsea.Year, earthsea.Pages));
         Assert.Contains("Details filled in", await client.GetStringAsync("/activity"));
+    }
+
+    // A book the catalogs couldn't be asked about is marked failed, worth filling in again, not as matching nothing.
+    [Fact]
+    public async Task Details_say_when_the_catalogs_could_not_be_asked()
+    {
+        var client = await factory.SignUpAsync("Detail Outage Reader");
+        await client.PostAsJsonAsync("/books", new CreateBookRequest("Out Of Reach", "Someone", BookStatus.Want, null), JsonOptions);
+        await using var app = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services => services.AddTransient<IBookLookup, UnreachableLookup>()));
+        await using var scope = app.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(await factory.ReaderIdAsync("Detail Outage Reader"));
+        var job = (await app.Services.GetRequiredService<DetailsFiller>().StartAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), DetailsKind.Everything))!;
+        for (var attempt = 0; attempt < 200 && !job.Finished; attempt++)
+        {
+            await Task.Delay(50);
+        }
+
+        var line = job.Lines().Single(line => line.Title == "Out Of Reach");
+        Assert.Equal((ImportLineState.Failed, "The catalogs did not answer."), (line.State, line.Note));
+    }
+
+    private sealed class UnreachableLookup : IBookLookup
+    {
+        public bool CouldNotAsk => true;
+
+        public Task<CatalogMatch?> FindAsync(string? isbn, string? title, string? author, CancellationToken cancellationToken) => Task.FromResult<CatalogMatch?>(null);
     }
 }
