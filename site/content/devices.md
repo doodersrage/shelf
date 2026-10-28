@@ -57,7 +57,7 @@ A Kobo can take your EPUBs from Shelf as if from its own store, as it does with 
 Then:
 
 - books you add (to the collection, if you chose one) come with the next sync, and books you take away, or delete, leave the Kobo;
-- the Kobo's place moves Shelf's place to the chapter it reached, and finishing a book on the Kobo marks it finished; a book opened on the Kobo moves from want to read to reading;
+- the Kobo's place moves Shelf's place on to the chapter it reached, never back, so a Kobo that is behind doesn't undo reading done elsewhere; **Where each device has you**, on the book's page, shows where it said, and **Go here** goes there on purpose. Finishing a book on the Kobo marks it finished; a book opened on the Kobo moves from want to read to reading;
 - archiving a book on the Kobo keeps it on your shelf, and the Kobo isn't sent it again;
 - books go as Kobo's own kind of EPUB (KEPUB), made from yours the first time the Kobo asks, so the Kobo shows page numbers and time left in the chapter, and keeps its reading statistics, as for its store's books. A book that can't be turned into one goes as the EPUB. Set `Kobo:Kepub` to `false` to send EPUBs as they are.
 

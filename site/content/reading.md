@@ -126,4 +126,4 @@ On a book with both an e-book and a recording, its page shows where you are in e
 
 Your place is your own. A borrower has a place of their own in a book lent to them, separate from the owner's. KOReader and another shelf can move your place forward too; see [Devices and apps](devices.md).
 
-A place moves only forward by itself, so a device that is behind never sends you back. When two disagree, **Where each device has you**, on the book's page, lists where each said you were and when: Shelf's reader and player, reading offline, KOReader (by its device name), and the Audiobookshelf apps. **Go here** takes the one that's right, back or forward, and the choices made are kept beneath.
+A place moves only forward by itself, so a device that is behind never sends you back. When two disagree, **Where each device has you**, on the book's page, lists where each said you were and when: Shelf's reader and player, reading offline, KOReader (by its device name), a Kobo, and the Audiobookshelf apps. **Go here** takes the one that's right, back or forward, and the choices made are kept beneath.

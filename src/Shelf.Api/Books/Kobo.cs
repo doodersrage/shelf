@@ -253,9 +253,19 @@ public static partial class Kobo
             {
                 var file = source.Split('#')[0];
                 var chapter = chapters.FirstOrDefault(item => item.Href.EndsWith(file, StringComparison.OrdinalIgnoreCase) || file.EndsWith(item.Href, StringComparison.OrdinalIgnoreCase));
-                if (chapter is not null)
+                // On, never back, as KOReader's and offline reading's places go: a Kobo that is behind (a book
+                // reread, or read further here since) doesn't send the reader back, and "Where each device has you"
+                // lists where it said, to go back to on purpose.
+                if (chapter is not null && await Lending.OpenAsync(db, book.Id, cancellationToken) is { } open)
                 {
-                    tracked.EbookChapter = chapter.Index;
+                    using var _ = Positions.Reporting("Kobo");
+                    await Lending.KeepPlaceAsync(db, open, place =>
+                    {
+                        if (chapter.Index > (place.EbookChapter ?? -1))
+                        {
+                            place.EbookChapter = chapter.Index;
+                        }
+                    }, cancellationToken);
                 }
             }
         }

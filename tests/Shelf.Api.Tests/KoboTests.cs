@@ -82,4 +82,61 @@ public sealed class KoboTests(ShelfApiFactory factory) : IClassFixture<ShelfApiF
         Assert.True(Assert.Single(gone)!["ChangedEntitlement"]!["BookEntitlement"]!["IsRemoved"]!.GetValue<bool>());
         Assert.Empty(JsonNode.Parse(await kobo.GetStringAsync($"/kobo/{token}/v1/library/sync"))!.AsArray());
     }
+
+    // A Kobo moves Shelf's place on, never back, as KOReader does; moving on, it leaves no exact place behind for the
+    // reader to open at instead; and where it said is listed among the devices, to go back to on purpose.
+    [Fact]
+    public async Task A_kobo_that_is_behind_never_sends_the_reader_back()
+    {
+        var reader = await factory.SignUpAsync("Kobo Behind");
+        var readerId = await factory.ReaderIdAsync("Kobo Behind");
+        var book = (await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("A Sea Story", "Herman Example", BookStatus.Reading, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        using (var content = new MultipartFormDataContent { { new ByteArrayContent(KoreaderHighlightsTests.Epub()), "file", "sea.epub" } })
+        {
+            Assert.True((await reader.PostAsync($"/books/{book.Id}/ebook", content)).IsSuccessStatusCode);
+        }
+
+        string token;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
+            token = await Kobo.MakeTokenAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>());
+        }
+
+        async Task PlaceAsync(int chapter, string cfi)
+        {
+            await using var scope = factory.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            var tracked = db.Books.Single(item => item.Id == book.Id);
+            (tracked.EbookChapter, tracked.EbookCfi, tracked.EbookProgress) = (chapter, cfi, 0.5);
+            await db.SaveChangesAsync();
+        }
+
+        var kobo = factory.CreateClient();
+        var uuid = Kobo.UuidOf(book.Id).ToString();
+        async Task KoboAtAsync(string source)
+        {
+            var state = new { ReadingStates = new[] { new { EntitlementId = uuid, CurrentBookmark = new { ProgressPercent = 10, Location = new { Source = source, Type = "KoboSpan", Value = "kobo.1.1" } }, StatusInfo = new { Status = "Reading" } } } };
+            var put = await kobo.PutAsync($"/kobo/{token}/v1/library/{uuid}/state", new StringContent(JsonSerializer.Serialize(state), Encoding.UTF8, "application/json"));
+            Assert.Equal("Success", (await put.Content.ReadFromJsonAsync<JsonObject>())!["RequestResult"]!.GetValue<string>());
+        }
+
+        // Read on in Shelf to the last chapter; the Kobo still says the first.
+        await PlaceAsync(2, "epubcfi(/6/6!/4/2/1:7)");
+        await KoboAtAsync("c1.xhtml");
+        var place = (await reader.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!;
+        Assert.Equal((2, "epubcfi(/6/6!/4/2/1:7)"), (place.EbookChapter, place.EbookCfi));
+        var positions = (await reader.GetFromJsonAsync<PositionsOfBook>($"/books/{book.Id}/positions", JsonOptions))!;
+        var said = Assert.Single(positions.Reports, report => report.Source == "Kobo");
+        Assert.False(said.Kept);
+
+        // Further on, the Kobo moves the place to its chapter, and the old exact place goes with it.
+        await PlaceAsync(0, "epubcfi(/6/2!/4/2/1:3)");
+        await KoboAtAsync("c2.xhtml");
+        place = (await reader.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!;
+        Assert.Equal((1, (string?)null), (place.EbookChapter, place.EbookCfi));
+        positions = (await reader.GetFromJsonAsync<PositionsOfBook>($"/books/{book.Id}/positions", JsonOptions))!;
+        Assert.True(Assert.Single(positions.Reports, report => report.Source == "Kobo").Kept);
+    }
 }
