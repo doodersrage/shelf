@@ -32,6 +32,8 @@ public sealed class BackupSchedule(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // The backup taken before an update is proved now, in the background, as starting was not held up for it.
+        await DrillUpgradeBackupsAsync(stoppingToken);
         if (!Enabled)
         {
             return;
@@ -61,6 +63,39 @@ public sealed class BackupSchedule(
 
     public bool BeforeMigrating => configuration.GetValue("Backup:BeforeMigrating", true);
 
+    public const string BeforeUpgradeSuffix = "-before-upgrade.zip";
+
+    // Each backup taken before an update that no drill has proved yet, proved; how many.
+    public async Task<int> DrillUpgradeBackupsAsync(CancellationToken cancellationToken)
+    {
+        var drilled = 0;
+        foreach (var backup in List().Where(backup => backup.Name.EndsWith(BeforeUpgradeSuffix, StringComparison.Ordinal)))
+        {
+            var path = Path.Combine(Folder, backup.Name);
+            if (BackupCheck.VerdictAt(path) is not null)
+            {
+                continue;
+            }
+
+            try
+            {
+                var verdict = await BackupCheck.DrillAndKeepAsync(path, cancellationToken);
+                if (!verdict.Ok)
+                {
+                    logger.LogWarning("The backup {Name}, taken before the update, did not pass its restore drill: {Problem}", backup.Name, verdict.Problem);
+                }
+
+                drilled++;
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "Could not prove the backup {Name}, taken before the update.", backup.Name);
+            }
+        }
+
+        return drilled;
+    }
+
     // Before a new version changes the database, a copy of it as it was, among the nightly backups: the database and
     // covers, as e-books and audiobooks are never changed by it. Only for a shelf with data and changes waiting, never
     // a new one. Null when done or not needed; otherwise why it could not be, and the database is left as it was.
@@ -77,7 +112,7 @@ public sealed class BackupSchedule(
             return null;
         }
 
-        var name = $"{Prefix}{DateTimeOffset.UtcNow:yyyy-MM-dd-HHmmssfff}-before-upgrade.zip";
+        var name = $"{Prefix}{DateTimeOffset.UtcNow:yyyy-MM-dd-HHmmssfff}{BeforeUpgradeSuffix}";
         var path = Path.Combine(Folder, name);
         var partial = path + ".partial";
         try

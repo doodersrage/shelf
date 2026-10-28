@@ -62,6 +62,15 @@ public sealed class UpgradeTests(ShelfApiFactory factory) : IClassFixture<ShelfA
                 await ShelfApiFactory.PostFormAsync(reader, "/signin", "/account/signin", new() { ["name"] = "Upgrading Reader", ["password"] = ShelfApiFactory.Password });
                 var books = await reader.GetFromJsonAsync<List<BookResponse>>("/books", JsonOptions);
                 Assert.Equal("The Long Upgrade", Assert.Single(books!).Title);
+
+                // Proved in the background once the shelf is up, without holding up the start.
+                var taken = Assert.Single(Backups(backups));
+                for (var attempt = 0; attempt < 200 && BackupCheck.VerdictAt(taken) is null; attempt++)
+                {
+                    await Task.Delay(50);
+                }
+
+                Assert.True(BackupCheck.VerdictAt(taken)?.Ok, BackupCheck.VerdictAt(taken)?.Problem);
             }
 
             var backup = Assert.Single(Backups(backups));

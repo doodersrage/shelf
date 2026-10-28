@@ -190,7 +190,7 @@ Success means a reader can reliably:
   - Without the startup hook it fails at "one backup". It is SQLite-only and returns early on PostgreSQL.
 - [x] Docs: `install.md` (Updating), `backups.md`, `configuration.md` (`Backup:BeforeMigrating`), and `CHANGELOG.md` (Unreleased / Added).
 - Limits:
-  - The pre-upgrade backup isn't drilled at startup, so Server health shows "not proved yet" until the next nightly backup.
+  - ~~The pre-upgrade backup isn't drilled at startup.~~ Resolved later the same day: `BackupSchedule.DrillUpgradeBackupsAsync` proves unproved `-before-upgrade.zip` backups in the background when the service starts, even with nightly backups off. `UpgradeTests` waits for a passing verdict.
   - A pre-upgrade backup taken before the nightly hour counts as that day's backup.
   - The startup-exit path is tested through `BeforeMigratingAsync` directly, not through a full host start.
 
