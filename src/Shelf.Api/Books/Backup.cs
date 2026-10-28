@@ -153,15 +153,21 @@ public static class Backup
         return new RestoreResult(result.Added, result.Skipped, files, check.Damaged.Length + check.Missing.Length);
     }
 
+    // In a snapshot holding no copy of the database, saying why: for its restore drill, and for whoever unpacks it.
+    public const string NoDatabaseEntry = "NO-DATABASE.txt";
+
     // Everything on the server, for an admin to keep somewhere else. Restore by unpacking it over a stopped shelf.
-    public static async Task WriteSnapshotAsync(
+    // False when the database could not be copied (PostgreSQL without pg_dump): the zip then holds the files and a
+    // note saying so, never a stand-in that looks like a backup but cannot bring the server back.
+    public static async Task<bool> WriteSnapshotAsync(
         ShelfDb db,
         EbookStore ebooks,
         AudioStore audio,
         CoverStore covers,
         string zipPath,
         CancellationToken cancellationToken = default,
-        bool includeFiles = true)
+        bool includeFiles = true,
+        string? pgDump = null)
     {
         var database = Path.Combine(Path.GetTempPath(), $"shelf-snapshot-{Guid.NewGuid():N}.db");
         try
@@ -169,12 +175,16 @@ public static class Backup
             string entry;
             if (db.IsPostgres)
             {
-                // PostgreSQL's own dump, when pg_dump is here (or at Database__PgDump); else the library as JSON, which Restore takes.
-                entry = await PostgresDumpAsync(db, database, cancellationToken) ? "shelf.sql" : "library.json";
-                if (entry == "library.json")
+                // PostgreSQL's own dump, by pg_dump on the path or at Database:PgDump. Without it there is no copy of the
+                // database to keep: a reader's library as JSON would hold one reader's books at most, and no one else's.
+                if (await PostgresDumpAsync(db, database, pgDump, cancellationToken))
                 {
-                    await using var json = File.Create(database);
-                    await JsonSerializer.SerializeAsync(json, (await ExportWithBooksAsync(db, cancellationToken)).Export, JsonOptions, cancellationToken);
+                    entry = "shelf.sql";
+                }
+                else
+                {
+                    entry = NoDatabaseEntry;
+                    await File.WriteAllTextAsync(database, NoDatabaseProblem() + Environment.NewLine, cancellationToken);
                 }
             }
             else
@@ -195,6 +205,7 @@ public static class Backup
 
             // Cover pictures are small, and nothing else has them, so they always come along.
             AddFolder(zip, covers.Root, "covers");
+            return entry != NoDatabaseEntry;
         }
         finally
         {
@@ -205,12 +216,16 @@ public static class Backup
         }
     }
 
-    private static async Task<bool> PostgresDumpAsync(ShelfDb db, string target, CancellationToken cancellationToken)
+    // Why a snapshot on PostgreSQL holds no database, and what to do about it.
+    public static string NoDatabaseProblem() =>
+        Localization.Words.T("This backup holds no copy of the database: pg_dump, which copies a PostgreSQL database, was not found on the server or did not finish. Install pg_dump of the same version as the database server or newer, or set Database__PgDump to where it is, and back the database up with PostgreSQL's own tools as well.");
+
+    private static async Task<bool> PostgresDumpAsync(ShelfDb db, string target, string? pgDump, CancellationToken cancellationToken)
     {
         var connection = new Npgsql.NpgsqlConnectionStringBuilder(db.Database.GetConnectionString());
         string Quote(string? value) => "'" + (value ?? "").Replace("\\", "\\\\").Replace("'", "\\'") + "'";
         var info = $"host={Quote(connection.Host)} port={connection.Port} dbname={Quote(connection.Database)} user={Quote(connection.Username)}" + (connection.Password is { Length: > 0 } password ? $" password={Quote(password)}" : "");
-        var tool = Environment.GetEnvironmentVariable("Database__PgDump") ?? "pg_dump";
+        var tool = pgDump is { Length: > 0 } ? pgDump : Environment.GetEnvironmentVariable("Database__PgDump") ?? "pg_dump";
         return await Tools.RunAsync(tool, ["--dbname", info, "--no-owner", "--file", target], TimeSpan.FromMinutes(30), cancellationToken) is not null && File.Exists(target);
     }
 

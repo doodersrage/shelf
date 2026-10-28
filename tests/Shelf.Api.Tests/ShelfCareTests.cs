@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Shelf.Api.Books;
 using Shelf.Api.Data;
@@ -363,6 +364,94 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.NotNull(database);
         Assert.True(database.Length > 0);
         Assert.Contains(archive.Entries, entry => entry.FullName.StartsWith("ebooks/", StringComparison.Ordinal) && entry.FullName.EndsWith(".epub", StringComparison.Ordinal));
+    }
+
+    // A backup without the database is never proved: not the note a snapshot leaves when pg_dump is missing, and not
+    // the library as JSON earlier Shelfs put in its place, which held one reader's books at most (often none).
+    [Fact]
+    public async Task A_restore_drill_refuses_a_backup_without_the_database()
+    {
+        var folder = Directory.CreateTempSubdirectory("shelf-drill-").FullName;
+        try
+        {
+            string Zip(string name, params (string Entry, string Text)[] entries)
+            {
+                var path = Path.Combine(folder, name);
+                using var zip = ZipFile.Open(path, ZipArchiveMode.Create);
+                foreach (var (entry, text) in entries)
+                {
+                    using var writer = new StreamWriter(zip.CreateEntry(entry).Open());
+                    writer.Write(text);
+                }
+
+                return path;
+            }
+
+            var noDatabase = await BackupCheck.DrillPathAsync(Zip("none.zip", (Backup.NoDatabaseEntry, Backup.NoDatabaseProblem()), ("covers/a.jpg", "cover")));
+            Assert.False(noDatabase.Ok);
+            Assert.Equal(Backup.NoDatabaseProblem(), noDatabase.Problem);
+
+            var library = await BackupCheck.DrillPathAsync(Zip("library.zip", ("library.json", "{\"books\":[{\"title\":\"One\",\"author\":\"Someone\"}]}")));
+            Assert.False(library.Ok);
+            Assert.Contains("pg_dump", library.Problem);
+
+            var dump = await BackupCheck.DrillPathAsync(Zip("dump.zip", ("shelf.sql", "CREATE TABLE x ();\n-- PostgreSQL database dump complete\n")));
+            Assert.True(dump.Ok, dump.Problem);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    // On PostgreSQL with no pg_dump, the nightly backup keeps the files and fails its drill saying why, and the admin's
+    // download is refused rather than handed over without the database. On SQLite, pg_dump plays no part.
+    [Fact]
+    public async Task Without_pg_dump_a_postgres_snapshot_says_it_holds_no_database()
+    {
+        var folder = Directory.CreateTempSubdirectory("shelf-nodump-").FullName;
+        try
+        {
+            await using var app = factory.WithWebHostBuilder(builder =>
+            {
+                builder.UseSetting("Backup:Folder", folder);
+                builder.UseSetting("Database:PgDump", Path.Combine(folder, "no-such-pg_dump"));
+            });
+            var backup = await app.Services.GetRequiredService<BackupSchedule>().TakeAsync(CancellationToken.None);
+            var verdict = app.Services.GetRequiredService<BackupCheck>().VerdictOf(backup.Name);
+            Assert.NotNull(verdict);
+            string[] entries;
+            using (var zip = ZipFile.OpenRead(Path.Combine(folder, backup.Name)))
+            {
+                entries = [.. zip.Entries.Select(entry => entry.FullName)];
+            }
+
+            var admin = app.CreateClient();
+            await ShelfApiFactory.PostFormAsync(admin, "/signin", "/account/signin", new() { ["name"] = "Tenar", ["password"] = ShelfApiFactory.Password });
+            var snapshot = await admin.GetAsync("/admin/snapshot");
+
+            if (ShelfApiFactory.OnPostgres)
+            {
+                Assert.Contains(Backup.NoDatabaseEntry, entries);
+                Assert.DoesNotContain("library.json", entries);
+                Assert.DoesNotContain("shelf.sql", entries);
+                Assert.False(verdict.Ok);
+                Assert.Equal(Backup.NoDatabaseProblem(), verdict.Problem);
+                Assert.Equal(HttpStatusCode.ServiceUnavailable, snapshot.StatusCode);
+                Assert.Contains("pg_dump", await snapshot.Content.ReadAsStringAsync());
+            }
+            else
+            {
+                Assert.Contains("shelf.db", entries);
+                Assert.True(verdict.Ok, verdict.Problem);
+                Assert.Equal(HttpStatusCode.OK, snapshot.StatusCode);
+                Assert.Equal("application/zip", snapshot.Content.Headers.ContentType?.MediaType);
+            }
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
     }
 
     [Fact]
