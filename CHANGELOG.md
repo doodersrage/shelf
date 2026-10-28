@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.18.0] - 2026-10-28
+
 ### Added
 
 - **A backup before every update**: before a new version changes the database, Shelf backs it up as it was, among the nightly backups (`shelf-backup-…-before-upgrade.zip`), listed and kept as they are. If it can't (the folder full, or not Shelf's to write), it leaves the database as it was and stops, saying why; `Backup:BeforeMigrating` set to `false` updates without it. A new shelf, and a start with nothing to change, take none.
@@ -697,7 +699,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.17.1...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.18.0...HEAD
+[2.18.0]: https://github.com/doodersrage/shelf/compare/v2.17.1...v2.18.0
 [2.17.1]: https://github.com/doodersrage/shelf/compare/v2.17.0...v2.17.1
 [2.17.0]: https://github.com/doodersrage/shelf/compare/v2.16.2...v2.17.0
 [2.16.2]: https://github.com/doodersrage/shelf/compare/v2.16.1...v2.16.2
