@@ -346,7 +346,7 @@ else if (Borrowable.Length > 0)
             var match = await Lookup.FindAsync(Model.Isbn, Model.Title, Model.Author, CancellationToken.None);
             found = match;
             lookupNote = match is null
-                ? T("Nothing matched.")
+                ? Lookup.CouldNotAsk ? T("The book catalogs couldn't be reached, so nothing was looked up. Try again a little later, or fill in the details yourself.") : T("Nothing matched.")
                 : Model.FillBlanks(match) ? T("Filled the empty fields.") : T("Those fields are already filled.");
         }
         finally

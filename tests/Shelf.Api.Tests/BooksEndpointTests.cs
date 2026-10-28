@@ -452,6 +452,25 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         Assert.Contains(listed!, quote => quote.BookId == book.Id);
     }
 
+    // With no catalog to ask, a lookup says so (503, and why) rather than that no such book is known.
+    [Fact]
+    public async Task Lookup_says_when_no_catalog_could_be_asked()
+    {
+        await using var app = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services => services.AddTransient<IBookLookup, UnreachableLookup>()));
+        var reader = app.CreateClient();
+        await ShelfApiFactory.PostFormAsync(reader, "/signin", "/account/signin", new() { ["name"] = "Tenar", ["password"] = ShelfApiFactory.Password });
+        var answer = await reader.GetAsync("/books/lookup?isbn=9780000000002");
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, answer.StatusCode);
+        Assert.Contains("couldn't be reached", await answer.Content.ReadAsStringAsync());
+    }
+
+    private sealed class UnreachableLookup : IBookLookup
+    {
+        public bool CouldNotAsk => true;
+
+        public Task<CatalogMatch?> FindAsync(string? isbn, string? title, string? author, CancellationToken cancellationToken) => Task.FromResult<CatalogMatch?>(null);
+    }
+
     [Fact]
     public async Task Lookup_returns_a_catalog_match_for_a_known_isbn()
     {

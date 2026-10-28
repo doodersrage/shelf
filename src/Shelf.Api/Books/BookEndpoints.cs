@@ -523,7 +523,8 @@ public static class BookEndpoints
         return TypedResults.Ok(new ShelfSettingsResponse(goals.Books, goals.Pages, goals.Hours));
     }
 
-    private static async Task<Results<Ok<CatalogMatch>, NotFound>> LookupBook(
+    // Not found is the catalogs' answer; 503 says none could be asked, so the caller knows to try again.
+    private static async Task<Results<Ok<CatalogMatch>, NotFound, ProblemHttpResult>> LookupBook(
         IBookLookup lookup,
         CancellationToken cancellationToken,
         string? isbn = null,
@@ -531,6 +532,11 @@ public static class BookEndpoints
         string? author = null)
     {
         var match = await lookup.FindAsync(isbn, title, author, cancellationToken);
+        if (match is null && lookup.CouldNotAsk)
+        {
+            return TypedResults.Problem(Localization.Words.T("The book catalogs couldn't be reached, so nothing was looked up. Try again a little later, or fill in the details yourself."), statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+
         return match is null ? TypedResults.NotFound() : TypedResults.Ok(match);
     }
 

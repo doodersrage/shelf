@@ -24,6 +24,10 @@
 {
     <p class="hint" role="status">@T("Searching…")</p>
 }
+else if (searched && hits.Count == 0 && Search.CouldNotAsk)
+{
+    <p class="validation-message" role="status">@T("Open Library couldn't be reached, so nothing was searched. Try again a little later.")</p>
+}
 else if (searched && hits.Count == 0)
 {
     <p class="hint" role="status">@T("Open Library knows no book by that. Try fewer words, or the ISBN.")</p>

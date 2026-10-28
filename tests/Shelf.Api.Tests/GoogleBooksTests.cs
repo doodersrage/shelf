@@ -81,6 +81,41 @@ public sealed class GoogleBooksTests
         Assert.Null((await plain.FindAsync("9788445076750", null, null, CancellationToken.None))!.Series);
     }
 
+    // Nothing found because no catalog could be asked is told apart from nothing found: a catalog that answers "not
+    // found" has answered, and only when every one asked was out of reach, busy, or in trouble could none be asked.
+    [Fact]
+    public async Task A_lookup_tells_catalogs_out_of_reach_from_a_book_none_knows()
+    {
+        static HttpResponseMessage Down() => new(HttpStatusCode.ServiceUnavailable);
+        static HttpResponseMessage Busy() => new(HttpStatusCode.TooManyRequests);
+
+        var (bothDown, _, _) = Make(_ => Down(), _ => Busy());
+        Assert.Null(await bothDown.FindAsync("9780000000002", null, null, CancellationToken.None));
+        Assert.True(bothDown.CouldNotAsk);
+
+        var (unknown, _, _) = Make(_ => NotFound(), _ => Json("{\"totalItems\":0}"));
+        Assert.Null(await unknown.FindAsync("9780000000002", null, null, CancellationToken.None));
+        Assert.False(unknown.CouldNotAsk);
+
+        // Google answered, though Open Library couldn't: the book is simply not known.
+        var (googleAnswered, _, _) = Make(_ => Down(), _ => Json("{\"totalItems\":0}"));
+        Assert.Null(await googleAnswered.FindAsync("9780000000002", null, null, CancellationToken.None));
+        Assert.False(googleAnswered.CouldNotAsk);
+
+        // With Google Books turned off, Open Library out of reach is every catalog there is.
+        var (alone, _, _) = Make(_ => Down(), _ => Json("{}"), enabled: false);
+        Assert.Null(await alone.FindAsync("9780000000002", null, null, CancellationToken.None));
+        Assert.True(alone.CouldNotAsk);
+
+        // Find's search the same.
+        var search = new OpenLibrarySearch(new HttpClient(new Answering(_ => Down())) { BaseAddress = new Uri("https://openlibrary.org/") });
+        Assert.Empty(await search.SearchAsync("moby dick", CancellationToken.None));
+        Assert.True(search.CouldNotAsk);
+        var answered = new OpenLibrarySearch(new HttpClient(new Answering(_ => Json("{\"docs\":[]}"))) { BaseAddress = new Uri("https://openlibrary.org/") });
+        Assert.Empty(await answered.SearchAsync("no such book anywhere", CancellationToken.None));
+        Assert.False(answered.CouldNotAsk);
+    }
+
     private sealed class Hardcover(CatalogMatch? match) : IHardcoverLookup
     {
         public List<string?> Asked { get; } = [];

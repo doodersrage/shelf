@@ -247,6 +247,16 @@ Success means a reader can reliably:
 - [x] Chromium: both accessibility tests and the wayfinding spec pass (5 tests). Firefox runs in CI only.
 - Still not audited: the reader's settings and contents panels, the mini player, the bulk-edit bar, mobile width, and es/fr/de.
 
+### Follow-up task 15: catalog lookups tell an outage from "not found" (audit P2), done 2026-10-28
+
+- [x] `IBookLookup.CouldNotAsk` and `IBookSearch.CouldNotAsk` are default interface members, false, so test stand-ins are unaffected.
+  - `OpenLibraryLookup`, `GoogleBooksLookup`, and `OpenLibrarySearch` set it on 429, 5xx, a timeout, a network error, or a Polly rejection. Google also counts 403 (its quota without a key). A 404 or an empty answer is a real "not found".
+  - `CatalogLookup` reports it only when nothing was found and every catalog asked couldn't be (Google counts as not asked when turned off).
+- [x] Where it shows: `/books/lookup` answers 503 with the reason, the add/edit form's lookup note explains it, and the Find page shows an error instead of "knows no book".
+- [x] `OpenLibrarySearch` now also catches `Polly.ExecutionRejectedException`, which used to escape.
+- [x] Tests: `GoogleBooksTests.A_lookup_tells_catalogs_out_of_reach_from_a_book_none_knows` and `BooksEndpointTests.Lookup_says_when_no_catalog_could_be_asked`. 2 new strings in es/fr/de.
+- Not changed: the background "Fill in details" job (`DetailsFiller`) and scanning still treat an outage as no match. Their per-book notes could use the same flag.
+
 ---
 
 # M1 — Reliability, security, and data integrity

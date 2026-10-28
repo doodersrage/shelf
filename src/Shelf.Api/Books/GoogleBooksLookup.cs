@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Text.Json;
 
 namespace Shelf.Api.Books;
@@ -10,8 +11,11 @@ public sealed class GoogleBooksLookup(HttpClient http, IConfiguration configurat
 {
     public bool Enabled => configuration.GetValue("Lookup:GoogleBooks", true);
 
+    public bool CouldNotAsk { get; private set; }
+
     public async Task<CatalogMatch?> FindAsync(string? isbn, string? title, string? author, CancellationToken cancellationToken)
     {
+        CouldNotAsk = false;
         if (!Enabled)
         {
             return null;
@@ -39,6 +43,8 @@ public sealed class GoogleBooksLookup(HttpClient http, IConfiguration configurat
             using var response = await http.GetAsync(address, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
+                // Over its daily allowance (429, or 403 without a key) or in trouble: not asked, rather than not known.
+                CouldNotAsk = response.StatusCode is HttpStatusCode.TooManyRequests or HttpStatusCode.Forbidden or >= HttpStatusCode.InternalServerError;
                 return null;
             }
 
@@ -80,6 +86,7 @@ public sealed class GoogleBooksLookup(HttpClient http, IConfiguration configurat
         }
         catch (Exception ex) when (ex is HttpRequestException or Polly.ExecutionRejectedException or TaskCanceledException or JsonException)
         {
+            CouldNotAsk = ex is not JsonException;
             return null;
         }
     }
@@ -126,7 +133,17 @@ public sealed class GoogleBooksLookup(HttpClient http, IConfiguration configurat
 // Hardcover, where the reader has connected it, for what is still blank: a series and its number above all.
 public sealed class CatalogLookup(OpenLibraryLookup openLibrary, GoogleBooksLookup google, IHardcoverLookup hardcover) : IBookLookup
 {
+    // Nothing found because neither Open Library nor Google Books (where it's on) could be asked.
+    public bool CouldNotAsk { get; private set; }
+
     public async Task<CatalogMatch?> FindAsync(string? isbn, string? title, string? author, CancellationToken cancellationToken)
+    {
+        var result = await LookAsync(isbn, title, author, cancellationToken);
+        CouldNotAsk = result is null && openLibrary.CouldNotAsk && (google.CouldNotAsk || !google.Enabled);
+        return result;
+    }
+
+    private async Task<CatalogMatch?> LookAsync(string? isbn, string? title, string? author, CancellationToken cancellationToken)
     {
         var found = await OpenLibraryAndGoogleAsync(isbn, title, author, cancellationToken);
         if (found is not null && !Lacking(found) && found.Series is not null)

@@ -17,12 +17,17 @@ public interface IBookSearch
 
     // An author's books, the newest first.
     Task<IReadOnlyList<CatalogHit>> ByAuthorAsync(string author, CancellationToken cancellationToken);
+
+    // After a search that found nothing: true when the catalog couldn't be asked, rather than had nothing.
+    bool CouldNotAsk => false;
 }
 
 // Open Library's search, which covers far more books than any one shelf.
 public sealed class OpenLibrarySearch(HttpClient http) : IBookSearch
 {
     private const string Fields = "key,title,author_name,first_publish_year,isbn,cover_i,number_of_pages_median";
+
+    public bool CouldNotAsk { get; private set; }
 
     public Task<IReadOnlyList<CatalogHit>> SearchAsync(string query, CancellationToken cancellationToken)
     {
@@ -36,11 +41,13 @@ public sealed class OpenLibrarySearch(HttpClient http) : IBookSearch
 
     private async Task<IReadOnlyList<CatalogHit>> AskAsync(string path, CancellationToken cancellationToken)
     {
+        CouldNotAsk = false;
         try
         {
             using var response = await http.GetAsync(path, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
+                CouldNotAsk = response.StatusCode is System.Net.HttpStatusCode.TooManyRequests or >= System.Net.HttpStatusCode.InternalServerError;
                 return [];
             }
 
@@ -69,8 +76,9 @@ public sealed class OpenLibrarySearch(HttpClient http) : IBookSearch
 
             return hits;
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or KeyNotFoundException or InvalidOperationException)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or Polly.ExecutionRejectedException or JsonException or KeyNotFoundException or InvalidOperationException)
         {
+            CouldNotAsk = ex is HttpRequestException or TaskCanceledException or Polly.ExecutionRejectedException;
             return [];
         }
     }

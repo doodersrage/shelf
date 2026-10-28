@@ -1210,6 +1210,8 @@
   "Open it at Open Library": "Bei Open Library öffnen",
   "Open it in the classic reader": "Im klassischen Leser öffnen",
   "Open Library knows no book by that. Try fewer words, or the ISBN.": "Open Library kennt kein solches Buch. Versuchen Sie weniger Wörter oder die ISBN.",
+  "Open Library couldn't be reached, so nothing was searched. Try again a little later.": "Open Library ist nicht erreichbar, daher wurde nichts gesucht. Versuche es etwas später noch einmal.",
+  "The book catalogs couldn't be reached, so nothing was looked up. Try again a little later, or fill in the details yourself.": "Die Buchkataloge sind nicht erreichbar, daher wurde nichts nachgeschlagen. Versuche es etwas später noch einmal, oder trage die Angaben selbst ein.",
   "Open now": "Gerade offen",
   "Open Shelf and go to Series to see them.": "Öffne Shelf und gehe zu Reihen, um sie zu sehen.",
   "Open the book": "Buch öffnen",

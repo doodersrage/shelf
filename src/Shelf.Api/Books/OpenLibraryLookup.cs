@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -6,12 +7,19 @@ namespace Shelf.Api.Books;
 public interface IBookLookup
 {
     Task<CatalogMatch?> FindAsync(string? isbn, string? title, string? author, CancellationToken cancellationToken);
+
+    // After a FindAsync that found nothing: true when that was because no catalog could be asked (out of reach, busy,
+    // or in trouble), not because none had the book.
+    bool CouldNotAsk => false;
 }
 
 public sealed class OpenLibraryLookup(HttpClient http) : IBookLookup
 {
+    public bool CouldNotAsk { get; private set; }
+
     public async Task<CatalogMatch?> FindAsync(string? isbn, string? title, string? author, CancellationToken cancellationToken)
     {
+        CouldNotAsk = false;
         try
         {
             var normalized = BookRules.NormalizeIsbn(isbn);
@@ -27,6 +35,7 @@ public sealed class OpenLibraryLookup(HttpClient http) : IBookLookup
         }
         catch (Exception ex) when (ex is HttpRequestException or Polly.ExecutionRejectedException or TaskCanceledException or JsonException)
         {
+            CouldNotAsk = ex is not JsonException;
             return null;
         }
 
@@ -148,6 +157,8 @@ public sealed class OpenLibraryLookup(HttpClient http) : IBookLookup
         var response = await http.GetAsync(path, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
+            // Not found is an answer; busy or broken is not.
+            CouldNotAsk |= response.StatusCode is HttpStatusCode.TooManyRequests or >= HttpStatusCode.InternalServerError;
             return default;
         }
 
