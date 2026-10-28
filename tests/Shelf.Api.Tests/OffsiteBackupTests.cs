@@ -42,10 +42,28 @@ public sealed class OffsiteBackupTests(ShelfApiFactory factory) : IClassFixture<
         var schedule = app.Services.GetRequiredService<BackupSchedule>();
         var offsite = app.Services.GetRequiredService<OffsiteBackup>();
 
+        // Each backup's drill as it is taken, before the oldest is let go with its verdict.
         var taken = new List<AutomaticBackup>();
+        var proved = new List<bool>();
         for (var n = 0; n < 3; n++)
         {
             taken.Add(await schedule.TakeAsync(CancellationToken.None));
+            proved.Add(BackupCheck.VerdictAt(schedule.PathOf(taken[^1].Name)!) is { Ok: true });
+        }
+
+        // Only a backup proved to restore goes elsewhere. On PostgreSQL with no pg_dump that matches the server, as in
+        // CI, none is, and none may go; on SQLite each is.
+        if (!ShelfApiFactory.OnPostgres)
+        {
+            Assert.All(proved, Assert.True);
+        }
+
+        if (!proved.Any(ok => ok))
+        {
+            Assert.False(Directory.Exists(copies) && Directory.EnumerateFiles(copies).Any());
+            Assert.Empty(s3.Objects);
+            Assert.Empty(offsite.Last);
+            return;
         }
 
         var kept = taken.Skip(1).Select(backup => backup.Name).Order().ToList();
@@ -95,8 +113,20 @@ public sealed class OffsiteBackupTests(ShelfApiFactory factory) : IClassFixture<
             builder.UseSetting("Backup:S3:AccessKey", "an-access-key");
             builder.UseSetting("Backup:S3:SecretKey", "the-wrong-key");
         });
-        var backup = await app.Services.GetRequiredService<BackupSchedule>().TakeAsync(CancellationToken.None);
-        Assert.NotNull(app.Services.GetRequiredService<BackupSchedule>().PathOf(backup.Name));
+        var schedule = app.Services.GetRequiredService<BackupSchedule>();
+        var backup = await schedule.TakeAsync(CancellationToken.None);
+        Assert.NotNull(schedule.PathOf(backup.Name));
+
+        // A backup not proved to restore (PostgreSQL with no matching pg_dump, as in CI) isn't sent at all.
+        var proved = BackupCheck.VerdictAt(schedule.PathOf(backup.Name)!) is { Ok: true };
+        Assert.True(proved || ShelfApiFactory.OnPostgres);
+        if (!proved)
+        {
+            Assert.Empty(app.Services.GetRequiredService<OffsiteBackup>().Last);
+            Assert.Empty(s3.Objects);
+            return;
+        }
+
         var result = Assert.Single(app.Services.GetRequiredService<OffsiteBackup>().Last);
         Assert.False(result.Sent);
         Assert.Contains("Access Denied", result.Problem);
