@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.19.0] - 2026-10-28
+
 ### Added
 
 - **Shared with you, on Home**: what other readers share is on Home, not three clicks away. The books they've lent you, with who lent them and when they're due, ready to read or listen to; the books newest on their open shelves, each opening its shelf at that book to ask for it; and every open shelf with how many books it holds. A reader with no books yet sees it above the welcome. Like Home's other parts, it can be moved or hidden under **Arrange Home**. Only what an open shelf shows anyone is there: titles, authors, and covers.
@@ -717,7 +719,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.18.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.19.0...HEAD
+[2.19.0]: https://github.com/doodersrage/shelf/compare/v2.18.0...v2.19.0
 [2.18.0]: https://github.com/doodersrage/shelf/compare/v2.17.1...v2.18.0
 [2.17.1]: https://github.com/doodersrage/shelf/compare/v2.17.0...v2.17.1
 [2.17.0]: https://github.com/doodersrage/shelf/compare/v2.16.2...v2.17.0
