@@ -16,6 +16,9 @@ public static class YearCard
     private const int Height = 1350;
     private const int MaxCovers = 12;
 
+    // The HTTP client for covers fetched from their addresses, held to the outbound guard (Program.cs).
+    public const string ClientName = "year-card-covers";
+
     public static void Map(RouteGroupBuilder books) =>
         books.MapGet("/years/{year:int}/card.svg", async (int year, ShelfDb db, EbookStore ebooks, CoverStore covers, IHttpClientFactory clients, CancellationToken cancellationToken) =>
         {
@@ -34,7 +37,7 @@ public static class YearCard
     // the address it was linked from (a few seconds at most); a book with neither shows its title on a spine.
     private static async Task<List<(Book Book, string? Data)>> CoversAsync(IEnumerable<Book> books, EbookStore ebooks, CoverStore covers, IHttpClientFactory clients, CancellationToken cancellationToken)
     {
-        var http = clients.CreateClient(FreeCatalog.ClientName);
+        var http = clients.CreateClient(ClientName);
         var tasks = books.Select(async book =>
         {
             if (Covers.Picture(book, ebooks, covers) is { } bytes)
@@ -48,13 +51,15 @@ public static class YearCard
                 {
                     using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                     limit.CancelAfter(TimeSpan.FromSeconds(5));
-                    using var response = await http.GetAsync(address, limit.Token);
-                    if (response.IsSuccessStatusCode && response.Content.Headers.ContentLength is null or <= CoverStore.MaxBytes)
+                    using var response = await http.GetAsync(address, HttpCompletionOption.ResponseHeadersRead, limit.Token);
+                    // Only a picture, and no bigger than a cover may be, goes into the card.
+                    if (response.IsSuccessStatusCode && response.Content.Headers.ContentLength is null or <= CoverStore.MaxBytes
+                        && await PictureAsync(response.Content, limit.Token) is { } picture)
                     {
-                        return (book, (string?)DataUri(await response.Content.ReadAsByteArrayAsync(limit.Token)));
+                        return (book, (string?)DataUri(picture));
                     }
                 }
-                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
                 {
                     // The spine stands in.
                 }
@@ -63,6 +68,27 @@ public static class YearCard
             return (book, (string?)null);
         });
         return [.. await Task.WhenAll(tasks)];
+    }
+
+    // The answer's bytes if they are a JPEG, PNG, GIF, or WebP of at most CoverStore.MaxBytes; read no further than that.
+    private static async Task<byte[]?> PictureAsync(HttpContent content, CancellationToken cancellationToken)
+    {
+        await using var source = await content.ReadAsStreamAsync(cancellationToken);
+        using var copy = new MemoryStream();
+        var buffer = new byte[81920];
+        int read;
+        while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0)
+        {
+            if (copy.Length + read > CoverStore.MaxBytes)
+            {
+                return null;
+            }
+
+            copy.Write(buffer, 0, read);
+        }
+
+        var bytes = copy.ToArray();
+        return CoverStore.Kind(bytes) is not null ? bytes : null;
     }
 
     private static string DataUri(byte[] bytes)

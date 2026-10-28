@@ -153,7 +153,7 @@ Under **System** on **Shelf admin**:
 
 ## Addresses readers give
 
-A podcast's feed and the episodes it lists, and an Audiobookshelf to import from, are fetched by the server at addresses a reader types. So the shelf can't be used to reach inside the network it runs in, those must be on the internet: the server refuses to connect to itself, the local network, or a cloud's metadata service, checking the address a name resolves to at the moment of connecting, redirects included. An admin's Audiobookshelf may be on the local network, as may notices (ntfy, Gotify) and webhooks. Set `Network:AllowPrivateAddresses` to let readers' addresses reach the local network too.
+A podcast's feed and the episodes it lists, an Audiobookshelf to import from, and the covers a year's card draws from the addresses books' covers were linked from are fetched by the server at addresses a reader gives. So the shelf can't be used to reach inside the network it runs in, those must be on the internet: the server refuses to connect to itself, the local network, or a cloud's metadata service, checking the address a name resolves to at the moment of connecting, redirects included. An admin's Audiobookshelf may be on the local network, as may notices (ntfy, Gotify) and webhooks. Set `Network:AllowPrivateAddresses` to let readers' addresses reach the local network too.
 
 ## Headers
 
