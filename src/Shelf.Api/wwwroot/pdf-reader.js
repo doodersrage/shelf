@@ -135,7 +135,7 @@ async function render() {
     return;
   }
 
-  current.dotnet.invokeMethodAsync("PdfPageKind", kind);
+  current.dotnet.invokeMethodAsync("PdfPageKind", kind)?.catch(() => {});
   paint(text, current.index);
   current.host.replaceChildren(sheet);
   current.host.scrollTop = 0;
@@ -307,7 +307,7 @@ function onSelect() {
     "Selected",
     passage,
     text.slice(Math.max(0, begin - 32), begin),
-    text.slice(begin + passage.length, begin + passage.length + 32));
+    text.slice(begin + passage.length, begin + passage.length + 32))?.catch(() => {});
 }
 
 function onMarkClick(event) {
@@ -316,7 +316,7 @@ function onMarkClick(event) {
     return;
   }
 
-  state.dotnet.invokeMethodAsync("OpenMark", Number(mark.dataset.id));
+  state.dotnet.invokeMethodAsync("OpenMark", Number(mark.dataset.id))?.catch(() => {});
 }
 
 function onKey(event) {

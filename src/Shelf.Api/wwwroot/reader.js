@@ -13,26 +13,26 @@ export function listen(dotNet) {
     }
 
     if (data.source === "shelf-turn") {
-      dotNet.invokeMethodAsync("Turned", Number(data.step) || 0);
+      dotNet.invokeMethodAsync("Turned", Number(data.step) || 0)?.catch(() => {});
       return;
     }
 
     if (data.source === "shelf-page") {
-      dotNet.invokeMethodAsync("Paged", Number(data.page) || 1, Number(data.pages) || 1);
+      dotNet.invokeMethodAsync("Paged", Number(data.page) || 1, Number(data.pages) || 1)?.catch(() => {});
       return;
     }
 
     if (data.source === "shelf-place") {
-      dotNet.invokeMethodAsync("Scrolled", Number(data.at) || 0);
+      dotNet.invokeMethodAsync("Scrolled", Number(data.at) || 0)?.catch(() => {});
       return;
     }
 
     if (data.source === "shelf-selection") {
-      dotNet.invokeMethodAsync("Selected", data.text ?? "", data.prefix ?? "", data.suffix ?? "");
+      dotNet.invokeMethodAsync("Selected", data.text ?? "", data.prefix ?? "", data.suffix ?? "")?.catch(() => {});
       return;
     }
 
-    dotNet.invokeMethodAsync("OpenMark", data.id);
+    dotNet.invokeMethodAsync("OpenMark", data.id)?.catch(() => {});
   };
 
   window.addEventListener("message", handler);

@@ -88,7 +88,7 @@ function speakNext(mine) {
 
   if (index >= queue.length) {
     queue = [];
-    dotnet?.invokeMethodAsync("SpokenToEnd");
+    dotnet?.invokeMethodAsync("SpokenToEnd")?.catch(() => {});
     return;
   }
 
@@ -112,7 +112,7 @@ function speakNext(mine) {
       next();
     }
   };
-  dotnet?.invokeMethodAsync("Speaking", queue[index]);
+  dotnet?.invokeMethodAsync("Speaking", queue[index])?.catch(() => {});
   speechSynthesis.speak(utterance);
 }
 

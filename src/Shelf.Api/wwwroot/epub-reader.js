@@ -137,7 +137,7 @@ function fullClick(event) {
 // In or out of the browser's full screen (by the button, F, or Esc, which the page never sees): the page says which,
 // and the book is laid out afresh for the new size, at the same place, once the browser has drawn it.
 async function fullChanged() {
-  net?.invokeMethodAsync("FullChanged", !!document.fullscreenElement);
+  net?.invokeMethodAsync("FullChanged", !!document.fullscreenElement)?.catch(() => {});
   if (!rendition?.manager) return;
   const at = rendition.currentLocation()?.start?.cfi;
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -215,7 +215,7 @@ function paint(contents, section) {
     const range = findQuote(contents.document, mark.text, mark.prefix, mark.suffix);
     if (!range) continue;
     const cfi = section.cfiFromRange(range);
-    rendition.annotations.highlight(cfi, { id: mark.id }, () => net?.invokeMethodAsync("OpenMark", mark.id), "shelf-mark", { fill: "rgb(213, 164, 106)", "fill-opacity": "0.4", "mix-blend-mode": "multiply" });
+    rendition.annotations.highlight(cfi, { id: mark.id }, () => net?.invokeMethodAsync("OpenMark", mark.id)?.catch(() => {}), "shelf-mark", { fill: "rgb(213, 164, 106)", "fill-opacity": "0.4", "mix-blend-mode": "multiply" });
     painted.set(mark.id, cfi);
   }
 }
@@ -350,7 +350,7 @@ function keys(event) {
   if (event.target?.closest?.("input, textarea, select, [contenteditable]") || event.altKey || event.ctrlKey || event.metaKey) return;
   // Esc closes what is open over the page: the contents, the text settings, or the panel.
   if (event.key === "Escape") {
-    net?.invokeMethodAsync("Escape");
+    net?.invokeMethodAsync("Escape")?.catch(() => {});
     return;
   }
 
@@ -441,7 +441,7 @@ export async function open(host, options, dotNet) {
     const text = range?.toString().trim();
     const location = rendition.currentLocation()?.start;
     const section = chapterOf(book.spine.get(location?.href) ?? book.spine.get(location?.index ?? 0));
-    if (text) net?.invokeMethodAsync("SelectedIn", text, surrounding(range, contents.document, true), surrounding(range, contents.document, false), section);
+    if (text) net?.invokeMethodAsync("SelectedIn", text, surrounding(range, contents.document, true), surrounding(range, contents.document, false), section)?.catch(() => {});
   });
   document.addEventListener("keydown", keys);
   // Taken off the page (by going elsewhere), the reader stops at once, before the page itself is done with it.

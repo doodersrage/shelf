@@ -71,7 +71,7 @@ function tick() {
   const now = player.now();
   if (now.bookId !== state.bookId) {
     stop(false);
-    state?.dotNet.invokeMethodAsync("AlongStopped");
+    state?.dotNet.invokeMethodAsync("AlongStopped")?.catch(() => {});
     return;
   }
 
@@ -88,7 +88,7 @@ function tick() {
     const next = state.chapters.find((item) => time >= item.start - 0.05 && time <= item.end + 0.6) ?? state.chapters.find((item) => item.start > time);
     if (next && next.index !== state.chapter && !state.moving) {
       state.moving = true;
-      state.dotNet.invokeMethodAsync("AlongTo", next.index);
+      state.dotNet.invokeMethodAsync("AlongTo", next.index)?.catch(() => {});
     }
     return;
   }
