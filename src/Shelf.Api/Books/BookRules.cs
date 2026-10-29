@@ -1323,6 +1323,8 @@ public static class BookRules
         {
             var term = q.Trim().ToLower();
             var isbn = NormalizeIsbn(q);
+            // The books whose own fields hold the words, found once for the search rather than book by book.
+            var valueBooks = books.SelectMany(book => book.CustomValues).Where(value => value.Value.ToLower().Contains(term)).Select(value => value.BookId);
             books = isbn is null
                 ? books.Where(book =>
                     book.Title.ToLower().Contains(term)
@@ -1340,7 +1342,7 @@ public static class BookRules
                     || (book.Inscription != null && book.Inscription.ToLower().Contains(term))
                     || (book.RecommendedBy != null && book.RecommendedBy.ToLower().Contains(term))
                     || book.Quotes.Any(quote => quote.Text.ToLower().Contains(term))
-                    || book.CustomValues.Any(value => value.Value.ToLower().Contains(term)))
+                    || valueBooks.Contains(book.Id))
                 : books.Where(book =>
                     book.Title.ToLower().Contains(term)
                     || book.Author.ToLower().Contains(term)
@@ -1356,7 +1358,7 @@ public static class BookRules
                     || (book.Inscription != null && book.Inscription.ToLower().Contains(term))
                     || (book.RecommendedBy != null && book.RecommendedBy.ToLower().Contains(term))
                     || book.Quotes.Any(quote => quote.Text.ToLower().Contains(term))
-                    || book.CustomValues.Any(value => value.Value.ToLower().Contains(term)));
+                    || valueBooks.Contains(book.Id));
         }
 
         if (!string.IsNullOrWhiteSpace(author))

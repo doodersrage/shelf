@@ -336,3 +336,54 @@ test("a playlist plays its audiobooks one into the next", async ({ browser }) =>
   noProblems(page);
 });
 
+test("with a cast device near, the player offers it, and hands it signed addresses it can fetch alone", async ({ browser }) => {
+  const page = await signUp(browser, unique("Caster"));
+  // A stand-in for the browser's Remote Playback: a device is near, and choosing it connects at once.
+  await page.addInitScript(() => {
+    Object.defineProperty(HTMLMediaElement.prototype, "remote", {
+      configurable: true,
+      get() {
+        if (!this.fakeRemote) {
+          const element = this;
+          const listeners = {};
+          this.fakeRemote = {
+            state: "disconnected",
+            watchAvailability(callback) {
+              setTimeout(() => callback(true), 0);
+              return Promise.resolve(1);
+            },
+            addEventListener(name, listener) {
+              (listeners[name] ??= []).push(listener);
+            },
+            prompt() {
+              window.castFrom = element.src;
+              this.state = "connected";
+              for (const listener of listeners.connect ?? []) listener();
+              return Promise.resolve();
+            },
+          };
+        }
+        return this.fakeRemote;
+      },
+    });
+  });
+  const book = await createBook(page, { title: "Cast to the Kitchen", author: "Someone", status: "Reading" });
+  await upload(page, book.id, "audio", "chapters.m4b", "audio/mp4");
+  await page.goto(`/library/${book.id}/listen`);
+  await ready(page);
+  const cast = page.locator(".listen [data-player=cast]");
+  await expect(cast).toBeVisible();
+  await cast.click();
+  await expect(cast).toHaveAttribute("aria-pressed", "true");
+  const from = await page.evaluate(() => window.castFrom);
+  expect(from).toMatch(/\/cast\/[^/]+\/0$/);
+
+  // The device, with no sign-in, fetches the track by that address.
+  const device = await browser.newContext();
+  const response = await device.request.get(from);
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("audio");
+  await device.close();
+  noProblems(page);
+});
+
