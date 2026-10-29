@@ -151,7 +151,22 @@ public static class ShelfSync
         var localFormats = (await db.EbookFormats.ToListAsync(cancellationToken)).ToLookup(format => format.BookId);
         foreach (var incoming in remote.Books)
         {
-            var local = locals.FirstOrDefault(book => SameBook(book.Isbn, book.Title, book.Author, incoming.Isbn, incoming.Title, incoming.Author));
+            // The same book may be on the shelf more than once (a paper copy and an e-book): the entry with this very
+            // file first, then one with a file of that kind, then any.
+            var candidates = locals.Where(book => SameBook(book.Isbn, book.Title, book.Author, incoming.Isbn, incoming.Title, incoming.Author)).ToList();
+            Book? local = null;
+            foreach (var candidate in candidates)
+            {
+                if (incoming.Ebook is not null && await ebooks.HashAsync(candidate.EbookStoredName, cancellationToken) == incoming.Ebook.Sha256)
+                {
+                    local = candidate;
+                    break;
+                }
+            }
+
+            local ??= candidates.FirstOrDefault(book => incoming.Ebook is not null && book.EbookStoredName is not null)
+                ?? candidates.FirstOrDefault(book => incoming.Audio is not null && book.AudioStoredName is not null)
+                ?? candidates.FirstOrDefault();
             var created = false;
             if (local is null)
             {

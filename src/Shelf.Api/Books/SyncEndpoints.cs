@@ -277,6 +277,11 @@ public static class SyncEndpoints
     private static async Task<Book?> FindAsync(ShelfDb db, string key, CancellationToken cancellationToken)
     {
         var books = await db.Books.ToListAsync(cancellationToken);
-        return books.FirstOrDefault(book => ShelfSync.Key(book.Isbn, book.Title, book.Author) == key);
+        // The same book may be on the shelf more than once (a paper copy and an e-book): the entry with files first.
+        return books.Where(book => ShelfSync.Key(book.Isbn, book.Title, book.Author) == key)
+            .OrderByDescending(book => book.EbookStoredName is not null)
+            .ThenByDescending(book => book.AudioStoredName is not null)
+            .ThenBy(book => book.Id)
+            .FirstOrDefault();
     }
 }

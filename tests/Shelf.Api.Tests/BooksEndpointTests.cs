@@ -952,7 +952,7 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     [Fact]
     public async Task Calendar_lists_the_days_a_book_was_read()
     {
-        var book = await CreateAsync(new CreateBookRequest("The Eye of the Heron", "Ursula K. Le Guin", BookStatus.Reading, null));
+        var book = await CreateAsync(new CreateBookRequest("The Eye of the Heron (traded formats)", "Ursula K. Le Guin", BookStatus.Reading, null));
         var created = await _client.PostAsJsonAsync(
             $"/books/{book.Id}/sessions",
             new CreateSessionRequest(new DateOnly(2026, 3, 14), 1, 20, null),
@@ -1466,8 +1466,10 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
     [Fact]
     public async Task Shelves_trade_a_books_other_formats()
     {
-        var book = await CreateAsync(new CreateBookRequest("The Eye of the Heron", "Ursula K. Le Guin", BookStatus.Want, null));
-        using (var content = new MultipartFormDataContent { { new ByteArrayContent(SampleEpub("Victoria.")), "file", "heron.epub" } })
+        // A paper copy of it too, with no file: the trade goes to the entry with the e-book.
+        await CreateAsync(new CreateBookRequest("The Eye of the Heron (traded formats)", "Ursula K. Le Guin", BookStatus.Want, null, Format: BookFormat.Hardcover));
+        var book = await CreateAsync(new CreateBookRequest("The Eye of the Heron (traded formats)", "Ursula K. Le Guin", BookStatus.Want, null));
+        using (var content = new MultipartFormDataContent { { new ByteArrayContent(SampleEpub($"Victoria, traded {Guid.NewGuid():N}.")), "file", "heron.epub" } })
         {
             await _client.PostAsync($"/books/{book.Id}/ebook", content);
         }
@@ -1492,12 +1494,13 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
                 CancellationToken.None);
         }
 
-        Assert.Contains("Brought the PDF of The Eye of the Heron.", await ExchangeAsync(catalog));
+        var broughtLines = await ExchangeAsync(catalog);
+        Assert.True(broughtLines.Contains("Brought the PDF of The Eye of the Heron (traded formats)."), string.Join("\n", broughtLines.Where(line => line.Contains("Heron"))));
         Assert.Equal(["PDF"], (await _client.GetFromJsonAsync<EbookFormatResponse[]>($"/books/{book.Id}/ebook/formats", JsonOptions))!.Select(format => format.Format));
         Assert.Empty(sent);
 
         // Offered again, it isn't brought twice; to a shelf without it, it goes.
-        Assert.DoesNotContain("Brought the PDF of The Eye of the Heron.", await ExchangeAsync(catalog));
+        Assert.DoesNotContain("Brought the PDF of The Eye of the Heron (traded formats).", await ExchangeAsync(catalog));
         await ExchangeAsync(new SyncCatalog([mine]));
         Assert.Equal(["format:heron.pdf"], sent);
 

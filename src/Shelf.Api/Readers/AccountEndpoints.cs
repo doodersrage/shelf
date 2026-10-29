@@ -472,7 +472,20 @@ public static class AccountEndpoints
     {
         var device = TwoFactor.DeviceName(http.Request.Headers.UserAgent);
         var session = await TwoFactor.StartSessionAsync(db, reader.Id, device, cancellationToken);
-        await Audit.NoteAsync(db, how ?? Localization.Words.Say("Signed in"), reader, device, cancellationToken);
+        try
+        {
+            await Audit.NoteAsync(db, how ?? Localization.Words.Say("Signed in"), reader, device, cancellationToken);
+        }
+        catch (DbUpdateException ex)
+        {
+            // The record of a sign-in never stops the sign-in (a busy database just after a restore, say).
+            foreach (var entry in db.ChangeTracker.Entries<AuditEntry>().Where(entry => entry.State == EntityState.Added).ToList())
+            {
+                entry.State = EntityState.Detached;
+            }
+
+            http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Shelf.Audit").LogWarning(ex, "A sign-in could not be written to the activity log.");
+        }
         await http.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
             ReaderRules.Principal(reader, CookieAuthenticationDefaults.AuthenticationScheme, session),
