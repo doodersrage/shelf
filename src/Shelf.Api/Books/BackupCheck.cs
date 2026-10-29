@@ -11,7 +11,8 @@ namespace Shelf.Api.Books;
 
 // What a restore drill found in one backup: whether every entry reads back whole, the database inside opens and
 // passes its own check, and how much it holds.
-public sealed record BackupVerdict(string Name, bool Ok, DateTimeOffset CheckedAt, int Entries, int Books, int Readers, bool HasFiles, string? Problem);
+// MissingFiles: e-books, other formats, and recordings the database names that aren't in the zip.
+public sealed record BackupVerdict(string Name, bool Ok, DateTimeOffset CheckedAt, int Entries, int Books, int Readers, bool HasFiles, string? Problem, int MissingFiles = 0);
 
 public sealed record BackupWithVerdict(string Name, long Bytes, DateTimeOffset TakenAt, BackupVerdict? Verdict);
 
@@ -74,6 +75,20 @@ public sealed class BackupCheck(BackupSchedule schedule, EbookStore ebooks, Audi
         return verdict;
     }
 
+    // The files the database names that the zip doesn't hold: every book's main e-book, its other formats, and its
+    // recording. A backup with all its books but some of their files would restore without them.
+    private static async Task<int> MissingFilesAsync(ShelfDb db, ZipArchive zip, CancellationToken cancellationToken)
+    {
+        var entries = zip.Entries.Select(entry => entry.FullName).ToHashSet(StringComparer.Ordinal);
+        var folders = zip.Entries.Where(entry => entry.FullName.StartsWith("audio/", StringComparison.Ordinal))
+            .Select(entry => entry.FullName.Split('/') is { Length: > 2 } parts ? parts[1] : null).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        var ebooks = await db.Books.IgnoreQueryFilters().Where(book => book.EbookStoredName != null).Select(book => book.EbookStoredName!).ToListAsync(cancellationToken);
+        ebooks.AddRange(await db.EbookFormats.IgnoreQueryFilters().Select(format => format.StoredName).ToListAsync(cancellationToken));
+        var recordings = await db.Books.IgnoreQueryFilters().Where(book => book.AudioStoredName != null).Select(book => book.AudioStoredName!).ToListAsync(cancellationToken);
+        return ebooks.Count(stored => !entries.Contains("ebooks/" + stored.Replace('\\', '/')))
+            + recordings.Count(stored => !folders.Contains(stored) && !entries.Contains("audio/" + stored));
+    }
+
     public static async Task<BackupVerdict> DrillPathAsync(string path, CancellationToken cancellationToken = default)
     {
         var name = Path.GetFileName(path);
@@ -112,7 +127,7 @@ public sealed class BackupCheck(BackupSchedule schedule, EbookStore ebooks, Audi
                 await db.Database.MigrateAsync(cancellationToken);
                 var books = await db.Books.IgnoreQueryFilters().CountAsync(cancellationToken);
                 var readers = await db.Readers.CountAsync(cancellationToken);
-                return new BackupVerdict(name, true, now, zip.Entries.Count, books, readers, hasFiles, null);
+                return new BackupVerdict(name, true, now, zip.Entries.Count, books, readers, hasFiles, null, hasFiles ? await MissingFilesAsync(db, zip, cancellationToken) : 0);
             }
 
             // PostgreSQL without pg_dump: the files, and no database to bring the server back with.

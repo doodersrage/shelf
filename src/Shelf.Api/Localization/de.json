@@ -3560,5 +3560,6 @@
   "That password is one of the first anyone would guess. Choose another: a few words you'll remember works well.": "Dieses Passwort gehört zu den ersten, die jemand ausprobieren würde. Wählen Sie ein anderes: Ein paar Wörter, die Sie sich merken können, eignen sich gut.",
   "Signed in": "Angemeldet",
   "Signed in with a passkey": "Mit einem Passkey angemeldet",
-  "Already full of tags, so not tagged: {0}.": "Schon voll mit Schlagwörtern, daher nicht verschlagwortet: {0}."
+  "Already full of tags, so not tagged: {0}.": "Schon voll mit Schlagwörtern, daher nicht verschlagwortet: {0}.",
+  "but {0} of the books' files aren't in it. Files, on the Tidy up page, lists any missing on the server too.": "aber {0} der Bücher fehlen darin. Dateien auf der Seite Aufräumen listet auch auf dem Server fehlende auf."
 }

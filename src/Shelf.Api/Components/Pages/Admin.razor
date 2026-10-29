@@ -270,6 +270,10 @@ else
                     {
                         case { Ok: true } proved:
                             <span class="hint">@T("Restores: {0} books, {1} readers, checked {2}", proved.Books.ToString("N0"), proved.Readers, proved.CheckedAt.Medium())</span>
+                            @if (proved.MissingFiles > 0)
+                            {
+                                <span class="late">@T("but {0} of the books' files aren't in it. Files, on the Tidy up page, lists any missing on the server too.", Localization.Counts.Files(proved.MissingFiles))</span>
+                            }
                             break;
                         case { } failed:
                             <span class="late">@T("Would not restore: {0}", failed.Problem ?? "")</span>

@@ -398,6 +398,34 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.NotNull(database);
         Assert.True(database.Length > 0);
         Assert.Contains(archive.Entries, entry => entry.FullName.StartsWith("ebooks/", StringComparison.Ordinal) && entry.FullName.EndsWith(".epub", StringComparison.Ordinal));
+
+        // The restore drill counts the books' files the database names but the zip lacks: here, the e-books taken out.
+        var folder = Directory.CreateTempSubdirectory("shelf-drill-files-").FullName;
+        try
+        {
+            var whole = Path.Combine(folder, "whole.zip");
+            await File.WriteAllBytesAsync(whole, await response.Content.ReadAsByteArrayAsync());
+            var lacking = Path.Combine(folder, "lacking.zip");
+            using (var source = ZipFile.OpenRead(whole))
+            using (var target = ZipFile.Open(lacking, ZipArchiveMode.Create))
+            {
+                foreach (var entry in source.Entries.Where(entry => !entry.FullName.StartsWith("ebooks/", StringComparison.Ordinal)))
+                {
+                    await using var from = entry.Open();
+                    await using var to = target.CreateEntry(entry.FullName).Open();
+                    await from.CopyToAsync(to);
+                }
+            }
+
+            var full = await BackupCheck.DrillPathAsync(whole);
+            var short_ = await BackupCheck.DrillPathAsync(lacking);
+            Assert.True(full.Ok && short_.Ok, short_.Problem);
+            Assert.True(short_.MissingFiles > full.MissingFiles, $"{short_.MissingFiles} vs {full.MissingFiles}");
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
     }
 
     // A backup without the database is never proved: not the note a snapshot leaves when pg_dump is missing, and not

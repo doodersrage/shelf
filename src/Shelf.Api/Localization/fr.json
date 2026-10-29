@@ -3560,5 +3560,6 @@
   "That password is one of the first anyone would guess. Choose another: a few words you'll remember works well.": "Ce mot de passe est parmi les premiers que l’on essaierait. Choisissez-en un autre : quelques mots dont vous vous souviendrez conviennent bien.",
   "Signed in": "Connexion",
   "Signed in with a passkey": "Connexion avec une clé d’accès",
-  "Already full of tags, so not tagged: {0}.": "Déjà pleins d’étiquettes, donc non étiquetés : {0}."
+  "Already full of tags, so not tagged: {0}.": "Déjà pleins d’étiquettes, donc non étiquetés : {0}.",
+  "but {0} of the books' files aren't in it. Files, on the Tidy up page, lists any missing on the server too.": "mais {0} des livres n’y sont pas. Fichiers, sur la page Ranger, liste aussi ceux qui manquent sur le serveur."
 }

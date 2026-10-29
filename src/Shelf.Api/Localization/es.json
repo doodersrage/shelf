@@ -3560,5 +3560,6 @@
   "That password is one of the first anyone would guess. Choose another: a few words you'll remember works well.": "Esa contraseña es de las primeras que cualquiera probaría. Elige otra: unas cuantas palabras que recuerdes funcionan bien.",
   "Signed in": "Inició sesión",
   "Signed in with a passkey": "Inició sesión con una llave de acceso",
-  "Already full of tags, so not tagged: {0}.": "Ya tenían el máximo de etiquetas, así que no se etiquetaron: {0}."
+  "Already full of tags, so not tagged: {0}.": "Ya tenían el máximo de etiquetas, así que no se etiquetaron: {0}.",
+  "but {0} of the books' files aren't in it. Files, on the Tidy up page, lists any missing on the server too.": "pero {0} de los libros no están dentro. Archivos, en la página Ordenar, muestra también los que faltan en el servidor."
 }

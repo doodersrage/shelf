@@ -6,6 +6,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Fixed
 
+- **The restore drill counts the books' files a backup lacks**: main e-books, other formats, and recordings the database names but the zip doesn't hold, shown beside the backup on Admin.
+
 - **A bulk edit counts only the books it changed**, and says how many were too full of tags to take another, where it counted every book chosen.
 - **The journal shows each day's reading and listening time**: a minute or more with a book, in the reader, on KOReader, or in the player, as "Read The Waves for 40 min" or "Listened to … for 1 h 5 min". Only your own time is shown.
 - **A place kept on a device from before a reread no longer moves the reread on**: places queued by the reader, the player, and the offline reader say which time through they were read in, and one from an earlier read is set aside. A book kept offline learns of a reread the next time its page opens.
