@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.21.0] - 2026-10-29
+
 ### Added
 
 - **Each reader keeps a time zone**, taken from their browser the first time and changed on **Account**. Reading days, streaks, goals, the dates a book is started and finished, loans, the journal, and listening sessions follow it, so an evening's reading counts on that evening. Without one, the server's zone is used (UTC in the Docker image), so nothing changes until it's set. The migration adds one column.
@@ -810,7 +812,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.20.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.21.0...HEAD
+[2.21.0]: https://github.com/doodersrage/shelf/compare/v2.20.0...v2.21.0
 [2.20.0]: https://github.com/doodersrage/shelf/compare/v2.19.1...v2.20.0
 [2.19.1]: https://github.com/doodersrage/shelf/compare/v2.19.0...v2.19.1
 [2.19.0]: https://github.com/doodersrage/shelf/compare/v2.18.0...v2.19.0
