@@ -11,6 +11,49 @@ let reported = 0;
 let pending = null;
 // The place held back by the once-a-second limit, sent at once when the reader closes rather than lost.
 let waiting = null;
+// The place last turned to, kept on this device until the shelf has it, so a page turned while the connection is
+// down isn't lost: sent by itself when the live save fails, as the page goes, and when the book opens again.
+let placeKey = null;
+let bookId = 0;
+let replayedCfi = null;
+
+const keptPlace = () => {
+  try {
+    return placeKey ? JSON.parse(localStorage.getItem(placeKey)) : null;
+  } catch {
+    return null;
+  }
+};
+
+const keepPlace = (place) => {
+  try {
+    if (placeKey) localStorage.setItem(placeKey, JSON.stringify(place));
+  } catch {
+    // A private window: the live save is all there is.
+  }
+};
+
+// Sent late, the place moves the shelf's on only, never back over reading done elsewhere since.
+function replay(place) {
+  if (!place?.waiting || !bookId) return;
+  const key = placeKey;
+  fetch(`/books/${bookId}/place`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ebookChapter: place.chapter, ebookCfi: place.cfi, ebookProgress: place.share }),
+    keepalive: true,
+    credentials: "same-origin",
+  }).then((response) => {
+    if (!response.ok || key !== placeKey) return;
+    replayedCfi = place.cfi;
+    const now = keptPlace();
+    if (now?.cfi === place.cfi) keepPlace({ ...now, waiting: false });
+  }).catch(() => { /* still out of reach: it waits */ });
+}
+
+const replayWaiting = () => replay(keptPlace());
+window.addEventListener("online", replayWaiting);
+window.addEventListener("pagehide", replayWaiting);
 let ready = false;
 let hrefs = [];
 let titles = [];
@@ -384,7 +427,17 @@ function report(location) {
     reported = Date.now();
     pending = null;
     waiting = null;
-    to.invokeMethodAsync("Relocated", start.cfi, chapter, share, percent ?? -1, page, pages).catch(() => { /* the page is going */ });
+    const place = { chapter, cfi: start.cfi, share: percent, waiting: true };
+    keepPlace(place);
+    const told = replayedCfi;
+    to.invokeMethodAsync("Relocated", start.cfi, chapter, share, percent ?? -1, page, pages, told)
+      .then(() => {
+        if (told === replayedCfi) replayedCfi = null;
+        const now = keptPlace();
+        if (now?.cfi === place.cfi) keepPlace({ ...now, waiting: false });
+      })
+      // The connection is down, or the page is going: the shelf has it by itself instead.
+      .catch(() => replay(place));
   };
   clearTimeout(pending);
   if (Date.now() - reported > 1000) send();
@@ -397,6 +450,15 @@ function report(location) {
 export async function open(host, options, dotNet) {
   close();
   net = dotNet;
+  placeKey = options.key ? `shelf-epub-place-${options.key}` : null;
+  bookId = options.bookId ?? 0;
+  replayedCfi = null;
+  // A place turned to here that the shelf never heard, further on than the shelf's: opened there, and sent.
+  const unsent = keptPlace();
+  if (unsent?.waiting && unsent.cfi && (unsent.chapter > (options.chapter ?? 0) || (unsent.chapter === (options.chapter ?? 0) && (unsent.share ?? 0) > (options.share ?? -1)))) {
+    options = { ...options, cfi: unsent.cfi, chapter: unsent.chapter };
+    replay(unsent);
+  }
   marks = options.marks ?? [];
   hrefs = options.hrefs ?? [];
   titles = options.titles ?? [];

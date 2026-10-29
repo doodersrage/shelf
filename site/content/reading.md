@@ -109,6 +109,8 @@ Offline, you can still:
 - **see your highlights**, which come along when you keep a book;
 - **highlight passages and remove highlights**, kept on the device and sent to the shelf when it answers.
 
+If the connection drops while a book is open, the EPUB and PDF readers keep the page you turned to on the device and send it once the shelf can be reached again, or the next time you open the book there. A page sent late only moves your place forward, never back over reading done elsewhere since.
+
 A book's page says when it's kept on that device. Whenever the device loses the shelf, a line across the top of the page says so, with a link to **Offline reading**, rather than pages simply failing to load.
 
 A scanned PDF's OCR words are not kept offline, and comics aren't offered for offline reading. Audiobooks can be kept too; see [Listening offline](audiobooks.md#listening-offline).

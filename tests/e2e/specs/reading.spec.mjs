@@ -107,6 +107,27 @@ test("a PDF turns pages, keeps a highlight, and remembers the page", async ({ br
   noProblems(page);
 });
 
+test("a page turned while the connection was down is kept on the device, and the shelf gets it next time", async ({ browser }) => {
+  const page = await signUp(browser, unique("Offline Turner"));
+  const book = await createBook(page, { title: "The Lathe of Heaven", author: "Ursula K. Le Guin", status: "Reading" });
+  await upload(page, book.id, "ebook", "three.pdf", "application/pdf");
+
+  await page.goto(`/library/${book.id}/read`);
+  await expect(page.locator(".reader-nav .hint")).toHaveText("Page 1 of 3");
+  // The device kept page 3 the shelf never heard, as when the connection drops between turns.
+  await page.evaluate((id) => localStorage.setItem(`shelf-pdf-page-${id}`, JSON.stringify({ index: 2, waiting: true })), book.id);
+  await page.reload();
+  await expect(page.locator(".reader-nav .hint")).toHaveText("Page 3 of 3");
+  await expect.poll(async () => (await (await page.request.get(`/books/${book.id}/place`)).json()).ebookChapter).toBe(2);
+  await expect.poll(() => page.evaluate((id) => JSON.parse(localStorage.getItem(`shelf-pdf-page-${id}`)).waiting, book.id)).toBe(false);
+
+  // Kept further back than the shelf's own place, it moves nothing.
+  await page.evaluate((id) => localStorage.setItem(`shelf-pdf-page-${id}`, JSON.stringify({ index: 0, waiting: true })), book.id);
+  await page.reload();
+  await expect(page.locator(".reader-nav .hint")).toHaveText("Page 3 of 3");
+  noProblems(page);
+});
+
 test("a scanned PDF is read with OCR, so its words can be highlighted", async ({ browser }) => {
   const page = await signUp(browser, unique("Scanner"));
   const book = await createBook(page, { title: "A Scanned Book", author: "Someone", status: "Reading" });

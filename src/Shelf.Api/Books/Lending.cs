@@ -22,7 +22,9 @@ public enum LendResult
 // Household: from a household library, whose member may or may not download its files.
 public sealed record OpenBook(Book Book, bool Borrowed, bool Shared = false, bool Household = false);
 
-public sealed record PlaceRequest(int? EbookChapter);
+// A place read where the shelf couldn't hear it (offline, or a page that lost its connection): the chapter, and
+// where present the exact place in it and how far through the book. It moves the place on only.
+public sealed record PlaceRequest(int? EbookChapter, string? EbookCfi = null, double? EbookProgress = null);
 
 public sealed record PlaceResponse(int? EbookChapter, int? AudioTrack, int? AudioSeconds, string? EbookCfi = null, double? EbookProgress = null);
 
@@ -352,12 +354,19 @@ public static class Lending
             return TypedResults.NotFound();
         }
 
+        var cfi = request.EbookCfi is { Length: > 0 and <= 1000 } given ? given : null;
+        var progress = request.EbookProgress is double share && !double.IsNaN(share) ? Math.Clamp(share, 0, 1) : (double?)null;
         using var _ = Positions.Reporting("Shelf", "offline");
         await KeepPlaceAsync(db, open, place =>
         {
+            // Further on: a later chapter, or later in the same one by how far through the book it is.
             if (chapter > (place.EbookChapter ?? -1))
             {
-                place.EbookChapter = chapter;
+                (place.EbookChapter, place.EbookCfi, place.EbookProgress) = (chapter, cfi, progress ?? place.EbookProgress);
+            }
+            else if (chapter == place.EbookChapter && cfi is not null && progress is double ahead && ahead > (place.EbookProgress ?? -1))
+            {
+                (place.EbookCfi, place.EbookProgress) = (cfi, ahead);
             }
         }, cancellationToken);
         return TypedResults.NoContent();

@@ -944,6 +944,16 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         await _client.PutAsJsonAsync($"/books/{book.Id}/place", new PlaceRequest(1), JsonOptions);
         Assert.Equal(3, (await _client.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!.EbookChapter);
         Assert.Equal(HttpStatusCode.BadRequest, (await _client.PutAsJsonAsync($"/books/{book.Id}/place", new PlaceRequest(-1), JsonOptions)).StatusCode);
+
+        // An exact place sent late moves on within the chapter by how far through the book it is, never back.
+        await _client.PutAsJsonAsync($"/books/{book.Id}/place", new PlaceRequest(3, "epubcfi(/6/8!/4/2/10)", 0.40), JsonOptions);
+        await _client.PutAsJsonAsync($"/books/{book.Id}/place", new PlaceRequest(3, "epubcfi(/6/8!/4/2/2)", 0.35), JsonOptions);
+        var exact = (await _client.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!;
+        Assert.Equal(("epubcfi(/6/8!/4/2/10)", 0.40), (exact.EbookCfi, exact.EbookProgress));
+
+        // A later chapter without an exact place drops the old chapter's, which would open the reader back there.
+        await _client.PutAsJsonAsync($"/books/{book.Id}/place", new PlaceRequest(4), JsonOptions);
+        Assert.Null((await _client.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!.EbookCfi);
         var stranger = await factory.SignUpAsync("Place Stranger");
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync($"/books/{book.Id}/place")).StatusCode);
     }

@@ -11,8 +11,59 @@ let ocrTimer = 0;
 // Fewer letters than this of a page's own and it is a picture of text, worth asking the server to read.
 const ownTextLetters = 16;
 
+// The page last shown, kept on this device until the shelf has it, as the EPUB reader keeps its place: a page
+// turned while the connection is down goes to the shelf by itself, moving its place on only.
+let pageKey = null;
+let pageBook = 0;
+let replayedPage = null;
+
+const keptPage = () => {
+  try {
+    return pageKey ? JSON.parse(localStorage.getItem(pageKey)) : null;
+  } catch {
+    return null;
+  }
+};
+
+const keepPage = (kept) => {
+  try {
+    if (pageKey) localStorage.setItem(pageKey, JSON.stringify(kept));
+  } catch {
+    // A private window: the live save is all there is.
+  }
+};
+
+function replayPage(kept) {
+  if (!kept?.waiting || !pageBook) return;
+  const key = pageKey;
+  fetch(`/books/${pageBook}/place`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ebookChapter: kept.index }),
+    keepalive: true,
+    credentials: "same-origin",
+  }).then((response) => {
+    if (!response.ok || key !== pageKey) return;
+    replayedPage = kept.index;
+    const now = keptPage();
+    if (now?.index === kept.index) keepPage({ ...now, waiting: false });
+  }).catch(() => { /* still out of reach: it waits */ });
+}
+
+window.addEventListener("online", () => replayPage(keptPage()));
+window.addEventListener("pagehide", () => replayPage(keptPage()));
+
 export async function open(host, url, start, size, dotnet, marks, ocrBase) {
   close();
+  pageBook = Number(/\/books\/(\d+)\//.exec(url)?.[1] ?? 0);
+  pageKey = pageBook ? `shelf-pdf-page-${pageBook}` : null;
+  replayedPage = null;
+  // A page shown here that the shelf never heard, further on than the shelf's: opened there, and sent.
+  const unsent = keptPage();
+  if (unsent?.waiting && unsent.index > start) {
+    start = unsent.index;
+    replayPage(unsent);
+  }
   // No eval and no XFA forms: a PDF from anywhere should only ever be drawn, never run.
   const task = pdfjs.getDocument({ url, isEvalSupported: false, enableXfa: false });
   const doc = await task.promise;
@@ -139,7 +190,18 @@ async function render() {
   paint(text, current.index);
   current.host.replaceChildren(sheet);
   current.host.scrollTop = 0;
-  await current.dotnet.invokeMethodAsync("PdfShown", current.index, current.doc.numPages);
+  const kept = { index: current.index, waiting: true };
+  keepPage(kept);
+  const told = replayedPage;
+  try {
+    await current.dotnet.invokeMethodAsync("PdfShown", current.index, current.doc.numPages, told);
+    if (told === replayedPage) replayedPage = null;
+    const now = keptPage();
+    if (now?.index === kept.index) keepPage({ ...now, waiting: false });
+  } catch {
+    // The connection is down, or the page is going: the shelf has it by itself instead.
+    replayPage(kept);
+  }
 }
 
 function letters(layer) {

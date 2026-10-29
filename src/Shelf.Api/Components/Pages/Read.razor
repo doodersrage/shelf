@@ -641,6 +641,8 @@ else if (book is not null)
             {
                 url = $"/books/{book.Id}/ebook/file",
                 key = $"{book.Id}-{book.EbookStoredName}",
+                bookId = book.Id,
+                share = bookShare,
                 cfi = savedCfi,
                 chapter,
                 at = chapterAt,
@@ -665,7 +667,8 @@ else if (book is not null)
 
     // Where the reader is now: kept on the server as it changes, so any device opens there.
     [JSInvokable]
-    public Task Relocated(string cfi, int index, double at, double share, int shown, int count) => InvokeAsync(async () =>
+    // replayed: a place this page sent the shelf by itself while its connection was down, to know it as its own.
+    public Task Relocated(string cfi, int index, double at, double share, int shown, int count, string? replayed = null) => InvokeAsync(async () =>
     {
         (chapter, chapterAt, page, pages, savedCfi) = (Math.Clamp(index, 0, Math.Max(0, (chapters?.Count ?? 1) - 1)), Math.Clamp(at, 0, 1), shown, count, cfi);
         if (share >= 0)
@@ -674,7 +677,7 @@ else if (book is not null)
         }
 
         var kept = chapter;
-        await KeepAsync(place =>
+        await KeepAsync(replayed: replayed, move: place =>
         {
             place.EbookChapter = kept;
             place.EbookCfi = cfi.Length <= 1000 ? cfi : null;
@@ -696,7 +699,7 @@ else if (book is not null)
     private static LoanPlace EbookPart(LoanPlace place) =>
         new() { EbookChapter = place.EbookChapter, EbookCfi = place.EbookCfi, EbookProgress = place.EbookProgress };
 
-    private async Task KeepAsync(Action<LoanPlace> move, bool anyway = false)
+    private async Task KeepAsync(Action<LoanPlace> move, bool anyway = false, string? replayed = null, int? replayedPage = null)
     {
         if (open is null)
         {
@@ -720,7 +723,8 @@ else if (book is not null)
                 // Still where this tab saw it, or already where this move takes it.
                 var target = EbookPart(place);
                 move(target);
-                if ((place.EbookChapter == seen.EbookChapter && place.EbookCfi == seen.EbookCfi) || (place.EbookChapter == target.EbookChapter && place.EbookCfi == target.EbookCfi))
+                if ((place.EbookChapter == seen.EbookChapter && place.EbookCfi == seen.EbookCfi) || (place.EbookChapter == target.EbookChapter && place.EbookCfi == target.EbookCfi)
+                    || (replayed is not null && place.EbookCfi == replayed) || (replayedPage is int page && place.EbookChapter == page && place.EbookCfi is null))
                 {
                     return true;
                 }
@@ -1680,14 +1684,14 @@ else if (book is not null)
 
     // The PDF module reports each page it shows; the place is kept as for an EPUB chapter.
     [JSInvokable]
-    public async Task PdfShown(int index, int total)
+    public async Task PdfShown(int index, int total, int? replayed = null)
     {
         var moved = index != pdfIndex;
         pdfIndex = index;
         pdfPages = total;
         if (moved)
         {
-            await KeepAsync(place => place.EbookChapter = index);
+            await KeepAsync(place => place.EbookChapter = index, replayedPage: replayed);
         }
 
         // Reading aloud goes on into the page it turned to; a page turned by hand stops it.
