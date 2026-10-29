@@ -382,8 +382,11 @@ public static class EpubDetails
 }
 
 // Copies of the shelf's EPUBs with its details written in, kept beside them so each is made once per change.
-public sealed class EpubDetailsStore(EbookStore ebooks, CoverStore covers, ILogger<EpubDetailsStore> logger)
+public sealed class EpubDetailsStore(EbookStore ebooks, CoverStore covers, IHttpClientFactory clients, ILogger<EpubDetailsStore> logger)
 {
+    public const string CoverClient = "epub-cover";
+    private static readonly TimeSpan TryAgainAfter = TimeSpan.FromDays(1);
+
     private readonly SemaphoreSlim making = new(1, 1);
 
     private string Root => Path.Combine(ebooks.Root, "with-details");
@@ -403,6 +406,11 @@ public sealed class EpubDetailsStore(EbookStore ebooks, CoverStore covers, ILogg
         }
 
         var details = EpubDetailsToWrite.For(book, covers);
+        if (details.CoverPath is null && await RemoteCoverAsync(book.CoverUrl, cancellationToken) is { } fetched)
+        {
+            details = details with { CoverPath = fetched };
+        }
+
         var stem = Path.GetFileNameWithoutExtension(book.EbookStoredName)!;
         var path = Path.Combine(Root, $"{stem}.{EpubDetails.Fingerprint(details, original)}.epub");
         if (File.Exists(path))
@@ -437,6 +445,67 @@ public sealed class EpubDetailsStore(EbookStore ebooks, CoverStore covers, ILogg
         {
             making.Release();
         }
+    }
+
+    // A cover known only by its address, fetched once and kept beside the copies, so the EPUB carries the picture the
+    // shelf shows. Only from the open internet, and only a picture of the size a cover may be; one that can't be had
+    // is tried again a day later, and the EPUB goes without it meanwhile.
+    private async Task<string?> RemoteCoverAsync(string? address, CancellationToken cancellationToken)
+    {
+        if (!Uri.TryCreate(address, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+        {
+            return null;
+        }
+
+        var folder = Path.Combine(Root, "covers");
+        var name = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(uri.AbsoluteUri)))[..24].ToLowerInvariant();
+        var path = Path.Combine(folder, name + ".img");
+        var failed = Path.Combine(folder, name + ".failed");
+        if (File.Exists(path))
+        {
+            return path;
+        }
+
+        if (File.Exists(failed) && DateTime.UtcNow - File.GetLastWriteTimeUtc(failed) < TryAgainAfter)
+        {
+            return null;
+        }
+
+        Directory.CreateDirectory(folder);
+        try
+        {
+            using var soon = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            soon.CancelAfter(TimeSpan.FromSeconds(15));
+            using var answer = await clients.CreateClient(CoverClient).GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, soon.Token);
+            if (answer.IsSuccessStatusCode && answer.Content.Headers.ContentType?.MediaType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true
+                && answer.Content.Headers.ContentLength is null or <= CoverStore.MaxBytes)
+            {
+                var bytes = new MemoryStream();
+                await using (var body = await answer.Content.ReadAsStreamAsync(soon.Token))
+                {
+                    var buffer = new byte[81920];
+                    int read;
+                    while ((read = await body.ReadAsync(buffer, soon.Token)) > 0 && bytes.Length <= CoverStore.MaxBytes)
+                    {
+                        bytes.Write(buffer, 0, read);
+                    }
+                }
+
+                if (bytes.Length is > 0 and <= CoverStore.MaxBytes)
+                {
+                    await File.WriteAllBytesAsync(path, bytes.ToArray(), cancellationToken);
+                    File.Delete(failed);
+                    return path;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException && !cancellationToken.IsCancellationRequested)
+        {
+            logger.LogInformation(ex, "Could not fetch the cover at {Host} for an EPUB; it goes without.", uri.Host);
+        }
+
+        await File.WriteAllTextAsync(failed, "", cancellationToken);
+        return null;
     }
 
     // Copies whose EPUB is gone.

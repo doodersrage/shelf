@@ -272,6 +272,9 @@ builder.Services.AddHostedService(static services => services.GetRequiredService
 builder.Services.AddHostedService(static services => services.GetRequiredService<FreeBooks>());
 builder.Services.AddSingleton<EbookStore>();
 builder.Services.AddSingleton<KepubStore>();
+// A cover known only by its address, written into a downloaded EPUB: fetched from the open internet only.
+builder.Services.AddHttpClient(EpubDetailsStore.CoverClient, client => client.DefaultRequestHeaders.UserAgent.ParseAdd($"Shelf/{ShelfVersion.Response.Version} (cover)"))
+    .ConfigurePrimaryHttpMessageHandler(() => OutboundGuard.Handler(OutboundGuard.ReaderReach(builder.Configuration)));
 builder.Services.AddSingleton<EpubDetailsStore>();
 builder.Services.AddScoped<ReaderTime>();
 builder.Services.AddSingleton<Storage>();

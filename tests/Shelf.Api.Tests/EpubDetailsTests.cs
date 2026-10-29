@@ -4,6 +4,8 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Xml.Linq;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Shelf.Api.Books;
 
 namespace Shelf.Api.Tests;
@@ -136,6 +138,51 @@ public sealed class EpubDetailsTests(ShelfApiFactory factory) : IClassFixture<Sh
 
         var stranger = await factory.SignUpAsync("Details Stranger");
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync($"/books/{book.Id}/ebook/download")).StatusCode);
+    }
+
+    // A cover known only by its address goes into the download too: fetched once, then kept with the copies.
+    [Fact]
+    public async Task A_cover_known_by_its_address_goes_into_the_download()
+    {
+        var png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
+        var asked = 0;
+        await using var app = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddHttpClient(EpubDetailsStore.CoverClient).ConfigurePrimaryHttpMessageHandler(() => new Answers(request =>
+            {
+                Interlocked.Increment(ref asked);
+                return request.RequestUri!.Host == "covers.example"
+                    ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(png) { Headers = { ContentType = new("image/png") } } }
+                    : new HttpResponseMessage(HttpStatusCode.NotFound);
+            }))));
+        var reader = app.CreateClient();
+        await ShelfApiFactory.PostFormAsync(reader, "/signup", "/account/signup", new() { ["name"] = "Cover Address Reader", ["email"] = ShelfApiFactory.EmailOf("Cover Address Reader"), ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
+        var created = await reader.PostAsJsonAsync("/books", new CreateBookRequest("Covered By Address", "Someone", BookStatus.Reading, null, CoverUrl: "https://covers.example/heron.png"), JsonOptions);
+        var book = (await created.Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        using (var content = new MultipartFormDataContent { { new ByteArrayContent(BooksEndpointTests.SampleEpub($"Covered {Guid.NewGuid():N}.")), "file", "covered.epub" } })
+        {
+            await reader.PostAsync($"/books/{book.Id}/ebook", content);
+        }
+
+        bool Holds(byte[] epub)
+        {
+            using var zip = new ZipArchive(new MemoryStream(epub));
+            return zip.Entries.Any(entry =>
+            {
+                using var stream = entry.Open();
+                var bytes = new MemoryStream();
+                stream.CopyTo(bytes);
+                return bytes.ToArray().SequenceEqual(png);
+            });
+        }
+
+        Assert.True(Holds(await reader.GetByteArrayAsync($"/books/{book.Id}/ebook/download")));
+        Assert.True(Holds(await reader.GetByteArrayAsync($"/books/{book.Id}/ebook/download")));
+        Assert.Equal(1, asked);
+    }
+
+    private sealed class Answers(Func<HttpRequestMessage, HttpResponseMessage> answer) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => Task.FromResult(answer(request));
     }
 
     private static string? Meta(XElement metadata, string name) =>
