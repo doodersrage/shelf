@@ -3561,5 +3561,9 @@
   "Signed in": "Inició sesión",
   "Signed in with a passkey": "Inició sesión con una llave de acceso",
   "Already full of tags, so not tagged: {0}.": "Ya tenían el máximo de etiquetas, así que no se etiquetaron: {0}.",
-  "but {0} of the books' files aren't in it. Files, on the Tidy up page, lists any missing on the server too.": "pero {0} de los libros no están dentro. Archivos, en la página Ordenar, muestra también los que faltan en el servidor."
+  "but {0} of the books' files aren't in it. Files, on the Tidy up page, lists any missing on the server too.": "pero {0} de los libros no están dentro. Archivos, en la página Ordenar, muestra también los que faltan en el servidor.",
+  "Could not bring the {0} of {1}.": "No se pudo traer el {0} de {1}.",
+  "Brought the {0} of {1}.": "Se trajo el {0} de {1}.",
+  "Sent the {0} of {1}.": "Se envió el {0} de {1}.",
+  "Could not send the {0} of {1}.": "No se pudo enviar el {0} de {1}."
 }

@@ -1461,6 +1461,53 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         Assert.Equal("a quiet shore", reader.ReadToEnd());
     }
 
+    // A book's other formats travel between shelves too: one the other shelf has and this lacks comes, one this has
+    // and the other lacks goes, and one already here is never replaced.
+    [Fact]
+    public async Task Shelves_trade_a_books_other_formats()
+    {
+        var book = await CreateAsync(new CreateBookRequest("The Eye of the Heron", "Ursula K. Le Guin", BookStatus.Want, null));
+        using (var content = new MultipartFormDataContent { { new ByteArrayContent(SampleEpub("Victoria.")), "file", "heron.epub" } })
+        {
+            await _client.PostAsync($"/books/{book.Id}/ebook", content);
+        }
+
+        var pdf = await File.ReadAllBytesAsync(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "e2e", "fixtures", "scanned.pdf")));
+        var mine = (await _client.GetFromJsonAsync<SyncCatalog>("/books/sync", JsonOptions))!.Books.Single(item => item.Title == book.Title);
+        var catalog = new SyncCatalog([mine with { Formats = [new SyncFile("heron.pdf", pdf.Length, "theirs")] }]);
+        var sent = new List<string>();
+        async Task<IReadOnlyList<string>> ExchangeAsync(SyncCatalog remote)
+        {
+            await using var scope = factory.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<Shelf.Api.Readers.ShelfReader>().Use(factory.ReaderId);
+            return await ShelfSync.ExchangeAsync(
+                scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>(),
+                scope.ServiceProvider.GetRequiredService<EbookStore>(),
+                scope.ServiceProvider.GetRequiredService<AudioStore>(),
+                remote,
+                (_, kind, _) => Task.FromResult<Stream?>(kind == "format/PDF" ? new MemoryStream(pdf) : null),
+                (_, _) => Task.FromResult<string?>(null),
+                (_, kind, _, name, _) => { sent.Add($"{kind}:{name}"); return Task.FromResult(204); },
+                (_, _, _) => Task.CompletedTask,
+                CancellationToken.None);
+        }
+
+        Assert.Contains("Brought the PDF of The Eye of the Heron.", await ExchangeAsync(catalog));
+        Assert.Equal(["PDF"], (await _client.GetFromJsonAsync<EbookFormatResponse[]>($"/books/{book.Id}/ebook/formats", JsonOptions))!.Select(format => format.Format));
+        Assert.Empty(sent);
+
+        // Offered again, it isn't brought twice; to a shelf without it, it goes.
+        Assert.DoesNotContain("Brought the PDF of The Eye of the Heron.", await ExchangeAsync(catalog));
+        await ExchangeAsync(new SyncCatalog([mine]));
+        Assert.Equal(["format:heron.pdf"], sent);
+
+        // Over the shelf's own addresses: the format is served, and one of a kind already here is refused.
+        Assert.Equal(pdf, await _client.GetByteArrayAsync($"/books/sync/{mine.Key}/format/pdf"));
+        using var again = new MultipartFormDataContent { { new ByteArrayContent(pdf), "file", "again.pdf" } };
+        Assert.Equal(HttpStatusCode.Conflict, (await _client.PostAsync($"/books/sync/{mine.Key}/format", again)).StatusCode);
+        Assert.NotNull((await _client.GetFromJsonAsync<SyncCatalog>("/books/sync", JsonOptions))!.Books.Single(item => item.Title == book.Title).Formats);
+    }
+
     [Fact]
     public async Task Asking_for_a_book_twice_keeps_one_copy()
     {

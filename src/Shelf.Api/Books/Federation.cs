@@ -76,7 +76,9 @@ public sealed record LinkedBook(int Id, string Title, string Author, string? Cov
 
 public sealed record LinkAskRequest(int BookId, int ReaderId, string ReaderName);
 
-public sealed record LinkedLoan(int BookId, string Title, string Author, string? Subtitle, int? Year, string? Isbn, string? CoverUrl, string Owner, DateOnly? DueOn, bool HasEbook, bool HasAudio, string? EbookName, string? AudioName);
+// Formats: the book's other e-book formats (azw3, pdf, …), each to be had at /loans/{id}/formats/{format}; a shelf
+// before 2.22 sends none, and the copy carries the main e-book alone, as it did.
+public sealed record LinkedLoan(int BookId, string Title, string Author, string? Subtitle, int? Year, string? Isbn, string? CoverUrl, string Owner, DateOnly? DueOn, bool HasEbook, bool HasAudio, string? EbookName, string? AudioName, string[]? Formats = null);
 
 public sealed record ShelfLinkSummary(int Id, string Name, string Address, bool Active, DateTimeOffset CreatedAt, DateTimeOffset? LastSeenAt);
 
@@ -329,7 +331,7 @@ public sealed class Federation(IServiceScopeFactory scopes, LinkClient client, E
         // Copies lent from there go back now, as they can no longer be returned.
         foreach (var book in await db.Books.IgnoreQueryFilters().Where(book => book.VisitingLinkId == id).ToListAsync(cancellationToken))
         {
-            Return(book);
+            await ReturnAsync(db, book, cancellationToken);
         }
 
         await db.Books.IgnoreQueryFilters().Where(book => book.RemoteBorrower!.LinkId == id).ExecuteUpdateAsync(set => set.SetProperty(book => book.RemoteBorrowerId, (int?)null), cancellationToken);
@@ -353,6 +355,7 @@ public sealed class Federation(IServiceScopeFactory scopes, LinkClient client, E
         linked.MapDelete("/asks/{bookId:int}", Unask);
         linked.MapGet("/loans", Loans);
         linked.MapGet("/loans/{bookId:int}/ebook", LoanEbook);
+        linked.MapGet("/loans/{bookId:int}/formats/{format}", LoanFormat);
         linked.MapGet("/loans/{bookId:int}/audio", LoanAudio);
         linked.MapPost("/loans/{bookId:int}/return", ReturnLoan);
     }
@@ -505,9 +508,13 @@ public sealed class Federation(IServiceScopeFactory scopes, LinkClient client, E
     {
         var link = LinkOf(http);
         var books = await LentTo(db, link, readerId).AsNoTracking().Include(book => book.Owner).ToListAsync(cancellationToken);
+        var ids = books.Select(book => book.Id).ToList();
+        var formats = (await db.EbookFormats.IgnoreQueryFilters().AsNoTracking().Where(format => ids.Contains(format.BookId)).Select(format => new { format.BookId, format.StoredName }).ToListAsync(cancellationToken))
+            .ToLookup(format => format.BookId, format => EbookStore.FormatOf(format.StoredName));
         return TypedResults.Ok(books.Select(book => new LinkedLoan(book.Id, book.Title, book.Author, book.Subtitle, book.Year, book.Isbn,
             book.CoverUrl is { } cover && cover.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ? cover : null, book.Owner?.Name ?? "", book.DueOn,
-            book.EbookStoredName is not null, book.AudioStoredName is not null, book.EbookFileName, book.AudioFileName)).ToArray());
+            book.EbookStoredName is not null, book.AudioStoredName is not null, book.EbookFileName, book.AudioFileName,
+            [.. formats[book.Id].Where(format => format.Length > 0).Distinct()])).ToArray());
     }
 
     private async Task<IResult> LoanEbook(int bookId, int readerId, ShelfDb db, HttpContext http, CancellationToken cancellationToken)
@@ -515,6 +522,17 @@ public sealed class Federation(IServiceScopeFactory scopes, LinkClient client, E
         var book = await LentTo(db, LinkOf(http), readerId).AsNoTracking().FirstOrDefaultAsync(item => item.Id == bookId, cancellationToken);
         return book is not null && ebooks.OpenPath(book.EbookStoredName) is { } path
             ? Results.File(path, "application/octet-stream", book.EbookFileName ?? Path.GetFileName(path))
+            : Results.NotFound();
+    }
+
+    // One of a lent book's other formats, while it is lent to the reader there.
+    private async Task<IResult> LoanFormat(int bookId, string format, int readerId, ShelfDb db, HttpContext http, CancellationToken cancellationToken)
+    {
+        var book = await LentTo(db, LinkOf(http), readerId).AsNoTracking().FirstOrDefaultAsync(item => item.Id == bookId, cancellationToken);
+        var kept = book is null ? null : (await db.EbookFormats.IgnoreQueryFilters().AsNoTracking().Where(item => item.BookId == bookId).ToListAsync(cancellationToken))
+            .FirstOrDefault(item => string.Equals(EbookStore.FormatOf(item.StoredName), format, StringComparison.OrdinalIgnoreCase));
+        return kept is not null && ebooks.OpenPath(kept.StoredName) is { } path
+            ? Results.File(path, "application/octet-stream", kept.FileName)
             : Results.NotFound();
     }
 
@@ -700,7 +718,7 @@ public sealed class Federation(IServiceScopeFactory scopes, LinkClient client, E
             return false;
         }
 
-        Return(book);
+        await ReturnAsync(db, book, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return true;
     }
@@ -744,7 +762,7 @@ public sealed class Federation(IServiceScopeFactory scopes, LinkClient client, E
 
             foreach (var gone in visiting.Where(book => book.VisitingLinkId == linkId && loans.All(loan => loan.BookId != book.VisitingBookId)).ToList())
             {
-                Return(gone);
+                await ReturnAsync(db, gone, cancellationToken);
             }
 
             // Asks the owner declined are no longer there to wait on.
@@ -795,6 +813,31 @@ public sealed class Federation(IServiceScopeFactory scopes, LinkClient client, E
             }
         }
 
+        // Its other formats come too (a Kindle file, a PDF), kept as they came, and go back with it.
+        foreach (var format in (loan.Formats ?? []).Where(format => format.Length is > 0 and <= 10 && format.All(char.IsLetterOrDigit)).Distinct(StringComparer.OrdinalIgnoreCase).Take(8))
+        {
+            if (string.Equals(format, EbookStore.FormatOf(book.EbookStoredName), StringComparison.OrdinalIgnoreCase)
+                || await client.DownloadAsync(link, $"/federation/loans/{loan.BookId}/formats/{format}?readerId={db.ReaderId}", EbookStore.MaxBytes, cancellationToken) is not { } formatPath)
+            {
+                continue;
+            }
+
+            try
+            {
+                await using var file = File.OpenRead(formatPath);
+                var saved = await ebooks.SaveAsync(file, $"{Path.GetFileNameWithoutExtension(loan.EbookName ?? "book")}.{format.ToLowerInvariant()}", cancellationToken, keepAsIs: true);
+                if (saved is { Status: EbookSaveStatus.Saved, StoredName: { } stored, FileName: { } name })
+                {
+                    db.EbookFormats.Add(new EbookFormat { BookId = book.Id, StoredName = stored, FileName = name, AddedAt = DateTimeOffset.UtcNow });
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+            }
+            finally
+            {
+                File.Delete(formatPath);
+            }
+        }
+
         if (loan.HasAudio && await client.DownloadAsync(link, $"/federation/loans/{loan.BookId}/audio?readerId={db.ReaderId}", AudioStore.MaxBytes, cancellationToken) is { } zipPath)
         {
             try
@@ -816,8 +859,14 @@ public sealed class Federation(IServiceScopeFactory scopes, LinkClient client, E
     }
 
     // A copy goes back: its files go, and with them the marks of whose it was; the reader's notes stay.
-    private void Return(Book book)
+    private async Task ReturnAsync(ShelfDb db, Book book, CancellationToken cancellationToken)
     {
+        foreach (var format in await db.EbookFormats.IgnoreQueryFilters().Where(item => item.BookId == book.Id).ToListAsync(cancellationToken))
+        {
+            ebooks.Delete(format.StoredName);
+            db.EbookFormats.Remove(format);
+        }
+
         ebooks.Delete(book.EbookStoredName);
         audio.Delete(book.AudioStoredName);
         (book.EbookStoredName, book.EbookFileName, book.AudioStoredName, book.AudioFileName, book.AudioChapterNames) = (null, null, null, null, null);

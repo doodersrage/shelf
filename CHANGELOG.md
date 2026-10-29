@@ -6,6 +6,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Fixed
 
+- **A book's other formats travel with it**: a copy lent from a linked shelf brings them and gives them back with the book, and Shelf-to-Shelf brings a format the other shelf has and sends one it lacks, never replacing one already there.
+
 - **The restore drill counts the books' files a backup lacks**: main e-books, other formats, and recordings the database names but the zip doesn't hold, shown beside the backup on Admin.
 
 - **A bulk edit counts only the books it changed**, and says how many were too full of tags to take another, where it counted every book chosen.

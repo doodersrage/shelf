@@ -38,10 +38,21 @@ public static class ShelfSync
         CancellationToken cancellationToken)
     {
         var books = await db.Books.AsNoTracking().Include(book => book.Highlights).ToListAsync(cancellationToken);
+        var formats = (await db.EbookFormats.AsNoTracking().ToListAsync(cancellationToken)).ToLookup(format => format.BookId);
         var entries = new List<SyncBook>();
         foreach (var book in books)
         {
             var ebook = await DescribeEbookAsync(ebooks, book, cancellationToken);
+            var others = new List<SyncFile>();
+            foreach (var format in formats[book.Id])
+            {
+                if (await ebooks.HashAsync(format.StoredName, cancellationToken) is { } formatHash && ebooks.OpenPath(format.StoredName) is { } formatPath)
+                {
+                    // Named by its format, which is what the other shelf asks for it by.
+                    others.Add(new SyncFile(Path.ChangeExtension(format.FileName, EbookStore.FormatOf(format.StoredName).ToLowerInvariant()), new FileInfo(formatPath).Length, formatHash));
+                }
+            }
+
             var recording = await DescribeAudioAsync(audio, book, cancellationToken);
             if (ebook is null && recording is null)
             {
@@ -61,7 +72,8 @@ public static class ShelfSync
                 book.Highlights
                     .OrderBy(mark => mark.Id)
                     .Select(mark => new SyncHighlight(mark.ChapterIndex, mark.Text, mark.Note, mark.Prefix, mark.Suffix))
-                    .ToArray()));
+                    .ToArray(),
+                others.Count == 0 ? null : [.. others]));
         }
 
         return new SyncCatalog(entries.ToArray());
@@ -136,6 +148,7 @@ public static class ShelfSync
     {
         var lines = new List<string>();
         var locals = await db.Books.Include(book => book.Highlights).ToListAsync(cancellationToken);
+        var localFormats = (await db.EbookFormats.ToListAsync(cancellationToken)).ToLookup(format => format.BookId);
         foreach (var incoming in remote.Books)
         {
             var local = locals.FirstOrDefault(book => SameBook(book.Isbn, book.Title, book.Author, incoming.Isbn, incoming.Title, incoming.Author));
@@ -222,6 +235,41 @@ public static class ShelfSync
                 }
             }
 
+            // Other formats it has and this one lacks come too, kept as they came; one already here is never replaced.
+            if (local.EbookStoredName is not null)
+            {
+                var here = localFormats[local.Id].Select(format => EbookStore.FormatOf(format.StoredName)).Append(EbookStore.FormatOf(local.EbookStoredName)).ToHashSet();
+                foreach (var other in incoming.Formats ?? [])
+                {
+                    var format = EbookStore.FormatOf(other.FileName);
+                    if (format.Length == 0 || !format.All(char.IsLetterOrDigit) || !here.Add(format) || other.Bytes > EbookStore.MaxBytes)
+                    {
+                        continue;
+                    }
+
+                    if (await download(incoming, "format/" + format, cancellationToken) is not { } formatStream)
+                    {
+                        lines.Add(Localization.Words.T("Could not bring the {0} of {1}.", format, incoming.Title));
+                        continue;
+                    }
+
+                    await using (formatStream)
+                    {
+                        var saved = await ebooks.SaveAsync(formatStream, other.FileName, cancellationToken, keepAsIs: true);
+                        if (saved is { Status: EbookSaveStatus.Saved, StoredName: { } stored, FileName: { } name })
+                        {
+                            db.EbookFormats.Add(new EbookFormat { Book = local, StoredName = stored, FileName = name, AddedAt = DateTimeOffset.UtcNow });
+                            lines.Add(Localization.Words.T("Brought the {0} of {1}.", format, incoming.Title));
+                            brought = true;
+                        }
+                        else
+                        {
+                            lines.Add(Localization.Words.T("Could not bring the {0} of {1}.", format, incoming.Title));
+                        }
+                    }
+                }
+            }
+
             if (moved)
             {
                 lines.Add(Localization.Words.T("The place in {0} moved ahead.", incoming.Title));
@@ -269,6 +317,26 @@ public static class ShelfSync
                 else
                 {
                     lines.Add(Localization.Words.T("Could not send the audiobook of {0}.", local.Title));
+                }
+            }
+
+            // Other formats the other shelf lacks go to it, once it has the book's e-book.
+            if ((match?.Ebook is not null || sentEbook) && remoteKey is not null)
+            {
+                var there = (match?.Formats ?? []).Select(file => EbookStore.FormatOf(file.FileName)).ToHashSet();
+                foreach (var format in localFormats[local.Id])
+                {
+                    var kind = EbookStore.FormatOf(format.StoredName);
+                    if (!there.Add(kind) || ebooks.OpenPath(format.StoredName) is not { } formatPath)
+                    {
+                        continue;
+                    }
+
+                    await using var formatStream = File.OpenRead(formatPath);
+                    var status = await upload(remoteKey, "format", formatStream, Path.ChangeExtension(format.FileName, kind.ToLowerInvariant()), cancellationToken);
+                    lines.Add(status == StatusCodes.Status204NoContent
+                        ? Localization.Words.T("Sent the {0} of {1}.", kind, local.Title)
+                        : Localization.Words.T("Could not send the {0} of {1}.", kind, local.Title));
                 }
             }
 
@@ -703,7 +771,8 @@ public sealed record SyncBook(
     int? AudioSeconds,
     SyncFile? Ebook,
     SyncFile? Audio,
-    SyncHighlight[] Highlights);
+    SyncHighlight[] Highlights,
+    SyncFile[]? Formats = null);
 
 public sealed record SyncFile(string FileName, long Bytes, string Sha256);
 

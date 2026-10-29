@@ -69,6 +69,55 @@ public static class SyncEndpoints
         return Results.File(path, type, enableRangeProcessing: true);
     }
 
+    // One of the book's other formats, by its name (PDF, AZW3, …).
+    public static async Task<IResult> Format(string key, string format, ShelfDb db, EbookStore store, CancellationToken cancellationToken)
+    {
+        var book = await FindAsync(db, key, cancellationToken);
+        var kept = book is null ? null : (await db.EbookFormats.Where(item => item.BookId == book.Id).ToListAsync(cancellationToken))
+            .FirstOrDefault(item => string.Equals(EbookStore.FormatOf(item.StoredName), format, StringComparison.OrdinalIgnoreCase));
+        return kept is not null && store.OpenPath(kept.StoredName) is { } path
+            ? Results.File(path, EbookStore.ContentType(kept.StoredName), enableRangeProcessing: true)
+            : TypedResults.NotFound();
+    }
+
+    // Another format from the other shelf, kept as it came. One of that format already here stays, and it is told so.
+    public static async Task<Results<NoContent, NotFound, Conflict, BadRequest>> UploadFormat(
+        string key,
+        IFormFile? file,
+        ShelfDb db,
+        EbookStore store,
+        CancellationToken cancellationToken)
+    {
+        var book = await FindAsync(db, key, cancellationToken);
+        if (book is null || book.EbookStoredName is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        if (file is null || file.Length == 0)
+        {
+            return TypedResults.BadRequest();
+        }
+
+        var format = EbookStore.FormatOf(file.FileName);
+        var formats = await db.EbookFormats.Where(item => item.BookId == book.Id).ToListAsync(cancellationToken);
+        if (format == EbookStore.FormatOf(book.EbookStoredName) || formats.Any(item => EbookStore.FormatOf(item.StoredName) == format))
+        {
+            return TypedResults.Conflict();
+        }
+
+        await using var stream = file.OpenReadStream();
+        var saved = await store.SaveAsync(stream, file.FileName, cancellationToken, keepAsIs: true);
+        if (saved is not { Status: EbookSaveStatus.Saved, StoredName: { } stored, FileName: { } name })
+        {
+            return TypedResults.BadRequest();
+        }
+
+        db.EbookFormats.Add(new EbookFormat { BookId = book.Id, StoredName = stored, FileName = name, AddedAt = DateTimeOffset.UtcNow });
+        await db.SaveChangesAsync(cancellationToken);
+        return TypedResults.NoContent();
+    }
+
     public static async Task<IResult> Audio(
         string key,
         ShelfDb db,

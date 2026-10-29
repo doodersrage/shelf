@@ -3561,5 +3561,9 @@
   "Signed in": "Connexion",
   "Signed in with a passkey": "Connexion avec une clé d’accès",
   "Already full of tags, so not tagged: {0}.": "Déjà pleins d’étiquettes, donc non étiquetés : {0}.",
-  "but {0} of the books' files aren't in it. Files, on the Tidy up page, lists any missing on the server too.": "mais {0} des livres n’y sont pas. Fichiers, sur la page Ranger, liste aussi ceux qui manquent sur le serveur."
+  "but {0} of the books' files aren't in it. Files, on the Tidy up page, lists any missing on the server too.": "mais {0} des livres n’y sont pas. Fichiers, sur la page Ranger, liste aussi ceux qui manquent sur le serveur.",
+  "Could not bring the {0} of {1}.": "Impossible d’apporter le {0} de {1}.",
+  "Brought the {0} of {1}.": "Le {0} de {1} a été apporté.",
+  "Sent the {0} of {1}.": "Le {0} de {1} a été envoyé.",
+  "Could not send the {0} of {1}.": "Impossible d’envoyer le {0} de {1}."
 }

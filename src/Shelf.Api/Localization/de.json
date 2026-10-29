@@ -3561,5 +3561,9 @@
   "Signed in": "Angemeldet",
   "Signed in with a passkey": "Mit einem Passkey angemeldet",
   "Already full of tags, so not tagged: {0}.": "Schon voll mit Schlagwörtern, daher nicht verschlagwortet: {0}.",
-  "but {0} of the books' files aren't in it. Files, on the Tidy up page, lists any missing on the server too.": "aber {0} der Bücher fehlen darin. Dateien auf der Seite Aufräumen listet auch auf dem Server fehlende auf."
+  "but {0} of the books' files aren't in it. Files, on the Tidy up page, lists any missing on the server too.": "aber {0} der Bücher fehlen darin. Dateien auf der Seite Aufräumen listet auch auf dem Server fehlende auf.",
+  "Could not bring the {0} of {1}.": "Das {0} von {1} konnte nicht geholt werden.",
+  "Brought the {0} of {1}.": "Das {0} von {1} wurde geholt.",
+  "Sent the {0} of {1}.": "Das {0} von {1} wurde gesendet.",
+  "Could not send the {0} of {1}.": "Das {0} von {1} konnte nicht gesendet werden."
 }

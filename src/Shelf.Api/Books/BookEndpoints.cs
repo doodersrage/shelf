@@ -149,6 +149,8 @@ public static class BookEndpoints
         sync.MapPost("/books", SyncEndpoints.Ensure);
         sync.MapGet("/{key}/ebook", SyncEndpoints.Ebook);
         sync.MapPost("/{key}/ebook", SyncEndpoints.UploadEbook).DisableAntiforgery();
+        sync.MapGet("/{key}/format/{format}", SyncEndpoints.Format);
+        sync.MapPost("/{key}/format", SyncEndpoints.UploadFormat).DisableAntiforgery();
         sync.MapGet("/{key}/audio", SyncEndpoints.Audio);
         sync.MapPost("/{key}/audio", SyncEndpoints.UploadAudio).DisableAntiforgery();
         sync.MapPut("/{key}/progress", SyncEndpoints.Progress);

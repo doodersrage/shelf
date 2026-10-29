@@ -55,6 +55,12 @@ public sealed class FederationTests
             (await owner.PostAsync($"/books/{book.Id}/ebook", content)).EnsureSuccessStatusCode();
         }
 
+        // It has a PDF too, as another format, which goes with it when lent.
+        using (var content = new MultipartFormDataContent { { new StreamContent(File.OpenRead(Path.Combine(Fixtures, "scanned.pdf"))), "file", "moby.pdf" } })
+        {
+            (await owner.PostAsync($"/books/{book.Id}/ebook/formats", content)).EnsureSuccessStatusCode();
+        }
+
         await owner.PostAsJsonAsync("/books", new CreateBookRequest("Typee", "Herman Melville", BookStatus.Want, null), JsonOptions);
         await owner.PostAsJsonAsync("/books", new CreateBookRequest("Billy Budd", "Herman Melville", BookStatus.Want, null), JsonOptions);
         await owner.PutAsJsonAsync("/books/shelves/open", new ShelfOpenChange(true), JsonOptions);
@@ -102,6 +108,7 @@ public sealed class FederationTests
         }
 
         Assert.Equal(HttpStatusCode.OK, (await away.Client.GetAsync($"/books/{copyId}/ebook/chapters/0")).StatusCode);
+        Assert.Equal(["PDF"], (await away.Client.GetFromJsonAsync<EbookFormatResponse[]>($"/books/{copyId}/ebook/formats", JsonOptions))!.Select(format => format.Format));
         // A copy is not the borrower's to lend on.
         Assert.Equal(HttpStatusCode.BadRequest, (await away.Client.PostAsJsonAsync($"/books/{copyId}/lend", new LendRequest(away.ReaderId + 1000), JsonOptions)).StatusCode);
 
@@ -112,6 +119,7 @@ public sealed class FederationTests
 
         var after = await away.Client.GetFromJsonAsync<BookResponse>($"/books/{copyId}", JsonOptions);
         Assert.Equal(("Moby-Dick", (string?)null), (after!.Title, after.EbookFileName));
+        Assert.Empty((await away.Client.GetFromJsonAsync<EbookFormatResponse[]>($"/books/{copyId}/ebook/formats", JsonOptions))!);
         Assert.Null((await owner.GetFromJsonAsync<BookResponse>($"/books/{book.Id}", JsonOptions))!.LoanedTo);
 
         // Without the link's secret, nothing is told.
