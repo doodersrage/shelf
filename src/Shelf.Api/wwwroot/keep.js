@@ -28,7 +28,23 @@ export function isKept(id) {
   return list().some((book) => book.id === id);
 }
 
-export async function keep(id, title, author, type) {
+// Which time through the book this is, as the shelf says now: a kept book begun again since it was kept takes the
+// new number, and the place kept on this device from the earlier read goes, so the offline reader starts the reread.
+export function noteRead(id, read) {
+  const books = list();
+  const book = books.find((item) => item.id === id);
+  if (!book || book.read === read) return;
+  if (book.read !== undefined) {
+    try {
+      localStorage.removeItem(`shelf-place-${id}`);
+    } catch {
+      // Storage refused: the shelf turns down the old read's place anyway.
+    }
+  }
+  save(books.map((item) => (item.id === id ? { ...item, read } : item)));
+}
+
+export async function keep(id, title, author, type, read) {
   const response = await fetch(`/books/${id}/ebook/file`, { credentials: "same-origin" });
   if (!response.ok) {
     return false;
@@ -37,7 +53,7 @@ export async function keep(id, title, author, type) {
   const cache = await caches.open(BOOKS);
   await cache.put(`/books/${id}/ebook/file`, response);
   await marks.download(id);
-  save([...list().filter((book) => book.id !== id), { id, title, author, type, keptAt: new Date().toISOString() }]);
+  save([...list().filter((book) => book.id !== id), { id, title, author, type, read, keptAt: new Date().toISOString() }]);
   return true;
 }
 
@@ -61,6 +77,17 @@ function saveAudio(books) {
 
 export function isAudioKept(id) {
   return audioList().some((book) => book.id === id);
+}
+
+// The plan of a kept audiobook brought up to date while the shelf can be reached: its place, and which time through
+// it is, so listening offline after a reread is the reread's.
+export async function refreshAudio(id) {
+  try {
+    const answer = await fetch(`/books/${id}/audio/plan`, { credentials: "same-origin" });
+    if (answer.ok) await (await caches.open(BOOKS)).put(`/books/${id}/audio/plan`, answer);
+  } catch {
+    // Out of reach: the plan kept before still plays.
+  }
 }
 
 // Keeps an audiobook on this device: what the player needs, every track, and the cover, so it plays with no

@@ -644,6 +644,7 @@ else if (book is not null)
                 key = $"{book.Id}-{book.EbookStoredName}",
                 bookId = book.Id,
                 share = bookShare,
+                read = readNumber,
                 cfi = savedCfi,
                 chapter,
                 at = chapterAt,
@@ -815,12 +816,16 @@ else if (book is not null)
     // The browser, by its sign-in's name, for the Positions page.
     private string? browser;
 
+    // Which time through the book this is, kept with places queued on the device.
+    private int readNumber;
+
     protected override async Task OnParametersSetAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         browser ??= await Positions.BrowserAsync(db, (await Authentication.GetAuthenticationStateAsync()).User);
         open = await Lending.OpenAsync(db, Id);
         book = open?.Book;
+        readNumber = book is null ? 0 : await Rereads.ReadNumberAsync(db, book.Id);
         mayDownload = open is null || await Households.MayDownloadAsync(db, open);
         borrowed = open?.Borrowed == true;
         missing = book is null;
@@ -963,7 +968,7 @@ else if (book is not null)
             try
             {
                 pdf = await Js.InvokeAsync<IJSObjectReference>("import", "./pdf-reader.js");
-                await pdf.InvokeAsync<int>("open", pdfHost, $"/books/{book.Id}/ebook/file", pdfIndex, type.Size, self, PdfMarks(), $"/books/{book.Id}/ebook/ocr/");
+                await pdf.InvokeAsync<int>("open", pdfHost, $"/books/{book.Id}/ebook/file", pdfIndex, type.Size, self, PdfMarks(), $"/books/{book.Id}/ebook/ocr/", readNumber);
             }
             catch (JSException)
             {

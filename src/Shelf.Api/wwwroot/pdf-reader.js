@@ -16,6 +16,7 @@ const ownTextLetters = 16;
 let pageKey = null;
 let pageBook = 0;
 let replayedPage = null;
+let pageRead = null;
 
 const keptPage = () => {
   try {
@@ -39,7 +40,7 @@ function replayPage(kept) {
   fetch(`/books/${pageBook}/place`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ebookChapter: kept.index }),
+    body: JSON.stringify({ ebookChapter: kept.index, read: kept.read }),
     keepalive: true,
     credentials: "same-origin",
   }).then((response) => {
@@ -53,14 +54,15 @@ function replayPage(kept) {
 window.addEventListener("online", () => replayPage(keptPage()));
 window.addEventListener("pagehide", () => replayPage(keptPage()));
 
-export async function open(host, url, start, size, dotnet, marks, ocrBase) {
+export async function open(host, url, start, size, dotnet, marks, ocrBase, read) {
   close();
+  pageRead = read ?? null;
   pageBook = Number(/\/books\/(\d+)\//.exec(url)?.[1] ?? 0);
   pageKey = pageBook ? `shelf-pdf-page-${pageBook}` : null;
   replayedPage = null;
   // A page shown here that the shelf never heard, further on than the shelf's: opened there, and sent.
   const unsent = keptPage();
-  if (unsent?.waiting && unsent.index > start) {
+  if (unsent?.waiting && unsent.index > start && (unsent.read ?? pageRead) === pageRead) {
     start = unsent.index;
     replayPage(unsent);
   }
@@ -190,7 +192,7 @@ async function render() {
   paint(text, current.index);
   current.host.replaceChildren(sheet);
   current.host.scrollTop = 0;
-  const kept = { index: current.index, waiting: true };
+  const kept = { index: current.index, read: pageRead, waiting: true };
   keepPage(kept);
   const told = replayedPage;
   try {

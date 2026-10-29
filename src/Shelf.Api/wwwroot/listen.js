@@ -342,7 +342,7 @@
     const listened = Math.round(heard);
     heard -= listened;
     const day = shelfDay();
-    write(`shelf-audio-place-${key}`, { track, seconds, waiting: true });
+    write(`shelf-audio-place-${key}`, { track, seconds, read: plan.read, waiting: true });
     const missed = () => {
       if (listened < 1 || !bookId) return;
       const owed = read("shelf-audio-heard", {});
@@ -407,7 +407,7 @@
       const response = await fetch(`/books/${bookId}/audio/place`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ track: kept.track, seconds: kept.seconds, replayed: true }),
+        body: JSON.stringify({ track: kept.track, seconds: kept.seconds, replayed: true, read: kept.read }),
         credentials: "same-origin",
       });
       return response.ok;
@@ -429,7 +429,7 @@
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           // Sent late, it moves the place on only: listening done elsewhere since is never undone.
-          body: JSON.stringify({ track: kept.track, seconds: kept.seconds, replayed: true }),
+          body: JSON.stringify({ track: kept.track, seconds: kept.seconds, replayed: true, read: kept.read }),
           credentials: "same-origin",
         });
         if (response.ok || response.status === 404 || response.status === 400) write(key, { ...kept, waiting: false });
@@ -762,7 +762,9 @@
       // on, it goes to the shelf as one from listening offline, which moves the place on only, and plays from
       // there; behind, the shelf's place is the one, and the stale one is let go.
       const key = keyOf(next);
-      const further = local.track > shelf.track || (local.track === shelf.track && local.seconds > shelf.seconds + 2);
+      // One from an earlier time through (the book begun again since) is never further on.
+      const sameRead = (local.read ?? next.read) === next.read;
+      const further = sameRead && (local.track > shelf.track || (local.track === shelf.track && local.seconds > shelf.seconds + 2));
       if (further) {
         from = local;
         known = confirmed = (await replay(next.bookId, local)) ? { track: local.track, seconds: local.seconds } : null;

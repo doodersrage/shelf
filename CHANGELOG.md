@@ -6,6 +6,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Fixed
 
+- **A place kept on a device from before a reread no longer moves the reread on**: places queued by the reader, the player, and the offline reader say which time through they were read in, and one from an earlier read is set aside. A book kept offline learns of a reread the next time its page opens.
+
 - **Each browser has its own row on a book's Positions page**, named as its sign-in was ("Shelf's player · Firefox on Android"), where every browser shared one.
 
 - **A quote left open in a CSV no longer swallows the rest of the file**: that row is left out and counted, and the rows after it still come in. A spreadsheet import also counts the rows it left out for having no title or author, as the Goodreads import now does.

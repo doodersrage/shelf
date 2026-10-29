@@ -16,7 +16,8 @@ public sealed record AudioPlan(
     int Track,
     double Seconds,
     int Speed,
-    bool HasEbook);
+    bool HasEbook,
+    int Read = 0);
 
 public sealed record AudioPlanTrack(int Index, string Title, double? Length, string Url);
 
@@ -28,7 +29,7 @@ public sealed record AudioPlanChapter(int Index, string Title, int Track, double
 // Replayed: a place kept on the device while the shelf couldn't be reached, sent once it can; it moves the place on only.
 // From: where the player last knew the shelf's place, when it says. Kept elsewhere since (another tab, a phone), the
 // place is not moved; the answer is 409 with the place now kept, for the player to go to.
-public sealed record AudioPlaceRequest(int Track, double Seconds, double? Listened = null, DateOnly? Day = null, bool Replayed = false, AudioSpot? From = null);
+public sealed record AudioPlaceRequest(int Track, double Seconds, double? Listened = null, DateOnly? Day = null, bool Replayed = false, AudioSpot? From = null, int? Read = null);
 
 public sealed record AudioSpot(int Track, double Seconds);
 
@@ -99,7 +100,8 @@ public static class AudioPlayback
             at,
             Math.Max(0, place.AudioSeconds ?? 0),
             await BookRules.GetAudioSpeedAsync(db, cancellationToken),
-            EbookStore.IsEpub(book.EbookStoredName));
+            EbookStore.IsEpub(book.EbookStoredName),
+            await Rereads.ReadNumberAsync(db, book.Id, cancellationToken));
     }
 
     private static async Task<Results<Ok<AudioPlan>, NotFound>> Plan(int id, ShelfDb db, AudioStore store, CancellationToken cancellationToken) =>
@@ -121,8 +123,15 @@ public static class AudioPlayback
 
         using var _ = Positions.Reporting("Shelf", Positions.InBrowser(request.Replayed ? "listening offline" : "player", await Positions.BrowserAsync(db, http.User, cancellationToken)));
         AudioSpot? moved = null;
+        // A place sent late from an earlier time through moves nothing, though its listening still counts.
+        var earlierRead = request.Replayed && request.Read is int read && read != await Rereads.ReadNumberAsync(db, open.Book.Id, cancellationToken);
         await Lending.KeepPlaceAsync(db, open, place =>
         {
+            if (earlierRead)
+            {
+                return;
+            }
+
             if (!request.Replayed || Further(place, request.Track, (int)request.Seconds))
             {
                 place.AudioTrack = request.Track;

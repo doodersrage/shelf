@@ -71,6 +71,11 @@ public static class Rereads
 
     // The finished read is put by with its dates and stars, and the book starts again from the beginning: Reading
     // from today, its place in the file and on paper cleared. The stars stay on the book until the reader changes them.
+    // Which time through this is, as the earlier reads counted: sent with the book to a page that may queue places,
+    // and back with a place sent late, so one from an earlier read never moves a reread on.
+    public static Task<int> ReadNumberAsync(ShelfDb db, int bookId, CancellationToken cancellationToken = default) =>
+        db.PastReads.CountAsync(read => read.BookId == bookId, cancellationToken);
+
     public static async Task<AgainResult> ReadAgainAsync(ShelfDb db, int bookId, CancellationToken cancellationToken = default)
     {
         var book = await db.Books.FirstOrDefaultAsync(item => item.Id == bookId, cancellationToken);

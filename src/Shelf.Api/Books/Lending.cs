@@ -24,7 +24,8 @@ public sealed record OpenBook(Book Book, bool Borrowed, bool Shared = false, boo
 
 // A place read where the shelf couldn't hear it (offline, or a page that lost its connection): the chapter, and
 // where present the exact place in it and how far through the book. It moves the place on only.
-public sealed record PlaceRequest(int? EbookChapter, string? EbookCfi = null, double? EbookProgress = null);
+// Read: which time through the place was read in (Rereads.ReadNumberAsync), when the sender knows it.
+public sealed record PlaceRequest(int? EbookChapter, string? EbookCfi = null, double? EbookProgress = null, int? Read = null);
 
 public sealed record PlaceResponse(int? EbookChapter, int? AudioTrack, int? AudioSeconds, string? EbookCfi = null, double? EbookProgress = null);
 
@@ -353,6 +354,12 @@ public static class Lending
         if (await OpenAsync(db, id, cancellationToken) is not { } open)
         {
             return TypedResults.NotFound();
+        }
+
+        // A place from an earlier time through, sent after a reread began, is the last read's, not this one's.
+        if (request.Read is int read && read != await Rereads.ReadNumberAsync(db, open.Book.Id, cancellationToken))
+        {
+            return TypedResults.NoContent();
         }
 
         var cfi = request.EbookCfi is { Length: > 0 and <= 1000 } given ? given : null;

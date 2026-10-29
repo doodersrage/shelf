@@ -71,9 +71,9 @@ function place(id) {
   }
 }
 
-function remember(id, at) {
+function remember(id, at, read) {
   try {
-    localStorage.setItem(`shelf-place-${id}`, JSON.stringify({ at, waiting: true }));
+    localStorage.setItem(`shelf-place-${id}`, JSON.stringify({ at, read, waiting: true }));
   } catch {
   }
 }
@@ -106,10 +106,11 @@ async function sendPlaces() {
         method: "PUT",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ebookChapter: saved.at }),
+        // Which time through it was read in, so a place from before a reread never moves the reread on.
+        body: JSON.stringify({ ebookChapter: saved.at, read: saved.read }),
       });
       if (response.ok || response.status === 404) {
-        localStorage.setItem(`shelf-place-${item.id}`, JSON.stringify({ at: saved.at, waiting: false }));
+        localStorage.setItem(`shelf-place-${item.id}`, JSON.stringify({ at: saved.at, read: saved.read, waiting: false }));
       }
     } catch {
       return;
@@ -203,7 +204,7 @@ async function turn(step) {
   await show(index);
   hideMarking();
   showMarks();
-  remember(book.id, index);
+  remember(book.id, index, book.read);
   $("page").scrollTop = 0;
   window.scrollTo(0, 0);
 }

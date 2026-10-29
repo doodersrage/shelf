@@ -11,6 +11,30 @@ public sealed class ListeningTests(ShelfApiFactory factory) : IClassFixture<Shel
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
+    // A place queued on a device in one time through, sent after the book was begun again, is the last read's: it
+    // moves the reread on neither for the e-book nor the recording. One sent with the reread's number still does.
+    [Fact]
+    public async Task A_place_from_before_a_reread_never_moves_the_reread()
+    {
+        var reader = await factory.SignUpAsync("Second Time Through");
+        var book = await WithAudioAsync(reader, "Read Twice Over");
+        await reader.PutAsJsonAsync($"/books/{book.Id}", new { title = "Read Twice Over", author = "Someone", status = "Finished" }, JsonOptions);
+        var plan = (await reader.GetFromJsonAsync<AudioPlan>($"/books/{book.Id}/audio/plan", JsonOptions))!;
+        Assert.Equal(0, plan.Read);
+        Assert.Equal(HttpStatusCode.NoContent, (await reader.PostAsync($"/books/{book.Id}/again", null)).StatusCode);
+        Assert.Equal(1, (await reader.GetFromJsonAsync<AudioPlan>($"/books/{book.Id}/audio/plan", JsonOptions))!.Read);
+
+        await reader.PutAsJsonAsync($"/books/{book.Id}/place", new PlaceRequest(5, Read: 0), JsonOptions);
+        await reader.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 300, Replayed: true, Read: 0), JsonOptions);
+        var place = (await reader.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!;
+        Assert.Equal(((int?)null, (int?)null), (place.EbookChapter, place.AudioSeconds));
+
+        await reader.PutAsJsonAsync($"/books/{book.Id}/place", new PlaceRequest(2, Read: 1), JsonOptions);
+        await reader.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 30, Replayed: true, Read: 1), JsonOptions);
+        place = (await reader.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!;
+        Assert.Equal(((int?)2, (int?)30), (place.EbookChapter, place.AudioSeconds));
+    }
+
     // Each browser the listener signed in from keeps its own row on the Positions page, named as its sign-in was.
     [Fact]
     public async Task Each_browser_reports_its_own_place()

@@ -16,6 +16,7 @@ let waiting = null;
 let placeKey = null;
 let bookId = 0;
 let replayedCfi = null;
+let readNumber = null;
 
 const keptPlace = () => {
   try {
@@ -40,7 +41,7 @@ function replay(place) {
   fetch(`/books/${bookId}/place`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ebookChapter: place.chapter, ebookCfi: place.cfi, ebookProgress: place.share }),
+    body: JSON.stringify({ ebookChapter: place.chapter, ebookCfi: place.cfi, ebookProgress: place.share, read: place.read }),
     keepalive: true,
     credentials: "same-origin",
   }).then((response) => {
@@ -427,7 +428,7 @@ function report(location) {
     reported = Date.now();
     pending = null;
     waiting = null;
-    const place = { chapter, cfi: start.cfi, share: percent, waiting: true };
+    const place = { chapter, cfi: start.cfi, share: percent, read: readNumber, waiting: true };
     keepPlace(place);
     const told = replayedCfi;
     to.invokeMethodAsync("Relocated", start.cfi, chapter, share, percent ?? -1, page, pages, told)
@@ -453,9 +454,11 @@ export async function open(host, options, dotNet) {
   placeKey = options.key ? `shelf-epub-place-${options.key}` : null;
   bookId = options.bookId ?? 0;
   replayedCfi = null;
-  // A place turned to here that the shelf never heard, further on than the shelf's: opened there, and sent.
+  readNumber = options.read ?? null;
+  // A place turned to here that the shelf never heard, further on than the shelf's: opened there, and sent. One from
+  // an earlier time through isn't opened (the shelf will refuse it too).
   const unsent = keptPlace();
-  if (unsent?.waiting && unsent.cfi && (unsent.chapter > (options.chapter ?? 0) || (unsent.chapter === (options.chapter ?? 0) && (unsent.share ?? 0) > (options.share ?? -1)))) {
+  if (unsent?.waiting && unsent.cfi && (unsent.read ?? readNumber) === readNumber && (unsent.chapter > (options.chapter ?? 0) || (unsent.chapter === (options.chapter ?? 0) && (unsent.share ?? 0) > (options.share ?? -1)))) {
     options = { ...options, cfi: unsent.cfi, chapter: unsent.chapter };
     replay(unsent);
   }

@@ -1468,7 +1468,17 @@ else if (book is not null)
             keepModule = await Js.InvokeAsync<IJSObjectReference>("import", "./keep.js");
             offlineSupported = await keepModule.InvokeAsync<bool>("supported");
             keptOffline = offlineSupported && await keepModule.InvokeAsync<bool>("isKept", book.Id);
+            if (keptOffline)
+            {
+                await keepModule.InvokeVoidAsync("noteRead", book.Id, await ReadNumberAsync());
+            }
+
             keptAudio = offlineSupported && await keepModule.InvokeAsync<bool>("isAudioKept", book.Id);
+            if (keptAudio)
+            {
+                await keepModule.InvokeVoidAsync("refreshAudio", book.Id);
+            }
+
             StateHasChanged();
         }
         catch (JSException)
@@ -1478,6 +1488,12 @@ else if (book is not null)
     }
 
     // The e-book goes into this browser's storage, for the offline reader to open without a connection.
+    private async Task<int> ReadNumberAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        return book is null ? 0 : await Rereads.ReadNumberAsync(db, book.Id);
+    }
+
     private async Task KeepOffline()
     {
         if (keepModule is null || book is null)
@@ -1489,7 +1505,7 @@ else if (book is not null)
         try
         {
             var type = EbookStore.IsPdf(book.EbookStoredName) ? "pdf" : "epub";
-            keptOffline = await keepModule.InvokeAsync<bool>("keep", book.Id, book.Title, book.Author, type);
+            keptOffline = await keepModule.InvokeAsync<bool>("keep", book.Id, book.Title, book.Author, type, await ReadNumberAsync());
             offlineNote = keptOffline
                 ? T("Kept on this device. When the shelf cannot be reached, it opens in the offline reader, and your place comes back when you are online.")
                 : T("This e-book could not be kept on this device.");
