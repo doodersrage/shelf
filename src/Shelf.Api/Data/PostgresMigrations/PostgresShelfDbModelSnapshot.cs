@@ -1063,6 +1063,39 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.ToTable("CollectionBooks");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.CollectionMember", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("CanDownload")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("CollectionId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("HideExplicit")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReaderId");
+
+                    b.HasIndex("CollectionId", "ReaderId")
+                        .IsUnique();
+
+                    b.ToTable("CollectionMembers");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.CopyPhoto", b =>
                 {
                     b.Property<int>("Id")
@@ -4177,6 +4210,23 @@ namespace Shelf.Api.Data.PostgresMigrations
                         .IsRequired();
 
                     b.Navigation("Book");
+
+                    b.Navigation("Collection");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.CollectionMember", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Collection", "Collection")
+                        .WithMany()
+                        .HasForeignKey("CollectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Collection");
                 });

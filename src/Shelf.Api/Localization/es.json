@@ -3504,5 +3504,22 @@
   "A month": "Un mes",
   "Make an address": "Crear una dirección",
   "Stop it": "Detenerla",
-  "Shared from Shelf. In a podcast app, add {0}.": "Compartido desde Shelf. En una aplicación de pódcast, añade {0}."
+  "Shared from Shelf. In a podcast app, add {0}.": "Compartido desde Shelf. En una aplicación de pódcast, añade {0}.",
+  "A child's account reads what its guardian shares with their children; it can't join a household library.": "Una cuenta infantil lee lo que su tutor comparte con sus hijos; no puede unirse a una biblioteca familiar.",
+  "All {0} books": "Los {0} libros",
+  "Can download files": "Puede descargar archivos",
+  "Household library": "Biblioteca familiar",
+  "It's shared with them already.": "Ya está compartida con esa persona.",
+  "Keep books tagged explicit from them": "Ocultarle los libros etiquetados como explícitos",
+  "Listen to {0}": "Escuchar {0}",
+  "Share": "Compartir",
+  "Share as a household library": "Compartir como biblioteca familiar",
+  "Share with": "Compartir con",
+  "Stop sharing with {0}": "Dejar de compartir con {0}",
+  "That library isn't shared with you.": "Esa biblioteca no está compartida contigo.",
+  "The collection is yours already.": "La colección ya es tuya.",
+  "The readers you choose here can read and listen to every book in this collection, each with their own place, highlights, and bookmarks. They never see your notes, review, or reading, nor each other's. Only you change the books.": "Los lectores que elijas aquí pueden leer y escuchar todos los libros de esta colección, cada uno con su propio punto, subrayados y marcadores. Nunca ven tus notas, reseña ni lecturas, ni las de los demás. Solo tú cambias los libros.",
+  "There's no other reader on this shelf to share with yet.": "Aún no hay otro lector en este Shelf con quien compartir.",
+  "{0}'s household library, shared with you. Your place, highlights, and bookmarks in its books are your own.": "La biblioteca familiar de {0}, compartida contigo. Tu punto, subrayados y marcadores en sus libros son tuyos.",
+  "{0}, from {1}": "{0}, de {1}"
 }

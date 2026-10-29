@@ -1,0 +1,86 @@
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+@* A collection as a household library: the readers it's shared with, what each may do, and room for another. *@
+<details class="panel household" open="@(members.Length > 0)">
+    <summary>@T("Share as a household library")</summary>
+    <p class="hint">@T("The readers you choose here can read and listen to every book in this collection, each with their own place, highlights, and bookmarks. They never see your notes, review, or reading, nor each other's. Only you change the books.")</p>
+    @if (members.Length > 0)
+    {
+        <ul class="plain-list household-members">
+            @foreach (var member in members)
+            {
+                <li>
+                    <strong>@member.Name</strong>
+                    <label class="check"><input type="checkbox" checked="@member.CanDownload" @onchange="change => Change(member, change.Value is true, member.HideExplicit)" /> @T("Can download files")</label>
+                    <label class="check"><input type="checkbox" checked="@member.HideExplicit" @onchange="change => Change(member, member.CanDownload, change.Value is true)" /> @T("Keep books tagged explicit from them")</label>
+                    <button type="button" class="quiet danger" @onclick="() => Remove(member)" aria-label="@T("Stop sharing with {0}", member.Name)">@T("Stop sharing")</button>
+                </li>
+            }
+        </ul>
+    }
+    @if (choices.Length > 0)
+    {
+        <label>
+            @T("Share with")
+            <select @bind="chosen">
+                <option value="0">@T("Choose a reader")</option>
+                @foreach (var reader in choices)
+                {
+                    <option value="@reader.Id">@reader.Name</option>
+                }
+            </select>
+        </label>
+        <button type="button" disabled="@(chosen == 0)" @onclick="Add">@T("Share")</button>
+    }
+    else if (members.Length == 0)
+    {
+        <p class="hint">@T("There's no other reader on this shelf to share with yet.")</p>
+    }
+    @if (problem is not null)
+    {
+        <p class="validation-message" role="alert">@problem</p>
+    }
+</details>
+
+@code {
+    [Parameter, EditorRequired]
+    public int CollectionId { get; set; }
+
+    private HouseholdMember[] members = [];
+    private ReaderResponse[] choices = [];
+    private int chosen;
+    private string? problem;
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        members = await Households.MembersAsync(db, CollectionId) ?? [];
+        var taken = members.Select(member => member.ReaderId).Append(db.ReaderId).ToHashSet();
+        choices = [.. (await db.Readers.AsNoTracking().Where(reader => !reader.Restricted && !reader.Suspended).Select(reader => new ReaderResponse(reader.Id, reader.Name)).ToListAsync())
+            .Where(reader => !taken.Contains(reader.Id)).OrderBy(reader => reader.Name, StringComparer.CurrentCultureIgnoreCase)];
+    }
+
+    private async Task Add()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        problem = await Households.AddAsync(db, CollectionId, chosen, canDownload: true, hideExplicit: false) is { Length: > 0 } trouble ? trouble : null;
+        chosen = 0;
+        await LoadAsync();
+    }
+
+    private async Task Change(HouseholdMember member, bool canDownload, bool hideExplicit)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Households.ChangeAsync(db, CollectionId, member.Id, canDownload, hideExplicit);
+        await LoadAsync();
+    }
+
+    private async Task Remove(HouseholdMember member)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Households.RemoveAsync(db, CollectionId, member.Id);
+        await LoadAsync();
+    }
+}

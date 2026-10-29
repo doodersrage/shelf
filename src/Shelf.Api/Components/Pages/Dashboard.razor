@@ -25,6 +25,15 @@
     </section>
 }
 
+@foreach (var household in households.Where(item => item.Books.Length > 0))
+{
+    <section class="panel family" aria-labelledby="household-@household.Id">
+        <h2 id="household-@household.Id">@T("{0}, from {1}", household.Name, household.Owner)</h2>
+        <HouseholdBooks Books="household.Books.Take(12).ToArray()" />
+        <p class="hint"><a href="/household/@household.Id">@(household.Books.Length > 12 ? T("All {0} books", household.Books.Length) : T("Open the library"))</a></p>
+    </section>
+}
+
 @if (family is { Books.Length: > 0 } shared)
 {
     <section class="panel family" aria-labelledby="family-heading">
@@ -269,6 +278,7 @@ else
     private int finishedThisYear;
     private int goal;
     private (string Guardian, FamilyBook[] Books)? family;
+    private HouseholdLibrary[] households = [];
     private List<AttentionItem> attention = [];
     private List<(string Name, bool Shown)> sections = [];
     private BorrowedBook[] borrowed = [];
@@ -279,6 +289,7 @@ else
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         family = await Family.SharedBooksAsync(db);
+        households = await Households.LibrariesAsync(db);
         // Only what Home shows and measures progress by; a big shelf's chapter lists and notes are slow to read.
         books = await db.Books.AsNoTracking()
             .Select(book => new Book

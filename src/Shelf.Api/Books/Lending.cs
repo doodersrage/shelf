@@ -18,7 +18,9 @@ public enum LendResult
 // Lending to another reader of this shelf: the book stays on the owner's shelf, and shows on the borrower's loans.
 // Borrowed: not the reader's own, so their place and marks are kept apart from the owner's. Shared: borrowed by being
 // in a collection a child's guardian shares with them, rather than lent.
-public sealed record OpenBook(Book Book, bool Borrowed, bool Shared = false);
+// Shared: read from someone else's collection, a guardian's or a household library's, with a place of one's own.
+// Household: from a household library, whose member may or may not download its files.
+public sealed record OpenBook(Book Book, bool Borrowed, bool Shared = false, bool Household = false);
 
 public sealed record PlaceRequest(int? EbookChapter);
 
@@ -135,8 +137,14 @@ public static class Lending
             return new OpenBook(lent, Borrowed: true);
         }
 
-        // A child reads the books their guardian shares with them as if lent, with a place and highlights of their own.
-        return await Family.SharedBookAsync(db, bookId, cancellationToken) is { } shared ? new OpenBook(shared, Borrowed: true, Shared: true) : null;
+        // A child reads the books their guardian shares with them as if lent, with a place and highlights of their own;
+        // so does a member of a household library.
+        if (await Family.SharedBookAsync(db, bookId, cancellationToken) is { } shared)
+        {
+            return new OpenBook(shared, Borrowed: true, Shared: true);
+        }
+
+        return await Households.SharedBookAsync(db, bookId, cancellationToken) is { } household ? new OpenBook(household, Borrowed: true, Shared: true, Household: true) : null;
     }
 
     // Whether a book opened a while ago may still be read: still lent to the reader, or still shared with them.
@@ -145,6 +153,11 @@ public static class Lending
         if (!open.Borrowed)
         {
             return true;
+        }
+
+        if (open.Household)
+        {
+            return await Households.SharedBookAsync(db, open.Book.Id, cancellationToken) is not null;
         }
 
         if (open.Shared)

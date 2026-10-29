@@ -1,0 +1,39 @@
+@page "/household/{Id:int}"
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@(library?.Name ?? T("Household library")) · Shelf</PageTitle>
+
+@if (library is null)
+{
+    <h1>@T("Not on the shelf")</h1>
+    <p>@T("That library isn't shared with you.") <a href="/">@T("Home")</a></p>
+}
+else
+{
+    <h1>@library.Name</h1>
+    <p class="hint">@T("{0}'s household library, shared with you. Your place, highlights, and bookmarks in its books are your own.", library.Owner)</p>
+    <form method="get" class="save-search">
+        <label>@T("Search") <input type="search" name="q" value="@Query" /></label>
+        <button type="submit">@T("Search")</button>
+    </form>
+    var shown = string.IsNullOrWhiteSpace(Query) ? library.Books
+        : library.Books.Where(book => book.Title.Contains(Query, StringComparison.CurrentCultureIgnoreCase) || book.Author.Contains(Query, StringComparison.CurrentCultureIgnoreCase)).ToArray();
+    <p class="count">@Localization.Counts.Books(shown.Length)</p>
+    <HouseholdBooks Books="shown" />
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "q")]
+    public string? Query { get; set; }
+
+    private HouseholdLibrary? library;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        library = (await Households.LibrariesAsync(db)).FirstOrDefault(item => item.Id == Id);
+    }
+}

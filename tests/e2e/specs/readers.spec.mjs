@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { authenticatorCode, createBook, emailOf, noProblems, ready, signUp, unique, PASSWORD } from "../helpers.mjs";
+import { authenticatorCode, createBook, emailOf, noProblems, ready, signUp, unique, upload, PASSWORD } from "../helpers.mjs";
 
 test("a reader lends a book to another, who gives it back", async ({ browser }) => {
   const ownerName = unique("Tenar");
@@ -175,3 +175,32 @@ test("a parent makes a child's account and shares a collection, which the child 
   await expect(child.locator("nav").getByRole("link", { name: "Shelves", exact: true })).toHaveCount(0);
   noProblems(parent);
 });
+
+test("a collection shared as a household library opens its books to the reader chosen", async ({ browser }) => {
+  const ownerName = unique("Household");
+  const memberName = unique("Housemate");
+  const owner = await signUp(browser, ownerName);
+  const member = await signUp(browser, memberName);
+  const book = await createBook(owner, { title: unique("Shared at Home"), author: "Someone", status: "Reading" });
+  await upload(owner, book.id, "ebook", "moby.epub", "application/epub+zip");
+  const collection = await (await owner.request.post("/books/collections", { data: { name: unique("The Den") } })).json();
+  await owner.request.post(`/books/collections/${collection.id}/books`, { data: { bookId: book.id } });
+
+  await owner.goto(`/collections/${collection.id}`);
+  await ready(owner);
+  await owner.locator("summary", { hasText: "Share as a household library" }).click();
+  await owner.locator("details.household select").selectOption({ label: memberName });
+  await owner.locator("details.household").getByRole("button", { name: "Share", exact: true }).click();
+  await expect(owner.locator(".household-members")).toContainText(memberName);
+
+  await member.goto("/");
+  await ready(member);
+  const shared = member.locator("section.family", { hasText: collection.name });
+  await expect(shared).toContainText(book.title);
+  await shared.getByRole("link", { name: `Read ${book.title}` }).click();
+  await ready(member);
+  await expect(member.locator(".reader-where")).toContainText("Chapter 1 of 2", { timeout: 20_000 });
+  noProblems(owner);
+  noProblems(member);
+});
+

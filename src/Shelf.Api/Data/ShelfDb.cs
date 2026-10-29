@@ -66,6 +66,7 @@ public class ShelfDb : DbContext
     public DbSet<Playlist> Playlists => Set<Playlist>();
     public DbSet<AudioFeed> AudioFeeds => Set<AudioFeed>();
     public DbSet<ListeningSession> ListeningSessions => Set<ListeningSession>();
+    public DbSet<CollectionMember> CollectionMembers => Set<CollectionMember>();
     public DbSet<PlaylistItem> PlaylistItems => Set<PlaylistItem>();
     public DbSet<AbsLink> AbsLinks => Set<AbsLink>();
     public DbSet<AbsSyncSetting> AbsSyncs => Set<AbsSyncSetting>();
@@ -569,6 +570,16 @@ public class ShelfDb : DbContext
             session.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
             session.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
             session.HasQueryFilter(item => item.ReaderId == ReaderId);
+        });
+
+        // Who a household library is shared with, and what each may do.
+        modelBuilder.Entity<CollectionMember>(member =>
+        {
+            member.HasIndex(item => new { item.CollectionId, item.ReaderId }).IsUnique();
+            member.HasIndex(item => item.ReaderId);
+            member.HasOne(item => item.Collection).WithMany().HasForeignKey(item => item.CollectionId).OnDelete(DeleteBehavior.Cascade);
+            member.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+            member.HasQueryFilter(item => item.Collection!.OwnerId == ReaderId);
         });
 
         // A setting row belongs to the reader with the same id.

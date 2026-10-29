@@ -254,6 +254,7 @@ public static class EbookFormats
     private static async Task<IResult> Download(int id, int formatId, ShelfDb db, EbookStore store, CancellationToken cancellationToken)
     {
         if (await Lending.OpenAsync(db, id, cancellationToken) is not { } open
+            || !await Households.MayDownloadAsync(db, open, cancellationToken)
             || await db.EbookFormats.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(format => format.Id == formatId && format.BookId == id, cancellationToken) is not { } format
             || store.OpenPath(format.StoredName) is not { } path)
         {

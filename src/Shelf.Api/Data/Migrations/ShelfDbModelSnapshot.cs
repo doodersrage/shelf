@@ -1020,6 +1020,37 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("CollectionBooks");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.CollectionMember", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("CanDownload")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CollectionId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("HideExplicit")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReaderId");
+
+                    b.HasIndex("CollectionId", "ReaderId")
+                        .IsUnique();
+
+                    b.ToTable("CollectionMembers");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.CopyPhoto", b =>
                 {
                     b.Property<int>("Id")
@@ -4014,6 +4045,23 @@ namespace Shelf.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Book");
+
+                    b.Navigation("Collection");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.CollectionMember", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Collection", "Collection")
+                        .WithMany()
+                        .HasForeignKey("CollectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Collection");
                 });

@@ -35,6 +35,12 @@ public static class Covers
                 && (book.OwnerId == me || book.BorrowerId == me || (book.Owner != null && book.Owner.ShelfOpen)))
             .Select(book => new { book.EbookStoredName, book.CoverImage })
             .FirstOrDefaultAsync(cancellationToken);
+        // A book shared with the reader, from a guardian's collection or a household library, shows its cover too.
+        if (files is null && me != 0 && await Lending.OpenAsync(db, id, cancellationToken) is { } open)
+        {
+            return Serve(open.Book.EbookStoredName, open.Book.CoverImage, store, covers, http);
+        }
+
         return Serve(files?.EbookStoredName, files?.CoverImage, store, covers, http);
     }
 

@@ -51,7 +51,7 @@ public sealed class M4bService(IServiceScopeFactory scopes, AudioStore audio, Co
                 var problem => TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["m4b"] = [problem] }),
             });
         books.MapGet("/{id:int}/audio/m4b/file", async Task<IResult> (int id, ShelfDb db, M4bService service, CancellationToken cancellationToken) =>
-            await Lending.OpenAsync(db, id, cancellationToken) is { } open && open.Book.AudioStoredName is { } stored && File.Exists(service.PathFor(stored))
+            await Lending.OpenAsync(db, id, cancellationToken) is { } open && await Households.MayDownloadAsync(db, open, cancellationToken) && open.Book.AudioStoredName is { } stored && File.Exists(service.PathFor(stored))
                 ? Results.File(service.PathFor(stored), "audio/mp4", $"{Safe(open.Book.Author)} - {Safe(open.Book.Title)}.m4b", enableRangeProcessing: true)
                 : Results.NotFound());
         books.MapPost("/{id:int}/audio/m4b/use", async Task<Results<NoContent, NotFound>> (int id, ShelfDb db, M4bService service, CancellationToken cancellationToken) =>

@@ -63,6 +63,17 @@ When more than one reader asks for the same book, they wait in the order they as
 
 For a friend who isn't a reader on your shelf, type their name in the book's **Loaned to** field, with a due date if you like. It shows on **Loans** like any other loan.
 
+## Household libraries
+
+A collection can be shared with other readers on the shelf as a household library, as Audiobookshelf shares a library with chosen users. On the collection's page, open **Share as a household library**, choose a reader, and **Share**. They see it on Home, with **All … books** leading to the whole library, and read and listen to its books as if lent: each with their own place, highlights, and bookmarks, which you never see, as they never see your notes, review, or reading, nor another member's. Books you add to the collection appear for them, and books you take out of it close to them; a book you lend to someone else stays open to them while it's in the collection. Only you change the books.
+
+For each member:
+
+- **Can download files**: on by default. Turned off, they still read and listen in Shelf, but the downloads (the e-book with its details, other formats, the recording, the M4B) are refused. Reading in a browser still fetches the file, as streaming does anywhere, so this keeps files from being taken casually rather than from being taken at all.
+- **Keep books tagged explicit from them**: books with the tag `explicit` don't show for them and won't open for them.
+
+**Stop sharing** closes the books to them at once; what they wrote in them stays theirs, out of sight, and comes back if you share again. A child's account can't be a member: it reads what its guardian shares with their children. Household books open in Shelf's own reader and player; the e-reader catalog, KOReader, Kobo, and the Audiobookshelf apps still offer only your own books and books lent to you.
+
 ## Open shelves
 
 From **Account**, a reader can **open their shelf** to the others. The other readers then see its books under **Shelves**: titles, authors, covers, and whether each has an e-book or audiobook, but never notes, reviews, quotes, highlights, or where the owner stopped. It is searched, sorted, and shown as covers, a list, or a compact table as your own library is, 60 books at a time: by title, author, series, or ISBN; by author, title, series, year, or the most recently added; only those not lent out now, or with an e-book or audiobook; and by an author or series, from their names. Nothing about the owner's reading narrows it, so there is no status, stars, tags, or loved. Your own shelf isn't listed under **Shelves** for you; that page lists the shelves others have opened.

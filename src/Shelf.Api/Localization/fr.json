@@ -3504,5 +3504,22 @@
   "A month": "Un mois",
   "Make an address": "Créer une adresse",
   "Stop it": "L’arrêter",
-  "Shared from Shelf. In a podcast app, add {0}.": "Partagé depuis Shelf. Dans une application de podcast, ajoutez {0}."
+  "Shared from Shelf. In a podcast app, add {0}.": "Partagé depuis Shelf. Dans une application de podcast, ajoutez {0}.",
+  "A child's account reads what its guardian shares with their children; it can't join a household library.": "Un compte enfant lit ce que son tuteur partage avec ses enfants ; il ne peut pas rejoindre une bibliothèque familiale.",
+  "All {0} books": "Les {0} livres",
+  "Can download files": "Peut télécharger les fichiers",
+  "Household library": "Bibliothèque familiale",
+  "It's shared with them already.": "Elle est déjà partagée avec cette personne.",
+  "Keep books tagged explicit from them": "Lui cacher les livres étiquetés explicites",
+  "Listen to {0}": "Écouter {0}",
+  "Share": "Partager",
+  "Share as a household library": "Partager comme bibliothèque familiale",
+  "Share with": "Partager avec",
+  "Stop sharing with {0}": "Arrêter de partager avec {0}",
+  "That library isn't shared with you.": "Cette bibliothèque n’est pas partagée avec vous.",
+  "The collection is yours already.": "La collection est déjà à vous.",
+  "The readers you choose here can read and listen to every book in this collection, each with their own place, highlights, and bookmarks. They never see your notes, review, or reading, nor each other's. Only you change the books.": "Les lecteurs que vous choisissez ici peuvent lire et écouter tous les livres de cette collection, chacun avec sa propre position, ses surlignages et ses signets. Ils ne voient jamais vos notes, votre critique ni vos lectures, ni celles des autres. Vous seul modifiez les livres.",
+  "There's no other reader on this shelf to share with yet.": "Il n’y a pas encore d’autre lecteur sur ce Shelf avec qui partager.",
+  "{0}'s household library, shared with you. Your place, highlights, and bookmarks in its books are your own.": "La bibliothèque familiale de {0}, partagée avec vous. Votre position, vos surlignages et vos signets dans ses livres sont à vous.",
+  "{0}, from {1}": "{0}, de {1}"
 }

@@ -141,8 +141,8 @@ public static class EbookEndpoints
         EpubDetailsStore withDetails,
         CancellationToken cancellationToken)
     {
-        var book = (await Lending.OpenAsync(db, id, cancellationToken))?.Book;
-        if (book is null || await withDetails.PathForAsync(book, cancellationToken) is not { } path)
+        var open = await Lending.OpenAsync(db, id, cancellationToken);
+        if (open is not { Book: var book } || !await Households.MayDownloadAsync(db, open, cancellationToken) || await withDetails.PathForAsync(book, cancellationToken) is not { } path)
         {
             return TypedResults.NotFound();
         }

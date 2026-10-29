@@ -13,7 +13,8 @@ public static class AudioTagging
     public static void Map(RouteGroupBuilder books) =>
         books.MapGet("/{id:int}/audio/download", async Task<IResult> (int id, Data.ShelfDb db, AudioStore audio, CoverStore covers, EbookStore ebooks, M4bService m4b, CancellationToken cancellationToken) =>
         {
-            if (await Lending.OpenAsync(db, id, cancellationToken) is not { } open || open.Book.AudioStoredName is not { } stored || audio.Tracks(stored).Count == 0)
+            if (await Lending.OpenAsync(db, id, cancellationToken) is not { } open || !await Households.MayDownloadAsync(db, open, cancellationToken)
+                || open.Book.AudioStoredName is not { } stored || audio.Tracks(stored).Count == 0)
             {
                 return TypedResults.NotFound();
             }

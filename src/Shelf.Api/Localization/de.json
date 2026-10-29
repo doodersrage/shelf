@@ -3504,5 +3504,22 @@
   "A month": "Einen Monat",
   "Make an address": "Adresse erstellen",
   "Stop it": "Beenden",
-  "Shared from Shelf. In a podcast app, add {0}.": "Geteilt aus Shelf. In einer Podcast-App {0} hinzufügen."
+  "Shared from Shelf. In a podcast app, add {0}.": "Geteilt aus Shelf. In einer Podcast-App {0} hinzufügen.",
+  "A child's account reads what its guardian shares with their children; it can't join a household library.": "Ein Kinderkonto liest, was sein Elternteil mit den Kindern teilt; es kann keiner Haushaltsbibliothek beitreten.",
+  "All {0} books": "Alle {0} Bücher",
+  "Can download files": "Darf Dateien herunterladen",
+  "Household library": "Haushaltsbibliothek",
+  "It's shared with them already.": "Sie ist bereits mit dieser Person geteilt.",
+  "Keep books tagged explicit from them": "Als explizit markierte Bücher vor dieser Person verbergen",
+  "Listen to {0}": "{0} anhören",
+  "Share": "Teilen",
+  "Share as a household library": "Als Haushaltsbibliothek teilen",
+  "Share with": "Teilen mit",
+  "Stop sharing with {0}": "Teilen mit {0} beenden",
+  "That library isn't shared with you.": "Diese Bibliothek ist nicht mit Ihnen geteilt.",
+  "The collection is yours already.": "Die Sammlung gehört Ihnen bereits.",
+  "The readers you choose here can read and listen to every book in this collection, each with their own place, highlights, and bookmarks. They never see your notes, review, or reading, nor each other's. Only you change the books.": "Die Leserinnen und Leser, die Sie hier wählen, können jedes Buch dieser Sammlung lesen und hören, jeweils mit eigener Stelle, eigenen Markierungen und Lesezeichen. Sie sehen nie Ihre Notizen, Rezension oder Lektüre, auch nicht die der anderen. Nur Sie ändern die Bücher.",
+  "There's no other reader on this shelf to share with yet.": "Es gibt in diesem Shelf noch niemanden, mit dem Sie teilen können.",
+  "{0}'s household library, shared with you. Your place, highlights, and bookmarks in its books are your own.": "Die Haushaltsbibliothek von {0}, mit Ihnen geteilt. Ihre Stelle, Markierungen und Lesezeichen in ihren Büchern gehören Ihnen.",
+  "{0}, from {1}": "{0}, von {1}"
 }

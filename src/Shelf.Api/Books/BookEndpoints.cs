@@ -99,6 +99,7 @@ public static class BookEndpoints
         CastLinks.Map(app, books);
         ListeningSessions.Map(books);
         Narrators.Map(books);
+        Households.Map(books);
         ReadingTime.Map(books);
         YearReview.Map(books);
         Merging.Map(books);
