@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.19.1] - 2026-10-28
+
 ### Security
 
 - **The Audiobookshelf apps' sign-in has the same limit on guesses as the web's**: it checked the same password with no limit at all, so it could be guessed at without end.
@@ -749,7 +751,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.19.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.19.1...HEAD
+[2.19.1]: https://github.com/doodersrage/shelf/compare/v2.19.0...v2.19.1
 [2.19.0]: https://github.com/doodersrage/shelf/compare/v2.18.0...v2.19.0
 [2.18.0]: https://github.com/doodersrage/shelf/compare/v2.17.1...v2.18.0
 [2.17.1]: https://github.com/doodersrage/shelf/compare/v2.17.0...v2.17.1
