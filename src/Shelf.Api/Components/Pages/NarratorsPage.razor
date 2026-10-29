@@ -1,0 +1,33 @@
+@page "/narrators"
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("Narrators") · Shelf</PageTitle>
+
+<h1>@T("Narrators")</h1>
+
+@if (narrators.Length == 0)
+{
+    <EmptyState Title="@T("No narrators yet")" Text="@T("A narrator given on an audiobook's details, or read from its file, is listed here with the books they read.")" ActionHref="/library?audio=1" ActionLabel="@T("Your audiobooks")" />
+}
+else
+{
+    <ul class="tag-counts">
+        @foreach (var narrator in narrators)
+        {
+            <li>
+                <a href="@($"/library?narrator={Uri.EscapeDataString(narrator.Name)}")">@narrator.Name</a>
+                <span class="hint">@Localization.Counts.Books(narrator.Count)</span>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private AuthorCount[] narrators = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        narrators = await Narrators.CountAsync(db);
+    }
+}

@@ -106,11 +106,16 @@ Where the browser can cast, **Play on another device** shows beside the player's
 
 The button shows only when the browser says a device is near; Firefox can't cast at all. Podcast episodes saved on the shelf aren't cast.
 
-## Listening in a podcast app
+## Sharing a recording, and listening in a podcast app
 
-**Listen in a podcast app**, under the recording on a book's page, makes a private feed of the book for any podcast app, as Audiobookshelf opens one: each track an episode, in order, with its cover, and a single file's chapters where the app shows them. Paste the address it shows into the app; it's shown only once, so copy it then. **Make a new address** stops the old one, and **Stop the feed** stops it altogether.
+**Share it, or listen in a podcast app**, under the recording on a book's page, makes a private address for the book, as Audiobookshelf shares an item and opens a feed for one. It comes in two forms:
 
-Anyone with the address can listen to the book, so keep it to yourself. The podcast app keeps its own place, which isn't kept in step with Shelf. The feed stops if the book's recording goes, and only a book's owner can make one; a child's account can't.
+- **To listen in a browser:** a plain page with the cover and a player for each track, for someone you share it with. It needs no account and no app.
+- **For a podcast app:** a feed where each track is an episode, in order, with its cover and a single file's chapters where the app shows them.
+
+Choose how long it lasts (until stopped, a day, a week, or a month) before making it. Both addresses are shown only once, so copy them then. **Make a new address** stops the old one, and **Stop it** stops it altogether.
+
+Anyone with the address can listen to the book. The podcast app keeps its own place, which isn't kept in step with Shelf. The feed stops if the book's recording goes, and only a book's owner can make one; a child's account can't.
 
 ## Playlists
 

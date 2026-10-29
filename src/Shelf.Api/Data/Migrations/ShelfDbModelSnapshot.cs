@@ -166,6 +166,9 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("OwnerId")
                         .HasColumnType("INTEGER");
 

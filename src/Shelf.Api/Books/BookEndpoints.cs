@@ -98,6 +98,7 @@ public static class BookEndpoints
         AudioFeeds.Map(books);
         CastLinks.Map(app, books);
         ListeningSessions.Map(books);
+        Narrators.Map(books);
         ReadingTime.Map(books);
         YearReview.Map(books);
         Merging.Map(books);
@@ -176,9 +177,10 @@ public static class BookEndpoints
         int? skip = null,
         int? take = null,
         int? field = null,
-        string? value = null)
+        string? value = null,
+        string? narrator = null)
     {
-        var books = await BookRules.Filtered(db.Books, q, status, tag, author, loved, loaned, format, series, place, recommendedBy, loanedTo, field, value)
+        var books = await BookRules.Filtered(db.Books, q, status, tag, author, loved, loaned, format, series, place, recommendedBy, loanedTo, field, value, narrator)
             .AsNoTracking()
             .WithDetails()
             .ToListAsync(cancellationToken);

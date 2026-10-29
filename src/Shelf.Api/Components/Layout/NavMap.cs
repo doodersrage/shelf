@@ -45,6 +45,7 @@ public static class NavMap
             new("/collections", T("Collections"), "lists"),
             new("/series", T("Series")),
             new("/authors", T("Authors"), "writers follow"),
+            new("/narrators", T("Narrators"), "voices readers audiobooks"),
             new("/map", T("Map"), "places settings world"),
         ]),
         new("reading", T("Your reading"),

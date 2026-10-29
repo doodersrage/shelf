@@ -1300,8 +1300,16 @@ public static class BookRules
         string? recommendedBy = null,
         string? loanedTo = null,
         int? field = null,
-        string? fieldValue = null)
+        string? fieldValue = null,
+        string? narrator = null)
     {
+        // A narrator's name, as one of the names given (a book read by two is found for each).
+        if (!string.IsNullOrWhiteSpace(narrator))
+        {
+            var voice = narrator.Trim().ToLower();
+            books = books.Where(book => book.Narrator != null && book.Narrator.ToLower().Contains(voice));
+        }
+
         // One of the reader's own fields: holding this value, or anything at all when none is given.
         if (field is int fieldId)
         {

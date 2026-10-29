@@ -48,7 +48,10 @@ else if (book is not null)
                 }
                 @if (!string.IsNullOrWhiteSpace(book.Narrator))
                 {
-                    <span class="hint"> · @T("read by {0}", book.Narrator)</span>
+                    <span class="hint"> · @T("read by") @foreach (var (voice, at) in Narrators.Names(book.Narrator).Select((voice, at) => (voice, at)))
+                    {
+                        @(at > 0 ? " & " : "")<a href="@($"/library?narrator={Uri.EscapeDataString(voice)}")">@voice</a>
+                    }</span>
                 }
             </p>
             @if (!string.IsNullOrWhiteSpace(book.OriginalTitle))

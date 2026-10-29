@@ -20,11 +20,17 @@ public sealed class AudioFeed
     public int OwnerId { get; set; }
     public required string TokenHash { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+
+    // When the address stops by itself; never, when not given.
+    public DateTimeOffset? ExpiresAt { get; set; }
 }
 
-public sealed record AudioFeedState(bool On, DateTimeOffset? Since);
+public sealed record AudioFeedState(bool On, DateTimeOffset? Since, DateTimeOffset? Until);
 
-public sealed record AudioFeedMade(string Url);
+// The feed for a podcast app, and a page that plays the book in any browser, under the same secret.
+public sealed record AudioFeedMade(string Url, string PageUrl);
+
+public sealed record AudioFeedRequest(int? Days);
 
 public static class AudioFeeds
 {
@@ -35,10 +41,10 @@ public static class AudioFeeds
     {
         books.MapGet("/{id:int}/audio/feed", async Task<IResult> (int id, ShelfDb db, CancellationToken cancellationToken) =>
             await StateAsync(db, id, cancellationToken) is { } state ? TypedResults.Ok(state) : TypedResults.NotFound()).WithTags("Sharing");
-        books.MapPost("/{id:int}/audio/feed", async Task<IResult> (int id, HttpContext http, ShelfDb db, CancellationToken cancellationToken) =>
-            await MakeAsync(db, id, cancellationToken) switch
+        books.MapPost("/{id:int}/audio/feed", async Task<IResult> (int id, AudioFeedRequest? request, HttpContext http, ShelfDb db, CancellationToken cancellationToken) =>
+            await MakeAsync(db, id, request?.Days is int days and > 0 ? TimeSpan.FromDays(Math.Min(days, 3650)) : null, cancellationToken) switch
             {
-                { Token: { } token } => TypedResults.Ok(new AudioFeedMade(Address(http.Request, token))),
+                { Token: { } token } => TypedResults.Ok(new AudioFeedMade(Address(http.Request, token), Page(http.Request, token))),
                 { Problem: { } problem } => TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Feed"] = [problem] }),
                 _ => TypedResults.NotFound(),
             }).WithTags("Sharing");
@@ -50,11 +56,14 @@ public static class AudioFeeds
     public static void MapPublic(WebApplication app)
     {
         app.MapGet("/listen-feed/{token}/feed.xml", Feed).AllowAnonymous().ExcludeFromDescription();
+        app.MapGet("/listen-feed/{token}", Listen).AllowAnonymous().ExcludeFromDescription();
         app.MapGet("/listen-feed/{token}/tracks/{index:int}/{name}", Track).AllowAnonymous().ExcludeFromDescription();
         app.MapGet("/listen-feed/{token}/cover", Cover).AllowAnonymous().ExcludeFromDescription();
     }
 
     public static string Address(HttpRequest request, string token) => $"{request.Scheme}://{request.Host}{request.PathBase}/listen-feed/{token}/feed.xml";
+
+    public static string Page(HttpRequest request, string token) => $"{request.Scheme}://{request.Host}{request.PathBase}/listen-feed/{token}";
 
     public static async Task<AudioFeedState?> StateAsync(ShelfDb db, int bookId, CancellationToken cancellationToken = default)
     {
@@ -64,12 +73,12 @@ public static class AudioFeeds
         }
 
         var feed = await db.AudioFeeds.AsNoTracking().FirstOrDefaultAsync(item => item.BookId == bookId, cancellationToken);
-        return new AudioFeedState(feed is not null, feed?.CreatedAt);
+        return new AudioFeedState(feed is not null && !(feed.ExpiresAt < DateTimeOffset.UtcNow), feed?.CreatedAt, feed?.ExpiresAt);
     }
 
     // A new address for the book's feed, shown once: the one before stops. Only a book of the reader's own, with a
     // recording, and not for a child's account.
-    public static async Task<(string? Token, string? Problem)> MakeAsync(ShelfDb db, int bookId, CancellationToken cancellationToken = default)
+    public static async Task<(string? Token, string? Problem)> MakeAsync(ShelfDb db, int bookId, TimeSpan? lasts = null, CancellationToken cancellationToken = default)
     {
         var book = await db.Books.AsNoTracking().FirstOrDefaultAsync(item => item.Id == bookId, cancellationToken);
         if (book is null)
@@ -89,7 +98,8 @@ public static class AudioFeeds
 
         var token = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(24));
         await db.AudioFeeds.Where(item => item.BookId == bookId).ExecuteDeleteAsync(cancellationToken);
-        db.AudioFeeds.Add(new AudioFeed { BookId = bookId, OwnerId = db.ReaderId, TokenHash = Feeds.Hash(token), CreatedAt = DateTimeOffset.UtcNow });
+        var now = DateTimeOffset.UtcNow;
+        db.AudioFeeds.Add(new AudioFeed { BookId = bookId, OwnerId = db.ReaderId, TokenHash = Feeds.Hash(token), CreatedAt = now, ExpiresAt = lasts is { } span ? now + span : null });
         await db.SaveChangesAsync(cancellationToken);
         return (token, null);
     }
@@ -108,7 +118,7 @@ public static class AudioFeeds
 
         var hash = Feeds.Hash(token);
         var feed = await db.AudioFeeds.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(item => item.TokenHash == hash, cancellationToken);
-        if (feed is null || await db.Readers.AsNoTracking().AnyAsync(reader => reader.Id == feed.OwnerId && (reader.Suspended || reader.Restricted), cancellationToken))
+        if (feed is null || feed.ExpiresAt < DateTimeOffset.UtcNow || await db.Readers.AsNoTracking().AnyAsync(reader => reader.Id == feed.OwnerId && (reader.Suspended || reader.Restricted), cancellationToken))
         {
             return null;
         }
@@ -174,6 +184,47 @@ public static class AudioFeeds
 
         var rss = new XElement("rss", new XAttribute("version", "2.0"), new XAttribute(XNamespace.Xmlns + "itunes", Itunes), new XAttribute(XNamespace.Xmlns + "psc", Psc), channel);
         return Results.Text(new XDocument(new XDeclaration("1.0", "utf-8", null), rss).Declaration + "\n" + rss, "application/rss+xml; charset=utf-8");
+    }
+
+    // The book in any browser, for someone it's shared with: its cover, title, and a player for each track. A plain
+    // page with nothing to run, so it opens anywhere and asks for nothing.
+    private static async Task<IResult> Listen(string token, ShelfDb db, AudioStore audio, CancellationToken cancellationToken)
+    {
+        if (await OpenAsync(db, token, cancellationToken) is not { } book)
+        {
+            return Results.NotFound();
+        }
+
+        var encode = System.Text.Encodings.Web.HtmlEncoder.Default;
+        var root = $"/listen-feed/{token}";
+        var tracks = audio.Tracks(book.AudioStoredName);
+        var language = EpubDetails.LanguageCode(book.Language) ?? "en";
+        var html = new System.Text.StringBuilder()
+            .Append("<!DOCTYPE html><html lang=\"").Append(encode.Encode(language)).Append("\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
+            .Append("<meta name=\"robots\" content=\"noindex\"><title>").Append(encode.Encode(book.Title)).Append("</title>")
+            .Append("<style>body{font-family:system-ui,sans-serif;max-width:36rem;margin:2rem auto;padding:0 1rem;line-height:1.5;color:#252a28;background:#f5f1e8}img{max-width:12rem;border-radius:8px;display:block;margin-bottom:1rem}audio{width:100%}ol{padding-left:1.25rem}li{margin:.75rem 0}.hint{color:#66716b}</style></head><body>")
+            .Append("<img src=\"").Append(root).Append("/cover\" alt=\"\">")
+            .Append("<h1>").Append(encode.Encode(book.Title)).Append("</h1><p class=\"hint\">").Append(encode.Encode(book.Author)).Append("</p>");
+        if (tracks.Count == 1)
+        {
+            var path = audio.TrackPath(book.AudioStoredName, 0)!;
+            html.Append("<audio controls preload=\"metadata\" src=\"").Append(root).Append("/tracks/0/001").Append(Path.GetExtension(path).ToLowerInvariant()).Append("\"></audio>");
+        }
+        else
+        {
+            html.Append("<ol>");
+            foreach (var track in tracks)
+            {
+                var path = audio.TrackPath(book.AudioStoredName, track.Index)!;
+                html.Append("<li>").Append(encode.Encode(AudioStore.PlainTitle(track.Title)))
+                    .Append("<audio controls preload=\"none\" src=\"").Append(root).Append("/tracks/").Append(track.Index).Append('/').Append($"{track.Index + 1:000}").Append(Path.GetExtension(path).ToLowerInvariant()).Append("\"></audio></li>");
+            }
+
+            html.Append("</ol>");
+        }
+
+        html.Append("<p class=\"hint\">").Append(encode.Encode(T("Shared from Shelf. In a podcast app, add {0}.", $"{root}/feed.xml"))).Append("</p></body></html>");
+        return Results.Content(html.ToString(), "text/html; charset=utf-8");
     }
 
     private static async Task<IResult> Track(string token, int index, string name, ShelfDb db, AudioStore audio, CancellationToken cancellationToken) =>

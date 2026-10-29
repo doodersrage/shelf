@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -57,6 +59,25 @@ public sealed class AudioFeedsTests(ShelfApiFactory factory) : IClassFixture<She
         Assert.Equal(HttpStatusCode.NoContent, (await reader.DeleteAsync($"/books/{book.Id}/audio/feed")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await app.GetAsync(new Uri(again.Url).PathAndQuery)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await app.GetAsync("/listen-feed/not-a-real-secret-at-all-0000/feed.xml")).StatusCode);
+
+        // A page that plays it in any browser, under the same secret; and an address made to last a day stops when
+        // its day is up.
+        var shared = (await (await reader.PostAsJsonAsync($"/books/{book.Id}/audio/feed", new AudioFeedRequest(1), JsonOptions)).Content.ReadFromJsonAsync<AudioFeedMade>(JsonOptions))!;
+        var page = await app.GetStringAsync(new Uri(shared.PageUrl).PathAndQuery);
+        Assert.Contains("<h1>Heard in the Car</h1>", page);
+        Assert.Contains("<audio controls", page);
+        Assert.NotNull((await reader.GetFromJsonAsync<AudioFeedState>($"/books/{book.Id}/audio/feed", JsonOptions))!.Until);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>();
+            var feed = await db.AudioFeeds.IgnoreQueryFilters().SingleAsync(item => item.BookId == book.Id);
+            feed.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Equal(HttpStatusCode.NotFound, (await app.GetAsync(new Uri(shared.PageUrl).PathAndQuery)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await app.GetAsync(new Uri(shared.Url).PathAndQuery)).StatusCode);
+        Assert.False((await reader.GetFromJsonAsync<AudioFeedState>($"/books/{book.Id}/audio/feed", JsonOptions))!.On);
 
         var stranger = await factory.SignUpAsync("Feed Stranger");
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.PostAsync($"/books/{book.Id}/audio/feed", null)).StatusCode);

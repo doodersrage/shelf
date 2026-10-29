@@ -213,9 +213,13 @@
     }
 
     @* Every filter not shown as a chip above, each a tap to take away. *@
-    @if (!string.IsNullOrWhiteSpace(tagFilter) || !string.IsNullOrWhiteSpace(authorFilter) || !string.IsNullOrWhiteSpace(seriesFilter) || !string.IsNullOrWhiteSpace(placeFilter) || !string.IsNullOrWhiteSpace(recommendedFilter) || !string.IsNullOrWhiteSpace(loanedFilter) || fieldFilter is not null || MoreOn > 0)
+    @if (!string.IsNullOrWhiteSpace(tagFilter) || !string.IsNullOrWhiteSpace(authorFilter) || !string.IsNullOrWhiteSpace(seriesFilter) || !string.IsNullOrWhiteSpace(placeFilter) || !string.IsNullOrWhiteSpace(recommendedFilter) || !string.IsNullOrWhiteSpace(loanedFilter) || fieldFilter is not null || !string.IsNullOrWhiteSpace(narratorFilter) || MoreOn > 0)
     {
         <ul class="active-filters" aria-label="@T("Filters on")">
+            @if (!string.IsNullOrWhiteSpace(narratorFilter))
+            {
+                <li>@Removable(T("Read by"), narratorFilter, () => narratorFilter = null)</li>
+            }
             @if (fieldFilter is int filterField && fieldNames.TryGetValue(filterField, out var filterFieldInfo))
             {
                 <li>@Removable(filterFieldInfo.Name, fieldValueFilter is { } given ? CustomFields.Show(filterFieldInfo.Kind, given) : T("filled in"), () => (fieldFilter, fieldValueFilter) = (null, null))</li>
@@ -587,6 +591,7 @@ else if (visible.Count > 0)
     private string? loanedFilter;
     // One of the reader's own fields, and the value it holds (any, when none is given).
     private int? fieldFilter;
+    private string? narratorFilter;
     private string? fieldValueFilter;
     private Dictionary<int, (string Name, FieldKind Kind)> fieldNames = [];
     private ILookup<int, (int FieldId, string Value)> bookValues = Array.Empty<(int, int, string)>().ToLookup(item => item.Item1, item => (item.Item2, item.Item3));
@@ -719,6 +724,9 @@ else if (visible.Count > 0)
     [SupplyParameterFromQuery(Name = "loanedTo")]
     public string? LoanedTo { get; set; }
 
+    [SupplyParameterFromQuery(Name = "narrator")]
+    public string? Narrator { get; set; }
+
     [SupplyParameterFromQuery(Name = "field")]
     public int? Field { get; set; }
 
@@ -769,6 +777,7 @@ else if (visible.Count > 0)
             ["place"] = placeFilter,
             ["recommendedBy"] = recommendedFilter,
             ["loanedTo"] = loanedFilter,
+            ["narrator"] = narratorFilter,
             ["field"] = fieldFilter?.ToString(System.Globalization.CultureInfo.InvariantCulture),
             ["value"] = fieldFilter is null ? null : fieldValueFilter,
             ["loved"] = lovedOnly ? "1" : null,
@@ -848,6 +857,7 @@ else if (visible.Count > 0)
         recommendedFilter = string.IsNullOrWhiteSpace(RecommendedBy) ? null : RecommendedBy.Trim();
         loanedFilter = string.IsNullOrWhiteSpace(LoanedTo) ? null : LoanedTo.Trim();
         (fieldFilter, fieldValueFilter) = (Field, string.IsNullOrWhiteSpace(FieldValue) ? null : FieldValue.Trim());
+        narratorFilter = string.IsNullOrWhiteSpace(Narrator) ? null : Narrator.Trim();
         query = Query?.Trim() ?? "";
         statusFilter = Enum.TryParse<BookStatus>(Status, ignoreCase: true, out var status) ? status.ToString() : "";
         if (Sorts.Contains(Sort))
@@ -929,7 +939,7 @@ else if (visible.Count > 0)
     }
 
     private bool UrlFiltered => tagFilter is not null || authorFilter is not null || seriesFilter is not null
-        || placeFilter is not null || recommendedFilter is not null || loanedFilter is not null || fieldFilter is not null;
+        || placeFilter is not null || recommendedFilter is not null || loanedFilter is not null || fieldFilter is not null || narratorFilter is not null;
 
     private bool Filtered => !string.IsNullOrWhiteSpace(query) || statusFilter.Length > 0 || ChecksOn > 0 || UrlFiltered;
 
@@ -1127,6 +1137,11 @@ else if (visible.Count > 0)
                     || (book.RecommendedBy?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     || book.Quotes.Any(quote => quote.Text.Contains(term, StringComparison.OrdinalIgnoreCase))
                     || bookValues[book.Id].Any(item => item.Value.Contains(term, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(narratorFilter))
+            {
+                result = result.Where(book => Narrators.Reads(book.Narrator, narratorFilter));
             }
 
             if (fieldFilter is int wantedField)

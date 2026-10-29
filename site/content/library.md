@@ -89,7 +89,7 @@ The library shows covers or a list, and remembers your choice. Search, status, a
 
 The address keeps up with what you choose, so a filtered library can be bookmarked, and opening a book then going back finds the same books, as far down the page as you were.
 
-Pages gathered from the catalog give other ways in: **Authors**, **Series** in reading order, **Places** where books sit, **Condition**, **Recommenders**, and **Years** of finished books. A copy you let go (see [Your collection over time](#your-collection-over-time)) is kept out of the library until you tick **Let go** under **More filters**.
+Pages gathered from the catalog give other ways in: **Authors**, **Narrators** (each voice with the audiobooks they read), **Series** in reading order, **Places** where books sit, **Condition**, **Recommenders**, and **Years** of finished books. A copy you let go (see [Your collection over time](#your-collection-over-time)) is kept out of the library until you tick **Let go** under **More filters**.
 
 ### Places
 

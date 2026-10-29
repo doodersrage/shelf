@@ -3,21 +3,31 @@
 
 @* The book as a private podcast: an address made and shown once, and a way to stop it. *@
 <details class="audio-feed">
-    <summary>@T("Listen in a podcast app")</summary>
-    <p class="hint">@T("A private feed of this recording for any podcast app, a track an episode. Anyone with its address can listen to the book, so keep it to yourself. The podcast app keeps its own place; it isn't kept in step with Shelf.")</p>
+    <summary>@T("Share it, or listen in a podcast app")</summary>
+    <p class="hint">@T("A private address for this recording: a page that plays it in any browser, to share with someone, and a feed for any podcast app, a track an episode. Anyone with the address can listen to the book. The podcast app keeps its own place; it isn't kept in step with Shelf.")</p>
     @if (made is not null)
     {
-        <p role="status">@T("Copy this address into your podcast app now; it's shown only this once:")</p>
-        <p><code class="key">@made</code></p>
+        <p role="status">@T("Copy these now; they're shown only this once.")</p>
+        <p>@T("To listen in a browser:") <code class="key">@made.PageUrl</code></p>
+        <p>@T("For a podcast app:") <code class="key">@made.Url</code></p>
     }
     else if (state?.On == true)
     {
-        <p>@T("A feed has been on since {0}.", state.Since?.ToLocalTime().ToString("d", System.Globalization.CultureInfo.CurrentCulture) ?? "")</p>
+        <p>@T("An address has been on since {0}.", state.Since?.Medium() ?? "")@(state.Until is { } until ? " " + T("It stops on {0}.", until.Medium()) : "")</p>
     }
-    <button type="button" @onclick="Make">@(state?.On == true ? T("Make a new address (the old one stops)") : T("Make a feed"))</button>
+    <label>
+        @T("Lasts")
+        <select @bind="days">
+            <option value="0">@T("Until stopped")</option>
+            <option value="1">@T("A day")</option>
+            <option value="7">@T("A week")</option>
+            <option value="30">@T("A month")</option>
+        </select>
+    </label>
+    <button type="button" @onclick="Make">@(state?.On == true ? T("Make a new address (the old one stops)") : T("Make an address"))</button>
     @if (state?.On == true)
     {
-        <button type="button" class="quiet danger" @onclick="Stop">@T("Stop the feed")</button>
+        <button type="button" class="quiet danger" @onclick="Stop">@T("Stop it")</button>
     }
     @if (problem is not null)
     {
@@ -30,7 +40,8 @@
     public int BookId { get; set; }
 
     private AudioFeedState? state;
-    private string? made;
+    private AudioFeedMade? made;
+    private int days;
     private string? problem;
 
     protected override async Task OnParametersSetAsync()
@@ -42,9 +53,10 @@
     private async Task Make()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        var (token, trouble) = await AudioFeeds.MakeAsync(db, BookId);
+        var (token, trouble) = await AudioFeeds.MakeAsync(db, BookId, days > 0 ? TimeSpan.FromDays(days) : null);
         problem = trouble;
-        made = token is null ? null : $"{Navigation.BaseUri.TrimEnd('/')}/listen-feed/{token}/feed.xml";
+        var root = $"{Navigation.BaseUri.TrimEnd('/')}/listen-feed/{token}";
+        made = token is null ? null : new AudioFeedMade(root + "/feed.xml", root);
         state = await AudioFeeds.StateAsync(db, BookId);
     }
 
