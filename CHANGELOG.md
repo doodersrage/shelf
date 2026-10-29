@@ -6,6 +6,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Added
 
+- **The Calibre import brings custom columns** as fields of your own, each of the kind it was (number, yes or no, date, rating, or text); a field you have by that name is used, and a value a book holds already is kept.
 - **Sort the library by a field of your own**: each field is in the Sort menu; numbers sort as numbers, and books with nothing in it come last.
 - **A field's kind can change**: values that fit are rewritten for the new kind; if some don't, Shelf says how many and changes it only when you choose to clear them.
 

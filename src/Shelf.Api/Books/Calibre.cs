@@ -27,7 +27,12 @@ public sealed record CalibreBook(
     string? Language,
     int? Year,
     IReadOnlyList<string> Tags,
-    IReadOnlyList<(string Format, string Name)> Files);
+    IReadOnlyList<(string Format, string Name)> Files,
+    IReadOnlyList<CalibreValue>? Custom = null);
+
+// What a book holds in one of Calibre's custom columns, as the field it becomes here: its name, its kind, and the
+// value written as a reader would type it.
+public sealed record CalibreValue(string Field, FieldKind Kind, string Value);
 
 public sealed class CalibreProblem(string message) : Exception(message);
 
@@ -53,6 +58,7 @@ public static partial class CalibreLibrary
             using var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = database, Mode = SqliteOpenMode.ReadOnly, Pooling = false }.ToString());
             connection.Open();
             var tags = Pairs(connection, "SELECT l.book, t.name FROM books_tags_link l JOIN tags t ON t.id = l.tag");
+            var custom = CustomColumns(connection);
             var files = new Dictionary<int, List<(string, string)>>();
             using (var command = connection.CreateCommand())
             {
@@ -100,7 +106,8 @@ public static partial class CalibreLibrary
                         rows.IsDBNull(12) ? null : TwoLetters(rows.GetString(12)),
                         Year(rows.IsDBNull(5) ? null : rows.GetString(5)),
                         tags.TryGetValue(id, out var named) ? named : [],
-                        files.TryGetValue(id, out var kept) ? kept : []));
+                        files.TryGetValue(id, out var kept) ? kept : [],
+                        custom.TryGetValue(id, out var values) ? values : null));
                 }
             }
 
@@ -110,6 +117,46 @@ public static partial class CalibreLibrary
         {
             throw new CalibreProblem(T("That metadata.db could not be read as a Calibre library: {0}", ex.Message));
         }
+    }
+
+    // A book's custom columns, into the reader's fields of the same names, made if they have none (up to the most a
+    // reader keeps). A field they have already keeps its kind, and takes only the values that fit it; a value the
+    // book holds already is never replaced.
+    public static async Task FillFieldsAsync(ShelfDb db, int bookId, IReadOnlyList<CalibreValue> values, CancellationToken cancellationToken = default)
+    {
+        if (values.Count == 0)
+        {
+            return;
+        }
+
+        var fields = await db.CustomFields.ToListAsync(cancellationToken);
+        var held = (await db.CustomValues.Where(value => value.BookId == bookId).Select(value => value.FieldId).ToListAsync(cancellationToken)).ToHashSet();
+        foreach (var value in values)
+        {
+            var field = fields.FirstOrDefault(item => string.Equals(item.Name, value.Field, StringComparison.OrdinalIgnoreCase));
+            if (field is null)
+            {
+                if (fields.Count >= CustomFields.MaxFields)
+                {
+                    continue;
+                }
+
+                field = new CustomField { OwnerId = db.ReaderId, Name = value.Field, Kind = value.Kind, Position = fields.Count };
+                db.CustomFields.Add(field);
+                await db.SaveChangesAsync(cancellationToken);
+                fields.Add(field);
+            }
+
+            if (held.Contains(field.Id) || CustomFields.Normalize(field.Kind, value.Value).Value is not { } kept)
+            {
+                continue;
+            }
+
+            db.CustomValues.Add(new CustomValue { BookId = bookId, FieldId = field.Id, Value = kept });
+            held.Add(field.Id);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     // The file to bring for a book, as a full path, with its kind; null when none of its files is one Shelf takes.
@@ -128,6 +175,85 @@ public static partial class CalibreLibrary
         }
 
         return null;
+    }
+
+    // Calibre's custom columns, by book: numbers as numbers, yes/no, dates, a rating as stars, and anything else (text,
+    // tags, series, comments, a choice) as text, several values joined. A library without them, or one this can't
+    // read, simply brings none.
+    private static Dictionary<int, List<CalibreValue>> CustomColumns(SqliteConnection connection)
+    {
+        var found = new Dictionary<int, List<CalibreValue>>();
+        var columns = new List<(int Id, string Name, string Type, bool Normalized)>();
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT id, name, datatype, normalized FROM custom_columns WHERE mark_for_delete = 0 ORDER BY id";
+            using var rows = command.ExecuteReader();
+            while (rows.Read())
+            {
+                columns.Add((rows.GetInt32(0), rows.GetString(1).Trim(), rows.GetString(2), rows.GetBoolean(3)));
+            }
+        }
+        catch (SqliteException)
+        {
+            return found;
+        }
+
+        foreach (var (id, name, type, normalized) in columns.Where(column => column.Name.Length is > 0 and <= CustomField.MaxNameLength).Take(CustomFields.MaxFields))
+        {
+            var kind = type switch
+            {
+                "int" or "float" or "rating" => FieldKind.Number,
+                "bool" => FieldKind.YesNo,
+                "datetime" => FieldKind.Date,
+                _ => FieldKind.Text,
+            };
+            try
+            {
+                using var command = connection.CreateCommand();
+                command.CommandText = normalized
+                    ? $"SELECT l.book, c.value FROM books_custom_column_{id}_link l JOIN custom_column_{id} c ON c.id = l.value ORDER BY l.id"
+                    : $"SELECT book, value FROM custom_column_{id}";
+                using var rows = command.ExecuteReader();
+                var byBook = new Dictionary<int, List<string>>();
+                while (rows.Read())
+                {
+                    if (rows.IsDBNull(1))
+                    {
+                        continue;
+                    }
+
+                    var raw = rows.GetValue(1);
+                    var text = type switch
+                    {
+                        "bool" => Convert.ToInt64(raw, CultureInfo.InvariantCulture) != 0 ? "yes" : "no",
+                        "rating" => (Convert.ToDouble(raw, CultureInfo.InvariantCulture) / 2).ToString(CultureInfo.InvariantCulture),
+                        "datetime" => Year(raw.ToString()) is null ? null : raw.ToString()![..Math.Min(10, raw.ToString()!.Length)],
+                        "int" or "float" => Convert.ToString(raw, CultureInfo.InvariantCulture),
+                        "comments" => Text(raw.ToString() ?? ""),
+                        _ => raw.ToString(),
+                    };
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        byBook.TryAdd(rows.GetInt32(0), []);
+                        byBook[rows.GetInt32(0)].Add(text.Trim());
+                    }
+                }
+
+                foreach (var (book, values) in byBook)
+                {
+                    var value = string.Join(", ", values.Distinct());
+                    found.TryAdd(book, []);
+                    found[book].Add(new CalibreValue(name, kind, value.Length > CustomValue.MaxLength ? value[..CustomValue.MaxLength] : value));
+                }
+            }
+            catch (SqliteException)
+            {
+                // A column this can't read is left out; the rest still come.
+            }
+        }
+
+        return found;
     }
 
     private static Dictionary<int, List<string>> Pairs(SqliteConnection connection, string sql)
@@ -341,6 +467,7 @@ public sealed class CalibreImporter(IServiceScopeFactory scopes, ShelfJobs regis
         entry.Notes ??= book.Comments;
         var tags = book.Tags.Select(tag => tag.Trim().ToLowerInvariant()).Where(tag => tag.Length is > 0 and <= BookRules.MaxTagLength);
         await BookRules.SyncTagsAsync(db, entry, [.. entry.Tags.Select(tag => tag.Name).Concat(tags).Distinct().Take(BookRules.MaxTags)], cancellationToken);
+        await CalibreLibrary.FillFieldsAsync(db, entry.Id, book.Custom ?? [], cancellationToken);
         if (!Covers.HasCover(entry) && book.HasCover && Path.Combine(job.Library, book.Folder, "cover.jpg") is var cover && File.Exists(cover)
             && new FileInfo(cover).Length <= CoverStore.MaxBytes)
         {

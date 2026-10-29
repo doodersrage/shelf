@@ -119,6 +119,7 @@ An admin can bring in a [Calibre](https://calibre-ebook.com) library from the se
 
 - Each book brings one file: an EPUB if it has one, otherwise a PDF, a comic, or a Kindle file (converted when Calibre's converter is on the server), or an audiobook.
 - Its cover, series and number, tags, publisher, rating, ISBN, language, year, and Calibre's description (as notes) come with it. Several authors are joined as Calibre shows them, with `&`.
+- Its custom columns become [fields of your own](library.md#fields-of-your-own), each of the kind it was: numbers, yes or no, dates, ratings (as a number of stars), and anything else as text. A field you already have by that name is used, keeping its kind; a value a book already holds is kept.
 - A book with no file Shelf takes still comes in as a catalog entry.
 - The library is only read; nothing in it changes. A book already on your shelf is left alone, so bringing the same library again adds only what is new.
 

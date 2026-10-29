@@ -120,6 +120,18 @@ public sealed class RealCalibreTests(ShelfApiFactory factory) : IClassFixture<Sh
             Assert.Equal(["sea", "whales"], added.GetProperty("tags").EnumerateArray().Select(tag => tag.GetString()).Order());
             var kinds = added.GetProperty("formats").EnumerateArray().Select(path => Path.GetExtension(path.GetString())!.ToLowerInvariant()).Order().ToArray();
             Assert.Equal([".azw3", ".epub", ".mobi", ".pdf"], kinds);
+
+            // Custom columns made by Calibre itself come back as fields of their kinds.
+            await RunAsync("calibredb", "add_custom_column", "--library-path", library, "copies", "Copies", "int");
+            await RunAsync("calibredb", "add_custom_column", "--library-path", library, "signed", "Signed", "bool");
+            await RunAsync("calibredb", "add_custom_column", "--library-path", library, "room", "Room", "text");
+            var id = added.GetProperty("id").GetInt32().ToString(System.Globalization.CultureInfo.InvariantCulture);
+            await RunAsync("calibredb", "set_custom", "--library-path", library, "copies", id, "3");
+            await RunAsync("calibredb", "set_custom", "--library-path", library, "signed", id, "true");
+            await RunAsync("calibredb", "set_custom", "--library-path", library, "room", id, "Attic");
+            var custom = Assert.Single(CalibreLibrary.Read(library)).Custom!;
+            Assert.Equal([("Copies", FieldKind.Number, "3"), ("Room", FieldKind.Text, "Attic"), ("Signed", FieldKind.YesNo, "yes")],
+                custom.Select(value => (value.Field, value.Kind, value.Value)).OrderBy(value => value.Field));
         }
         finally
         {

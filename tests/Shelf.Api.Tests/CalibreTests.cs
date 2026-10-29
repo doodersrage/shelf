@@ -75,6 +75,12 @@ public sealed class CalibreTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal(Png, await cover.Content.ReadAsByteArrayAsync());
         Assert.Equal("A lone envoy comes to a winter world.\n\nIt does not go as planned.", imported.Notes);
 
+        // Calibre's custom columns become fields of the reader's own, each of the kind it was.
+        var fields = (await client.GetFromJsonAsync<CustomValueResponse[]>($"/books/{imported.Id}/fields", JsonOptions))!;
+        Assert.Equal(
+            [("Bought", FieldKind.Date, "2019-04-03"), ("Copies", FieldKind.Number, "2"), ("Room", FieldKind.Text, "Study"), ("Signed", FieldKind.YesNo, "yes")],
+            fields.Select(field => (field.Name, field.Kind, field.Value)).OrderBy(field => field.Name));
+
         // No file Shelf takes, or the file is missing from the folder: still a catalog entry.
         var lathe = shelf.Single(book => book.Title == "The Lathe of Heaven");
         Assert.Null(lathe.EbookFileName);
@@ -145,6 +151,22 @@ public sealed class CalibreTests(ShelfApiFactory factory) : IClassFixture<ShelfA
                     (1, 'EPUB', 1000, 'The Left Hand of Darkness - Ursula K. Le Guin'),
                     (1, 'TXT', 10, 'The Left Hand of Darkness - Ursula K. Le Guin'),
                     (3, 'EPUB', 1000, 'A Wizard of Earthsea - Ursula K. Le Guin');
+
+                CREATE TABLE custom_columns ( id INTEGER PRIMARY KEY AUTOINCREMENT, label TEXT NOT NULL, name TEXT NOT NULL, datatype TEXT NOT NULL,
+                    mark_for_delete BOOL DEFAULT 0 NOT NULL, editable BOOL DEFAULT 1 NOT NULL, display TEXT DEFAULT '{}' NOT NULL,
+                    is_multiple BOOL DEFAULT 0 NOT NULL, normalized BOOL NOT NULL, UNIQUE(label));
+                INSERT INTO custom_columns (id, label, name, datatype, normalized) VALUES
+                    (1, 'room', 'Room', 'enumeration', 1), (2, 'copies', 'Copies', 'int', 0), (3, 'signed', 'Signed', 'bool', 0), (4, 'bought', 'Bought', 'datetime', 0);
+                CREATE TABLE custom_column_1 ( id INTEGER PRIMARY KEY, value TEXT NOT NULL COLLATE NOCASE, link TEXT NOT NULL DEFAULT '', UNIQUE(value));
+                CREATE TABLE books_custom_column_1_link ( id INTEGER PRIMARY KEY, book INTEGER NOT NULL, value INTEGER NOT NULL, UNIQUE(book, value));
+                CREATE TABLE custom_column_2 ( id INTEGER PRIMARY KEY, book INTEGER, value INTEGER NOT NULL, UNIQUE(book));
+                CREATE TABLE custom_column_3 ( id INTEGER PRIMARY KEY, book INTEGER, value BOOL NOT NULL, UNIQUE(book));
+                CREATE TABLE custom_column_4 ( id INTEGER PRIMARY KEY, book INTEGER, value TIMESTAMP NOT NULL, UNIQUE(book));
+                INSERT INTO custom_column_1 (id, value) VALUES (1, 'Study');
+                INSERT INTO books_custom_column_1_link (book, value) VALUES (1, 1);
+                INSERT INTO custom_column_2 (book, value) VALUES (1, 2);
+                INSERT INTO custom_column_3 (book, value) VALUES (1, 1);
+                INSERT INTO custom_column_4 (book, value) VALUES (1, '2019-04-03 10:00:00+00:00');
                 """);
         }
 
