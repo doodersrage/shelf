@@ -249,6 +249,10 @@ public static class EbookFormats
         (book.EbookStoredName, book.EbookFileName) = (format.StoredName, format.FileName);
         (book.EbookChapter, book.EbookCfi, book.EbookProgress) = (0, null, null);
         Covers.Note(book, store);
+        // So do the places of anyone reading it with the owner, a borrower or a household member: a place in one file
+        // means nothing in another.
+        await db.LoanPlaces.IgnoreQueryFilters().Where(place => place.BookId == bookId)
+            .ExecuteUpdateAsync(set => set.SetProperty(place => place.EbookChapter, 0).SetProperty(place => place.EbookCfi, (string?)null).SetProperty(place => place.EbookProgress, (double?)null), cancellationToken);
         if (oldStored is not null)
         {
             (format.StoredName, format.FileName, format.AddedAt) = (oldStored, oldName ?? oldStored, DateTimeOffset.UtcNow);

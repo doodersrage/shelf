@@ -1238,11 +1238,26 @@ else if (book is not null)
                 <li>
                     <strong>@format.Format</strong> <span class="hint">@format.FileName · @Localization.Counts.Size(format.Size)</span>
                     <a href="/books/@book.Id/ebook/formats/@format.Id" download>@T("Download")</a>
-                    @if (format.CanBeMain)
+                    @if (formatAsked == (format.Id, "main"))
                     {
-                        <button type="button" class="quiet" @onclick="() => MakeMain(format.Id)">@T("Make it the main e-book")</button>
+                        <span role="alert">@T("Read the {0} from now on? The place in the e-book starts again at the beginning, for you and anyone reading it with you; the e-book now kept stays as another format.", format.Format)</span>
+                        <button type="button" @onclick="() => MakeMain(format.Id)">@T("Make it the main e-book")</button>
+                        <button type="button" class="quiet" @onclick="() => formatAsked = null">@T("Cancel")</button>
                     }
-                    <button type="button" class="quiet danger" @onclick="() => RemoveFormat(format.Id)" aria-label="@T("Remove the {0}", format.Format)">@T("Remove")</button>
+                    else if (formatAsked == (format.Id, "remove"))
+                    {
+                        <span role="alert">@T("Remove the {0}? Its file is deleted, and can't be brought back.", format.Format)</span>
+                        <button type="button" class="danger" @onclick="() => RemoveFormat(format.Id)">@T("Remove it")</button>
+                        <button type="button" class="quiet" @onclick="() => formatAsked = null">@T("Keep it")</button>
+                    }
+                    else
+                    {
+                        @if (format.CanBeMain)
+                        {
+                            <button type="button" class="quiet" @onclick="() => AskMain(format.Id)">@T("Make it the main e-book")</button>
+                        }
+                        <button type="button" class="quiet danger" @onclick="() => AskRemove(format.Id)" aria-label="@T("Remove the {0}", format.Format)">@T("Remove")</button>
+                    }
                 </li>
             }
         </ul>
@@ -2181,6 +2196,11 @@ else if (book is not null)
 
     private CustomValueResponse[] customValues = [];
     private EbookFormatResponse[] formats = [];
+    private (int Id, string Action)? formatAsked;
+
+    private void AskMain(int formatId) => formatAsked = (formatId, "main");
+
+    private void AskRemove(int formatId) => formatAsked = (formatId, "remove");
     private bool canConvert;
     private string? converting;
     private string? convertNote;
@@ -2211,6 +2231,7 @@ else if (book is not null)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         await EbookFormats.MakeMainAsync(db, Ebooks, Id, formatId);
+        formatAsked = null;
         await LoadAsync(replaceDraft: false);
     }
 
@@ -2218,6 +2239,7 @@ else if (book is not null)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         await EbookFormats.RemoveAsync(db, Ebooks, Id, formatId);
+        formatAsked = null;
         await LoadAsync(replaceDraft: false);
     }
     private Dictionary<int, string?> fieldDraft = [];

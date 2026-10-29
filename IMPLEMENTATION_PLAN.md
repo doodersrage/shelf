@@ -517,6 +517,15 @@ The user asked for what Audiobookshelf has and Shelf lacks, all of it, one at a 
   - Firefox, run here for the first time (Playwright's Firefox 1543 installed): 58 passed, 8 skipped by design (fake camera, virtual authenticator, offline service workers), none failed.
   - The server suite's earlier intermittent failures (twice, uncaptured) didn't recur in 5 runs in a row, 485 passed each time. The simultaneous-save race fixed today is a likely cause but isn't proven.
   - Calibre: the user installed 9.17 into the scratchpad; conversion, EPUB details read back by `ebook-meta`, and the folder export added by `calibredb` all pass (`RealCalibreTests`).
+- **Pre-release review (2026-10-29)**: three independent read-only reviews, covering the public addresses, access and privacy, and data safety. Each finding was checked against the code before it was fixed. Fixed, with tests:
+  - P1: another reader's podcast episode could be put in a playlist and its title shown (episodes carry no reader filter).
+  - P1: a household member without downloads could still take files through OPDS and the Audiobookshelf apps' download.
+  - P1: a book restored from a scheduled backup brought back its other formats' rows without their files.
+  - P1: a place left "waiting" on the device (a save as a tab closed) went to the shelf unchecked on the next visit, moving it backwards.
+  - P1: removing a format, and making one the main e-book, asked nothing.
+  - P2: casting failed for shared books (now re-checked as the reader, and refused to members without downloads); unmerge could put two books on one file; making a format main left other readers' places in the old file; damaged format files never showed on the health page.
+  - P3 hardening: `no-store` on secret addresses; a CSP and `no-referrer` on the share page; feed text cleaned of characters XML refuses; no stored names in feed ids; the share page gives the feed's whole address; a share address stops with its recording; a race in making one answers plainly; one message for any reader who can't be chosen; a membership that hides a book gives no download of it; temp files cleared when converting, tagging, or exporting fails; casting truly hands back; the classic reader's "Keep my place here" drops the other device's exact place; the folder export never writes two entries of one name.
+  - Left as documented limits: reading in a browser fetches the file even for a member without downloads; household books aren't in KOReader sync, OPDS lists, or members' playlists and notes export; two simultaneous same-format uploads can make two rows.
 - Skipped, as the user chose: files read in place. Shelf keeps its own storage; the import folder, Audiobookshelf sync, and the folder export cover moving in and out.
 
 - Not planned (reasons given to the user): USB device management (a web server can't reach a cable; OPDS, Kobo sync, and Send to Kindle cover it), news downloads, an e-book editor, and plugins (other people's code on a shared server).

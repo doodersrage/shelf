@@ -169,7 +169,7 @@
     });
     audio.remote.addEventListener("disconnect", () => {
       casting = false;
-      if (plan && track >= 0) setTrack(track, audio.currentTime || 0, wantPlay);
+      uncast();
       render();
     });
   } else if (audio.webkitShowPlaybackTargetPicker) {
@@ -208,8 +208,17 @@
     Promise.resolve(asked).catch(() => {
       // Chosen nowhere: back to the shelf's own addresses.
       casting = audio.remote?.state === "connected";
-      if (!casting && plan && track >= 0) setTrack(track, audio.currentTime || 0, wantPlay);
+      if (!casting) uncast();
     });
+  }
+
+  // Back to the shelf's own addresses, where it was: the track forgotten first, so it loads again.
+  function uncast() {
+    if (!plan || track < 0) return;
+    const index = track;
+    const at = pending ? pending.seconds : audio.currentTime || 0;
+    track = -1;
+    setTrack(index, at, wantPlay);
   }
 
   function setTrack(index, seconds, play) {
@@ -390,6 +399,21 @@
     undo = { time: before, until: performance.now() + MOVED_UNDO_FOR };
     note = "moved";
     render();
+  }
+
+  // One place kept here sent late: it moves the shelf's place on only. True when the shelf took it.
+  async function replay(bookId, kept) {
+    try {
+      const response = await fetch(`/books/${bookId}/audio/place`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ track: kept.track, seconds: kept.seconds, replayed: true }),
+        credentials: "same-origin",
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
   }
 
   // Places and time from while the shelf could not be reached go back to it now.
@@ -727,9 +751,24 @@
     prepareCast();
     // A place kept here that the shelf has not had yet is newer than the shelf's.
     const local = read(`shelf-audio-place-${keyOf(next)}`, null);
-    const from = local?.waiting ? local : next;
-    // Starting from a place kept here and not yet sent, the first save goes as before, without the check.
-    known = confirmed = local?.waiting || next.placeUrl ? null : { track: next.track ?? 0, seconds: next.seconds ?? 0 };
+    const shelf = { track: next.track ?? 0, seconds: next.seconds ?? 0 };
+    let from = next;
+    known = confirmed = next.placeUrl ? null : shelf;
+    if (local?.waiting && next.placeUrl) {
+      // Anything else with a plan of its own keeps its place here as before.
+      from = local;
+    } else if (local?.waiting) {
+      // A place kept here and not yet sent (a save as the page closed, say) is never sent over a newer one: further
+      // on, it goes to the shelf as one from listening offline, which moves the place on only, and plays from
+      // there; behind, the shelf's place is the one, and the stale one is let go.
+      const key = keyOf(next);
+      const further = local.track > shelf.track || (local.track === shelf.track && local.seconds > shelf.seconds + 2);
+      if (further) {
+        from = local;
+        known = confirmed = (await replay(next.bookId, local)) ? { track: local.track, seconds: local.seconds } : null;
+      }
+      if (keyOf(plan) === key) write(`shelf-audio-place-${key}`, { ...(further ? local : shelf), waiting: false });
+    }
     const start = Math.min(Math.max(0, from.track), lengths.length - 1);
     if (options.arrive) arrive(options.arrive);
     else setTrack(start, Math.min(from.seconds || 0, Math.max(0, lengths[start] - 1)), Boolean(options.play));

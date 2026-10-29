@@ -85,6 +85,12 @@ public sealed class PlaylistsTests(ShelfApiFactory factory) : IClassFixture<Shel
         var theirs = (await (await stranger.PostAsJsonAsync("/books/playlists", new PlaylistRequest("Mine"), JsonOptions)).Content.ReadFromJsonAsync<PlaylistSummary>(JsonOptions))!;
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.PostAsJsonAsync($"/books/playlists/{theirs.Id}/items", new PlaylistAddRequest(second.Id, null), JsonOptions)).StatusCode);
 
+        // Another reader's podcast episode can't be added, nor its title seen.
+        await factory.SignUpAsync("Episode Owner");
+        var theirEpisode = await EpisodeAsync("Episode Owner", "https://example.invalid/private-feed.xml");
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.PostAsJsonAsync($"/books/playlists/{theirs.Id}/items", new PlaylistAddRequest(null, theirEpisode), JsonOptions)).StatusCode);
+        Assert.Empty((await stranger.GetFromJsonAsync<PlaylistView>($"/books/playlists/{theirs.Id}", JsonOptions))!.Items);
+
         Assert.Equal(HttpStatusCode.NoContent, (await reader.DeleteAsync($"/books/playlists/{list.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await reader.GetAsync($"/books/{second.Id}")).StatusCode);
     }

@@ -78,8 +78,17 @@ public static class Households
 
     // Whether this reader may download the book's files: always their own and a book lent to them; a household
     // book when any membership opening it says so.
-    public static async Task<bool> MayDownloadAsync(ShelfDb db, OpenBook open, CancellationToken cancellationToken = default) =>
-        !open.Household || await Opening(db, open.Book.Id).AnyAsync(member => member.CanDownload, cancellationToken);
+    public static async Task<bool> MayDownloadAsync(ShelfDb db, OpenBook open, CancellationToken cancellationToken = default)
+    {
+        if (!open.Household)
+        {
+            return true;
+        }
+
+        // A membership that keeps the book from them gives no download of it.
+        var isExplicit = await db.Books.IgnoreQueryFilters().AnyAsync(book => book.Id == open.Book.Id && book.Tags.Any(tag => tag.Name == CollectionMember.ExplicitTag), cancellationToken);
+        return await Opening(db, open.Book.Id).AnyAsync(member => member.CanDownload && !(member.HideExplicit && isExplicit), cancellationToken);
+    }
 
     // The household libraries shared with this reader, with the books each opens to them.
     public static async Task<HouseholdLibrary[]> LibrariesAsync(ShelfDb db, CancellationToken cancellationToken = default)
@@ -142,15 +151,11 @@ public static class Households
             return T("The collection is yours already.");
         }
 
+        // One answer for anyone who can't be chosen, so it tells nothing of who is suspended or a child.
         var reader = await db.Readers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == readerId, cancellationToken);
-        if (reader is null || reader.Suspended)
+        if (reader is null || reader.Suspended || reader.Restricted)
         {
             return T("Choose a reader on this shelf.");
-        }
-
-        if (reader.Restricted)
-        {
-            return T("A child's account reads what its guardian shares with their children; it can't join a household library.");
         }
 
         if (await db.CollectionMembers.IgnoreQueryFilters().AnyAsync(member => member.CollectionId == collectionId && member.ReaderId == readerId, cancellationToken))

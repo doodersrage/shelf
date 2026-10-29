@@ -75,7 +75,7 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
         api.MapGet("/items/{id:int}/cover", Cover);
         api.MapPost("/items/{id:int}/play", Play);
         api.MapGet("/items/{id:int}/file/{ino}", File);
-        api.MapGet("/items/{id:int}/file/{ino}/download", File);
+        api.MapGet("/items/{id:int}/file/{ino}/download", Download);
         api.MapGet("/items/{id:int}/ebook", Ebook);
         api.MapGet("/items/{id:int}/ebook/{ino}", Ebook);
         api.MapPost("/session/{id}/sync", (string id, JsonObject body, HttpContext http, CancellationToken cancellationToken) => SyncAsync(id, body, http, close: false, cancellationToken));
@@ -647,6 +647,13 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
             ? Results.File(path, AudioStore.ContentType(path), Path.GetFileName(path), enableRangeProcessing: true)
             : Results.NotFound();
     }
+
+    // The apps' own download, to keep on the phone: refused to a household member who may not download. Playing
+    // and reading in the app still stream as before.
+    private async Task<IResult> Download(int id, string ino, ShelfDb db, CancellationToken cancellationToken) =>
+        await OpenAsync(db, id, cancellationToken) is { } found && !await Households.MayDownloadAsync(db, found.Open, cancellationToken)
+            ? Results.NotFound()
+            : await File(id, ino, db, cancellationToken);
 
     private async Task<IResult> Ebook(int id, ShelfDb db, CancellationToken cancellationToken) =>
         await OpenAsync(db, id, cancellationToken) is { } found && ebooks.OpenPath(found.Book.EbookStoredName) is { } epub && EbookStore.IsEpub(found.Book.EbookStoredName)

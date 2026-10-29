@@ -750,10 +750,9 @@ else if (book is not null)
         }
 
         place.EbookChapter = chapter;
-        if (UseEngine && savedCfi is { Length: <= 1000 })
-        {
-            (place.EbookCfi, place.EbookProgress) = (savedCfi, bookShare);
-        }
+        // The page-turning reader knows the very place; any other knows the chapter only, and the other device's
+        // exact place in some other chapter mustn't be kept beside it.
+        (place.EbookCfi, place.EbookProgress) = UseEngine && savedCfi is { Length: <= 1000 } ? (savedCfi, bookShare) : (null, null);
     }, anyway: true);
 
     [JSInvokable]

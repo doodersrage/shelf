@@ -3505,7 +3505,6 @@
   "Make an address": "Créer une adresse",
   "Stop it": "L’arrêter",
   "Shared from Shelf. In a podcast app, add {0}.": "Partagé depuis Shelf. Dans une application de podcast, ajoutez {0}.",
-  "A child's account reads what its guardian shares with their children; it can't join a household library.": "Un compte enfant lit ce que son tuteur partage avec ses enfants ; il ne peut pas rejoindre une bibliothèque familiale.",
   "All {0} books": "Les {0} livres",
   "Can download files": "Peut télécharger les fichiers",
   "Household library": "Bibliothèque familiale",
@@ -3521,5 +3520,9 @@
   "The readers you choose here can read and listen to every book in this collection, each with their own place, highlights, and bookmarks. They never see your notes, review, or reading, nor each other's. Only you change the books.": "Les lecteurs que vous choisissez ici peuvent lire et écouter tous les livres de cette collection, chacun avec sa propre position, ses surlignages et ses signets. Ils ne voient jamais vos notes, votre critique ni vos lectures, ni celles des autres. Vous seul modifiez les livres.",
   "There's no other reader on this shelf to share with yet.": "Il n’y a pas encore d’autre lecteur sur ce Shelf avec qui partager.",
   "{0}'s household library, shared with you. Your place, highlights, and bookmarks in its books are your own.": "La bibliothèque familiale de {0}, partagée avec vous. Votre position, vos surlignages et vos signets dans ses livres sont à vous.",
-  "{0}, from {1}": "{0}, de {1}"
+  "{0}, from {1}": "{0}, de {1}",
+  "Another address was made for this book just now. Make one again if you need it.": "Une autre adresse vient d’être créée pour ce livre. Créez-en une autre si besoin.",
+  "Without downloads, a member still reads and listens in Shelf, but can't take the files: no downloads, e-reader catalog, casting, or offline copies in the Audiobookshelf apps. Reading in a browser fetches the file, as streaming does anywhere, so this keeps files from being taken casually.": "Sans téléchargements, un membre lit et écoute toujours dans Shelf, mais ne peut pas emporter les fichiers : ni téléchargements, ni catalogue pour liseuses, ni diffusion, ni copies hors ligne dans les applications Audiobookshelf. Lire dans un navigateur récupère le fichier, comme tout streaming, donc cela empêche surtout de les emporter à la légère.",
+  "Read the {0} from now on? The place in the e-book starts again at the beginning, for you and anyone reading it with you; the e-book now kept stays as another format.": "Lire le {0} désormais ? La position dans le livre numérique repart du début, pour vous et pour ceux qui le lisent avec vous ; le livre numérique actuel reste comme autre format.",
+  "Remove the {0}? Its file is deleted, and can't be brought back.": "Supprimer le {0} ? Son fichier est effacé et ne peut pas être récupéré."
 }

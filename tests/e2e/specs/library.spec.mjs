@@ -249,6 +249,8 @@ test("another format is added beside the main e-book, and made the main one", as
   await expect(formats.getByRole("link", { name: "Download" })).toHaveAttribute("href", /\/ebook\/formats\/\d+$/);
 
   await formats.getByRole("button", { name: "Make it the main e-book" }).click();
+  await expect(formats.getByRole("alert")).toContainText("starts again at the beginning");
+  await formats.getByRole("button", { name: "Make it the main e-book" }).click();
   await expect(formats).toContainText("EPUB");
   await expect(formats).toContainText("moby.epub");
   await expect(page.getByText("three.pdf").first()).toBeVisible();

@@ -120,6 +120,7 @@ public static class Playlists
             return null;
         }
 
+        var readerId = db.ReaderId;
         var items = await db.PlaylistItems.AsNoTracking().Where(item => item.PlaylistId == id).OrderBy(item => item.Position).ThenBy(item => item.Id)
             .Select(item => new
             {
@@ -130,9 +131,9 @@ public static class Playlists
                 Audio = item.Book == null ? null : item.Book.AudioStoredName,
                 Cover = item.Book == null ? null : Covers.For(item.Book.Id, item.Book.CoverUrl, item.Book.FileCover, item.Book.CoverImage),
                 item.EpisodeId,
-                EpisodeTitle = item.Episode == null ? null : item.Episode.Title,
-                Show = item.Episode == null ? null : item.Episode.Podcast!.Title,
-                PodcastId = item.Episode == null ? (int?)null : item.Episode.PodcastId,
+                EpisodeTitle = item.Episode == null || item.Episode.Podcast!.OwnerId != readerId ? null : item.Episode.Title,
+                Show = item.Episode == null || item.Episode.Podcast!.OwnerId != readerId ? null : item.Episode.Podcast!.Title,
+                PodcastId = item.Episode == null || item.Episode.Podcast!.OwnerId != readerId ? (int?)null : item.Episode.PodcastId,
             })
             .ToListAsync(cancellationToken);
         return new PlaylistView(list.Id, list.Name, [.. items.Select(item => item.BookId is int bookId
@@ -161,7 +162,8 @@ public static class Playlists
                 return T("A playlist holds things to listen to; this book has no recording.");
             }
         }
-        else if (!await db.PodcastEpisodes.AnyAsync(item => item.Id == episodeId, cancellationToken))
+        // Episodes carry no reader of their own: one of a podcast the reader follows, never another reader's.
+        else if (!await db.PodcastEpisodes.AnyAsync(item => item.Id == episodeId && item.Podcast!.OwnerId == db.ReaderId && db.ReaderId != 0, cancellationToken))
         {
             return "";
         }

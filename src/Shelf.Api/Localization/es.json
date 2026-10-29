@@ -3505,7 +3505,6 @@
   "Make an address": "Crear una dirección",
   "Stop it": "Detenerla",
   "Shared from Shelf. In a podcast app, add {0}.": "Compartido desde Shelf. En una aplicación de pódcast, añade {0}.",
-  "A child's account reads what its guardian shares with their children; it can't join a household library.": "Una cuenta infantil lee lo que su tutor comparte con sus hijos; no puede unirse a una biblioteca familiar.",
   "All {0} books": "Los {0} libros",
   "Can download files": "Puede descargar archivos",
   "Household library": "Biblioteca familiar",
@@ -3521,5 +3520,9 @@
   "The readers you choose here can read and listen to every book in this collection, each with their own place, highlights, and bookmarks. They never see your notes, review, or reading, nor each other's. Only you change the books.": "Los lectores que elijas aquí pueden leer y escuchar todos los libros de esta colección, cada uno con su propio punto, subrayados y marcadores. Nunca ven tus notas, reseña ni lecturas, ni las de los demás. Solo tú cambias los libros.",
   "There's no other reader on this shelf to share with yet.": "Aún no hay otro lector en este Shelf con quien compartir.",
   "{0}'s household library, shared with you. Your place, highlights, and bookmarks in its books are your own.": "La biblioteca familiar de {0}, compartida contigo. Tu punto, subrayados y marcadores en sus libros son tuyos.",
-  "{0}, from {1}": "{0}, de {1}"
+  "{0}, from {1}": "{0}, de {1}",
+  "Another address was made for this book just now. Make one again if you need it.": "Se acaba de crear otra dirección para este libro. Crea otra si la necesitas.",
+  "Without downloads, a member still reads and listens in Shelf, but can't take the files: no downloads, e-reader catalog, casting, or offline copies in the Audiobookshelf apps. Reading in a browser fetches the file, as streaming does anywhere, so this keeps files from being taken casually.": "Sin descargas, un miembro sigue leyendo y escuchando en Shelf, pero no puede llevarse los archivos: ni descargas, ni catálogo para lectores electrónicos, ni transmisión, ni copias sin conexión en las aplicaciones de Audiobookshelf. Leer en un navegador obtiene el archivo, como cualquier streaming, así que esto evita que se lleven los archivos sin más.",
+  "Read the {0} from now on? The place in the e-book starts again at the beginning, for you and anyone reading it with you; the e-book now kept stays as another format.": "¿Leer el {0} a partir de ahora? El punto en el libro electrónico vuelve al principio, para ti y para quien lo lea contigo; el libro electrónico actual queda como otro formato.",
+  "Remove the {0}? Its file is deleted, and can't be brought back.": "¿Quitar el {0}? Su archivo se elimina y no se puede recuperar."
 }

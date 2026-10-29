@@ -387,3 +387,33 @@ test("with a cast device near, the player offers it, and hands it signed address
   noProblems(page);
 });
 
+test("a place left waiting on this device is never sent over a newer one, and one further on is taken", async ({ browser }) => {
+  const page = await signUp(browser, unique("Waiter"));
+  const book = await createBook(page, { title: "Heard on Two Devices", author: "Someone", status: "Reading" });
+  await upload(page, book.id, "audio", "chapters.m4b", "audio/mp4");
+  const place = async () => (await (await page.request.get(`/books/${book.id}/place`)).json()).audioSeconds ?? 0;
+
+  // Listened on to 0:09 elsewhere; this browser kept 0:02 from a tab that closed before the shelf answered.
+  expect((await page.request.put(`/books/${book.id}/audio/place`, { data: { track: 0, seconds: 9 } })).ok()).toBe(true);
+  await page.goto("/");
+  await page.evaluate((id) => localStorage.setItem(`shelf-audio-place-${id}`, JSON.stringify({ track: 0, seconds: 2, waiting: true })), book.id);
+  await page.goto(`/library/${book.id}/listen`);
+  await ready(page);
+  await expect.poll(async () => Math.round((await player(page)).seconds)).toBe(9);
+  await page.waitForTimeout(1500);
+  expect(await place()).toBe(9);
+
+  // Further on than the shelf, a waiting place is taken, and played from.
+  // The player closed first, as leaving it keeps its own place on this device.
+  await page.evaluate(() => window.shelfPlayer.close());
+  await expect.poll(place).toBe(9);
+  await page.goto("/");
+  await ready(page);
+  await page.evaluate((id) => localStorage.setItem(`shelf-audio-place-${id}`, JSON.stringify({ track: 0, seconds: 11, waiting: true })), book.id);
+  await page.goto(`/library/${book.id}/listen`);
+  await ready(page);
+  await expect.poll(async () => Math.round((await player(page)).seconds)).toBe(11);
+  await expect.poll(place).toBe(11);
+  noProblems(page);
+});
+

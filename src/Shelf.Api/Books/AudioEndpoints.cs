@@ -123,6 +123,8 @@ public static class AudioEndpoints
         book.AudioTrack = null;
         book.AudioSeconds = null;
         await db.SaveChangesAsync(cancellationToken);
+        // Its shared address goes with it, rather than waking for whatever recording comes next.
+        await db.AudioFeeds.Where(feed => feed.BookId == id).ExecuteDeleteAsync(cancellationToken);
         store.Delete(old);
         return TypedResults.NoContent();
     }

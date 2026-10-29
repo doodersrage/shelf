@@ -349,6 +349,11 @@ public sealed class TimeMachineTests(ShelfApiFactory factory) : IClassFixture<Sh
         var reader = await factory.SignUpAsync("Backup Restorer");
         var book = await CreateAsync(reader, new CreateBookRequest("The Overstory", "Richard Powers", BookStatus.Finished, 5, Tags: ["trees"]));
         await reader.PostAsJsonAsync($"/books/{book.Id}/quotes", new CreateQuoteRequest("The best arguments in the world won't change a person's mind.", null), JsonOptions);
+        var pdf = System.Text.Encoding.ASCII.GetBytes("%PDF-1.4\n% The Overstory, another format\n%%EOF\n");
+        using (var content = new MultipartFormDataContent { { new ByteArrayContent(pdf), "file", "overstory.pdf" } })
+        {
+            await reader.PostAsync($"/books/{book.Id}/ebook/formats", content);
+        }
 
         var taken = (await (await factory.Client.PostAsync("/admin/backups", null)).Content.ReadFromJsonAsync<AutomaticBackup>(JsonOptions))!;
         var listed = (await factory.Client.GetFromJsonAsync<BackupWithVerdict[]>("/admin/backups", JsonOptions))!.Single(item => item.Name == taken.Name);
@@ -365,6 +370,9 @@ public sealed class TimeMachineTests(ShelfApiFactory factory) : IClassFixture<Sh
         var back = (await reader.GetFromJsonAsync<BookResponse>($"/books/{book.Id}", JsonOptions))!;
         Assert.Equal(["trees"], back.Tags);
         Assert.Single(back.Quotes);
+        // Its other format's file is in neither the backup (which leaves files out unless asked) nor the shelf (the
+        // trash let it go), so no record comes back pointing at nothing.
+        Assert.Empty((await reader.GetFromJsonAsync<EbookFormatResponse[]>($"/books/{book.Id}/ebook/formats", JsonOptions))!);
         Assert.Equal(HttpStatusCode.BadRequest, (await reader.PostAsync($"/books/backups/{taken.Name}/books/{book.Id}/restore", null)).StatusCode);
 
         // A damaged backup fails its drill.

@@ -41,10 +41,13 @@ public static class AudioTagging
                 await File.WriteAllBytesAsync(coverPath, cover, cancellationToken);
             }
 
+            string? made = null;
+            try
+            {
             if (tracks.Count == 1)
             {
                 var source = audio.TrackPath(stored, 0)!;
-                var output = TempFileResult.NewPath(Path.GetExtension(source).ToLowerInvariant());
+                var output = made = TempFileResult.NewPath(Path.GetExtension(source).ToLowerInvariant());
                 var chapters = Chapters(book, audio);
                 if (ffmpeg is null || !await TagAsync(ffmpeg, source, output, folder, Tags(book, null, null), chapters, coverPath, cancellationToken))
                 {
@@ -54,7 +57,7 @@ public static class AudioTagging
                 return (output, baseName + Path.GetExtension(source).ToLowerInvariant(), AudioStore.ContentType(source));
             }
 
-            var zipPath = TempFileResult.NewPath(".zip");
+            var zipPath = made = TempFileResult.NewPath(".zip");
             await using (var file = File.Create(zipPath))
             using (var zip = new ZipArchive(file, ZipArchiveMode.Create))
             {
@@ -79,6 +82,17 @@ public static class AudioTagging
             }
 
             return (zipPath, baseName + ".zip", "application/zip");
+            }
+            catch
+            {
+                // Cancelled or out of room: no part of a download is left behind.
+                if (made is not null)
+                {
+                    File.Delete(made);
+                }
+
+                throw;
+            }
         }
         finally
         {

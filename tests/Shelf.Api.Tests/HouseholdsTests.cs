@@ -74,6 +74,22 @@ public sealed class HouseholdsTests(ShelfApiFactory factory) : IClassFixture<She
         Assert.Equal(HttpStatusCode.OK, (await member.GetAsync($"/books/{book.Id}/ebook/file")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await member.GetAsync($"/books/{book.Id}/ebook/download")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await member.GetAsync($"/books/{adult.Id}/ebook/file")).StatusCode);
+        // Nor through the e-reader catalog, nor the Audiobookshelf apps' own download.
+        string key;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(memberId);
+            key = await ReaderRules.NewKeyAsync(scope.ServiceProvider.GetRequiredService<ShelfDb>(), memberId);
+        }
+
+        var device = factory.CreateClient();
+        device.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"kobo:{key}")));
+        Assert.Equal(HttpStatusCode.NotFound, (await device.GetAsync($"/opds/books/{book.Id}/file")).StatusCode);
+        var app = factory.CreateClient();
+        var login = await (await app.PostAsJsonAsync("/login", new { username = "Household Member", password = ShelfApiFactory.Password })).Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>();
+        app.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", login!["user"]!["accessToken"]!.GetValue<string>());
+        Assert.Equal(HttpStatusCode.NotFound, (await app.GetAsync($"/api/items/{book.Id}/file/{AbsJson.EbookIno(book.Id)}/download")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await app.GetAsync($"/api/items/{book.Id}/ebook")).StatusCode);
         Assert.Equal(["Read at Home"], Assert.Single((await member.GetFromJsonAsync<HouseholdLibrary[]>("/books/households", JsonOptions))!).Books.Select(item => item.Title));
 
         // Let go: closed at once.

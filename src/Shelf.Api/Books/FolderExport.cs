@@ -21,6 +21,7 @@ public static class FolderExport
         var formats = (await db.EbookFormats.AsNoTracking().ToListAsync(cancellationToken)).ToLookup(format => format.BookId);
         await using var output = File.Create(zipPath);
         using var zip = new ZipArchive(output, ZipArchiveMode.Create);
+        var written = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var book in books)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -42,7 +43,13 @@ public static class FolderExport
 
                 // An EPUB goes with Shelf's details written in, as Calibre takes a book's title and authors from its
                 // file before the OPF beside it: a copy made for the zip alone, so the export leaves nothing behind.
+                // Two files of one kind (a main PDF and another PDF) each keep their own name.
                 var entry = folder + name + Path.GetExtension(path).ToLowerInvariant();
+                for (var count = 2; !written.Add(entry); count++)
+                {
+                    entry = $"{folder}{name} ({count}){Path.GetExtension(path).ToLowerInvariant()}";
+                }
+
                 var stamped = EbookStore.IsEpub(stored) ? TempFileResult.NewPath(".epub") : null;
                 try
                 {

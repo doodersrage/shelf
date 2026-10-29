@@ -304,6 +304,15 @@ public sealed class BackupCheck(BackupSchedule schedule, EbookStore ebooks, Audi
                 }
             }
 
+            // So did its other formats: each file brought back from the backup, or the row let go.
+            foreach (var format in await live.EbookFormats.Where(format => format.BookId == restored).ToListAsync(cancellationToken))
+            {
+                if (Bring(zip, "ebooks", format.StoredName, ebooks.OpenPath, ebooks.Root) is null)
+                {
+                    live.EbookFormats.Remove(format);
+                }
+            }
+
             await live.SaveChangesAsync(cancellationToken);
             await Audit.NoteAsync(live, Say("Brought a book back from a backup"), detail: captured.Book.Title, cancellationToken: cancellationToken);
         }

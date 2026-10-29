@@ -237,9 +237,18 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
         var folder = Path.Combine(Path.GetTempPath(), $"shelf-convert-{Guid.NewGuid():N}");
         Directory.CreateDirectory(folder);
         var made = Path.Combine(folder, "book" + extension);
-        if (await Tools.RunAsync(Converter, [source, made, .. options ?? []], TimeSpan.FromMinutes(5), cancellationToken) is not null && File.Exists(made) && new FileInfo(made).Length > 0)
+        try
         {
-            return made;
+            if (await Tools.RunAsync(Converter, [source, made, .. options ?? []], TimeSpan.FromMinutes(5), cancellationToken) is not null && File.Exists(made) && new FileInfo(made).Length > 0)
+            {
+                return made;
+            }
+        }
+        catch
+        {
+            // Cancelled: the folder goes with it.
+            DeleteMade(made);
+            throw;
         }
 
         DeleteMade(made);

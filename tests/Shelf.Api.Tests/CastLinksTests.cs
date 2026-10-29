@@ -35,4 +35,31 @@ public sealed class CastLinksTests(ShelfApiFactory factory) : IClassFixture<Shel
         await reader.DeleteAsync($"/books/{book.Id}/audio");
         Assert.Equal(HttpStatusCode.NotFound, (await device.GetAsync(plan.Tracks[0])).StatusCode);
     }
+
+    // A book shared with a household member casts for them as for its owner, and its addresses stop when they're
+    // let go; one who may not download gets none, as an address that needs no sign-in is a download.
+    [Fact]
+    public async Task A_household_member_casts_shared_books_as_their_download_permission_allows()
+    {
+        var owner = await factory.SignUpAsync("Cast Owner");
+        var member = await factory.SignUpAsync("Cast Member");
+        var book = (await (await owner.PostAsJsonAsync("/books", new CreateBookRequest("Cast in the Den", "Someone", BookStatus.Reading, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        using (var content = new MultipartFormDataContent { { new StreamContent(BooksEndpointTests.ZipText("01.mp3", "a shared track to cast")), "file", "den.zip" } })
+        {
+            await owner.PostAsync($"/books/{book.Id}/audio", content);
+        }
+
+        var collection = (await (await owner.PostAsJsonAsync("/books/collections", new CollectionRequest("Den"), JsonOptions)).Content.ReadFromJsonAsync<CollectionResponse>(JsonOptions))!;
+        await owner.PostAsJsonAsync($"/books/collections/{collection.Id}/books", new CollectionBookRequest(book.Id), JsonOptions);
+        await owner.PostAsJsonAsync($"/books/collections/{collection.Id}/members", new MemberRequest(await factory.ReaderIdAsync("Cast Member")), JsonOptions);
+
+        var plan = (await member.GetFromJsonAsync<CastPlan>($"/books/{book.Id}/audio/cast", JsonOptions))!;
+        var device = factory.CreateClient();
+        Assert.Equal("a shared track to cast", await device.GetStringAsync(plan.Tracks[0]));
+
+        var membership = Assert.Single((await owner.GetFromJsonAsync<HouseholdMember[]>($"/books/collections/{collection.Id}/members", JsonOptions))!);
+        await owner.PutAsJsonAsync($"/books/collections/{collection.Id}/members/{membership.Id}", new MemberChange(CanDownload: false, HideExplicit: false), JsonOptions);
+        Assert.Equal(HttpStatusCode.Forbidden, (await member.GetAsync($"/books/{book.Id}/audio/cast")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await device.GetAsync(plan.Tracks[0])).StatusCode);
+    }
 }

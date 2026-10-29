@@ -65,9 +65,11 @@ public static class Opds
         return Xml(Acquire("urn:shelf:opds:borrowed", "Lent to you", "/opds/borrowed", books, await FormatsAsync(db, books, cancellationToken)), Acquisition);
     }
 
+    // A file taken to a device is a download: refused to a household member who may not download.
     private static async Task<IResult> File(int id, ShelfDb db, EbookStore store, CancellationToken cancellationToken)
     {
-        var book = (await Lending.OpenAsync(db, id, cancellationToken))?.Book;
+        var open = await Lending.OpenAsync(db, id, cancellationToken);
+        var book = open is not null && await Households.MayDownloadAsync(db, open, cancellationToken) ? open.Book : null;
         var path = book is null ? null : store.OpenPath(book.EbookStoredName);
         if (book is null || path is null)
         {
@@ -86,7 +88,8 @@ public static class Opds
 
     private static async Task<IResult> Format(int id, int formatId, ShelfDb db, EbookStore store, CancellationToken cancellationToken)
     {
-        if (await Lending.OpenAsync(db, id, cancellationToken) is null
+        if (await Lending.OpenAsync(db, id, cancellationToken) is not { } open
+            || !await Households.MayDownloadAsync(db, open, cancellationToken)
             || await db.EbookFormats.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(format => format.Id == formatId && format.BookId == id, cancellationToken) is not { } format
             || store.OpenPath(format.StoredName) is not { } path)
         {

@@ -5,8 +5,9 @@ using Shelf.Api.Data;
 namespace Shelf.Api.Books;
 
 // Casting the player to a Chromecast or AirPlay: the device fetches the tracks itself, without the reader's sign-in,
-// so it's given addresses signed for twelve hours, for this reader and this book's recording only. They stop when
-// the book stops being the reader's, or its recording changes.
+// so it's given addresses signed for twelve hours, for this reader and this book's recording only. Each fetch asks
+// again, as that reader, whether the book still opens to them (theirs, lent, or shared) and its recording is the
+// same. A household member who may not download gets none: an address that works without signing in is a download.
 public sealed record CastPlan(string[] Tracks);
 
 public static class CastLinks
@@ -25,11 +26,16 @@ public static class CastLinks
                 return TypedResults.NotFound();
             }
 
+            if (!await Households.MayDownloadAsync(db, open, cancellationToken))
+            {
+                return TypedResults.Forbid();
+            }
+
             var token = Protector(protection).Protect($"{db.ReaderId}:{id}:{stored}", Lasts);
             return TypedResults.Ok(new CastPlan([.. audio.Tracks(stored).Select(track => $"/cast/{token}/{track.Index}")]));
         }).WithTags("Files");
 
-        app.MapGet("/cast/{token}/{index:int}", async Task<IResult> (string token, int index, ShelfDb db, AudioStore audio, IDataProtectionProvider protection, CancellationToken cancellationToken) =>
+        app.MapGet("/cast/{token}/{index:int}", async Task<IResult> (string token, int index, HttpContext http, ShelfDb db, Readers.ShelfReader reader, AudioStore audio, IDataProtectionProvider protection, CancellationToken cancellationToken) =>
         {
             string said;
             try
@@ -47,13 +53,20 @@ public static class CastLinks
                 return Results.NotFound();
             }
 
+            // As the reader the address was made for, the same question as when it was made.
             var stored = parts[2];
-            var open = await db.Books.IgnoreQueryFilters().AsNoTracking()
-                .AnyAsync(book => book.Id == bookId && book.AudioStoredName == stored && (book.OwnerId == readerId || book.BorrowerId == readerId), cancellationToken)
-                && !await db.Readers.AsNoTracking().AnyAsync(reader => reader.Id == readerId && reader.Suspended, cancellationToken);
-            return open && audio.TrackPath(stored, index) is { } path
-                ? Results.File(path, AudioStore.ContentType(path), enableRangeProcessing: true)
-                : Results.NotFound();
+            reader.Use(readerId);
+            if (await db.Readers.AsNoTracking().AnyAsync(item => item.Id == readerId && item.Suspended, cancellationToken)
+                || await Lending.OpenAsync(db, bookId, cancellationToken) is not { } open
+                || open.Book.AudioStoredName != stored
+                || !await Households.MayDownloadAsync(db, open, cancellationToken)
+                || audio.TrackPath(stored, index) is not { } path)
+            {
+                return Results.NotFound();
+            }
+
+            http.Response.Headers.CacheControl = "private, no-store";
+            return Results.File(path, AudioStore.ContentType(path), enableRangeProcessing: true);
         }).AllowAnonymous().ExcludeFromDescription();
     }
 }

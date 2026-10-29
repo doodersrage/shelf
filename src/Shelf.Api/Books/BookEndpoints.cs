@@ -365,7 +365,16 @@ public static class BookEndpoints
     private static async Task<TempFileResult> ExportFolders(ShelfDb db, EbookStore ebooks, AudioStore audio, CoverStore covers, CancellationToken cancellationToken)
     {
         var path = TempFileResult.NewPath(".zip");
-        await FolderExport.WriteAsync(db, ebooks, audio, covers, path, cancellationToken);
+        try
+        {
+            await FolderExport.WriteAsync(db, ebooks, audio, covers, path, cancellationToken);
+        }
+        catch
+        {
+            File.Delete(path);
+            throw;
+        }
+
         return new TempFileResult(path, "application/zip", $"shelf-folders-{DateTime.UtcNow:yyyy-MM-dd}.zip");
     }
 

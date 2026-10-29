@@ -79,6 +79,28 @@ public sealed class AudioFeedsTests(ShelfApiFactory factory) : IClassFixture<She
         Assert.Equal(HttpStatusCode.NotFound, (await app.GetAsync(new Uri(shared.Url).PathAndQuery)).StatusCode);
         Assert.False((await reader.GetFromJsonAsync<AudioFeedState>($"/books/{book.Id}/audio/feed", JsonOptions))!.On);
 
+        // Nothing kept by caches; an odd character in a title doesn't stop the feed; no stored names in it; the page
+        // gives the feed's whole address; and the address stops with the recording.
+        var fresh = (await (await reader.PostAsync($"/books/{book.Id}/audio/feed", null)).Content.ReadFromJsonAsync<AudioFeedMade>(JsonOptions))!;
+        await reader.PutAsJsonAsync($"/books/{book.Id}", new UpdateBookRequest("Heard\u0001 in the Car", "Ann Writer", BookStatus.Reading, null), JsonOptions);
+        var answer = await app.GetAsync(new Uri(fresh.Url).PathAndQuery);
+        Assert.Equal(HttpStatusCode.OK, answer.StatusCode);
+        Assert.Contains("no-store", answer.Headers.CacheControl!.ToString());
+        var xml = await answer.Content.ReadAsStringAsync();
+        Assert.Contains("<title>Heard in the Car</title>", xml);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var stored = (await scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>().Books.IgnoreQueryFilters().SingleAsync(item => item.Id == book.Id)).AudioStoredName!;
+            Assert.DoesNotContain(stored, xml);
+        }
+
+        var sharePage = await app.GetAsync(new Uri(fresh.PageUrl).PathAndQuery);
+        Assert.Contains("frame-ancestors 'none'", sharePage.Headers.GetValues("Content-Security-Policy").Single());
+        Assert.Contains("http://localhost/listen-feed/", await sharePage.Content.ReadAsStringAsync());
+        await reader.DeleteAsync($"/books/{book.Id}/audio");
+        Assert.False((await reader.GetFromJsonAsync<AudioFeedState>($"/books/{book.Id}/audio/feed", JsonOptions))!.On);
+        Assert.Equal(HttpStatusCode.NotFound, (await app.GetAsync(new Uri(fresh.Url).PathAndQuery)).StatusCode);
+
         var stranger = await factory.SignUpAsync("Feed Stranger");
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.PostAsync($"/books/{book.Id}/audio/feed", null)).StatusCode);
     }

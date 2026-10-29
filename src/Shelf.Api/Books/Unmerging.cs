@@ -164,9 +164,11 @@ public static class Unmerging
             restored.EbookStoredName = ebook;
         }
 
-        if (receipt.EbookAsFormat is { } asFormat && restored.EbookStoredName is null)
+        // Only while the kept book still holds it as another format: made its main e-book since, or removed, it
+        // isn't the restored book's to take, which would leave two books on one file or one on none.
+        if (receipt.EbookAsFormat is { } asFormat && restored.EbookStoredName is null
+            && await db.EbookFormats.IgnoreQueryFilters().Where(row => row.BookId == keptId && row.StoredName == asFormat).ExecuteDeleteAsync(cancellationToken) > 0)
         {
-            await db.EbookFormats.IgnoreQueryFilters().Where(row => row.BookId == keptId && row.StoredName == asFormat).ExecuteDeleteAsync(cancellationToken);
             restored.EbookStoredName = asFormat;
         }
 

@@ -150,6 +150,23 @@ public sealed class EbookFormatsTests(ShelfApiFactory factory) : IClassFixture<S
             await reader.PostAsync($"/books/{kindleEntry.Id}/ebook", content);
         }
 
+        // Merged, then that format made the kept book's main e-book: undoing the merge leaves it where it is,
+        // rather than two books on one file.
+        var again = await BookWithEpubAsync(reader, "Merged Twice");
+        var twin = (await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("Merged Twice (PDF)", "Ann Writer", BookStatus.Want, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        using (var content = new MultipartFormDataContent { { new ByteArrayContent(Pdf("the twin")), "file", "twin.pdf" } })
+        {
+            await reader.PostAsync($"/books/{twin.Id}/ebook", content);
+        }
+
+        await reader.PostAsJsonAsync($"/books/{again.Id}/merge", new MergeRequest(twin.Id), JsonOptions);
+        var moved = Assert.Single((await reader.GetFromJsonAsync<EbookFormatResponse[]>($"/books/{again.Id}/ebook/formats", JsonOptions))!);
+        await reader.PostAsync($"/books/{again.Id}/ebook/formats/{moved.Id}/main", null);
+        var twinTrashed = Assert.Single((await reader.GetFromJsonAsync<TrashView[]>("/books/trash", JsonOptions))!, item => item.BookId == twin.Id);
+        var twinBack = (await (await reader.PostAsync($"/books/trash/{twinTrashed.Id}/restore", null)).Content.ReadFromJsonAsync<TrashRestore>(JsonOptions))!;
+        Assert.Equal(HttpStatusCode.NotFound, (await reader.GetAsync($"/books/{twinBack.BookId}/ebook/file")).StatusCode);
+        Assert.Equal("application/pdf", (await reader.GetAsync($"/books/{again.Id}/ebook/file")).Content.Headers.ContentType!.MediaType);
+
         Assert.Equal(HttpStatusCode.NoContent, (await reader.PostAsJsonAsync($"/books/{epubEntry.Id}/merge", new MergeRequest(kindleEntry.Id), JsonOptions)).StatusCode);
         Assert.Equal("other.pdf", Assert.Single((await reader.GetFromJsonAsync<EbookFormatResponse[]>($"/books/{epubEntry.Id}/ebook/formats", JsonOptions))!).FileName);
 

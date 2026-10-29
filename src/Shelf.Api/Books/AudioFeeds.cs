@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Xml;
 using System.Xml.Linq;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
@@ -100,7 +101,16 @@ public static class AudioFeeds
         await db.AudioFeeds.Where(item => item.BookId == bookId).ExecuteDeleteAsync(cancellationToken);
         var now = DateTimeOffset.UtcNow;
         db.AudioFeeds.Add(new AudioFeed { BookId = bookId, OwnerId = db.ReaderId, TokenHash = Feeds.Hash(token), CreatedAt = now, ExpiresAt = lasts is { } span ? now + span : null });
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // Asked twice at once: the other made its address; this one says so rather than failing.
+            return (null, T("Another address was made for this book just now. Make one again if you need it."));
+        }
+
         return (token, null);
     }
 
@@ -127,9 +137,16 @@ public static class AudioFeeds
         return book?.AudioStoredName is null ? null : book;
     }
 
+    // Nothing under a secret address is kept by a browser or a proxy, so one stopped stops at once.
+    private static void Private(HttpResponse response) => response.Headers.CacheControl = "private, no-store";
+
+    // Text as XML may hold it: a stray control character in a file's tag would otherwise stop the whole feed.
+    private static string Clean(string? text) => new((text ?? "").Where(XmlConvert.IsXmlChar).ToArray());
+
     // RSS as podcast apps read it: a serial show, so the first track comes first, an episode a track.
     private static async Task<IResult> Feed(string token, HttpRequest request, ShelfDb db, AudioStore audio, CancellationToken cancellationToken)
     {
+        Private(request.HttpContext.Response);
         if (await OpenAsync(db, token, cancellationToken) is not { } book)
         {
             return Results.NotFound();
@@ -139,14 +156,14 @@ public static class AudioFeeds
         var tracks = audio.Tracks(book.AudioStoredName);
         var lengths = audio.Lengths(book.AudioStoredName);
         var channel = new XElement("channel",
-            new XElement("title", book.Title),
+            new XElement("title", Clean(book.Title)),
             new XElement("link", root + "/feed.xml"),
-            new XElement("description", string.IsNullOrWhiteSpace(book.Subtitle) ? T("{0}, by {1}, from Shelf.", book.Title, book.Author) : book.Subtitle),
-            new XElement(Itunes + "author", book.Author),
+            new XElement("description", Clean(string.IsNullOrWhiteSpace(book.Subtitle) ? T("{0}, by {1}, from Shelf.", book.Title, book.Author) : book.Subtitle)),
+            new XElement(Itunes + "author", Clean(book.Author)),
             new XElement(Itunes + "type", "serial"),
             new XElement(Itunes + "block", "yes"),
             new XElement(Itunes + "image", new XAttribute("href", root + "/cover")),
-            new XElement("image", new XElement("url", root + "/cover"), new XElement("title", book.Title), new XElement("link", root + "/feed.xml")));
+            new XElement("image", new XElement("url", root + "/cover"), new XElement("title", Clean(book.Title)), new XElement("link", root + "/feed.xml")));
         if (book.Language is { } language && EpubDetails.LanguageCode(language) is { } code)
         {
             channel.Add(new XElement("language", code));
@@ -161,8 +178,9 @@ public static class AudioFeeds
             var path = audio.TrackPath(book.AudioStoredName, track.Index)!;
             var name = $"{track.Index + 1:000}{Path.GetExtension(path).ToLowerInvariant()}";
             var item = new XElement("item",
-                new XElement("title", tracks.Count == 1 ? book.Title : AudioStore.PlainTitle(track.Title)),
-                new XElement("guid", new XAttribute("isPermaLink", "false"), $"shelf-{book.Id}-{book.AudioStoredName}-{track.Index}"),
+                new XElement("title", Clean(tracks.Count == 1 ? book.Title : AudioStore.PlainTitle(track.Title))),
+                // An episode's id that says nothing of how the shelf keeps its files.
+                new XElement("guid", new XAttribute("isPermaLink", "false"), Feeds.Hash($"{token}|{book.AudioStoredName}|{track.Index}")[..32]),
                 // Each a minute after the one before, so apps that go by date keep them in order.
                 new XElement("pubDate", book.AddedAt.AddMinutes(track.Index).ToString("r", CultureInfo.InvariantCulture)),
                 new XElement("enclosure", new XAttribute("url", $"{root}/tracks/{track.Index}/{name}"), new XAttribute("length", new FileInfo(path).Length), new XAttribute("type", AudioStore.ContentType(path))),
@@ -176,7 +194,7 @@ public static class AudioFeeds
             if (marks.Count > 1)
             {
                 item.Add(new XElement(Psc + "chapters", new XAttribute("version", "1.2"),
-                    marks.Select(mark => new XElement(Psc + "chapter", new XAttribute("start", TimeSpan.FromSeconds(mark.Start).ToString(@"hh\:mm\:ss\.fff", CultureInfo.InvariantCulture)), new XAttribute("title", mark.Title)))));
+                    marks.Select(mark => new XElement(Psc + "chapter", new XAttribute("start", TimeSpan.FromSeconds(mark.Start).ToString(@"hh\:mm\:ss\.fff", CultureInfo.InvariantCulture)), new XAttribute("title", Clean(mark.Title))))));
             }
 
             channel.Add(item);
@@ -188,12 +206,17 @@ public static class AudioFeeds
 
     // The book in any browser, for someone it's shared with: its cover, title, and a player for each track. A plain
     // page with nothing to run, so it opens anywhere and asks for nothing.
-    private static async Task<IResult> Listen(string token, ShelfDb db, AudioStore audio, CancellationToken cancellationToken)
+    private static async Task<IResult> Listen(string token, HttpRequest request, ShelfDb db, AudioStore audio, CancellationToken cancellationToken)
     {
+        Private(request.HttpContext.Response);
         if (await OpenAsync(db, token, cancellationToken) is not { } book)
         {
             return Results.NotFound();
         }
+
+        // Only its own pictures, sound, and style, never framed, and no address passed on from it.
+        request.HttpContext.Response.Headers.ContentSecurityPolicy = "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'none'";
+        request.HttpContext.Response.Headers["Referrer-Policy"] = "no-referrer";
 
         var encode = System.Text.Encodings.Web.HtmlEncoder.Default;
         var root = $"/listen-feed/{token}";
@@ -223,17 +246,23 @@ public static class AudioFeeds
             html.Append("</ol>");
         }
 
-        html.Append("<p class=\"hint\">").Append(encode.Encode(T("Shared from Shelf. In a podcast app, add {0}.", $"{root}/feed.xml"))).Append("</p></body></html>");
+        html.Append("<p class=\"hint\">").Append(encode.Encode(T("Shared from Shelf. In a podcast app, add {0}.", Address(request, token)))).Append("</p></body></html>");
         return Results.Content(html.ToString(), "text/html; charset=utf-8");
     }
 
-    private static async Task<IResult> Track(string token, int index, string name, ShelfDb db, AudioStore audio, CancellationToken cancellationToken) =>
-        await OpenAsync(db, token, cancellationToken) is { } book && audio.TrackPath(book.AudioStoredName, index) is { } path
+    private static async Task<IResult> Track(string token, int index, string name, HttpContext http, ShelfDb db, AudioStore audio, CancellationToken cancellationToken)
+    {
+        Private(http.Response);
+        return await OpenAsync(db, token, cancellationToken) is { } book && audio.TrackPath(book.AudioStoredName, index) is { } path
             ? Results.File(path, AudioStore.ContentType(path), enableRangeProcessing: true)
             : Results.NotFound();
+    }
 
-    private static async Task<IResult> Cover(string token, ShelfDb db, EbookStore ebooks, CoverStore covers, CancellationToken cancellationToken) =>
-        await OpenAsync(db, token, cancellationToken) is { } book && Covers.Picture(book, ebooks, covers) is { } picture
+    private static async Task<IResult> Cover(string token, HttpContext http, ShelfDb db, EbookStore ebooks, CoverStore covers, CancellationToken cancellationToken)
+    {
+        Private(http.Response);
+        return await OpenAsync(db, token, cancellationToken) is { } book && Covers.Picture(book, ebooks, covers) is { } picture
             ? Results.File(picture, picture.AsSpan().StartsWith((byte[])[0x89, 0x50, 0x4E, 0x47]) ? "image/png" : "image/jpeg")
             : Results.NotFound();
+    }
 }

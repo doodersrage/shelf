@@ -69,7 +69,7 @@ A collection can be shared with other readers on the shelf as a household librar
 
 For each member:
 
-- **Can download files**: on by default. Turned off, they still read and listen in Shelf, but the downloads (the e-book with its details, other formats, the recording, the M4B) are refused. Reading in a browser still fetches the file, as streaming does anywhere, so this keeps files from being taken casually rather than from being taken at all.
+- **Can download files**: on by default. Turned off, they still read and listen in Shelf, but taking the files is refused: the downloads (the e-book with its details, other formats, the recording, the M4B), the e-reader catalog, casting, and the Audiobookshelf apps' downloads for offline listening. Reading in a browser still fetches the file, as streaming does anywhere, so this keeps files from being taken casually rather than from being taken at all.
 - **Keep books tagged explicit from them**: books with the tag `explicit` don't show for them and won't open for them.
 
 **Stop sharing** closes the books to them at once; what they wrote in them stays theirs, out of sight, and comes back if you share again. A child's account can't be a member: it reads what its guardian shares with their children. Household books open in Shelf's own reader and player; the e-reader catalog, KOReader, Kobo, and the Audiobookshelf apps still offer only your own books and books lent to you.

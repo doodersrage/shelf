@@ -161,6 +161,16 @@ public static class FileCheck
             Match(book.Id, book.Title, book.Author, FileKind.Cover, book.CoverImage);
         }
 
+        // A book's other formats are e-book files of its own too.
+        if (bad.Any(record => record.Kind == FileKind.Ebook))
+        {
+            var formats = await db.EbookFormats.AsNoTracking().Select(format => new { format.BookId, format.StoredName, format.Book!.Title, format.Book.Author }).ToListAsync(cancellationToken);
+            foreach (var format in formats)
+            {
+                Match(format.BookId, format.Title, format.Author, FileKind.Ebook, format.StoredName);
+            }
+        }
+
         if (bad.Any(record => record.Kind == FileKind.Photo))
         {
             var photos = await db.CopyPhotos.AsNoTracking().Select(photo => new { photo.BookId, photo.StoredName, photo.Book!.Title, photo.Book.Author }).ToListAsync(cancellationToken);
