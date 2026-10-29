@@ -67,8 +67,21 @@ public sealed class ReadingLifeTests(ShelfApiFactory factory) : IClassFixture<Sh
         Assert.Equal(HttpStatusCode.Created, written.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await reader.PostAsJsonAsync("/books/journal", new JournalEntryRequest(null, "  "), JsonOptions)).StatusCode);
 
+        // A day's time with the book, read and listened to: on the journal as time, a minute or more only.
+        var readerId = await factory.ReaderIdAsync("Journal Keeper");
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>();
+            db.ReadingDays.Add(new ReadingDay { BookId = book.Id, ReaderId = readerId, Day = new DateOnly(2024, 5, 22), Seconds = 1500, DeviceSeconds = 900 });
+            db.ListeningDays.Add(new ListeningDay { BookId = book.Id, ReaderId = readerId, Day = new DateOnly(2024, 5, 23), Seconds = 3900 });
+            db.ListeningDays.Add(new ListeningDay { BookId = book.Id, ReaderId = readerId, Day = new DateOnly(2024, 5, 24), Seconds = 20 });
+            await db.SaveChangesAsync();
+        }
+
         var year = (await reader.GetFromJsonAsync<JournalItem[]>("/books/journal?year=2024", JsonOptions))!;
-        Assert.Equal([JournalKind.Entry, JournalKind.Finished, JournalKind.Session, JournalKind.Started], year.Select(item => item.Kind));
+        Assert.Equal([JournalKind.Entry, JournalKind.Finished, JournalKind.Listened, JournalKind.ReadFor, JournalKind.Session, JournalKind.Started], year.Select(item => item.Kind));
+        Assert.Equal("Listened to The Waves for 1 h 5 min", Journal.Line(year[2]));
+        Assert.Equal("Read The Waves for 40 min", Journal.Line(year[3]));
         Assert.Equal("The Waves", year[0].Title);
         Assert.Empty((await reader.GetFromJsonAsync<JournalItem[]>("/books/journal?year=2023", JsonOptions))!);
         Assert.Contains(2024, (await reader.GetFromJsonAsync<int[]>("/books/journal/years", JsonOptions))!);

@@ -28,6 +28,10 @@ public enum JournalKind
     Highlight,
     Quote,
     Thoughts,
+
+    // A day's time with a book: listened to in the player, or read in the reader or on KOReader.
+    Listened,
+    ReadFor,
 }
 
 // One line of the journal, from what the reader wrote or what the shelf kept as they read.
@@ -115,6 +119,8 @@ public static class Journal
         years.UnionWith(await db.Sessions.AsNoTracking().Select(session => session.Date.Year).Distinct().ToListAsync(cancellationToken));
         years.UnionWith(await db.Books.AsNoTracking().Where(book => book.FinishedOn != null).Select(book => book.FinishedOn!.Value.Year).Distinct().ToListAsync(cancellationToken));
         years.UnionWith(await db.PastReads.AsNoTracking().Where(read => read.FinishedOn != null).Select(read => read.FinishedOn!.Value.Year).Distinct().ToListAsync(cancellationToken));
+        years.UnionWith(await db.ListeningDays.AsNoTracking().Select(day => day.Day.Year).Distinct().ToListAsync(cancellationToken));
+        years.UnionWith(await db.ReadingDays.AsNoTracking().Select(day => day.Day.Year).Distinct().ToListAsync(cancellationToken));
         return [.. years.OrderDescending()];
     }
 
@@ -144,6 +150,16 @@ public static class Journal
         var sessions = await db.Sessions.AsNoTracking().Where(session => session.Date >= from && session.Date <= to)
             .Select(session => new { session.Date, session.BookId, session.Book!.Title, session.FromPage, session.ToPage, session.Note }).ToListAsync(cancellationToken);
         items.AddRange(sessions.Select(session => new JournalItem(session.Date, JournalKind.Session, session.BookId, session.Title, session.Note, Pages(session.FromPage, session.ToPage))));
+
+        // Each day's time with a book, this reader's own: a minute or more, listened to or read. A book lent or shared
+        // with them is named too, as they read it.
+        var listened = await db.ListeningDays.AsNoTracking().Where(day => day.Day >= from && day.Day <= to && day.Seconds >= 60)
+            .Select(day => new { day.Day, day.BookId, day.Seconds }).ToListAsync(cancellationToken);
+        var readFor = await db.ReadingDays.AsNoTracking().Where(day => day.Day >= from && day.Day <= to && day.Seconds + day.DeviceSeconds >= 60)
+            .Select(day => new { day.Day, day.BookId, Seconds = day.Seconds + day.DeviceSeconds }).ToListAsync(cancellationToken);
+        var timed = await TitlesAsync(db, listened.Select(day => day.BookId).Concat(readFor.Select(day => day.BookId)), cancellationToken, anyOpen: true);
+        items.AddRange(listened.Select(day => new JournalItem(day.Day, JournalKind.Listened, day.BookId, timed.GetValueOrDefault(day.BookId), null, BookProgress.Span(day.Seconds))));
+        items.AddRange(readFor.Select(day => new JournalItem(day.Day, JournalKind.ReadFor, day.BookId, timed.GetValueOrDefault(day.BookId), null, BookProgress.Span(day.Seconds))));
 
         // SQLite can't compare the times kept as text, so which passages fall in the year is told here, from one read
         // of them each. Not by listing the year's ids back to the database: a long-kept shelf has tens of thousands,
@@ -231,6 +247,8 @@ public static class Journal
         JournalKind.Highlight => T("Highlighted in {0}", item.Title ?? ""),
         JournalKind.Quote when item.Detail is not null => T("Kept a quote from {0}, {1}", item.Title ?? "", item.Detail),
         JournalKind.Quote => T("Kept a quote from {0}", item.Title ?? ""),
+        JournalKind.Listened => T("Listened to {0} for {1}", item.Title ?? "", item.Detail ?? ""),
+        JournalKind.ReadFor => T("Read {0} for {1}", item.Title ?? "", item.Detail ?? ""),
         _ => T("Thoughts on reading {0} before", item.Title ?? ""),
     };
 
@@ -241,6 +259,7 @@ public static class Journal
             JournalKind.Thoughts => 1,
             JournalKind.Entry => 2,
             JournalKind.Started => 6,
+            JournalKind.Listened or JournalKind.ReadFor => 5,
             _ => 3,
         });
 
@@ -252,12 +271,13 @@ public static class Journal
             _ => null,
         };
 
-    private static async Task<Dictionary<int, string>> TitlesAsync(ShelfDb db, IEnumerable<int> ids, CancellationToken cancellationToken)
+    // anyOpen: also books not the reader's own whose time they kept (lent, shared, or a household's), by title alone.
+    private static async Task<Dictionary<int, string>> TitlesAsync(ShelfDb db, IEnumerable<int> ids, CancellationToken cancellationToken, bool anyOpen = false)
     {
         var wanted = ids.Distinct().ToList();
         return wanted.Count == 0
             ? []
-            : await db.Books.AsNoTracking().Where(book => wanted.Contains(book.Id)).ToDictionaryAsync(book => book.Id, book => book.Title, cancellationToken);
+            : await (anyOpen ? db.Books.IgnoreQueryFilters() : db.Books).AsNoTracking().Where(book => wanted.Contains(book.Id)).ToDictionaryAsync(book => book.Id, book => book.Title, cancellationToken);
     }
 
     private static DateOnly Day(DateTimeOffset at) => DateOnly.FromDateTime(at.UtcDateTime);

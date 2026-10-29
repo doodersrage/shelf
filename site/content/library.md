@@ -264,7 +264,7 @@ Under **Goals of your own**, beside those, aim for books of a kind you want to m
 
 ## The journal
 
-**Journal**, in the sidebar, is your reading life by the day: the books you began and finished, the sessions you logged and their notes, the passages you highlighted and quotes you kept, your thoughts on earlier reads, and entries of your own. **Write in the journal** keeps a few lines for a day, about a book or about where you were in life while you read. Choose a year to read it month by month, or search every year for words you wrote, noted, or highlighted. **Download as Markdown** gives the year as one file for a notes folder; **Print it, or save it as a PDF** prints the journal alone, without the menus.
+**Journal**, in the sidebar, is your reading life by the day: the books you began and finished, the sessions you logged and their notes, each day's time reading and listening to a book (a minute or more), the passages you highlighted and quotes you kept, your thoughts on earlier reads, and entries of your own. **Write in the journal** keeps a few lines for a day, about a book or about where you were in life while you read. Choose a year to read it month by month, or search every year for words you wrote, noted, or highlighted. **Download as Markdown** gives the year as one file for a notes folder; **Print it, or save it as a PDF** prints the journal alone, without the menus.
 
 ## The reference desk
 

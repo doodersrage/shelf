@@ -6,6 +6,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Fixed
 
+- **The journal shows each day's reading and listening time**: a minute or more with a book, in the reader, on KOReader, or in the player, as "Read The Waves for 40 min" or "Listened to … for 1 h 5 min". Only your own time is shown.
+
 - **A place kept on a device from before a reread no longer moves the reread on**: places queued by the reader, the player, and the offline reader say which time through they were read in, and one from an earlier read is set aside. A book kept offline learns of a reread the next time its page opens.
 
 - **Each browser has its own row on a book's Positions page**, named as its sign-in was ("Shelf's player · Firefox on Android"), where every browser shared one.

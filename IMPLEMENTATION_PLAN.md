@@ -552,7 +552,7 @@ The user asked for what Audiobookshelf has and Shelf lacks, all of it, one at a 
     - **Fixed:** an earlier read with no finish date counted the same sessions as the next read (P3): `ReadingLifeTests.An_earlier_read_with_no_end_ends_where_the_next_began`.
     - **Open:**
       - **Fixed 2026-10-29 (P2, 2.21.0):** every day was a UTC day. Each reader now keeps a time zone (from the browser, or set on Account), and days, streaks, goals, finishes, loans, and the journal follow it.
-      - P3: the journal leaves out listening and reader time.
+      - **Fixed 2026-10-29 (P3):** the journal shows each day's reading time (`ReadingDays`, reader and KOReader) and listening time (`ListeningDays`) of a minute or more, the reader's own (`JournalKind.ReadFor`, `Listened`). Test: `ReadingLifeTests.The_journal_gathers_a_year_and_finds_words_across_years`.
       - Unsure: trashing a book removes a former borrower's own listening days and highlights on it.
 - [~] Check yearly goals and summaries for consistency when records are edited, deleted, imported, or synced.
   - *Status 2026-10-28:* Covered by existing tests; not re-reviewed.

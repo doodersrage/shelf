@@ -3549,5 +3549,7 @@
   "1 row was missing a title or an author, or couldn't be read, so it was left out.": "1 ligne n’avait pas de titre ou d’auteur, ou n’a pas pu être lue, elle a donc été laissée de côté.",
   "{0} rows were missing a title or an author, or couldn't be read, so they were left out.": "{0} lignes n’avaient pas de titre ou d’auteur, ou n’ont pas pu être lues, elles ont donc été laissées de côté.",
   "Damaged or cut short: {0}. Try downloading them again.": "Endommagés ou incomplets : {0}. Téléchargez-les à nouveau.",
-  "The file looks damaged or cut short. Try again.": "Le fichier semble endommagé ou incomplet. Réessayez."
+  "The file looks damaged or cut short. Try again.": "Le fichier semble endommagé ou incomplet. Réessayez.",
+  "Listened to {0} for {1}": "Écouté {0} pendant {1}",
+  "Read {0} for {1}": "Lu {0} pendant {1}"
 }
