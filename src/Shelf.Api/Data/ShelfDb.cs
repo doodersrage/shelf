@@ -60,6 +60,8 @@ public class ShelfDb : DbContext
     public DbSet<ReaderPasskey> ReaderPasskeys => Set<ReaderPasskey>();
     public DbSet<ShelfSetting> Settings => Set<ShelfSetting>();
     public DbSet<SavedSearch> SavedSearches => Set<SavedSearch>();
+    public DbSet<CustomField> CustomFields => Set<CustomField>();
+    public DbSet<CustomValue> CustomValues => Set<CustomValue>();
     public DbSet<AbsLink> AbsLinks => Set<AbsLink>();
     public DbSet<AbsSyncSetting> AbsSyncs => Set<AbsSyncSetting>();
     public DbSet<FetchSetting> FetchSettings => Set<FetchSetting>();
@@ -493,6 +495,26 @@ public class ShelfDb : DbContext
         {
             session.Property(s => s.Note).HasMaxLength(500);
             session.HasQueryFilter(s => s.Book!.OwnerId == ReaderId);
+        });
+
+        // A reader's own fields, and what each book of theirs holds in them.
+        modelBuilder.Entity<CustomField>(field =>
+        {
+            field.Property(item => item.Name).HasMaxLength(CustomField.MaxNameLength).IsRequired();
+            field.Property(item => item.Kind).HasConversion<string>().HasMaxLength(16);
+            field.HasIndex(item => new { item.OwnerId, item.Name }).IsUnique();
+            field.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            field.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<CustomValue>(value =>
+        {
+            value.Property(item => item.Value).HasMaxLength(CustomValue.MaxLength).IsRequired();
+            value.HasIndex(item => new { item.BookId, item.FieldId }).IsUnique();
+            value.HasIndex(item => item.FieldId);
+            value.HasOne(item => item.Book).WithMany(book => book.CustomValues).HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
+            value.HasOne(item => item.Field).WithMany().HasForeignKey(item => item.FieldId).OnDelete(DeleteBehavior.Cascade);
+            value.HasQueryFilter(item => item.Book!.OwnerId == ReaderId);
         });
 
         // A setting row belongs to the reader with the same id.

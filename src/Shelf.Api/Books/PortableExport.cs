@@ -23,7 +23,9 @@ public static class PortableExport
         var place = books.Select((book, index) => (book.Id, index)).ToDictionary(pair => pair.Id, pair => pair.index);
 
         await WriteTextAsync(manifest, zip, "README.md", Readme);
-        await WriteTextAsync(manifest, zip, "books.csv", Csv(books));
+        var fields = (await db.CustomFields.AsNoTracking().ToListAsync(cancellationToken)).OrderBy(field => field.Position).ThenBy(field => field.Id).ToList();
+        var values = (await db.CustomValues.AsNoTracking().ToListAsync(cancellationToken)).ToDictionary(value => (value.BookId, value.FieldId), value => value.Value);
+        await WriteTextAsync(manifest, zip, "books.csv", Csv(books, fields, values));
 
         var collections = await db.Collections.AsNoTracking().Where(collection => collection.OwnerId == db.ReaderId)
             .Include(collection => collection.Books).ThenInclude(entry => entry.Book)
@@ -59,10 +61,12 @@ public static class PortableExport
          "Started", "Finished", "Added", "Place", "Tags", "Notes"];
 
     // One row a book, numbered as in shelf.json, with dates as yyyy-MM-dd whatever the reader's language.
-    public static string Csv(IReadOnlyList<Book> books)
+    // The reader's own fields come last, a column each, as kept: numbers as 1234.5, dates as yyyy-MM-dd, yes or no.
+    public static string Csv(IReadOnlyList<Book> books, IReadOnlyList<CustomField>? fields = null, IReadOnlyDictionary<(int, int), string>? values = null)
     {
+        fields ??= [];
         var text = new StringBuilder();
-        text.AppendLine(string.Join(',', Columns.Select(Field)));
+        text.AppendLine(string.Join(',', Columns.Concat(fields.Select(field => field.Name)).Select(Field)));
         for (var index = 0; index < books.Count; index++)
         {
             var book = books[index];
@@ -74,7 +78,7 @@ public static class PortableExport
                 book.Format?.ToString(), book.Series, Number(book.SeriesNumber), book.Status.ToString(), Number(book.Rating), book.Loved ? "yes" : "",
                 Date(book.StartedOn), Date(book.FinishedOn), book.AddedAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), book.Location,
                 string.Join("; ", book.Tags.Select(tag => tag.Name).Order(StringComparer.Ordinal)), book.Notes,
-            }.Select(Field)));
+            }.Concat(fields.Select(field => values?.GetValueOrDefault((book.Id, field.Id)))).Select(Field)));
         }
 
         return text.ToString();
@@ -117,7 +121,7 @@ public static class PortableExport
           between books; and your goals. Restoring the zip, under Backup, on this shelf or another, brings this file back
           in, with `collections.json` and the returned loans in `loans.json`.
         - `books.csv` — the books again as a spreadsheet, a row each. Dates are written year-month-day. "Number" is the
-          book's place in `shelf.json`, counting from 1.
+          book's place in `shelf.json`, counting from 1. Your own fields come last, a column each.
         - `collections.json` — your collections, with the note on each book. `book` counts from 0 in `shelf.json`.
         - `loans.json` — each time one of your books was lent: to whom, when, how often renewed, and the state it went out
           and came back in.

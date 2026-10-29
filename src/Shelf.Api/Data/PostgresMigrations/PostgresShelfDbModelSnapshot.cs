@@ -1057,6 +1057,67 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.ToTable("CopyPhotos");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.CustomField", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("CustomFields");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.CustomValue", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("FieldId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FieldId");
+
+                    b.HasIndex("BookId", "FieldId")
+                        .IsUnique();
+
+                    b.ToTable("CustomValues");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.DetailProposal", b =>
                 {
                     b.Property<int>("Id")
@@ -3951,6 +4012,34 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Navigation("Book");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.CustomField", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.CustomValue", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", "Book")
+                        .WithMany("CustomValues")
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Books.CustomField", "Field")
+                        .WithMany()
+                        .HasForeignKey("FieldId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Book");
+
+                    b.Navigation("Field");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.DetailProposal", b =>
                 {
                     b.HasOne("Shelf.Api.Books.Book", "Book")
@@ -4573,6 +4662,8 @@ namespace Shelf.Api.Data.PostgresMigrations
 
             modelBuilder.Entity("Shelf.Api.Books.Book", b =>
                 {
+                    b.Navigation("CustomValues");
+
                     b.Navigation("Highlights");
 
                     b.Navigation("PastReads");

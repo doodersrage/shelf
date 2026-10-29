@@ -205,3 +205,32 @@ test("two entries for one book are found and merged into the one kept", async ({
   expect(trash.map((item) => item.kind)).toEqual(["Book"]);
   noProblems(page);
 });
+
+test("a field of one's own is made, filled in on a book, and leads to the books holding the same", async ({ browser }) => {
+  const page = await signUp(browser, unique("Fielder"));
+  const book = await createBook(page, { title: "The Boxed Book", author: "Someone" });
+  await createBook(page, { title: "The Loose Book", author: "Someone" });
+
+  await page.goto("/fields");
+  await ready(page);
+  await page.getByLabel("Name").fill("Packing box");
+  await page.getByRole("button", { name: "Add the field" }).click();
+  await expect(page.getByRole("status")).toContainText("Packing box is ready");
+
+  await page.goto(`/library/${book.id}#details`);
+  await ready(page);
+  await page.locator("summary", { hasText: "Edit the catalog" }).click();
+  const box = page.locator("fieldset.custom-fields").getByLabel("Packing box");
+  await box.fill("Box 7");
+  await box.blur();
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.locator(".book-facts")).toContainText("Box 7");
+
+  await page.locator(".book-facts a", { hasText: "Box 7" }).click();
+  await expect(page).toHaveURL(/\/library\?field=\d+&value=Box%207$/);
+  await ready(page);
+  await expect(page.locator(".active-filters")).toContainText("Packing box");
+  await expect(page.getByRole("link", { name: "The Boxed Book" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "The Loose Book" })).toHaveCount(0);
+  noProblems(page);
+});

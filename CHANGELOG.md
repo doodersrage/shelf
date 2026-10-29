@@ -6,6 +6,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Added
 
+- **Fields of your own**, as Calibre's custom columns: **Your fields**, in the menu under **Your copies**, adds fields that hold text, a number, a date, or yes or no. They're filled in on a book's edit form and shown with its details, each value a link to the other books holding it. Search finds what's in them, and the books API filters by them. They're private to each reader, go out in the export and `books.csv` and come back in on restore, and a merge keeps a value only the other copy had.
 - **A downloaded EPUB carries Shelf's details**: **Download the file** on a book's page, and **Send to Kindle**, write the book's title, authors, series and number, publisher, language, year, ISBN, and cover into a copy of the EPUB, as Calibre does, so other apps and devices show it as Shelf does. Notes, reviews, ratings, and tags are never written, and the stored file is never changed, so the reader and KOReader's sync work as before. Backups leave out these copies and Kobo's KEPUBs, which are made again when wanted.
 
 ### Fixed

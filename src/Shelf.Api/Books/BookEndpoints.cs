@@ -90,6 +90,7 @@ public static class BookEndpoints
         books.MapGet("/{id:int}/audio/tracks/{index:int}", AudioEndpoints.Track);
         AudioPlayback.Map(books);
         Collections.Map(books);
+        CustomFields.Map(books);
         ReadingTime.Map(books);
         YearReview.Map(books);
         Merging.Map(books);
@@ -166,9 +167,11 @@ public static class BookEndpoints
         string? loanedTo = null,
         string? sort = null,
         int? skip = null,
-        int? take = null)
+        int? take = null,
+        int? field = null,
+        string? value = null)
     {
-        var books = await BookRules.Filtered(db.Books, q, status, tag, author, loved, loaned, format, series, place, recommendedBy, loanedTo)
+        var books = await BookRules.Filtered(db.Books, q, status, tag, author, loved, loaned, format, series, place, recommendedBy, loanedTo, field, value)
             .AsNoTracking()
             .WithDetails()
             .ToListAsync(cancellationToken);

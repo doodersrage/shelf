@@ -66,10 +66,12 @@ A reader with two-step sign-in is asked for a code next, at `/account/signin/cod
 
 | Call | What it does |
 | --- | --- |
-| `GET /books` | The library. Filter with `q`, `status`, `tag`, `author`, `series`, `place`, `recommendedBy`, `loanedTo`, `loved`, `loaned`, and `format`; sort with `sort` (`title`, `author`, `series`, `year`, `rating`, `added`). `skip` and `take` (up to 500) page through it, with the total in the `X-Total-Count` header. |
+| `GET /books` | The library. Filter with `q`, `status`, `tag`, `author`, `series`, `place`, `recommendedBy`, `loanedTo`, `loved`, `loaned`, and `format`, or one of your own fields with `field` (its id) and `value`; sort with `sort` (`title`, `author`, `series`, `year`, `rating`, `added`). `skip` and `take` (up to 500) page through it, with the total in the `X-Total-Count` header. |
 | `GET /books/{id}` | One book, with its tags, quotes, and reading sessions. |
 | `POST /books` | Add a book: `{"title": "…", "author": "…", "status": "Want"}` and any other fields. |
 | `PUT /books/{id}` | Change a book. |
+| `GET /books/fields` | Your own fields. `POST {"name": "Bought from", "kind": "Text"}` adds one (`Text`, `Number`, `Date`, or `YesNo`); `PUT /books/fields/{id}` with `{"name": "…"}` renames it; `DELETE` removes it and its values. |
+| `GET /books/{id}/fields` | A book's values in your fields. `PUT` with `{"values": {"3": "Oxfam", "4": "2026-10-29"}}` sets them by field id; a blank value clears one. A number is kept as `3.5`, a date as `2026-10-29`, yes or no as `yes` and `no`. |
 | `DELETE /books/{id}` | Delete a book with its files. |
 | `POST /books/bulk` | Change up to 1,000 books: `{"ids": [1, 2], "status": "Finished"}`, or `addTag`, `removeTag`, `loved`, `delete`. |
 | `GET /books/lookup?isbn=` | Details and a cover from Open Library. `?title=&author=` looks a book up without an ISBN. |

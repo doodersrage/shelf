@@ -1014,6 +1014,63 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("CopyPhotos");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.CustomField", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("CustomFields");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.CustomValue", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("FieldId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FieldId");
+
+                    b.HasIndex("BookId", "FieldId")
+                        .IsUnique();
+
+                    b.ToTable("CustomValues");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.DetailProposal", b =>
                 {
                     b.Property<int>("Id")
@@ -3802,6 +3859,34 @@ namespace Shelf.Api.Data.Migrations
                     b.Navigation("Book");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.CustomField", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.CustomValue", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", "Book")
+                        .WithMany("CustomValues")
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Books.CustomField", "Field")
+                        .WithMany()
+                        .HasForeignKey("FieldId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Book");
+
+                    b.Navigation("Field");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.DetailProposal", b =>
                 {
                     b.HasOne("Shelf.Api.Books.Book", "Book")
@@ -4424,6 +4509,8 @@ namespace Shelf.Api.Data.Migrations
 
             modelBuilder.Entity("Shelf.Api.Books.Book", b =>
                 {
+                    b.Navigation("CustomValues");
+
                     b.Navigation("Highlights");
 
                     b.Navigation("PastReads");

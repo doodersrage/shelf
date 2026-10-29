@@ -97,7 +97,9 @@ public static class SharedLists
                 Text("series"),
                 Text("place"),
                 Text("recommendedBy"),
-                Text("loanedTo"))
+                Text("loanedTo"),
+                int.TryParse(Text("field"), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var field) ? field : null,
+                Text("value"))
             .AsNoTracking()
             .ToListAsync(cancellationToken);
         IEnumerable<Book> kept = books;

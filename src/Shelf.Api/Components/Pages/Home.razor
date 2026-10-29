@@ -213,9 +213,13 @@
     }
 
     @* Every filter not shown as a chip above, each a tap to take away. *@
-    @if (!string.IsNullOrWhiteSpace(tagFilter) || !string.IsNullOrWhiteSpace(authorFilter) || !string.IsNullOrWhiteSpace(seriesFilter) || !string.IsNullOrWhiteSpace(placeFilter) || !string.IsNullOrWhiteSpace(recommendedFilter) || !string.IsNullOrWhiteSpace(loanedFilter) || MoreOn > 0)
+    @if (!string.IsNullOrWhiteSpace(tagFilter) || !string.IsNullOrWhiteSpace(authorFilter) || !string.IsNullOrWhiteSpace(seriesFilter) || !string.IsNullOrWhiteSpace(placeFilter) || !string.IsNullOrWhiteSpace(recommendedFilter) || !string.IsNullOrWhiteSpace(loanedFilter) || fieldFilter is not null || MoreOn > 0)
     {
         <ul class="active-filters" aria-label="@T("Filters on")">
+            @if (fieldFilter is int filterField && fieldNames.TryGetValue(filterField, out var filterFieldInfo))
+            {
+                <li>@Removable(filterFieldInfo.Name, fieldValueFilter is { } given ? CustomFields.Show(filterFieldInfo.Kind, given) : T("filled in"), () => (fieldFilter, fieldValueFilter) = (null, null))</li>
+            }
             @if (!string.IsNullOrWhiteSpace(authorFilter))
             {
                 <li>@Removable(T("By"), authorFilter, () => authorFilter = null)</li>
@@ -581,6 +585,11 @@ else if (visible.Count > 0)
     private string? placeFilter;
     private string? recommendedFilter;
     private string? loanedFilter;
+    // One of the reader's own fields, and the value it holds (any, when none is given).
+    private int? fieldFilter;
+    private string? fieldValueFilter;
+    private Dictionary<int, (string Name, FieldKind Kind)> fieldNames = [];
+    private ILookup<int, (int FieldId, string Value)> bookValues = Array.Empty<(int, int, string)>().ToLookup(item => item.Item1, item => (item.Item2, item.Item3));
     private bool lovedOnly;
     private bool loanedOnly;
     private bool queuedOnly;
@@ -710,6 +719,12 @@ else if (visible.Count > 0)
     [SupplyParameterFromQuery(Name = "loanedTo")]
     public string? LoanedTo { get; set; }
 
+    [SupplyParameterFromQuery(Name = "field")]
+    public int? Field { get; set; }
+
+    [SupplyParameterFromQuery(Name = "value")]
+    public string? FieldValue { get; set; }
+
     // The rest of a view, so any filtered library is an address to keep, and a saved search is just that.
     [SupplyParameterFromQuery(Name = "sort")]
     public string? Sort { get; set; }
@@ -754,6 +769,8 @@ else if (visible.Count > 0)
             ["place"] = placeFilter,
             ["recommendedBy"] = recommendedFilter,
             ["loanedTo"] = loanedFilter,
+            ["field"] = fieldFilter?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["value"] = fieldFilter is null ? null : fieldValueFilter,
             ["loved"] = lovedOnly ? "1" : null,
             ["loaned"] = loanedOnly ? "1" : null,
             ["queued"] = queuedOnly ? "1" : null,
@@ -830,6 +847,7 @@ else if (visible.Count > 0)
         placeFilter = string.IsNullOrWhiteSpace(Place) ? null : Place.Trim();
         recommendedFilter = string.IsNullOrWhiteSpace(RecommendedBy) ? null : RecommendedBy.Trim();
         loanedFilter = string.IsNullOrWhiteSpace(LoanedTo) ? null : LoanedTo.Trim();
+        (fieldFilter, fieldValueFilter) = (Field, string.IsNullOrWhiteSpace(FieldValue) ? null : FieldValue.Trim());
         query = Query?.Trim() ?? "";
         statusFilter = Enum.TryParse<BookStatus>(Status, ignoreCase: true, out var status) ? status.ToString() : "";
         if (Sorts.Contains(Sort))
@@ -911,7 +929,7 @@ else if (visible.Count > 0)
     }
 
     private bool UrlFiltered => tagFilter is not null || authorFilter is not null || seriesFilter is not null
-        || placeFilter is not null || recommendedFilter is not null || loanedFilter is not null;
+        || placeFilter is not null || recommendedFilter is not null || loanedFilter is not null || fieldFilter is not null;
 
     private bool Filtered => !string.IsNullOrWhiteSpace(query) || statusFilter.Length > 0 || ChecksOn > 0 || UrlFiltered;
 
@@ -1107,7 +1125,14 @@ else if (visible.Count > 0)
                     || (book.OriginalTitle?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     || (book.Inscription?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     || (book.RecommendedBy?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
-                    || book.Quotes.Any(quote => quote.Text.Contains(term, StringComparison.OrdinalIgnoreCase)));
+                    || book.Quotes.Any(quote => quote.Text.Contains(term, StringComparison.OrdinalIgnoreCase))
+                    || bookValues[book.Id].Any(item => item.Value.Contains(term, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (fieldFilter is int wantedField)
+            {
+                result = result.Where(book => bookValues[book.Id].Any(item => item.FieldId == wantedField
+                    && (fieldValueFilter is null || item.Value.Equals(fieldValueFilter, StringComparison.OrdinalIgnoreCase))));
             }
 
             if (Enum.TryParse<BookStatus>(statusFilter, out var status))
@@ -1234,6 +1259,9 @@ else if (visible.Count > 0)
                 Quotes = book.Quotes.ToList(),
             })
             .ToListAsync();
+        fieldNames = (await db.CustomFields.AsNoTracking().ToListAsync()).ToDictionary(field => field.Id, field => (field.Name, field.Kind));
+        bookValues = (await db.CustomValues.AsNoTracking().Select(value => new { value.BookId, value.FieldId, value.Value }).ToListAsync())
+            .ToLookup(value => value.BookId, value => (value.FieldId, value.Value));
     }
 
     private async Task AddBook()

@@ -59,6 +59,14 @@ Give an ISBN, or a title and author, and **Look up** fills the empty fields from
 
 Tags are kept in lowercase, and an ISBN can be typed with or without hyphens.
 
+### Fields of your own
+
+When Shelf doesn't ask for something you want to keep, such as where a book came from or which box it's packed in, add a field for it under **Your fields**, in the menu's **Your copies**. A field holds text, a number, a date, or yes or no. Fill it in on a book's **Edit the catalog** form, under **Your fields**.
+
+A filled-in field shows with the book's details. Its value links to the other books holding the same, and the library's search finds what's in your fields. A field can be renamed but not changed to another kind. Removing one removes what every book held in it, after asking.
+
+Your fields are yours alone: no other reader on the shelf sees them, even on a book you lend them. They go out in the export, as a column each in `books.csv` and in `shelf.json`, and come back in when it's restored.
+
 ### Details that go with the file
 
 **Download the file**, under **Files** on a book's page, names the file for its author and title. An EPUB comes with Shelf's details written into it, as Calibre writes them: the title, the authors, the series and number, the publisher, the language, the year, the ISBN, and Shelf's cover when it keeps one. Other apps and e-readers then show the book as Shelf does. **Send to Kindle** sends the same copy. Your notes, review, rating, and tags are never written into a file.

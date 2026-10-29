@@ -158,6 +158,9 @@ public sealed class Book
 
     public DateTimeOffset AddedAt { get; set; }
     public List<Tag> Tags { get; set; } = [];
+
+    // The reader's own fields filled in for this book (see CustomFields).
+    public List<CustomValue> CustomValues { get; set; } = [];
     public List<Quote> Quotes { get; set; } = [];
     public List<Highlight> Highlights { get; set; } = [];
     public List<ReadingSession> Sessions { get; set; } = [];
@@ -771,7 +774,13 @@ public sealed record ShelfSettingsResponse(int YearlyGoal, int PagesGoal = 0, in
 public sealed record UpdateSettingsRequest([Range(0, 1000)] int YearlyGoal, [Range(0, 1_000_000)] int? PagesGoal = null, [Range(0, 10_000)] int? HoursGoal = null);
 
 // Journal entries and links name their books by place in Books, so they find them again on another shelf.
-public sealed record LibraryExport(int YearlyGoal, BookResponse[] Books, JournalExport[]? Journal = null, LinkExport[]? Links = null, GoalExport[]? Goals = null);
+public sealed record LibraryExport(int YearlyGoal, BookResponse[] Books, JournalExport[]? Journal = null, LinkExport[]? Links = null, GoalExport[]? Goals = null,
+    FieldExport[]? Fields = null, FieldValueExport[]? FieldValues = null);
+
+// The reader's own fields, and what each book holds in them: Book counts from 0 in Books.
+public sealed record FieldExport(string Name, FieldKind Kind);
+
+public sealed record FieldValueExport(int Book, string Field, string Value);
 
 public sealed record GoalExport(int Year, GoalKind Kind, string? Name, int Target);
 

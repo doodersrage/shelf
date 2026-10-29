@@ -392,6 +392,9 @@ public static class Backup
         var journal = await db.JournalEntries.AsNoTracking().OrderBy(entry => entry.Date).ThenBy(entry => entry.Id).ToListAsync(cancellationToken);
         var links = await db.BookLinks.AsNoTracking().OrderBy(link => link.Id).ToListAsync(cancellationToken);
         var goals = await db.ReadingGoals.AsNoTracking().OrderBy(goal => goal.Year).ThenBy(goal => goal.Id).ToListAsync(cancellationToken);
+        var fields = (await db.CustomFields.AsNoTracking().ToListAsync(cancellationToken)).OrderBy(field => field.Position).ThenBy(field => field.Id).ToList();
+        var fieldNames = fields.ToDictionary(field => field.Id, field => field.Name);
+        var values = await db.CustomValues.AsNoTracking().OrderBy(value => value.Id).ToListAsync(cancellationToken);
         var export = new LibraryExport(
             await BookRules.GetGoalAsync(db, cancellationToken),
             books.Select(book => BookResponse.From(book) is var response && reads[book.Id].Any()
@@ -400,7 +403,10 @@ public static class Backup
             journal.Select(entry => new JournalExport(entry.Date, entry.Text, entry.BookId is int id && place.TryGetValue(id, out var at) ? at : null)).ToArray(),
             links.Where(link => place.ContainsKey(link.FromBookId) && place.ContainsKey(link.ToBookId))
                 .Select(link => new LinkExport(place[link.FromBookId], place[link.ToBookId], link.Kind, link.Note)).ToArray(),
-            goals.Select(goal => new GoalExport(goal.Year, goal.Kind, goal.Name, goal.Target)).ToArray());
+            goals.Select(goal => new GoalExport(goal.Year, goal.Kind, goal.Name, goal.Target)).ToArray(),
+            fields.Select(field => new FieldExport(field.Name, field.Kind)).ToArray(),
+            values.Where(value => place.ContainsKey(value.BookId) && fieldNames.ContainsKey(value.FieldId))
+                .Select(value => new FieldValueExport(place[value.BookId], fieldNames[value.FieldId], value.Value)).ToArray());
         return (export, books);
     }
 

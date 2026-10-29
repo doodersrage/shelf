@@ -784,6 +784,8 @@ public static class BookRules
             }
         }
 
+        await ImportFieldsAsync(db, export, Made, cancellationToken);
+
         foreach (var link in export.Links ?? [])
         {
             if (Made(link.From) is { } from && Made(link.To) is { } to && from != to && Enum.IsDefined(link.Kind) && !(link.Note?.Trim().Length > BookLink.MaxNoteLength))
@@ -800,6 +802,41 @@ public static class BookRules
         }
 
         return new ImportResult(count, skipped);
+    }
+
+    // The reader's own fields come back by name, made when missing, and the values of the books that came in with
+    // them, each checked against its field's kind.
+    private static async Task ImportFieldsAsync(ShelfDb db, LibraryExport export, Func<int?, Book?> made, CancellationToken cancellationToken)
+    {
+        if (export.FieldValues is not { Length: > 0 } && export.Fields is not { Length: > 0 })
+        {
+            return;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        var fields = await db.CustomFields.ToListAsync(cancellationToken);
+        CustomField? Named(string name) => fields.FirstOrDefault(field => string.Equals(field.Name, name.Trim(), StringComparison.OrdinalIgnoreCase));
+        foreach (var wanted in export.Fields ?? [])
+        {
+            if (Named(wanted.Name) is null && fields.Count < CustomFields.MaxFields && Enum.IsDefined(wanted.Kind)
+                && wanted.Name.Trim() is { Length: > 0 and <= CustomField.MaxNameLength } name)
+            {
+                var field = new CustomField { OwnerId = db.ReaderId, Name = name, Kind = wanted.Kind, Position = fields.Count == 0 ? 0 : fields.Max(item => item.Position) + 1 };
+                db.CustomFields.Add(field);
+                fields.Add(field);
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        var set = new HashSet<(int, int)>();
+        foreach (var given in export.FieldValues ?? [])
+        {
+            if (made(given.Book) is { } book && Named(given.Field) is { } field
+                && CustomFields.Normalize(field.Kind, given.Value) is ({ } value, null) && set.Add((book.Id, field.Id)))
+            {
+                db.CustomValues.Add(new CustomValue { BookId = book.Id, FieldId = field.Id, Value = value });
+            }
+        }
     }
 
     // Books from another service's export: skipped when invalid or already on the shelf, as a backup restore is.
@@ -1261,8 +1298,19 @@ public static class BookRules
         string? series = null,
         string? place = null,
         string? recommendedBy = null,
-        string? loanedTo = null)
+        string? loanedTo = null,
+        int? field = null,
+        string? fieldValue = null)
     {
+        // One of the reader's own fields: holding this value, or anything at all when none is given.
+        if (field is int fieldId)
+        {
+            var wanted = fieldValue?.Trim().ToLower();
+            books = string.IsNullOrEmpty(wanted)
+                ? books.Where(book => book.CustomValues.Any(value => value.FieldId == fieldId))
+                : books.Where(book => book.CustomValues.Any(value => value.FieldId == fieldId && value.Value.ToLower() == wanted));
+        }
+
         if (!string.IsNullOrWhiteSpace(q))
         {
             var term = q.Trim().ToLower();
@@ -1283,7 +1331,8 @@ public static class BookRules
                     || (book.OriginalTitle != null && book.OriginalTitle.ToLower().Contains(term))
                     || (book.Inscription != null && book.Inscription.ToLower().Contains(term))
                     || (book.RecommendedBy != null && book.RecommendedBy.ToLower().Contains(term))
-                    || book.Quotes.Any(quote => quote.Text.ToLower().Contains(term)))
+                    || book.Quotes.Any(quote => quote.Text.ToLower().Contains(term))
+                    || book.CustomValues.Any(value => value.Value.ToLower().Contains(term)))
                 : books.Where(book =>
                     book.Title.ToLower().Contains(term)
                     || book.Author.ToLower().Contains(term)
@@ -1298,7 +1347,8 @@ public static class BookRules
                     || (book.OriginalTitle != null && book.OriginalTitle.ToLower().Contains(term))
                     || (book.Inscription != null && book.Inscription.ToLower().Contains(term))
                     || (book.RecommendedBy != null && book.RecommendedBy.ToLower().Contains(term))
-                    || book.Quotes.Any(quote => quote.Text.ToLower().Contains(term)));
+                    || book.Quotes.Any(quote => quote.Text.ToLower().Contains(term))
+                    || book.CustomValues.Any(value => value.Value.ToLower().Contains(term)));
         }
 
         if (!string.IsNullOrWhiteSpace(author))

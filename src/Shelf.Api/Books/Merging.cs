@@ -289,6 +289,12 @@ public static partial class Merging
         await db.Quotes.Where(quote => quote.BookId == otherId && !keptQuotes.Contains(quote.Text)).ExecuteUpdateAsync(set => set.SetProperty(quote => quote.BookId, keepId), cancellationToken);
         await db.Highlights.IgnoreQueryFilters().Where(mark => mark.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(mark => mark.BookId, keepId), cancellationToken);
         await db.Sessions.IgnoreQueryFilters().Where(session => session.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(session => session.BookId, keepId), cancellationToken);
+
+        // The reader's own fields: a value the kept book has no value for comes across.
+        var keptFields = await db.CustomValues.Where(value => value.BookId == keepId).Select(value => value.FieldId).ToListAsync(cancellationToken);
+        var movedValues = await db.CustomValues.Where(value => value.BookId == otherId && !keptFields.Contains(value.FieldId)).Select(value => value.Id).ToListAsync(cancellationToken);
+        Unmerging.Moved(receipt, nameof(ShelfDb.CustomValues), movedValues);
+        await db.CustomValues.Where(value => movedValues.Contains(value.Id)).ExecuteUpdateAsync(set => set.SetProperty(value => value.BookId, keepId), cancellationToken);
         if (audioMoves || keep.AudioStoredName is null)
         {
             Unmerging.Moved(receipt, nameof(ShelfDb.AudioBookmarks), await db.AudioBookmarks.IgnoreQueryFilters().Where(mark => mark.BookId == otherId).Select(mark => mark.Id).ToListAsync(cancellationToken));

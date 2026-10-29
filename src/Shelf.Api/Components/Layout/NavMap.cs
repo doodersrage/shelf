@@ -83,6 +83,7 @@ public static class NavMap
             new("/recommenders", T("Recommenders"), "who recommended"),
             new("/duplicates", T("Duplicates"), "doubles merge"),
             new("/tidy", T("Tidy up"), "clean covers authors publishers fix"),
+            new("/fields", T("Your fields"), "custom fields columns extra calibre"),
         ]),
         new("settings", T("Settings"),
         [

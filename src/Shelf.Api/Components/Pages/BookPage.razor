@@ -742,13 +742,19 @@ else if (book is not null)
     <section class="panel" id="details">
         <h2>@T("Details")</h2>
         @* What is known of this copy, to read at a glance; the form to change it stays folded until wanted. *@
-        @if (Facts.Count > 0)
+        @if (Facts.Count > 0 || customValues.Any(item => item.Value is not null))
         {
             <dl class="facts book-facts">
                 @foreach (var (label, value) in Facts)
                 {
                     <dt>@label</dt>
                     <dd>@value</dd>
+                }
+                @* The reader's own fields: each value a way to the other books holding it. *@
+                @foreach (var item in customValues.Where(item => item.Value is not null))
+                {
+                    <dt>@item.Name</dt>
+                    <dd><a href="/library?field=@item.FieldId&value=@Uri.EscapeDataString(item.Value!)">@CustomFields.Show(item.Kind, item.Value!)</a></dd>
                 }
             </dl>
         }
@@ -777,6 +783,42 @@ else if (book is not null)
             </ul>
         }
         <BookFields Model="draft" Detailed="true" />
+        @if (customValues.Length > 0)
+        {
+            <fieldset class="custom-fields">
+                <legend>@T("Your fields")</legend>
+                @foreach (var item in customValues)
+                {
+                    <label>
+                        @item.Name
+                        @switch (item.Kind)
+                        {
+                            case FieldKind.Number:
+                                <input type="text" inputmode="decimal" value="@FieldDraft(item.FieldId)" @onchange="change => SetField(item.FieldId, change)" />
+                                break;
+                            case FieldKind.Date:
+                                <input type="date" value="@FieldDraft(item.FieldId)" @onchange="change => SetField(item.FieldId, change)" />
+                                break;
+                            case FieldKind.YesNo:
+                                <select value="@FieldDraft(item.FieldId)" @onchange="change => SetField(item.FieldId, change)">
+                                    <option value="">@T("Not said")</option>
+                                    <option value="yes">@T("Yes")</option>
+                                    <option value="no">@T("No")</option>
+                                </select>
+                                break;
+                            default:
+                                <input type="text" maxlength="@CustomValue.MaxLength" value="@FieldDraft(item.FieldId)" @onchange="change => SetField(item.FieldId, change)" />
+                                break;
+                        }
+                    </label>
+                }
+                <p class="hint"><a href="/fields">@T("Change your fields")</a></p>
+            </fieldset>
+        }
+        else
+        {
+            <p class="hint">@T("Want to keep something Shelf doesn't ask for?") <a href="/fields">@T("Add fields of your own")</a></p>
+        }
         <button type="submit">@T("Save changes")</button>
         @if (saved)
         {
@@ -2048,11 +2090,20 @@ else if (book is not null)
         borrowable = book is null ? [] : Asking.Matching(await Asking.OpenCopiesAsync(db, book.Title, book.Isbn), book.Isbn, book.Title, book.Author)
             .Where(copy => (copy.HasEbook && book.EbookStoredName is null) || (copy.HasAudio && book.AudioStoredName is null))
             .ToList();
+        customValues = book is null ? [] : await CustomFields.ForBookAsync(db, book.Id) ?? [];
         if (book is not null && replaceDraft)
         {
             draft = BookFormModel.From(book);
+            fieldDraft = customValues.ToDictionary(item => item.FieldId, item => item.Value);
         }
     }
+
+    private CustomValueResponse[] customValues = [];
+    private Dictionary<int, string?> fieldDraft = [];
+
+    private string? FieldDraft(int fieldId) => fieldDraft.GetValueOrDefault(fieldId);
+
+    private void SetField(int fieldId, ChangeEventArgs change) => fieldDraft[fieldId] = change.Value?.ToString();
 
     private async Task LendBook()
     {
@@ -2083,6 +2134,15 @@ else if (book is not null)
         saved = false;
         var write = draft.ToWrite();
         formErrors = BookRules.Validate(write);
+        // The reader's own fields are checked with the rest, so nothing is kept until all of it can be.
+        foreach (var item in customValues)
+        {
+            if (CustomFields.Normalize(item.Kind, fieldDraft.GetValueOrDefault(item.FieldId)) is (_, { } trouble))
+            {
+                (formErrors ??= [])[item.Name] = [$"{item.Name}: {trouble}"];
+            }
+        }
+
         if (formErrors is not null || book is null)
         {
             return;
@@ -2101,6 +2161,15 @@ else if (book is not null)
         await BookRules.SyncTagsAsync(db, existing, write.Tags, CancellationToken.None);
         await db.SaveChangesAsync();
         await BookRules.RemoveUnusedTagsAsync(db, CancellationToken.None);
+        if (customValues.Length > 0)
+        {
+            formErrors = await CustomFields.SetForBookAsync(db, existing.Id, customValues.ToDictionary(item => item.FieldId, item => fieldDraft.GetValueOrDefault(item.FieldId)));
+            if (formErrors is not null)
+            {
+                return;
+            }
+        }
+
         formErrors = null;
         saved = true;
         await LoadAsync();

@@ -1,0 +1,132 @@
+@page "/fields"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("Your fields") · Shelf</PageTitle>
+
+<h1>@T("Your fields")</h1>
+<p class="hint">@T("Details Shelf doesn't ask for, kept your way: where a book came from, which box it's packed in, whether it's lent to the school. Fill them in when editing a book. Search finds what's in them, and they come along in exports and backups. They are yours alone; no one else on the shelf sees them.")</p>
+
+<StatusNote Text="@note" Problem="problem" />
+
+@if (fields.Length > 0)
+{
+    <section class="panel">
+        <h2>@T("Fields")</h2>
+        <ul class="plain-list field-list">
+            @foreach (var field in fields)
+            {
+                <li>
+                    @if (renaming == field.Id)
+                    {
+                        <label>
+                            <span class="visually-hidden">@T("New name for {0}", field.Name)</span>
+                            <input maxlength="@CustomField.MaxNameLength" @bind="newName" />
+                        </label>
+                        <button type="button" @onclick="() => Rename(field.Id)">@T("Save")</button>
+                        <button type="button" class="quiet" @onclick="() => renaming = null">@T("Cancel")</button>
+                    }
+                    else
+                    {
+                        <div>
+                            <strong>@field.Name</strong> <span class="hint">@CustomFields.KindLabel(field.Kind) · @Localization.Counts.Books(counts.GetValueOrDefault(field.Id))</span>
+                        </div>
+                        <a class="quiet" href="/library?field=@field.Id">@T("Books with it")</a>
+                        <button type="button" class="quiet" @onclick="() => StartRename(field)">@T("Rename")</button>
+                        @if (removing == field.Id)
+                        {
+                            <span role="alert">@T("Remove {0} and what {1} hold in it?", field.Name, Localization.Counts.Books(counts.GetValueOrDefault(field.Id)))</span>
+                            <button type="button" class="danger" @onclick="() => Remove(field.Id)">@T("Remove it")</button>
+                            <button type="button" class="quiet" @onclick="() => removing = null">@T("Keep it")</button>
+                        }
+                        else
+                        {
+                            <button type="button" class="quiet danger" @onclick="() => AskRemove(field.Id)">@T("Remove")</button>
+                        }
+                    }
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+<section class="panel">
+    <h2>@T("A new field")</h2>
+    <div class="recipe-grid">
+        <label>@T("Name") <input maxlength="@CustomField.MaxNameLength" @bind="name" placeholder="@T("Bought from")" /></label>
+        <label>
+            @T("Holds")
+            <select @bind="kind">
+                @foreach (var choice in Enum.GetValues<FieldKind>())
+                {
+                    <option value="@choice">@CustomFields.KindLabel(choice)</option>
+                }
+            </select>
+        </label>
+    </div>
+    <button type="button" @onclick="Add">@T("Add the field")</button>
+</section>
+
+@code {
+    private CustomFieldResponse[] fields = [];
+    private Dictionary<int, int> counts = [];
+    private string name = "";
+    private FieldKind kind = FieldKind.Text;
+    private int? renaming;
+    private string newName = "";
+    private int? removing;
+    private string? note;
+    private bool problem;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        fields = await CustomFields.ListAsync(db);
+        counts = await db.CustomValues.GroupBy(value => value.FieldId).Select(group => new { group.Key, Count = group.Count() }).ToDictionaryAsync(item => item.Key, item => item.Count);
+    }
+
+    private async Task Add()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var (field, trouble) = await CustomFields.CreateAsync(db, name, kind);
+        (note, problem) = field is null ? (trouble, true) : (T("{0} is ready. Fill it in when editing a book.", field.Name), false);
+        if (field is not null)
+        {
+            name = "";
+        }
+
+        await LoadAsync();
+    }
+
+    private void StartRename(CustomFieldResponse field) => (renaming, newName, removing) = (field.Id, field.Name, null);
+
+    private async Task Rename(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var (_, trouble) = await CustomFields.RenameAsync(db, id, newName);
+        (note, problem) = trouble is null ? (T("Renamed."), false) : (trouble, true);
+        if (trouble is null)
+        {
+            renaming = null;
+        }
+
+        await LoadAsync();
+    }
+
+    private void AskRemove(int id) => (removing, renaming) = (id, null);
+
+    private async Task Remove(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var gone = fields.FirstOrDefault(field => field.Id == id)?.Name;
+        if (await CustomFields.RemoveAsync(db, id))
+        {
+            (note, problem) = (T("{0} is removed.", gone ?? ""), false);
+        }
+
+        removing = null;
+        await LoadAsync();
+    }
+}
