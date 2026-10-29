@@ -45,7 +45,8 @@ test("quick jump goes to a page or a book from the keyboard", async ({ browser }
   await page.keyboard.press("Escape");
   await expect(page.locator("dialog.jump")).not.toBeVisible();
 
-  // "?" lists the keys.
+  // "?" lists the keys, from anywhere but a text box: closing quick jump can hand focus back to the menu's search box.
+  await page.evaluate(() => document.activeElement?.blur());
   await page.keyboard.press("?");
   await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
   await page.keyboard.press("Escape");
