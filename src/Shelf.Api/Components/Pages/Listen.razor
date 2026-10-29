@@ -8,6 +8,7 @@
 @inject EbookStore Ebooks
 @inject NavigationManager Navigation
 @inject Microsoft.Extensions.Caching.Memory.IMemoryCache Cache
+@inject AuthenticationStateProvider Authentication
 
 <PageTitle>@(book?.Title ?? "Shelf")</PageTitle>
 
@@ -260,9 +261,13 @@ else if (book is not null)
         return before.Any(track => track.Length is null) ? null : before.Sum(track => track.Length!.Value) + chapter.Start;
     }
 
+    // The browser, by its sign-in's name, for the Positions page.
+    private string? browser;
+
     protected override async Task OnParametersSetAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
+        browser ??= await Positions.BrowserAsync(db, (await Authentication.GetAuthenticationStateAsync()).User);
         open = await Lending.OpenAsync(db, Id);
         book = open?.Book;
         borrowed = open?.Borrowed == true;
@@ -372,7 +377,7 @@ else if (book is not null)
 
         var spot = exact ?? new Crossover(Crossover.AudioParts(Audio, book.AudioStoredName), text).ToEbook(heard);
         await using (var db = await DbFactory.CreateDbContextAsync())
-        using (Positions.Reporting("Shelf", "player"))
+        using (Positions.Reporting("Shelf", Positions.InBrowser("player", browser)))
         {
             await Lending.KeepPlaceAsync(db, open, place =>
             {

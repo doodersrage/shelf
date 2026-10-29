@@ -55,6 +55,17 @@ public static class Positions
     private static readonly AsyncLocal<(string Source, string? Device)?> From = new();
 
     // The source of the places kept from here on, until the result is disposed.
+    // Shelf's own reader or player in one browser: the kind, and the browser as its sign-in named it ("Firefox on
+    // Android"), so each browser keeps a row of its own.
+    public static string InBrowser(string kind, string? browser) =>
+        string.IsNullOrWhiteSpace(browser) ? kind : Cut($"{kind}|{browser}", PositionReport.MaxDeviceLength);
+
+    // The browser this sign-in was made in, as named then; null for a token or a device key.
+    public static async Task<string?> BrowserAsync(ShelfDb db, System.Security.Claims.ClaimsPrincipal? user, CancellationToken cancellationToken = default) =>
+        user?.FindFirst(Shelf.Api.Readers.TwoFactor.SessionClaim)?.Value is { } session && Shelf.Api.Readers.ShelfReader.IdOf(user) is int readerId
+            ? await db.ReaderSessions.IgnoreQueryFilters().AsNoTracking().Where(item => item.Id == session && item.ReaderId == readerId).Select(item => item.Device).FirstOrDefaultAsync(cancellationToken)
+            : null;
+
     public static IDisposable Reporting(string source, string? device = null)
     {
         var before = From.Value;
@@ -204,6 +215,7 @@ public static class Positions
     // Who said it, in words: Shelf's own reader and player by name, a device as it calls itself.
     public static string SourceLabel(string source, string device) => (source, device) switch
     {
+        ("Shelf", _) when device.IndexOf('|') is > 0 and var bar => $"{SourceLabel(source, device[..bar])} · {device[(bar + 1)..]}",
         ("Shelf", "reader") => T("Shelf's reader"),
         ("Shelf", "player") => T("Shelf's player"),
         ("Shelf", "offline") => T("Reading offline"),

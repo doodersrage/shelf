@@ -341,6 +341,7 @@ public static class Lending
     public static async Task<Results<NoContent, NotFound, ValidationProblem>> KeepPlace(
         int id,
         PlaceRequest request,
+        HttpContext http,
         ShelfDb db,
         CancellationToken cancellationToken)
     {
@@ -356,7 +357,7 @@ public static class Lending
 
         var cfi = request.EbookCfi is { Length: > 0 and <= 1000 } given ? given : null;
         var progress = request.EbookProgress is double share && !double.IsNaN(share) ? Math.Clamp(share, 0, 1) : (double?)null;
-        using var _ = Positions.Reporting("Shelf", "offline");
+        using var _ = Positions.Reporting("Shelf", Positions.InBrowser("offline", await Positions.BrowserAsync(db, http.User, cancellationToken)));
         await KeepPlaceAsync(db, open, place =>
         {
             // Further on: a later chapter, or later in the same one by how far through the book it is.

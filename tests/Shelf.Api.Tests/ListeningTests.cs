@@ -11,6 +11,30 @@ public sealed class ListeningTests(ShelfApiFactory factory) : IClassFixture<Shel
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
+    // Each browser the listener signed in from keeps its own row on the Positions page, named as its sign-in was.
+    [Fact]
+    public async Task Each_browser_reports_its_own_place()
+    {
+        await factory.SignUpAsync("Two Browser Listener");
+        async Task<HttpClient> InAsync(string agent)
+        {
+            var client = factory.CreateClient(new() { AllowAutoRedirect = false });
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(agent);
+            await ShelfApiFactory.PostFormAsync(client, "/signin", "/account/signin", new() { ["name"] = "Two Browser Listener", ["password"] = ShelfApiFactory.Password });
+            return client;
+        }
+
+        var phone = await InAsync("Mozilla/5.0 (Android 14; Mobile; rv:131.0) Gecko/131.0 Firefox/131.0");
+        var laptop = await InAsync("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36");
+        var book = await WithAudioAsync(phone, "Heard in Two Browsers");
+        await phone.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 60), JsonOptions);
+        await laptop.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 120), JsonOptions);
+
+        var labels = (await laptop.GetFromJsonAsync<PositionsOfBook>($"/books/{book.Id}/positions", JsonOptions))!.Reports
+            .Select(report => Positions.SourceLabel(report.Source, report.Device)).Order().ToArray();
+        Assert.Equal(["Shelf's player · Chrome on Windows", "Shelf's player · Firefox on Android"], labels);
+    }
+
     // The player moves the place back or forward as the listener does; a place sent late, from listening offline,
     // moves it on only, so a phone catching up never undoes listening done elsewhere since. Its time still counts.
     [Fact]
@@ -30,7 +54,7 @@ public sealed class ListeningTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.Equal(HttpStatusCode.NoContent, (await listener.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 60, 20, today, Replayed: true), JsonOptions)).StatusCode);
         Assert.Equal((0, 180), await PlaceAsync());
         var positions = (await listener.GetFromJsonAsync<PositionsOfBook>($"/books/{book.Id}/positions", JsonOptions))!;
-        Assert.False(Assert.Single(positions.Reports, report => report.Device == "listening offline").Kept);
+        Assert.False(Assert.Single(positions.Reports, report => report.Device.Split('|')[0] == "listening offline").Kept);
 
         // Sent late and further on, it moves the place; and the player itself still goes back when asked.
         await listener.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 240, Replayed: true), JsonOptions);
@@ -84,7 +108,7 @@ public sealed class ListeningTests(ShelfApiFactory factory) : IClassFixture<Shel
             var saves = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => listener.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 12), JsonOptions)));
             Assert.All(saves, response => Assert.Equal(HttpStatusCode.NoContent, response.StatusCode));
             var positions = (await listener.GetFromJsonAsync<PositionsOfBook>($"/books/{book.Id}/positions", JsonOptions))!;
-            Assert.Single(positions.Reports, report => report.Device == "player");
+            Assert.Single(positions.Reports, report => report.Device.Split('|')[0] == "player");
         }
     }
 

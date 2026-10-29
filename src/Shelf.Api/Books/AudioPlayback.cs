@@ -119,7 +119,7 @@ public static class AudioPlayback
             return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Track"] = [Localization.Words.T("Give a track of this recording, and a time in it.")] });
         }
 
-        using var _ = Positions.Reporting("Shelf", request.Replayed ? "listening offline" : "player");
+        using var _ = Positions.Reporting("Shelf", Positions.InBrowser(request.Replayed ? "listening offline" : "player", await Positions.BrowserAsync(db, http.User, cancellationToken)));
         AudioSpot? moved = null;
         await Lending.KeepPlaceAsync(db, open, place =>
         {

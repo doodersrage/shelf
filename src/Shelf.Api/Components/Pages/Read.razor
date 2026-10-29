@@ -11,6 +11,7 @@
 @inject IWordLookup Dictionary
 @inject IConfiguration Configuration
 @inject ReadAlongService ReadAlongs
+@inject AuthenticationStateProvider Authentication
 
 <PageTitle>@(book?.Title ?? "Shelf")</PageTitle>
 
@@ -715,7 +716,7 @@ else if (book is not null)
             }
 
             await using var db = await DbFactory.CreateDbContextAsync();
-            using var _ = Positions.Reporting("Shelf", "reader");
+            using var _ = Positions.Reporting("Shelf", Positions.InBrowser("reader", browser));
             var seen = anyway ? null : known;
             LoanPlace? found = null;
             var kept = await Lending.KeepPlaceAsync(db, open, move, onlyIf: seen is null ? null : place =>
@@ -811,9 +812,13 @@ else if (book is not null)
     private string FrameSrc => $"/books/{book!.Id}/ebook/chapters/{chapter}?t={typeRevision}"
         + (frameAt > 0 ? "&at=" + frameAt.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) : "");
 
+    // The browser, by its sign-in's name, for the Positions page.
+    private string? browser;
+
     protected override async Task OnParametersSetAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
+        browser ??= await Positions.BrowserAsync(db, (await Authentication.GetAuthenticationStateAsync()).User);
         open = await Lending.OpenAsync(db, Id);
         book = open?.Book;
         mayDownload = open is null || await Households.MayDownloadAsync(db, open);
