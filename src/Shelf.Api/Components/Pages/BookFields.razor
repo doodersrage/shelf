@@ -309,9 +309,9 @@ else if (Borrowable.Length > 0)
             var scan = await JS.InvokeAsync<IJSObjectReference>("import", "/scan.js");
             await scan.InvokeVoidAsync("attach", scanArea, self);
         }
-        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException or ObjectDisposedException)
         {
-            // Without it, the ISBN is typed in as before.
+            // Without it, the ISBN is typed in as before. A form taken away before the scanner was ready leaves it be.
         }
     }
 
