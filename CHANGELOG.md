@@ -11,6 +11,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Fixed
 
+- **Trading with another shelf finds the right entry when a book is on the shelf twice**, a paper copy and an e-book say: the one with the file, where it took whichever came first.
+- **A sign-in no longer fails if the activity log can't be written**, as could happen just after a restore.
 - **A book's other formats travel with it**: a copy lent from a linked shelf brings them and gives them back with the book, and Shelf-to-Shelf brings a format the other shelf has and sends one it lacks, never replacing one already there.
 
 - **The restore drill counts the books' files a backup lacks**: main e-books, other formats, and recordings the database names but the zip doesn't hold, shown beside the backup on Admin.
