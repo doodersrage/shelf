@@ -6,7 +6,7 @@ Dependabot opens one pull request a week for each area with something out of dat
 
 ## The copied front-end files
 
-The app serves PDF.js, JSZip, the barcode reader, and the Inter and Lora fonts from `wwwroot`, so no page calls out to a CDN. Their versions are pinned in `src/Shelf.Api/vendor/package.json`. When Dependabot bumps one, the **Vendor Dependabot updates** workflow copies the new files into its pull request and runs CI again, with the packages' install scripts off and the copying done by `copy.mjs` from `main`. To bump one yourself:
+The app serves epub.js, PDF.js, JSZip, the barcode reader, and the Inter and Lora fonts from `wwwroot`, so no page calls out to a CDN. Their versions are pinned in `src/Shelf.Api/vendor/package.json`. When Dependabot bumps one, the **Vendor Dependabot updates** workflow copies the new files into its pull request and runs CI again, with the packages' install scripts off and the copying done by `copy.mjs` from `main`. To bump one yourself:
 
 ```bash
 cd src/Shelf.Api/vendor

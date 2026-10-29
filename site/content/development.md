@@ -11,7 +11,7 @@ Shelf is a .NET 10 app: ASP.NET Core minimal APIs and Blazor pages over EF Core 
 
 | Folder | What it holds |
 | --- | --- |
-| `src/Shelf.Api` | The app: `Books` (the library, files, reading, lending, imports), `Readers` (accounts, sign-in, passkeys, the activity log), `Components` (the Blazor pages), `Data` (the database and migrations), and `wwwroot` (styles, scripts, fonts, and the vendored PDF.js and JSZip). |
+| `src/Shelf.Api` | The app: `Books` (the library, files, reading, lending, imports), `Readers` (accounts, sign-in, passkeys, the activity log), `Components` (the Blazor pages), `Data` (the database and migrations), and `wwwroot` (styles, scripts, fonts, and the vendored epub.js, PDF.js, JSZip, and barcode reader). |
 | `src/Shelf.ServiceDefaults` | Health checks, telemetry, and resilience, shared with the app host. |
 | `Shelf.AppHost` | An Aspire host that runs the app with a dashboard. |
 | `tests/Shelf.Api.Tests` | Server tests with xUnit, against the real app on a throwaway database. |
@@ -62,7 +62,7 @@ Shelf applies migrations when it starts. To run the server tests against Postgre
 
 ## Dependencies
 
-Dependabot proposes updates to the NuGet packages, the GitHub Actions, the Docker images, and the npm packages for the vendored files, the browser tests, and this site. PDF.js, JSZip, and the fonts are copied into `wwwroot` from pinned npm packages; [`docs/maintenance.md`](https://github.com/doodersrage/shelf/blob/main/docs/maintenance.md) covers updating them.
+Dependabot proposes updates to the NuGet packages, the GitHub Actions, the Docker images, and the npm packages for the vendored files, the browser tests, and this site. epub.js, PDF.js, JSZip, the barcode reader, and the fonts are copied into `wwwroot` from pinned npm packages; [`docs/maintenance.md`](https://github.com/doodersrage/shelf/blob/main/docs/maintenance.md) covers updating them.
 
 ## Releasing
 
