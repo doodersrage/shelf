@@ -26,7 +26,11 @@ public sealed record AudioPlanChapter(int Index, string Title, int Track, double
 // Listened is how many seconds the player played since it last said, by the clock rather than the book, and Day
 // the day it was played (in UTC, as the shelf counts days), which matters for time sent late.
 // Replayed: a place kept on the device while the shelf couldn't be reached, sent once it can; it moves the place on only.
-public sealed record AudioPlaceRequest(int Track, double Seconds, double? Listened = null, DateOnly? Day = null, bool Replayed = false);
+// From: where the player last knew the shelf's place, when it says. Kept elsewhere since (another tab, a phone), the
+// place is not moved; the answer is 409 with the place now kept, for the player to go to.
+public sealed record AudioPlaceRequest(int Track, double Seconds, double? Listened = null, DateOnly? Day = null, bool Replayed = false, AudioSpot? From = null);
+
+public sealed record AudioSpot(int Track, double Seconds);
 
 // Time spent listening to one book on one day, by one reader.
 public sealed class ListeningDay
@@ -103,7 +107,7 @@ public static class AudioPlayback
 
     // Where the player is: kept as it is, back or forward, since a listener moves both ways; a place sent late, from
     // listening offline, moves it on only, so a device catching up never undoes listening done elsewhere since.
-    private static async Task<Results<NoContent, NotFound, ValidationProblem>> Place(int id, AudioPlaceRequest request, ShelfDb db, AudioStore store, CancellationToken cancellationToken)
+    private static async Task<Results<NoContent, Conflict<AudioSpot>, NotFound, ValidationProblem>> Place(int id, AudioPlaceRequest request, ShelfDb db, AudioStore store, CancellationToken cancellationToken)
     {
         if (await Lending.OpenAsync(db, id, cancellationToken) is not { } open || string.IsNullOrWhiteSpace(open.Book.AudioStoredName))
         {
@@ -116,6 +120,7 @@ public static class AudioPlayback
         }
 
         using var _ = Positions.Reporting("Shelf", request.Replayed ? "listening offline" : "player");
+        AudioSpot? moved = null;
         await Lending.KeepPlaceAsync(db, open, place =>
         {
             if (!request.Replayed || Further(place, request.Track, (int)request.Seconds))
@@ -123,14 +128,27 @@ public static class AudioPlayback
                 place.AudioTrack = request.Track;
                 place.AudioSeconds = (int)request.Seconds;
             }
-        }, cancellationToken);
+        }, cancellationToken, request.From is not { } from || request.Replayed ? null : place =>
+        {
+            if (SameSpot(place, from))
+            {
+                return true;
+            }
+
+            moved = new AudioSpot(place.AudioTrack ?? 0, place.AudioSeconds ?? 0);
+            return false;
+        });
         if (request.Listened is double listened && listened >= 1)
         {
             await NoteListeningAsync(db, open.Book.Id, request.Day, listened, cancellationToken);
         }
 
-        return TypedResults.NoContent();
+        return moved is not null ? TypedResults.Conflict(moved) : TypedResults.NoContent();
     }
+
+    // The place kept is still the one the player knew: kept to the whole second, so a little either way is the same.
+    private static bool SameSpot(LoanPlace place, AudioSpot spot) =>
+        (place.AudioTrack ?? 0) == spot.Track && Math.Abs((place.AudioSeconds ?? 0) - spot.Seconds) <= 2;
 
     // Whether a place in the recording is further on than the one kept: a later track, or later in the same one.
     public static bool Further(LoanPlace place, int track, int seconds) =>

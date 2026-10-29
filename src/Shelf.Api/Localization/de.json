@@ -3380,5 +3380,8 @@
   "Shelf's front page": "Startseite von Shelf",
   "Perhaps you were looking for": "Vielleicht hast du das gesucht",
   "Search your library": "Deine Bibliothek durchsuchen",
-  "Go to finds any page or book by a few letters: Ctrl K or / opens it from anywhere.": "Gehe zu findet jede Seite und jedes Buch mit ein paar Buchstaben: Strg K oder / öffnet es von überall."
+  "Go to finds any page or book by a few letters: Ctrl K or / opens it from anywhere.": "Gehe zu findet jede Seite und jedes Buch mit ein paar Buchstaben: Strg K oder / öffnet es von überall.",
+  "Your place was moved in another tab or on another device, so the player went there.": "Ihre Stelle wurde in einem anderen Tab oder auf einem anderen Gerät verschoben, daher ist der Player dorthin gesprungen.",
+  "Your place was moved in another tab or on another device, to {0}. Pages turned here are not saved until you choose.": "Ihre Stelle wurde in einem anderen Tab oder auf einem anderen Gerät verschoben, nach {0}. Hier umgeblätterte Seiten werden erst gespeichert, wenn Sie sich entscheiden.",
+  "Keep my place here": "Meine Stelle hier behalten"
 }

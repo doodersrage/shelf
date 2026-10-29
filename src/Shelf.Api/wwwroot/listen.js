@@ -36,6 +36,13 @@
   let heard = 0;
   // Where the book was before a long move (a chapter, the scrubber, a bookmark), to go back to for a few seconds.
   let undo = null;
+  // The place the shelf kept when this player last heard from it. A save says so, and a place moved since, by
+  // another tab or device, is not undone: the shelf answers with it and the player goes there, with a way back.
+  // known is the place last sent, so saves close together each name the one before; confirmed, the last the shelf took.
+  let known = null;
+  let confirmed = null;
+  const sameSpot = (a, b) => Boolean(a && b) && a.track === b.track && Math.abs(a.seconds - b.seconds) <= 2;
+  const MOVED_UNDO_FOR = 60000;
 
   const read = (key, fallback) => {
     try {
@@ -173,6 +180,11 @@
   audio.addEventListener("play", () => {
     wantPlay = true;
     lastTick = performance.now();
+    // A tab left open finds out at once whether the place moved on elsewhere while it waited.
+    if (known) {
+      clearTimeout(saveSoon);
+      saveSoon = setTimeout(save, 300);
+    }
     render();
   });
 
@@ -239,6 +251,9 @@
     const bookId = plan.bookId;
     const key = keyOf(plan);
     const seconds = pending ? pending.seconds : audio.currentTime || 0;
+    const sent = track;
+    const from = known && !plan.placeUrl ? known : null;
+    if (from) known = { track: sent, seconds };
     const listened = Math.round(heard);
     heard -= listened;
     const day = shelfDay();
@@ -253,17 +268,52 @@
     return fetch(placeUrl(), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ track, seconds, listened, day }),
+      body: JSON.stringify(from ? { track: sent, seconds, listened, day, from } : { track: sent, seconds, listened, day }),
       keepalive: true,
       credentials: "same-origin",
     }).then((response) => {
       if (response.ok) {
         const kept = read(`shelf-audio-place-${key}`, null);
-        if (kept && kept.track === track && kept.seconds === seconds) write(`shelf-audio-place-${key}`, { track, seconds, waiting: false });
-      } else if (response.status !== 404) {
-        missed();
+        if (kept && kept.track === sent && kept.seconds === seconds) write(`shelf-audio-place-${key}`, { track: sent, seconds, waiting: false });
+        if (keyOf(plan) === key && !plan.placeUrl) {
+          confirmed = { track: sent, seconds };
+          // A first save sent without the check (a place kept here offline) starts the checking from here.
+          if (!known) known = confirmed;
+        }
+      } else if (response.status === 409) {
+        return response.json().then((spot) => {
+          if (keyOf(plan) !== key) return;
+          // This player's own place, a save before this one having gone astray: sent again from there.
+          if (sameSpot(spot, confirmed)) {
+            known = { ...confirmed };
+            save();
+            return;
+          }
+
+          // Moved on elsewhere since: the listening time still counted, the place there is the one to go to.
+          write(`shelf-audio-place-${key}`, { track: spot.track, seconds: spot.seconds, waiting: false });
+          movedTo(spot);
+        });
+      } else {
+        if (from && keyOf(plan) === key) known = confirmed;
+        if (response.status !== 404) missed();
       }
-    }, missed);
+    }, () => {
+      if (from && keyOf(plan) === key) known = confirmed;
+      missed();
+    });
+  }
+
+  // The place kept by another tab or device: the player goes there, and "Back to" returns for a minute.
+  function movedTo(spot) {
+    if (!plan || !lengths.length) return;
+    known = confirmed = { track: spot.track, seconds: spot.seconds };
+    const before = now();
+    const index = Math.min(Math.max(0, spot.track), lengths.length - 1);
+    setTrack(index, Math.min(Math.max(0, spot.seconds), Math.max(0, (lengths[index] ?? spot.seconds + 1) - 1)), wantPlay || !audio.paused);
+    undo = { time: before, until: performance.now() + MOVED_UNDO_FOR };
+    note = "moved";
+    render();
   }
 
   // Places and time from while the shelf could not be reached go back to it now.
@@ -596,6 +646,8 @@
     // A place kept here that the shelf has not had yet is newer than the shelf's.
     const local = read(`shelf-audio-place-${keyOf(next)}`, null);
     const from = local?.waiting ? local : next;
+    // Starting from a place kept here and not yet sent, the first save goes as before, without the check.
+    known = confirmed = local?.waiting || next.placeUrl ? null : { track: next.track ?? 0, seconds: next.seconds ?? 0 };
     const start = Math.min(Math.max(0, from.track), lengths.length - 1);
     if (options.arrive) arrive(options.arrive);
     else setTrack(start, Math.min(from.seconds || 0, Math.max(0, lengths[start] - 1)), Boolean(options.play));

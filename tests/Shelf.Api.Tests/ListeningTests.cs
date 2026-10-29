@@ -39,6 +39,36 @@ public sealed class ListeningTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.Equal((0, 30), await PlaceAsync());
     }
 
+    // A player tab left open says where it last knew the place. Moved since on another device, the place stays, the
+    // tab is told where it is now, and its listening time still counts; told again from there, it moves as before.
+    [Fact]
+    public async Task A_player_left_open_cannot_send_back_a_place_moved_on_elsewhere()
+    {
+        var listener = await factory.SignUpAsync("Stale Tab Listener");
+        var book = await WithAudioAsync(listener, "Heard in Two Rooms");
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        async Task<(int?, int?)> PlaceAsync()
+        {
+            var place = (await listener.GetFromJsonAsync<PlaceResponse>($"/books/{book.Id}/place", JsonOptions))!;
+            return (place.AudioTrack, place.AudioSeconds);
+        }
+
+        // Both tabs knew 1:00. The phone listens on to 5:00; the old tab, playing again from 1:00, says 1:15.
+        Assert.Equal(HttpStatusCode.NoContent, (await listener.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 60), JsonOptions)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await listener.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 300, From: new AudioSpot(0, 60.4)), JsonOptions)).StatusCode);
+        var stale = await listener.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 75, 15, today, From: new AudioSpot(0, 60)), JsonOptions);
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Equal(new AudioSpot(0, 300), await stale.Content.ReadFromJsonAsync<AudioSpot>(JsonOptions));
+        Assert.Equal((0, 300), await PlaceAsync());
+        Assert.Equal(15, (await listener.GetFromJsonAsync<ListeningSummary>("/books/listening", JsonOptions))!.TodaySeconds);
+
+        // From the place it was told, the tab moves it again, back as well; and a save that says nothing moves it as before.
+        Assert.Equal(HttpStatusCode.NoContent, (await listener.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 90, From: new AudioSpot(0, 300)), JsonOptions)).StatusCode);
+        Assert.Equal((0, 90), await PlaceAsync());
+        Assert.Equal(HttpStatusCode.NoContent, (await listener.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 20), JsonOptions)).StatusCode);
+        Assert.Equal((0, 20), await PlaceAsync());
+    }
+
     [Fact]
     public async Task Time_listened_is_kept_by_day_for_each_listener()
     {

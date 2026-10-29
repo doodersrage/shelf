@@ -221,6 +221,39 @@ public sealed class KeepingTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal(HttpStatusCode.NotFound, (await (await factory.SignUpAsync("Position Stranger")).GetAsync($"/books/{book.Id}/positions")).StatusCode);
     }
 
+    // A move made only if the place is still the one a tab saw: turned away once another device has moved it,
+    // for the owner's place and a borrower's alike, and nothing about the move is noted.
+    [Fact]
+    public async Task A_place_moved_elsewhere_turns_away_a_move_that_only_holds_if_it_had_not()
+    {
+        var reader = await factory.SignUpAsync("Careful Mover");
+        var book = await CreateAsync(reader, new CreateBookRequest("Careful Read", "Someone", BookStatus.Reading, null));
+        var readerId = await factory.ReaderIdAsync("Careful Mover");
+        await using var scope = Scope(readerId);
+        var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+        var open = (await Lending.OpenAsync(db, book.Id))!;
+        using (Positions.Reporting("KOReader", "Kobo Clara"))
+        {
+            await Lending.KeepPlaceAsync(db, open, place => place.EbookChapter = 7);
+        }
+
+        LoanPlace? seen = null;
+        using (Positions.Reporting("Shelf", "reader"))
+        {
+            Assert.Null(await Lending.KeepPlaceAsync(db, open, place => place.EbookChapter = 2, onlyIf: place =>
+            {
+                seen = place;
+                return place.EbookChapter == 1;
+            }));
+            Assert.Equal(7, seen!.EbookChapter);
+            Assert.Equal(7, (await Lending.PlaceAsync(db, (await Lending.OpenAsync(db, book.Id))!)).EbookChapter);
+            Assert.Equal(8, (await Lending.KeepPlaceAsync(db, open, place => place.EbookChapter = 8, onlyIf: place => place.EbookChapter == 7))!.EbookChapter);
+        }
+
+        var reports = (await reader.GetFromJsonAsync<PositionsOfBook>($"/books/{book.Id}/positions", JsonOptions))!.Reports;
+        Assert.Equal("part 9", reports.Single(report => report.Source == "Shelf").Where);
+    }
+
     [Fact]
     public async Task Notes_reviews_quotes_and_the_journal_are_searched_beside_the_books()
     {

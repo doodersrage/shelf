@@ -42,7 +42,7 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
 - **M0:** complete.
 - **Findings:** every finding from the M0 audit's top five and next tier is resolved, in follow-up tasks 1–19 and the same-day follow-ups below them.
 - **Release:** **2.18.0** was released on 2026-10-28 (tag `v2.18.0` at `73f0499`). Images are `ghcr.io/doodersrage/shelf:2.18.0` and `latest`; release notes are at https://github.com/doodersrage/shelf/releases/tag/v2.18.0. Later fixes are under Unreleased in `CHANGELOG.md`.
-- **Milestones:** each M1–M6 item has a status with evidence. Of the 54 items, 39 are `[x]`, 11 are `[~]`, and 4 are `[!]`. The `[~]` and `[!]` items are the remaining work. The code review of 2026-10-28 left known defects that need a design choice before fixing, each listed under its item. The most serious are two P1s: an older tab or device can overwrite a newer reading position, and the book form can save stale reading dates.
+- **Milestones:** each M1–M6 item has a status with evidence. Of the 54 items, 39 are `[x]`, 11 are `[~]`, and 4 are `[!]`. The `[~]` and `[!]` items are the remaining work. The code review of 2026-10-28 left known defects that need a design choice before fixing, each listed under its item. The most serious left is a P1: the book form can save stale reading dates. The other P1, an older tab or device overwriting a newer reading position, was fixed on 2026-10-29.
 - **Accepted limits:** see each task. They include stale Kobo "Finished" pushes, app sessions and merges from before 2.18.0, PostgreSQL without `pg_dump` not copied offsite, restore undo, the `/alive` HEALTHCHECK, `pg_dump`'s password on its command line, and the unreachable xmldom advisory (no epubjs release fixes it; see M6 dependencies).
 
 ---
@@ -410,11 +410,14 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
   - *Reviewed 2026-10-28 by reading the code; the findings were checked and the fixes tested (`dotnet test`, 446 passed).*
     - Sound: the audio player saves on `pagehide` with a local copy and forward-only replay; reader time flushes on hide; KOReader sync is forward-only.
     - **Fixed:** a page turn within a second of closing the reader was dropped (P3, `epub-reader.js` `close()`).
-    - **Open (P1, needs a design choice, the next task):**
-      - A stale tab or device writes its older place over a newer one: an EPUB tab on resize, or an audio tab on Play.
-      - Every browser reports as one device, so the Positions page can't bring the newer place back.
-      - EPUB and PDF page turns made while the connection is down are lost: there's no local queue, no `pagehide` flush, and no resend on reconnect.
-      - Proposed: a per-browser device id, a reject-if-older rule keyed on the place's last server time, and a REST save with a local queue as `listen.js` has.
+    - **Fixed 2026-10-29 (P1): a stale tab or device no longer writes its older place over a newer one.**
+      - Rule: a save from Shelf's reader or player names the place it last knew. The save goes through only if the shelf still holds that place, so no clock or migration is needed. `Lending.KeepPlaceAsync` takes an `onlyIf` check.
+      - Reader (EPUB, PDF, comics, classic): when the place has moved, page turns stop saving and a notice asks the reader to choose. **Go there** reopens the book at the newer place; **Keep my place here** saves this page anyway. Inside the page-turning reader the notice sits in its dialog, so screen readers reach it.
+      - Player: `PUT /books/{id}/audio/place` takes `from`. When the place has moved, the answer is 409 with the newer place, and the time listened still counts. The player checks as it starts playing, goes to the newer place, says so, and offers **Back to** for a minute. A save without `from` (offline replay, other clients) behaves as before.
+      - Tests: `KeepingTests.A_place_moved_elsewhere_turns_away_a_move_that_only_holds_if_it_had_not`, `ListeningTests.A_player_left_open_cannot_send_back_a_place_moved_on_elsewhere`, and two browser tests (`reading.spec`: "a reader left open…"; `listening.spec`: "a player left open…").
+    - **Still open:**
+      - P2: EPUB and PDF page turns made while the connection is down are lost: there's no local queue, no `pagehide` flush, and no resend on reconnect. The reader now notices the dropped connection's effect only as a stale place, not as lost turns.
+      - P3: every browser reports as one device ("Shelf's reader"), so the Positions page shows one row for all of them.
       - P3: a place queued offline before a reread can jump the reread forward.
 - [x] Confirm how positions map between EPUB, PDF, comics, audiobook tracks, and external devices; avoid pretending incompatible positions are directly equivalent.
   - *Status 2026-10-28:* Audit: read-along when present, otherwise chapter pins with a proportional estimate (`Crossover.cs`). P3: the UI doesn't flag an estimate.

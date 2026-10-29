@@ -88,6 +88,33 @@ test("a chapter skipped by mistake is undone, and the book picks up a little bac
   noProblems(page);
 });
 
+test("a player left open goes to a place moved on elsewhere when it plays, with a way back", async ({ browser }) => {
+  const page = await signUp(browser, unique("Two Rooms"));
+  const book = await createBook(page, { title: "Heard Twice", author: "Someone", status: "Reading" });
+  await upload(page, book.id, "audio", "chapters.m4b", "audio/mp4");
+  const place = async () => (await (await page.request.get(`/books/${book.id}/place`)).json()).audioSeconds ?? 0;
+  await page.goto(`/library/${book.id}/listen`);
+  await ready(page);
+  await expect(page.locator(".listen-chapter")).toHaveText("Opening");
+
+  // Listened on to the last chapter on a phone; this tab, still at the start, plays.
+  expect((await page.request.put(`/books/${book.id}/audio/place`, { data: { track: 0, seconds: 9 } })).ok()).toBe(true);
+  await page.locator(".listen [data-player=toggle]").click();
+  await expect(page.locator(".listen-chapter")).toHaveText("Ending");
+  await expect(page.locator(".listen [data-show=note]")).toHaveText("Your place was moved in another tab or on another device, so the player went there.");
+  await page.locator(".listen [data-player=toggle]").click();
+  expect(await place()).toBeGreaterThanOrEqual(9);
+
+  // Back to where this tab was, which is then kept.
+  await expect(page.locator(".listen-undo")).toHaveText("Back to 0:00");
+  await page.locator(".listen-undo").click();
+  await expect(page.locator(".listen-chapter")).toHaveText("Opening");
+  await expect.poll(place).toBeLessThan(4);
+  // The shelf's answer to the old place, 409, is logged by the browser as any refused request is.
+  page.problems = page.problems.filter((problem) => !/status of 409 \(Conflict\).*\/audio\/place/.test(problem.text));
+  noProblems(page);
+});
+
 test("the book plays on in the mini player while the reader moves around the shelf", async ({ browser }) => {
   const page = await signUp(browser, unique("Wanderer"));
   const book = await createBook(page, { title: "A Walking Recording", author: "Someone", status: "Reading" });

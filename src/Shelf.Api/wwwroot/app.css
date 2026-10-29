@@ -4773,6 +4773,31 @@ blockquote mark {
     text-align: center;
 }
 
+/* The place moved in another tab or on another device: over the page, in every reader, until the reader chooses. */
+.reader-moved {
+    position: fixed;
+    top: max(0.75rem, env(safe-area-inset-top));
+    left: 50%;
+    z-index: 30;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+    width: min(34rem, calc(100% - 1.5rem));
+    padding: var(--space-3);
+    transform: translateX(-50%);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-card);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.2);
+}
+
+.reader-moved p {
+    flex-basis: 100%;
+    margin: 0;
+}
+
 /* A passage selected: its highlight, note, and look-up in a sheet over the foot of the page. */
 .epub-sheet {
     position: absolute;

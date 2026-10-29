@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Fixed
+
+- **A reader or player left open no longer sends your place back**: a tab open since yesterday saved its old place over the one read since on another device, as soon as it was resized or played. The reader now asks, with **Go there** and **Keep my place here**; the player goes to the newer place as it starts, with **Back to** for a minute.
+
 ## [2.19.1] - 2026-10-28
 
 ### Security

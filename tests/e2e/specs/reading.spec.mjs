@@ -232,6 +232,50 @@ test("the page-turning reader turns across chapters, and opens again at the very
   noProblems(page);
 });
 
+test("a reader left open doesn't send back a place moved on elsewhere; it asks, and goes there or keeps its own", async ({ browser }) => {
+  const page = await signUp(browser, unique("Two Tabs"));
+  const book = await createBook(page, { title: "Moby-Dick", author: "Herman Melville", status: "Reading" });
+  await upload(page, book.id, "ebook", "moby.epub", "application/epub+zip");
+  await page.setViewportSize({ width: 360, height: 640 });
+  const place = async () => (await (await page.request.get(`/books/${book.id}/place`)).json());
+
+  await page.goto(`/library/${book.id}/read`);
+  await ready(page);
+  const where = page.locator(".reader-where");
+  await expect(where).toContainText(/Chapter 1 of 2 · page 1 of/, { timeout: 20_000 });
+  await expect.poll(async () => (await place()).ebookCfi).toMatch(/^epubcfi\(\/6\/2/);
+
+  // Read on to the second chapter elsewhere; this tab, still in the first, turns a page.
+  expect((await page.request.put(`/books/${book.id}/place`, { data: { ebookChapter: 1 } })).ok()).toBe(true);
+  await page.keyboard.press("ArrowRight");
+  const moved = page.locator(".reader-moved");
+  await expect(moved).toContainText("part 2");
+  await expect(where).toContainText("page 2 of");
+  expect((await place()).ebookChapter).toBe(1);
+
+  // Kept here, the place is this tab's again, and its pages are saved as before.
+  await moved.getByRole("button", { name: "Keep my place here" }).click();
+  await expect(moved).toHaveCount(0);
+  await expect.poll(async () => (await place()).ebookChapter).toBe(0);
+  await page.keyboard.press("ArrowRight");
+  await expect(where).toContainText("Chapter 2 of 2");
+  await expect.poll(async () => (await place()).ebookChapter).toBe(1);
+  await page.keyboard.press("ArrowLeft");
+  await expect(where).toContainText("Chapter 1 of 2 · page 2 of");
+  await expect.poll(async () => (await place()).ebookChapter).toBe(0);
+  await expect(moved).toHaveCount(0);
+
+  // Moved on again elsewhere, "Go there" opens the book at that place.
+  expect((await page.request.put(`/books/${book.id}/place`, { data: { ebookChapter: 1 } })).ok()).toBe(true);
+  await page.keyboard.press("ArrowLeft");
+  await expect(where).toContainText("Chapter 1 of 2 · page 1 of");
+  await moved.getByRole("button", { name: "Go there" }).click();
+  await ready(page);
+  await expect(page.locator(".reader-where")).toContainText("Chapter 2 of 2", { timeout: 20_000 });
+  await expect(page.locator(".reader-moved")).toHaveCount(0);
+  noProblems(page);
+});
+
 // The paragraphs of the book showing in the reader's box: its frames are wider than the box, a page of columns each.
 const showing = (page) =>
   page.evaluate(() => {

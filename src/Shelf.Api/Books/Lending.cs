@@ -220,21 +220,29 @@ public static class Lending
             ?? new LoanPlace { BookId = open.Book.Id, ReaderId = readerId };
     }
 
-    public static async Task KeepPlaceAsync(
+    // The place moved and kept, or null when the book has gone or onlyIf turns the move away. onlyIf sees the place
+    // as kept now: a tab that saw it otherwise is behind another tab or device, and moves it only if it says so.
+    public static async Task<LoanPlace?> KeepPlaceAsync(
         ShelfDb db,
         OpenBook open,
         Action<LoanPlace> move,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<LoanPlace, bool>? onlyIf = null)
     {
         if (!open.Borrowed)
         {
             var book = await db.Books.FirstOrDefaultAsync(item => item.Id == open.Book.Id, cancellationToken);
             if (book is null)
             {
-                return;
+                return null;
             }
 
             var place = new LoanPlace { EbookChapter = book.EbookChapter, EbookCfi = book.EbookCfi, EbookProgress = book.EbookProgress, AudioTrack = book.AudioTrack, AudioSeconds = book.AudioSeconds };
+            if (onlyIf is not null && !onlyIf(place))
+            {
+                return null;
+            }
+
             Move(place, move);
             book.EbookChapter = place.EbookChapter;
             (book.EbookCfi, book.EbookProgress) = (place.EbookCfi, place.EbookProgress);
@@ -242,16 +250,21 @@ public static class Lending
             book.AudioSeconds = place.AudioSeconds;
             await db.SaveChangesAsync(cancellationToken);
             await Positions.NoteAsync(db, book.Id, Said(move), place, cancellationToken);
-            return;
+            return place;
         }
 
         var readerId = db.ReaderId;
         if (!await StillOpenAsync(db, open, cancellationToken))
         {
-            return;
+            return null;
         }
 
         var kept = await db.LoanPlaces.FirstOrDefaultAsync(item => item.BookId == open.Book.Id && item.ReaderId == readerId, cancellationToken);
+        if (onlyIf is not null && !onlyIf(kept ?? new LoanPlace { BookId = open.Book.Id, ReaderId = readerId }))
+        {
+            return null;
+        }
+
         if (kept is null)
         {
             kept = new LoanPlace { BookId = open.Book.Id, ReaderId = readerId };
@@ -261,6 +274,7 @@ public static class Lending
         Move(kept, move);
         await db.SaveChangesAsync(cancellationToken);
         await Positions.NoteAsync(db, open.Book.Id, Said(move), kept, cancellationToken);
+        return kept;
     }
 
     // What a move says on its own, from nowhere: the place the source gave, before Shelf weighed it against its own.

@@ -42,6 +42,10 @@ else if (book is not null)
         </div>
         }
         <h1 class="visually-hidden">@book.Title</h1>
+        @if (!UseEngine)
+        {
+            @MovedNotice
+        }
         @if (string.IsNullOrWhiteSpace(book.EbookStoredName))
         {
             <p>@T("This book has no e-book file.")@if (!borrowed) { <text> <a href="/library/@book.Id">@T("Add one")</a></text> }</p>
@@ -175,7 +179,20 @@ else if (book is not null)
     // tap in the middle of the page (epub-reader.js sets data-full and data-chrome). The rarer things, read aloud, the
     // recap, this chapter's highlights, and the way to the audiobook, are in a panel from the bar's ⋯; a selected
     // passage brings up its own sheet over the page.
+    @* Inside the page-turning reader's stage, which takes the whole window as a dialog; above the page otherwise. *@
+    private RenderFragment MovedNotice => @<text>
+        @if (movedElsewhere is { } elsewhere)
+        {
+            <div class="reader-moved" role="alert">
+                <p>@T("Your place was moved in another tab or on another device, to {0}. Pages turned here are not saved until you choose.", Positions.Describe(elsewhere.EbookChapter, elsewhere.EbookProgress, null, null, []))</p>
+                <button type="button" @onclick="GoToMoved">@T("Go there")</button>
+                <button type="button" class="quiet" @onclick="StayHere">@T("Keep my place here")</button>
+            </div>
+        }
+    </text>;
+
     private RenderFragment EngineReader => @<div class="epub-stage" data-theme="@(type.Theme.Length > 0 ? type.Theme : null)">
+            @MovedNotice
             <div class="epub-bar epub-top">
                 <a class="icon-button epub-back" href="@(borrowed ? "/loans" : $"/library/{book!.Id}")" aria-label="@(borrowed ? T("Loans") : T("Back to {0}", book!.Title))">‹</a>
                 @* A borrowed book says so, as the classic reader and the player do. *@
@@ -649,24 +666,92 @@ else if (book is not null)
             bookShare = Math.Clamp(share, 0, 1);
         }
 
-        if (open is not null)
+        var kept = chapter;
+        await KeepAsync(place =>
         {
-            await using var db = await DbFactory.CreateDbContextAsync();
-            var kept = chapter;
-            using var _ = Positions.Reporting("Shelf", "reader");
-            await Lending.KeepPlaceAsync(db, open, place =>
+            place.EbookChapter = kept;
+            place.EbookCfi = cfi.Length <= 1000 ? cfi : null;
+            if (share >= 0)
             {
-                place.EbookChapter = kept;
-                place.EbookCfi = cfi.Length <= 1000 ? cfi : null;
-                if (share >= 0)
-                {
-                    place.EbookProgress = Math.Clamp(share, 0, 1);
-                }
-            });
-        }
+                place.EbookProgress = Math.Clamp(share, 0, 1);
+            }
+        });
 
         StateHasChanged();
     });
+
+    // The place the shelf kept when this tab last read or saved it. A save moves it only while it still is, so a tab
+    // left open can't send back a place read on since in another tab or on another device; the reader chooses.
+    private LoanPlace? known;
+    private LoanPlace? movedElsewhere;
+    private readonly SemaphoreSlim keeping = new(1, 1);
+
+    private static LoanPlace EbookPart(LoanPlace place) =>
+        new() { EbookChapter = place.EbookChapter, EbookCfi = place.EbookCfi, EbookProgress = place.EbookProgress };
+
+    private async Task KeepAsync(Action<LoanPlace> move, bool anyway = false)
+    {
+        if (open is null)
+        {
+            return;
+        }
+
+        await keeping.WaitAsync();
+        try
+        {
+            if (movedElsewhere is not null && !anyway)
+            {
+                return;
+            }
+
+            await using var db = await DbFactory.CreateDbContextAsync();
+            using var _ = Positions.Reporting("Shelf", "reader");
+            var seen = anyway ? null : known;
+            LoanPlace? found = null;
+            var kept = await Lending.KeepPlaceAsync(db, open, move, onlyIf: seen is null ? null : place =>
+            {
+                if (place.EbookChapter == seen.EbookChapter && place.EbookCfi == seen.EbookCfi)
+                {
+                    return true;
+                }
+
+                found = EbookPart(place);
+                return false;
+            });
+            if (found is not null)
+            {
+                movedElsewhere = found;
+            }
+            else if (kept is not null)
+            {
+                (known, movedElsewhere) = (EbookPart(kept), null);
+            }
+        }
+        finally
+        {
+            keeping.Release();
+        }
+    }
+
+    // The newer place: the page opens again there, as it opens at any kept place.
+    private void GoToMoved() =>
+        Navigation.NavigateTo(Navigation.GetUriWithQueryParameters(new Dictionary<string, object?> { ["chapter"] = null, ["at"] = null }), forceLoad: true);
+
+    // The place on this page is the one to keep, over the other.
+    private Task StayHere() => KeepAsync(place =>
+    {
+        if (IsPdf)
+        {
+            place.EbookChapter = pdfIndex;
+            return;
+        }
+
+        place.EbookChapter = chapter;
+        if (UseEngine && savedCfi is { Length: <= 1000 })
+        {
+            (place.EbookCfi, place.EbookProgress) = (savedCfi, bookShare);
+        }
+    }, anyway: true);
 
     [JSInvokable]
     public void SelectedIn(string text, string prefix, string suffix, int section)
@@ -727,6 +812,7 @@ else if (book is not null)
             var saved = await BookRules.GetReaderTypeAsync(db);
             type = new TypeForm { Size = saved.Size, Leading = saved.Leading, Width = saved.Width, Paged = saved.Paged, Theme = saved.Theme ?? "", Font = saved.Font ?? "" };
             var kept = await Lending.PlaceAsync(db, open);
+            (known, movedElsewhere) = (EbookPart(kept), null);
             pdfIndex = Math.Max(0, ChapterQuery ?? kept.EbookChapter ?? 0);
             // A link to a chapter (from search, the audiobook, a recap) wins over the place kept.
             savedCfi = ChapterQuery is null ? kept.EbookCfi : null;
@@ -1205,9 +1291,7 @@ else if (book is not null)
             return;
         }
 
-        await using var db = await DbFactory.CreateDbContextAsync();
-        using var _ = Positions.Reporting("Shelf", "reader");
-        await Lending.KeepPlaceAsync(db, open, place => place.EbookChapter = chapter);
+        await KeepAsync(place => place.EbookChapter = chapter);
 
         // Chosen by hand while listening along, the recording goes to the chapter's start.
         if (alongOn && !following && along is not null && alongChapters.FirstOrDefault(item => item.Index == chapter) is { } range)
@@ -1591,11 +1675,9 @@ else if (book is not null)
         var moved = index != pdfIndex;
         pdfIndex = index;
         pdfPages = total;
-        if (moved && open is not null)
+        if (moved)
         {
-            await using var db = await DbFactory.CreateDbContextAsync();
-            using var _ = Positions.Reporting("Shelf", "reader");
-            await Lending.KeepPlaceAsync(db, open, place => place.EbookChapter = index);
+            await KeepAsync(place => place.EbookChapter = index);
         }
 
         // Reading aloud goes on into the page it turned to; a page turned by hand stops it.
