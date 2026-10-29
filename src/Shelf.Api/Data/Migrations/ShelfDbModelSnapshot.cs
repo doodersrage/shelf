@@ -3593,6 +3593,9 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("INTEGER");
 
+                    b.Property<long?>("TwoFactorLastStep")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("TwoFactorSecret")
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");

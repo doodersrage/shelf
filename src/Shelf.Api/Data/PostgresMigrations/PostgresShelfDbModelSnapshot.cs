@@ -3754,6 +3754,9 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("boolean");
 
+                    b.Property<long?>("TwoFactorLastStep")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("TwoFactorSecret")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");

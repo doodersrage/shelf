@@ -3551,5 +3551,13 @@
   "Damaged or cut short: {0}. Try downloading them again.": "Endommagés ou incomplets : {0}. Téléchargez-les à nouveau.",
   "The file looks damaged or cut short. Try again.": "Le fichier semble endommagé ou incomplet. Réessayez.",
   "Listened to {0} for {1}": "Écouté {0} pendant {1}",
-  "Read {0} for {1}": "Lu {0} pendant {1}"
+  "Read {0} for {1}": "Lu {0} pendant {1}",
+  "To change your email address, sign in again first: it proves it's you. Then come back here.": "Pour changer votre adresse e-mail, reconnectez-vous d’abord : cela prouve que c’est bien vous. Puis revenez ici.",
+  "Your Shelf email address is changing": "L’adresse e-mail de votre compte Shelf change",
+  "Hello {0},\n\nThe email address was taken off your Shelf account just now. If that was not you, sign in and change your password, which also ends the other ways in.": "Bonjour {0},\n\nL’adresse e-mail vient d’être retirée de votre compte Shelf. Si ce n’était pas vous, connectez-vous et changez votre mot de passe, ce qui met aussi fin aux autres accès.",
+  "Hello {0},\n\nYour Shelf account is changing its email address to {1}. If that was not you, sign in and change your password, which also ends the other ways in.": "Bonjour {0},\n\nVotre compte Shelf change son adresse e-mail pour {1}. Si ce n’était pas vous, connectez-vous et changez votre mot de passe, ce qui met aussi fin aux autres accès.",
+  "That needs a sign-in within the last quarter of an hour, as it can hand someone an account or every reader's books. Sign in again, then try once more.": "Cela demande une connexion datant de moins d’un quart d’heure, car cela peut donner à quelqu’un un compte ou les livres de tous les lecteurs. Reconnectez-vous, puis réessayez.",
+  "That password is one of the first anyone would guess. Choose another: a few words you'll remember works well.": "Ce mot de passe est parmi les premiers que l’on essaierait. Choisissez-en un autre : quelques mots dont vous vous souviendrez conviennent bien.",
+  "Signed in": "Connexion",
+  "Signed in with a passkey": "Connexion avec une clé d’accès"
 }

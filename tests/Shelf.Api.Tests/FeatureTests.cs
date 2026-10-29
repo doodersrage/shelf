@@ -676,8 +676,14 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
             Assert.True(await scope.ServiceProvider.GetRequiredService<ShelfDb>().AuditEntries.AnyAsync(entry => (entry.ActorId == careful || entry.TargetId == careful) && entry.Action == "A sign-in failed: wrong code"));
         }
 
-        var right = await ShelfApiFactory.PostFormAsync(laptop, "/signin/code", "/account/signin/code", new() { ["code"] = Now() });
+        // The code that turned it on is taken already: each code works once. The authenticator's next one goes in.
+        Assert.Contains("problem=CodeWrong", (await ShelfApiFactory.PostFormAsync(laptop, "/signin/code", "/account/signin/code", new() { ["code"] = Now() })).Headers.Location?.OriginalString);
+        var next = TwoFactor.Code(start!.Secret, DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 30 + 1);
+        var right = await ShelfApiFactory.PostFormAsync(laptop, "/signin/code", "/account/signin/code", new() { ["code"] = next });
         Assert.Equal("/", right.Headers.Location?.OriginalString);
+        var again = factory.CreateClient(new() { AllowAutoRedirect = false });
+        await ShelfApiFactory.PostFormAsync(again, "/signin", "/account/signin", new() { ["name"] = "Careful Reader", ["password"] = ShelfApiFactory.Password });
+        Assert.Contains("problem=CodeWrong", (await ShelfApiFactory.PostFormAsync(again, "/signin/code", "/account/signin/code", new() { ["code"] = next })).Headers.Location?.OriginalString);
         Assert.Equal(HttpStatusCode.OK, (await laptop.GetAsync("/books")).StatusCode);
 
         // A recovery code stands in for the authenticator, once.

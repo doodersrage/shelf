@@ -132,9 +132,20 @@ public sealed partial class ReadersTests(ShelfApiFactory factory) : IClassFixtur
             Assert.Equal((null, null), (one.Email, one.PendingEmail));
         }
 
-        // A change waits for its link too, and the address before it keeps working until then.
+        // Now that it is someone's, signing up with it again goes just as it did, so the page tells no one the address
+        // has an account: the link goes to it, and the reader who has it can ignore it.
+        var sentBefore = factory.Mail.Sent.Count(mail => mail.To == "claimed@example.test");
+        var third = addressed.CreateClient(new() { AllowAutoRedirect = false });
+        Assert.Equal("/", (await SignUpFormAsync(third, "Claimant Three", "claimed@example.test", ShelfApiFactory.Password + "3", ShelfApiFactory.Password + "3")).Headers.Location?.OriginalString);
+        Assert.Equal(sentBefore + 1, factory.Mail.Sent.Count(mail => mail.To == "claimed@example.test"));
+        var taken = await third.PutAsJsonAsync("/account/email", new EmailSettingsRequest("claimed@example.test", true), JsonOptions);
+        Assert.NotEqual(HttpStatusCode.BadRequest, taken.StatusCode);
+
+        // A change waits for its link too, and the address before it keeps working until then; the address before is
+        // told, in case it wasn't its reader asking.
         var change = await second.PutAsJsonAsync("/account/email", new EmailSettingsRequest("moved.claimant@example.test", true), JsonOptions);
         Assert.Equal(HttpStatusCode.Accepted, change.StatusCode);
+        Assert.Contains(factory.Mail.Sent, mail => mail.To == "claimed@example.test" && mail.Body.Contains("changing its email address to moved.claimant@example.test"));
         Assert.Equal("/", (await ShelfApiFactory.PostFormAsync(addressed.CreateClient(new() { AllowAutoRedirect = false }), "/signin", "/account/signin", new() { ["email"] = "claimed@example.test", ["password"] = ShelfApiFactory.Password + "2" })).Headers.Location?.OriginalString);
         var moved = ConfirmLink().Match(factory.Mail.Sent.Last(mail => mail.To == "moved.claimant@example.test").Body).Value;
         Assert.Equal("/account?confirmed=1#email", (await second.GetAsync(moved)).Headers.Location?.OriginalString);
@@ -144,6 +155,21 @@ public sealed partial class ReadersTests(ShelfApiFactory factory) : IClassFixtur
             Assert.Equal("Claimant Two", (await ReaderRules.FindAsync(db, "moved.claimant@example.test"))?.Name);
             Assert.Null(await ReaderRules.FindAsync(db, "claimed@example.test"));
         }
+    }
+
+    // A new address wants a recent sign-in; turning notices on or off doesn't.
+    [Fact]
+    public async Task A_new_email_address_wants_a_recent_sign_in()
+    {
+        await factory.SignUpAsync("Address Mover");
+        var readerId = await factory.ReaderIdAsync("Address Mover");
+        await using var scope = factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(readerId);
+        var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+        var current = (await db.Readers.FirstAsync(reader => reader.Id == readerId)).Email;
+        Assert.Equal((AccountProblem.SignInFirst, false), await EmailRules.ChangeAsync(db, factory.Mail, readerId, "elsewhere@example.test", true, null, signedInRecently: false));
+        Assert.Equal(((AccountProblem?)null, false), await EmailRules.ChangeAsync(db, factory.Mail, readerId, current, false, null, signedInRecently: false));
+        Assert.Equal(((AccountProblem?)null, false), await EmailRules.ChangeAsync(db, factory.Mail, readerId, "elsewhere@example.test", true, null, signedInRecently: true));
     }
 
     [Fact]

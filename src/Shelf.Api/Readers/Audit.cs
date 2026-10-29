@@ -23,11 +23,31 @@ public static class Audit
 {
     public const int Keep = 5000;
 
+    // Failed sign-ins are kept to their own number, so a flood of them (from many addresses, say) can't push out the
+    // rest of the record; and the same failure for one account within the hour is one line, counted.
+    public const int KeepFailures = 1000;
+    private const string FailurePrefix = "A sign-in failed";
+    private static readonly TimeSpan FoldWithin = TimeSpan.FromHours(1);
+
     // The signed-in reader is the one acting; with nobody signed in (a sign-up, a reset by email) it is the reader acted on.
     public static async Task NoteAsync(ShelfDb db, string action, Reader? target = null, string? detail = null, CancellationToken cancellationToken = default)
     {
         var actor = db.ReaderId != 0 ? await db.Readers.AsNoTracking().FirstOrDefaultAsync(reader => reader.Id == db.ReaderId, cancellationToken) : null;
         actor ??= target;
+        if (action.StartsWith(FailurePrefix, StringComparison.Ordinal) && actor is not null)
+        {
+            var since = DateTimeOffset.UtcNow - FoldWithin;
+            var last = await db.AuditEntries.Where(entry => entry.Action == action && entry.ActorId == actor.Id && entry.TargetId == null)
+                .OrderByDescending(entry => entry.Id).FirstOrDefaultAsync(cancellationToken);
+            if (last is not null && last.At >= since)
+            {
+                var count = last.Detail is { Length: > 1 } times && times[0] == '×' && int.TryParse(times[1..], out var was) ? was + 1 : 2;
+                (last.At, last.Detail) = (DateTimeOffset.UtcNow, $"×{count}");
+                await db.SaveChangesAsync(cancellationToken);
+                return;
+            }
+        }
+
         db.AuditEntries.Add(new AuditEntry
         {
             At = DateTimeOffset.UtcNow,
@@ -53,11 +73,18 @@ public static class Audit
         return rows.Select(entry => new AuditLine(entry.At, entry.ActorName, entry.Action, entry.TargetName, entry.Detail)).ToArray();
     }
 
-    // Only the newest entries are kept.
+    // Only the newest entries are kept: failed sign-ins to their own number first, then everything.
     public static async Task<int> TrimAsync(ShelfDb db, CancellationToken cancellationToken = default)
     {
+        var removed = 0;
+        var failures = db.AuditEntries.Where(entry => entry.Action.StartsWith(FailurePrefix));
+        if (await failures.OrderByDescending(entry => entry.Id).Skip(KeepFailures).Select(entry => (long?)entry.Id).FirstOrDefaultAsync(cancellationToken) is { } oldFailure)
+        {
+            removed += await failures.Where(entry => entry.Id <= oldFailure).ExecuteDeleteAsync(cancellationToken);
+        }
+
         var cutoff = await db.AuditEntries.OrderByDescending(entry => entry.Id).Skip(Keep).Select(entry => (long?)entry.Id).FirstOrDefaultAsync(cancellationToken);
-        return cutoff is { } id ? await db.AuditEntries.Where(entry => entry.Id <= id).ExecuteDeleteAsync(cancellationToken) : 0;
+        return removed + (cutoff is { } id ? await db.AuditEntries.Where(entry => entry.Id <= id).ExecuteDeleteAsync(cancellationToken) : 0);
     }
 
     private static string? Fit(string? value, int length) =>

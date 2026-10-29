@@ -195,12 +195,14 @@ public static class AccountEndpoints
     {
         var reader = await db.Readers.FirstAsync(item => item.Id == db.ReaderId, cancellationToken);
         if (reader.TwoFactorSecret is null
-            || !TwoFactor.Verify(TwoFactor.Protector(protection).Unprotect(reader.TwoFactorSecret), request.Code, DateTimeOffset.UtcNow))
+            || TwoFactor.MatchStep(TwoFactor.Protector(protection).Unprotect(reader.TwoFactorSecret), request.Code, DateTimeOffset.UtcNow) is not long step)
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Code"] = [ReaderRules.Describe(AccountProblem.CodeWrong)] });
         }
 
         reader.TwoFactorEnabled = true;
+        // The code that turned it on is taken, so it can't sign in again.
+        reader.TwoFactorLastStep = step;
         await db.SaveChangesAsync(cancellationToken);
         await Audit.NoteAsync(db, Localization.Words.Say("Turned on two-step sign-in"), reader, cancellationToken: cancellationToken);
         return TypedResults.Ok(new RecoveryCodes(await TwoFactor.NewRecoveryCodesAsync(db, reader.Id, cancellationToken)));
@@ -400,7 +402,8 @@ public static class AccountEndpoints
         bool pending;
         try
         {
-            (problem, pending) = await EmailRules.ChangeAsync(db, mail, db.ReaderId, request.Email, request.Reminders, EmailRules.ResetAddress(configuration, http.Request), cancellationToken);
+            (problem, pending) = await EmailRules.ChangeAsync(db, mail, db.ReaderId, request.Email, request.Reminders, EmailRules.ResetAddress(configuration, http.Request), cancellationToken,
+                signedInRecently: ReaderRules.SignedInRecently(http.User));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -464,9 +467,12 @@ public static class AccountEndpoints
         configuration.GetValue("Accounts:AllowSignUp", true);
 
     // Every sign-in is a session of its own, listed on the account page until it signs out.
-    internal static async Task SignInAsync(HttpContext http, ShelfDb db, Reader reader, CancellationToken cancellationToken)
+    // Every sign-in to the site is kept in the activity log, with the device, so a reader can see one that wasn't them.
+    internal static async Task SignInAsync(HttpContext http, ShelfDb db, Reader reader, CancellationToken cancellationToken, string? how = null)
     {
-        var session = await TwoFactor.StartSessionAsync(db, reader.Id, TwoFactor.DeviceName(http.Request.Headers.UserAgent), cancellationToken);
+        var device = TwoFactor.DeviceName(http.Request.Headers.UserAgent);
+        var session = await TwoFactor.StartSessionAsync(db, reader.Id, device, cancellationToken);
+        await Audit.NoteAsync(db, how ?? Localization.Words.Say("Signed in"), reader, device, cancellationToken);
         await http.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
             ReaderRules.Principal(reader, CookieAuthenticationDefaults.AuthenticationScheme, session),

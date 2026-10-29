@@ -139,6 +139,9 @@ public sealed class Reader
     public bool TwoFactorEnabled { get; set; }
     public string? TwoFactorSecret { get; set; }
 
+    // The time step of the last authenticator code taken, so each code works once: never again, even within its window.
+    public long? TwoFactorLastStep { get; set; }
+
     // How dates and numbers are written for this reader, such as en-GB; null follows the browser.
     public string? Culture { get; set; }
 }

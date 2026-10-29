@@ -4,6 +4,16 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Security
+
+- **Each two-step code works once**, even within its half-minute; the code that turns two-step on counts as used. The migration adds one column.
+- **Common passwords are refused**: "password", "12345678", and the like, with or without digits or marks on the ends. Checked on the shelf; nothing is sent anywhere.
+- **Sign-in and sign-up tell no one who has an account**: a name no one has takes as long to turn down as a wrong password, and, when the shelf confirms addresses, signing up or changing to an address another reader has goes just as with a new one.
+- **Changing your email address needs a recent sign-in**, and the old address is told.
+- **An admin's actions that can hand over an account or everyone's books need a recent sign-in**: a new password for a reader, admin rights, removing a reader, changing a reader's address, and downloading a snapshot or backup.
+- **A passkey challenge is taken once**; a copy sent again is refused.
+- **The activity log keeps sign-ins**, with the device, folds repeated failed sign-ins into one counted line, and keeps failed sign-ins to their own 1,000, so a flood can't push the rest out.
+
 ### Fixed
 
 - **The journal shows each day's reading and listening time**: a minute or more with a book, in the reader, on KOReader, or in the player, as "Read The Waves for 40 min" or "Listened to … for 1 h 5 min". Only your own time is shown.

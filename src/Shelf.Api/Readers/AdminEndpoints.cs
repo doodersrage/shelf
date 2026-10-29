@@ -12,10 +12,11 @@ public static class AdminEndpoints
     {
         var admin = app.MapGroup("/admin").WithTags("Admin").RequireAuthorization().AddEndpointFilter(AdminsOnly);
         admin.MapGet("/readers", Readers);
-        admin.MapPost("/readers/{id:int}/password", ResetPassword);
-        admin.MapPut("/readers/{id:int}/admin", SetAdmin);
-        admin.MapDelete("/readers/{id:int}", Remove);
-        admin.MapGet("/snapshot", Snapshot);
+        // What can hand someone an account, or every reader's books, wants a recent sign-in.
+        admin.MapPost("/readers/{id:int}/password", ResetPassword).AddEndpointFilter(ReaderRules.RequireRecentSignIn);
+        admin.MapPut("/readers/{id:int}/admin", SetAdmin).AddEndpointFilter(ReaderRules.RequireRecentSignIn);
+        admin.MapDelete("/readers/{id:int}", Remove).AddEndpointFilter(ReaderRules.RequireRecentSignIn);
+        admin.MapGet("/snapshot", Snapshot).AddEndpointFilter(ReaderRules.RequireRecentSignIn);
         admin.MapGet("/backups", (BackupCheck check) => TypedResults.Ok(check.List()));
         admin.MapPost("/backups/{name}/drill", async Task<IResult> (string name, BackupCheck check, CancellationToken cancellationToken) =>
             await check.DrillAsync(name, cancellationToken) is { } verdict ? TypedResults.Ok(verdict) : TypedResults.NotFound());
@@ -27,7 +28,7 @@ public static class AdminEndpoints
         });
         admin.MapGet("/audit", async (ShelfDb db, CancellationToken cancellationToken) => TypedResults.Ok(await Audit.RecentAsync(db, take: 500, cancellationToken: cancellationToken)));
         admin.MapGet("/backups/{name}", (string name, BackupSchedule schedule) =>
-            schedule.PathOf(name) is { } path ? Results.File(path, "application/zip", name) : Results.NotFound());
+            schedule.PathOf(name) is { } path ? Results.File(path, "application/zip", name) : Results.NotFound()).AddEndpointFilter(ReaderRules.RequireRecentSignIn);
 
         // Readers, as an admin manages them.
         admin.MapGet("/accounts", async (ShelfDb db, CancellationToken cancellationToken) => TypedResults.Ok(await Management.ReadersAsync(db, cancellationToken)));
@@ -40,7 +41,7 @@ public static class AdminEndpoints
         admin.MapPut("/readers/{id:int}/email", async (int id, KindleSettingsRequest request, ShelfDb db, CancellationToken cancellationToken) =>
             Answer(await db.Readers.AsNoTracking().Where(reader => reader.Id == id).Select(reader => (bool?)reader.EmailNotices).FirstOrDefaultAsync(cancellationToken) is bool notices
                 ? await ReaderRules.SetEmailAsync(db, id, request.Email, notices, cancellationToken)
-                : AccountProblem.NoSuchReader));
+                : AccountProblem.NoSuchReader)).AddEndpointFilter(ReaderRules.RequireRecentSignIn);
 
         // Invitations, and who may sign up.
         admin.MapGet("/invitations", async (ShelfDb db, CancellationToken cancellationToken) => TypedResults.Ok(await Management.InvitationsAsync(db, cancellationToken)));

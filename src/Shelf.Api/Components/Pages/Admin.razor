@@ -13,6 +13,7 @@
 @inject IConfiguration Configuration
 @inject NavigationManager Navigation
 @inject IEmailSender Email
+@inject AuthenticationStateProvider Authentication
 @inject IServiceProvider Services
 @inject Microsoft.Extensions.Caching.Memory.IMemoryCache Cache
 
@@ -114,6 +115,10 @@ else
     @if (problem is AccountProblem shown)
     {
         <p class="validation-message" role="alert">@ReaderRules.Describe(shown)</p>
+        @if (shown == AccountProblem.AdminSignInFirst)
+        {
+            @SignInAgain("readers")
+        }
     }
     <div class="reader-tools">
         <label>
@@ -218,7 +223,15 @@ else
     <section class="panel" id="snapshot">
     <h2>@T("Snapshot")</h2>
     <p class="hint">@((MarkupString)T("Everything on this server in one zip: the database with every reader, and every e-book, audiobook, and cover picture. To restore it, stop the shelf and unpack it into a new data folder: <code>shelf.db</code> beside the app, and the <code>ebooks</code>, <code>audio</code>, and <code>covers</code> folders where they were."))</p>
-    <a class="button primary" href="/admin/snapshot">@T("Download a snapshot")</a>
+    @if (recent)
+    {
+        <a class="button primary" href="/admin/snapshot">@T("Download a snapshot")</a>
+    }
+    else
+    {
+        <p class="hint">@ReaderRules.Describe(AccountProblem.AdminSignInFirst)</p>
+        @SignInAgain("snapshot")
+    }
     </section>
 
     <section class="panel" id="backups">
@@ -244,7 +257,14 @@ else
             @foreach (var backup in backups)
             {
                 <li>
-                    <a href="/admin/backups/@backup.Name">@backup.TakenAt.Stamp() UTC</a>
+                    @if (recent)
+                    {
+                        <a href="/admin/backups/@backup.Name">@backup.TakenAt.Stamp() UTC</a>
+                    }
+                    else
+                    {
+                        <span>@backup.TakenAt.Stamp() UTC</span>
+                    }
                     <span class="hint">@Localization.Counts.Size(backup.Bytes)</span>
                     @switch (backup.Verdict)
                     {
@@ -598,7 +618,12 @@ else
         }
 
         await using var db = await DbFactory.CreateDbContextAsync();
-        if (await StillAdminAsync(db) && readers.FirstOrDefault(reader => reader.Id == id) is not null)
+        if (await StillAdminAsync(db) && !await RecentAsync())
+        {
+            rowNotes[id] = (ReaderRules.Describe(AccountProblem.AdminSignInFirst), true);
+            problem = AccountProblem.AdminSignInFirst;
+        }
+        else if (allowed && readers.FirstOrDefault(reader => reader.Id == id) is not null)
         {
             var notices = await db.Readers.Where(reader => reader.Id == id).Select(reader => reader.EmailNotices).FirstAsync();
             var trouble = await ReaderRules.SetEmailAsync(db, id, address, notices);
@@ -770,6 +795,7 @@ else
         await using var db = await DbFactory.CreateDbContextAsync();
         me = db.ReaderId;
         allowed = await ReaderRules.IsAdminAsync(db, me);
+        await RecentAsync();
         readers = allowed ? [.. await Management.ReadersAsync(db)] : [];
         invitations = allowed ? await Management.InvitationsAsync(db) : [];
         signUp = await Management.SignUpModeAsync(db, Configuration);
@@ -887,10 +913,42 @@ else
 
     private async Task<bool> StillAdminAsync(ShelfDb db) => allowed = await ReaderRules.IsAdminAsync(db, db.ReaderId);
 
+    // Whether this sign-in is recent enough for what can hand over an account or everyone's books.
+    private bool recent;
+
+    private async Task<bool> RecentAsync()
+    {
+        recent = ReaderRules.SignedInRecently((await Authentication.GetAuthenticationStateAsync()).User);
+        return recent;
+    }
+
+    // Still an admin, and signed in lately; if not lately, says so with a way to sign in again.
+    private async Task<bool> MayDoSensitiveAsync(ShelfDb db)
+    {
+        if (!await StillAdminAsync(db))
+        {
+            return false;
+        }
+
+        if (!await RecentAsync())
+        {
+            problem = AccountProblem.AdminSignInFirst;
+            return false;
+        }
+
+        return true;
+    }
+
+    private RenderFragment SignInAgain(string section) => @<form method="post" action="/account/signout" data-enhance="false" class="sign-in-again">
+        <AntiforgeryToken />
+        <input type="hidden" name="returnUrl" value="/admin#@section" />
+        <button type="submit">@T("Sign in again")</button>
+    </form>;
+
     private async Task Reset(int id)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        if (!await StillAdminAsync(db))
+        if (!await MayDoSensitiveAsync(db))
         {
             return;
         }
@@ -907,7 +965,7 @@ else
     {
         await using (var db = await DbFactory.CreateDbContextAsync())
         {
-            if (!await StillAdminAsync(db))
+            if (!await MayDoSensitiveAsync(db))
             {
                 return;
             }
@@ -937,7 +995,7 @@ else
     {
         await using (var db = await DbFactory.CreateDbContextAsync())
         {
-            if (!await StillAdminAsync(db))
+            if (!await MayDoSensitiveAsync(db))
             {
                 return;
             }

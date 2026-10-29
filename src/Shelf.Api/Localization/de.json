@@ -3551,5 +3551,13 @@
   "Damaged or cut short: {0}. Try downloading them again.": "Beschädigt oder unvollständig: {0}. Laden Sie sie erneut herunter.",
   "The file looks damaged or cut short. Try again.": "Die Datei scheint beschädigt oder unvollständig zu sein. Versuchen Sie es erneut.",
   "Listened to {0} for {1}": "{0} {1} lang gehört",
-  "Read {0} for {1}": "{0} {1} lang gelesen"
+  "Read {0} for {1}": "{0} {1} lang gelesen",
+  "To change your email address, sign in again first: it proves it's you. Then come back here.": "Um Ihre E-Mail-Adresse zu ändern, melden Sie sich zuerst erneut an: Das beweist, dass Sie es sind. Kommen Sie dann hierher zurück.",
+  "Your Shelf email address is changing": "Die E-Mail-Adresse Ihres Shelf-Kontos ändert sich",
+  "Hello {0},\n\nThe email address was taken off your Shelf account just now. If that was not you, sign in and change your password, which also ends the other ways in.": "Hallo {0},\n\ndie E-Mail-Adresse wurde gerade von Ihrem Shelf-Konto entfernt. Wenn Sie das nicht waren, melden Sie sich an und ändern Sie Ihr Passwort; das beendet auch die anderen Zugänge.",
+  "Hello {0},\n\nYour Shelf account is changing its email address to {1}. If that was not you, sign in and change your password, which also ends the other ways in.": "Hallo {0},\n\nIhr Shelf-Konto ändert seine E-Mail-Adresse in {1}. Wenn Sie das nicht waren, melden Sie sich an und ändern Sie Ihr Passwort; das beendet auch die anderen Zugänge.",
+  "That needs a sign-in within the last quarter of an hour, as it can hand someone an account or every reader's books. Sign in again, then try once more.": "Das erfordert eine Anmeldung innerhalb der letzten Viertelstunde, da es jemandem ein Konto oder die Bücher aller Leser geben kann. Melden Sie sich erneut an und versuchen Sie es dann noch einmal.",
+  "That password is one of the first anyone would guess. Choose another: a few words you'll remember works well.": "Dieses Passwort gehört zu den ersten, die jemand ausprobieren würde. Wählen Sie ein anderes: Ein paar Wörter, die Sie sich merken können, eignen sich gut.",
+  "Signed in": "Angemeldet",
+  "Signed in with a passkey": "Mit einem Passkey angemeldet"
 }

@@ -3551,5 +3551,13 @@
   "Damaged or cut short: {0}. Try downloading them again.": "Dañados o incompletos: {0}. Vuelve a descargarlos.",
   "The file looks damaged or cut short. Try again.": "El archivo parece dañado o incompleto. Inténtalo de nuevo.",
   "Listened to {0} for {1}": "Escuchaste {0} durante {1}",
-  "Read {0} for {1}": "Leíste {0} durante {1}"
+  "Read {0} for {1}": "Leíste {0} durante {1}",
+  "To change your email address, sign in again first: it proves it's you. Then come back here.": "Para cambiar tu dirección de correo, vuelve a iniciar sesión primero: así se comprueba que eres tú. Luego vuelve aquí.",
+  "Your Shelf email address is changing": "La dirección de correo de tu cuenta de Shelf va a cambiar",
+  "Hello {0},\n\nThe email address was taken off your Shelf account just now. If that was not you, sign in and change your password, which also ends the other ways in.": "Hola, {0}:\n\nAcaban de quitar la dirección de correo de tu cuenta de Shelf. Si no fuiste tú, inicia sesión y cambia tu contraseña, lo que también cierra las otras formas de entrar.",
+  "Hello {0},\n\nYour Shelf account is changing its email address to {1}. If that was not you, sign in and change your password, which also ends the other ways in.": "Hola, {0}:\n\nTu cuenta de Shelf está cambiando su dirección de correo a {1}. Si no fuiste tú, inicia sesión y cambia tu contraseña, lo que también cierra las otras formas de entrar.",
+  "That needs a sign-in within the last quarter of an hour, as it can hand someone an account or every reader's books. Sign in again, then try once more.": "Eso necesita un inicio de sesión del último cuarto de hora, porque puede dar a alguien una cuenta o los libros de todos los lectores. Vuelve a iniciar sesión e inténtalo otra vez.",
+  "That password is one of the first anyone would guess. Choose another: a few words you'll remember works well.": "Esa contraseña es de las primeras que cualquiera probaría. Elige otra: unas cuantas palabras que recuerdes funcionan bien.",
+  "Signed in": "Inició sesión",
+  "Signed in with a passkey": "Inició sesión con una llave de acceso"
 }

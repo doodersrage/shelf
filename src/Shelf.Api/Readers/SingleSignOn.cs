@@ -179,8 +179,7 @@ public static class SingleSignOn
                 return TypedResults.Redirect($"/signin?problem={AccountProblem.Suspended}");
             }
 
-            await AccountEndpoints.SignInAsync(http, db, known, cancellationToken);
-            await Audit.NoteAsync(db, Say("Signed in with single sign-on"), known, cancellationToken: cancellationToken);
+            await AccountEndpoints.SignInAsync(http, db, known, cancellationToken, Say("Signed in with single sign-on"));
             return TypedResults.Redirect(back);
         }
 

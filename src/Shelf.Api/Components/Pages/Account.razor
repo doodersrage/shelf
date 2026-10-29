@@ -475,6 +475,7 @@ else if (savedEmail is null && !restricted)
 @if (emailProblem is AccountProblem shownEmail)
 {
     <p class="validation-message" role="alert">@ReaderRules.Describe(shownEmail)</p>
+    @SignInAgain("email")
 }
 else if (emailNote is not null)
 {
@@ -1668,7 +1669,7 @@ else if (pushState is not null)
 
     private async Task ConfirmTwoFactor()
     {
-        if (setupSecret is null || !TwoFactor.Verify(setupSecret, twoFactorCode, DateTimeOffset.UtcNow))
+        if (setupSecret is null || TwoFactor.MatchStep(setupSecret, twoFactorCode, DateTimeOffset.UtcNow) is not long step)
         {
             twoFactorProblem = AccountProblem.CodeWrong;
             return;
@@ -1677,6 +1678,8 @@ else if (pushState is not null)
         await using var db = await DbFactory.CreateDbContextAsync();
         var me = await db.Readers.FirstAsync(item => item.Id == db.ReaderId);
         me.TwoFactorEnabled = true;
+        // The code that turned it on is taken, so it can't sign in again.
+        me.TwoFactorLastStep = step;
         await db.SaveChangesAsync();
         await Audit.NoteAsync(db, Say("Turned on two-step sign-in"), me);
         recovery = await TwoFactor.NewRecoveryCodesAsync(db, me.Id);
@@ -1725,7 +1728,9 @@ else if (pushState is not null)
         bool pending;
         try
         {
-            (emailProblem, pending) = await EmailRules.ChangeAsync(db, Email, db.ReaderId, emailAddress, noticeSettings?.EmailNotices ?? true, Site);
+            (emailProblem, pending) = await EmailRules.ChangeAsync(db, Email, db.ReaderId, emailAddress, noticeSettings?.EmailNotices ?? true, Site,
+                signedInRecently: ReaderRules.SignedInRecently((await Authentication.GetAuthenticationStateAsync()).User));
+            signInAgainFor = emailProblem == AccountProblem.SignInFirst ? "email" : signInAgainFor;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

@@ -63,7 +63,8 @@ export async function upload(page, id, kind, file, type) {
 }
 
 // The code an authenticator app would show now, for a base32 secret.
-export function authenticatorCode(secret) {
+// The authenticator's code now, or a step on (each code is taken once, so a second sign-in wants the next one).
+export function authenticatorCode(secret, ahead = 0) {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
   let bits = "";
   for (const character of secret.replace(/=+$/, "")) {
@@ -72,7 +73,7 @@ export function authenticatorCode(secret) {
 
   const key = Buffer.from(bits.match(/.{8}/g).map((byte) => parseInt(byte, 2)));
   const counter = Buffer.alloc(8);
-  counter.writeBigInt64BE(BigInt(Math.floor(Date.now() / 1000 / 30)));
+  counter.writeBigInt64BE(BigInt(Math.floor(Date.now() / 1000 / 30) + ahead));
   const hash = createHmac("sha1", key).update(counter).digest();
   const offset = hash[19] & 0x0f;
   const value = hash.readUInt32BE(offset) & 0x7fffffff;

@@ -59,8 +59,40 @@ public static class ReaderRules
     {
         null or { Length: < MinPasswordLength } => AccountProblem.PasswordTooShort,
         { Length: > MaxPasswordLength } => AccountProblem.PasswordTooLong,
+        _ when IsCommon(password) => AccountProblem.PasswordCommon,
         _ => null,
     };
+
+    // The passwords tried first by anyone guessing, kept here rather than asked of a breach service, so no part of a
+    // password ever leaves the shelf. Checked with digits and marks taken off the ends ("Password2024!" is "password").
+    private static readonly HashSet<string> Common = new(StringComparer.Ordinal)
+    {
+        "password", "passw0rd", "p@ssw0rd", "p@ssword", "qwerty", "qwertyui", "qwertyuiop", "asdfgh", "asdfghjk", "asdfghjkl",
+        "zxcvbn", "zxcvbnm", "azerty", "qwertz", "letmein", "welcome", "iloveyou", "admin", "administrator", "login", "changeme",
+        "secret", "default", "guest", "dragon", "monkey", "master", "shadow", "sunshine", "princess", "football", "baseball",
+        "soccer", "hockey", "superman", "batman", "starwars", "trustno", "whatever", "freedom", "mustang", "michael", "charlie",
+        "jordan", "jennifer", "hunter", "ranger", "buster", "summer", "winter", "computer", "internet", "shelf", "library",
+        "books", "reader", "abc", "abcd", "abcdef", "abcdefg", "abcdefgh", "qazwsx", "zaq", "qwe", "asd", "pass", "test",
+        "1q2w3e4r", "1q2w3e4r5t", "q1w2e3r4", "1qaz2wsx", "zaq12wsx", "q1w2e3r4t5", "aa", "a1b2c3d4",
+    };
+
+    private static bool IsCommon(string password)
+    {
+        var plain = password.Trim().ToLowerInvariant();
+        // One character over and over, or a straight run up or down: "aaaaaaaa", "12345678", "98765432".
+        if (plain.Distinct().Count() <= 2 || IsRun(plain))
+        {
+            return true;
+        }
+
+        var core = plain.Trim("0123456789!@#$%^&*()-_=+.,?~ ".ToCharArray());
+        return core.Length == 0 || Common.Contains(core) || Common.Contains(plain);
+    }
+
+    private static bool IsRun(string text) =>
+        text.Length >= MinPasswordLength
+        && (Enumerable.Range(1, text.Length - 1).All(index => text[index] - text[index - 1] == 1)
+            || Enumerable.Range(1, text.Length - 1).All(index => text[index] - text[index - 1] == -1));
 
     public static string Describe(AccountProblem problem) => problem switch
     {
@@ -70,6 +102,7 @@ public static class ReaderRules
         AccountProblem.NameTaken => T("That name is taken."),
         AccountProblem.PasswordTooShort => T("Use a password of at least {0} characters.", MinPasswordLength),
         AccountProblem.PasswordTooLong => T("Keep the password to {0} characters.", MaxPasswordLength),
+        AccountProblem.PasswordCommon => T("That password is one of the first anyone would guess. Choose another: a few words you'll remember works well."),
         AccountProblem.PasswordsDiffer => T("The two passwords are different."),
         AccountProblem.WrongPassword => T("That email address and password do not match."),
         AccountProblem.CurrentPasswordWrong => T("The current password does not match."),
@@ -88,6 +121,8 @@ public static class ReaderRules
         AccountProblem.ConfirmExpired => T("That link has expired or was used already. Ask for a new one on your account."),
         AccountProblem.CodeWrong => T("That code does not match. Try the newest code from your authenticator, or a recovery code."),
         AccountProblem.CodesPaused => T("Too many wrong codes for this account. Wait a quarter of an hour, then try again."),
+        AccountProblem.AdminSignInFirst => T("That needs a sign-in within the last quarter of an hour, as it can hand someone an account or every reader's books. Sign in again, then try once more."),
+        AccountProblem.SignInFirst => T("To change your email address, sign in again first: it proves it's you. Then come back here."),
         AccountProblem.SsoFailed => T("Single sign-on did not finish. Try again, or sign in with your password."),
         AccountProblem.SsoUnknown => T("This shelf has no account for that sign-on, and it is not taking new accounts. Sign in with your password, then connect single sign-on on Account."),
         AccountProblem.SsoTaken => T("That sign-on account is already connected to another reader here."),
@@ -123,14 +158,16 @@ public static class ReaderRules
 
         var normalized = Normalize(name!);
         var normalizedEmail = address is null ? null : NormalizeEmail(address);
-        if (normalizedEmail is not null
+        // An address waiting for its link takes nothing yet, and confirming checks it is free; so whether another
+        // reader has it is never said here, where anyone could ask.
+        var pending = !confirmed && address is not null;
+        if (normalizedEmail is not null && !pending
             ? await db.Readers.AnyAsync(reader => reader.NormalizedEmail == normalizedEmail, cancellationToken)
             : await NameTakenAsync(db, normalized, cancellationToken))
         {
-            return (null, normalizedEmail is null ? AccountProblem.NameTaken : AccountProblem.EmailTaken);
+            return (null, normalizedEmail is null || pending ? AccountProblem.NameTaken : AccountProblem.EmailTaken);
         }
 
-        var pending = !confirmed && address is not null;
         var reader = new Reader
         {
             Name = Clean(name),
@@ -232,6 +269,9 @@ public static class ReaderRules
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    private static readonly Reader Nobody = new() { Name = "", NormalizedName = "", Email = "" };
+    private static readonly Lazy<string> NobodysHash = new(() => Hasher.HashPassword(Nobody, Convert.ToBase64String(RandomNumberGenerator.GetBytes(24))));
+
     public static async Task<Reader?> VerifyAsync(
         ShelfDb db,
         string? who,
@@ -246,6 +286,9 @@ public static class ReaderRules
         var readers = await SigningInAsync(db, who, cancellationToken);
         if (readers.Count == 0)
         {
+            // A password checked all the same, against a hash of nothing, so a name no one has takes as long to turn
+            // down as a wrong password: the time taken says nothing of who has an account.
+            Hasher.VerifyHashedPassword(Nobody, NobodysHash.Value, password);
             return null;
         }
 
@@ -673,6 +716,12 @@ public static class ReaderRules
 
     public static string SignInAgain => Localization.Words.T("To add a way to sign in, sign in again first: it proves it's you. Then come back here.");
 
+    // For the actions that can hand over an account or everything on the shelf: refused without a recent sign-in.
+    public static async ValueTask<object?> RequireRecentSignIn(EndpointFilterInvocationContext context, EndpointFilterDelegate next) =>
+        SignedInRecently(context.HttpContext.User)
+            ? await next(context)
+            : TypedResults.Problem(Describe(AccountProblem.AdminSignInFirst), statusCode: StatusCodes.Status403Forbidden);
+
     public static bool SignedInRecently(ClaimsPrincipal? user) =>
         long.TryParse(user?.FindFirst(SignedInClaim)?.Value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var at)
         && DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeSeconds(at) <= Fresh;
@@ -714,6 +763,9 @@ public enum AccountProblem
     NameTaken,
     PasswordTooShort,
     PasswordTooLong,
+
+    // Among the passwords guessed first.
+    PasswordCommon,
     PasswordsDiffer,
     WrongPassword,
     CurrentPasswordWrong,
@@ -726,6 +778,12 @@ public enum AccountProblem
 
     // Too many wrong codes for the account lately, from anywhere.
     CodesPaused,
+
+    // A change that wants a recent sign-in to the site, and this one isn't.
+    SignInFirst,
+
+    // An admin's action that wants a recent sign-in.
+    AdminSignInFirst,
     SsoFailed,
     SsoUnknown,
     SsoTaken,

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -39,6 +40,94 @@ public sealed class FreshProofTests(ShelfApiFactory factory) : IClassFixture<She
         Assert.True(ReaderRules.SignedInRecently(SignedIn(TimeSpan.FromMinutes(5))));
         Assert.False(ReaderRules.SignedInRecently(SignedIn(TimeSpan.FromMinutes(20))));
         Assert.False(ReaderRules.SignedInRecently(new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity())));
+    }
+
+    // An admin's sensitive actions turn away a sign-in that isn't recent, before doing anything.
+    [Fact]
+    public async Task Admin_actions_that_hand_over_an_account_want_a_recent_sign_in()
+    {
+        async Task<object?> AsAsync(System.Security.Claims.ClaimsPrincipal user)
+        {
+            var http = new Microsoft.AspNetCore.Http.DefaultHttpContext { User = user };
+            var ran = false;
+            var answer = await ReaderRules.RequireRecentSignIn(
+                new Microsoft.AspNetCore.Http.DefaultEndpointFilterInvocationContext(http), _ => { ran = true; return ValueTask.FromResult<object?>("done"); });
+            return ran ? answer : (answer as Microsoft.AspNetCore.Http.IStatusCodeHttpResult)?.StatusCode;
+        }
+
+        System.Security.Claims.ClaimsPrincipal SignedIn(TimeSpan ago) => new(new System.Security.Claims.ClaimsIdentity(
+            [new System.Security.Claims.Claim(ReaderRules.SignedInClaim, DateTimeOffset.UtcNow.Subtract(ago).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture))], "test"));
+        Assert.Equal("done", await AsAsync(SignedIn(TimeSpan.FromMinutes(2))));
+        Assert.Equal(403, await AsAsync(SignedIn(TimeSpan.FromHours(2))));
+        Assert.Equal(403, await AsAsync(new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity())));
+    }
+
+    // A sign-in is in the activity log with its device; wrong passwords for one account in the hour are one line,
+    // counted; and a flood of failures can't push the rest of the record out.
+    [Fact]
+    public async Task The_activity_log_keeps_sign_ins_and_folds_failures()
+    {
+        await factory.SignUpAsync("Logged Reader");
+        var readerId = await factory.ReaderIdAsync("Logged Reader");
+        var laptop = factory.CreateClient(new() { AllowAutoRedirect = false });
+        laptop.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0");
+        for (var i = 0; i < 3; i++)
+        {
+            await ShelfApiFactory.PostFormAsync(laptop, "/signin", "/account/signin", new() { ["name"] = "Logged Reader", ["password"] = "not the password " + i });
+        }
+
+        await ShelfApiFactory.PostFormAsync(laptop, "/signin", "/account/signin", new() { ["name"] = "Logged Reader", ["password"] = ShelfApiFactory.Password });
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+        var lines = await Audit.RecentAsync(db, readerId);
+        Assert.Equal("Firefox on Linux", lines.First(line => line.Action == "Signed in").Detail);
+        Assert.Equal("×3", Assert.Single(lines, line => line.Action == "A sign-in failed: wrong password").Detail);
+
+        // A flood of failures, with an admin's change before them: the change outlasts the trim.
+        db.AuditEntries.Add(new AuditEntry { At = DateTimeOffset.UtcNow, Action = "Made an admin", ActorId = readerId, Detail = "kept" });
+        await db.SaveChangesAsync();
+        db.AuditEntries.AddRange(Enumerable.Range(0, Audit.KeepFailures + 50).Select(i => new AuditEntry { At = DateTimeOffset.UtcNow, Action = "A sign-in failed: wrong password", ActorId = 900_000 + i }));
+        await db.SaveChangesAsync();
+        await Audit.TrimAsync(db);
+        Assert.True(await db.AuditEntries.AnyAsync(entry => entry.Detail == "kept"));
+        Assert.True(await db.AuditEntries.CountAsync(entry => entry.Action.StartsWith("A sign-in failed")) <= Audit.KeepFailures);
+    }
+
+    // The passwords guessed first are refused, with digits and marks on the ends or without; a long phrase is fine.
+    [Theory]
+    [InlineData("password", true)]
+    [InlineData("Password2024!", true)]
+    [InlineData("12345678", true)]
+    [InlineData("98765432", true)]
+    [InlineData("aaaaaaaaaa", true)]
+    [InlineData("qwertyuiop", true)]
+    [InlineData("1q2w3e4r", true)]
+    [InlineData("a long enough password", false)]
+    [InlineData("correct horse battery", false)]
+    [InlineData("tenar of atuan 1971", false)]
+    public void Common_passwords_are_refused(string password, bool common) =>
+        Assert.Equal(common ? AccountProblem.PasswordCommon : null, ReaderRules.PasswordProblem(password));
+
+    // A passkey challenge is taken once: the same sign-in cookie sent again finds no challenge, as if it had run out.
+    [Fact]
+    public async Task A_passkey_challenge_is_taken_once()
+    {
+        var visitor = factory.CreateClient(new() { HandleCookies = false });
+        var options = await visitor.PostAsync("/account/passkey/options", null);
+        var cookie = options.Headers.GetValues("Set-Cookie").First(value => value.StartsWith("shelf-passkey=", StringComparison.Ordinal)).Split(';')[0];
+        async Task<string> TryAsync()
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/account/passkey/signin")
+            {
+                Content = new StringContent("""{"credential":{"id":"AAAA","rawId":"AAAA","type":"public-key","response":{"authenticatorData":"AAAA","clientDataJSON":"AAAA","signature":"AAAA"},"clientExtensionResults":{}}}""", System.Text.Encoding.UTF8, "application/json"),
+            };
+            request.Headers.Add("Cookie", cookie);
+            return await (await visitor.SendAsync(request)).Content.ReadAsStringAsync();
+        }
+
+        var first = await TryAsync();
+        Assert.True(first.Contains("does not know that passkey"), first);
+        Assert.Contains("took too long", await TryAsync());
     }
 
     // A new password, with the other ways in ended, locks out a token and a device key; kept, they go on working.

@@ -45,7 +45,8 @@ test("two-step sign-in is set up from the account page and asked for at the next
   await fresh.fill("input[name=email]", emailOf(name));
   await fresh.fill("input[name=password]", PASSWORD);
   await Promise.all([fresh.waitForURL(/\/signin\/code/), fresh.click("button[type=submit]")]);
-  await fresh.fill("input[name=code]", authenticatorCode(secret));
+  // The code that turned it on is taken already; the authenticator's next one signs in.
+  await fresh.fill("input[name=code]", authenticatorCode(secret, 1));
   await Promise.all([fresh.waitForURL("**/", { waitUntil: "domcontentloaded" }), fresh.click("button[type=submit]")]);
   await expect(fresh.locator(".reader-name").first()).toHaveText(name);
 

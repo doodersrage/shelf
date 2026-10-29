@@ -13,7 +13,9 @@ Every page and every API call needs a signed-in reader, apart from a [reading li
 
 Changing your password signs you out everywhere. Unless you untick **Also end the other ways in**, it also ends your API tokens, your device key, KOReader's password, and your passkeys, so a new password locks out anyone who had any of them. Sign-in and sign-up allow ten attempts a minute from one address (`Accounts:SignInsPerMinute`).
 
-Adding a passkey or an API token needs a sign-in to the site within the last quarter of an hour. Past that, **Account** asks you to **Sign in again**, and brings you back to it, so a page left signed in, or a token, can't add a way in.
+Adding a passkey or an API token, or changing your email address, needs a sign-in to the site within the last quarter of an hour. Past that, **Account** asks you to **Sign in again**, and brings you back to it, so a page left signed in, or a token, can't add a way in. Changing the address also tells the old one, in case it wasn't you.
+
+A password has to be at least eight characters, and not one of the first anyone would guess ("password", "12345678", "qwertyuiop", and the like, with or without digits or marks on the ends). Shelf checks this itself; no part of a password leaves the server. A name no one has takes as long to turn down as a wrong password, and, when the shelf confirms addresses, signing up with an address another reader has goes just as with a new one (the link goes to that address), so neither tells anyone who has an account here.
 
 ## Passkeys
 
@@ -52,7 +54,7 @@ Two-step sign-in asks for a code from an authenticator app after your password.
 2. Enter the six-digit code it shows, and choose **Turn on**.
 3. Keep the ten **recovery codes** somewhere safe. Each works once, in place of a code, if you lose the authenticator.
 
-The secret is sealed with the shelf's keys, so a copy of the database alone can't use it. To turn it off, enter a current code. After five wrong codes for an account in a quarter of an hour, from any address, it waits out the quarter before trying another, so changing address buys no more guesses.
+The secret is sealed with the shelf's keys, so a copy of the database alone can't use it. To turn it off, enter a current code. Each code works once: a code already taken, even within its half-minute, is refused. After five wrong codes for an account in a quarter of an hour, from any address, it waits out the quarter before trying another, so changing address buys no more guesses.
 
 ## Emails about your account
 
@@ -70,7 +72,7 @@ Each says what to do if it wasn't you. These need [email set up](configuration.m
 
 Shelf keeps a record of:
 
-- sign-ups, failed sign-ins for accounts that exist, and changes of email address;
+- sign-ups, sign-ins with the device they came from, failed sign-ins for accounts that exist (the same failure within the hour is one line, counted, as ×3), and changes of email address;
 - password changes and resets;
 - admin rights given or taken, and removed accounts;
 - two-step sign-in turned on or off, and passkeys added or removed;
@@ -78,7 +80,7 @@ Shelf keeps a record of:
 - device keys and KOReader passwords made;
 - restores, snapshots, and backups taken by hand, and imports from Audiobookshelf.
 
-Every reader sees the lines about their own account under **Recent activity** on **Account**; if something there wasn't you, change your password. An admin reads the whole log on **Shelf admin**, under **Activity**, or as JSON at `/admin/audit`. The newest 5,000 entries are kept.
+Every reader sees the lines about their own account under **Recent activity** on **Account**; if something there wasn't you, change your password. An admin reads the whole log on **Shelf admin**, under **Activity**, or as JSON at `/admin/audit`. The newest 5,000 entries are kept, failed sign-ins to 1,000 of their own, so a flood of them can't push the rest out.
 
 ## Admins
 

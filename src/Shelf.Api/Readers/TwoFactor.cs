@@ -59,12 +59,15 @@ public static class TwoFactor
     }
 
     // The code from the current 30 seconds, or the ones either side, for a phone clock a little off.
-    public static bool Verify(string secret, string? code, DateTimeOffset now)
+    public static bool Verify(string secret, string? code, DateTimeOffset now) => MatchStep(secret, code, now) is not null;
+
+    // The time step the code is for, within a step either side of now; null when it matches none.
+    public static long? MatchStep(string secret, string? code, DateTimeOffset now)
     {
         var digits = new string((code ?? "").Where(char.IsDigit).ToArray());
         if (digits.Length != 6)
         {
-            return false;
+            return null;
         }
 
         var counter = now.ToUnixTimeSeconds() / Step;
@@ -72,11 +75,11 @@ public static class TwoFactor
         {
             if (CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(Code(secret, counter + drift)), Encoding.ASCII.GetBytes(digits)))
             {
-                return true;
+                return counter + drift;
             }
         }
 
-        return false;
+        return null;
     }
 
     public static IDataProtector Protector(IDataProtectionProvider provider) => provider.CreateProtector("Shelf.TwoFactor.Secret");
@@ -130,7 +133,22 @@ public static class TwoFactor
             secret = null;
         }
 
-        return (secret is not null && Verify(secret, code, DateTimeOffset.UtcNow)) || await UseRecoveryCodeAsync(db, reader.Id, code, cancellationToken);
+        // A code is taken once: its step must be later than the last one taken, claimed in one step so two sign-ins
+        // racing with the same code can't both have it.
+        if (secret is not null && MatchStep(secret, code, DateTimeOffset.UtcNow) is long step)
+        {
+            var taken = await db.Readers.IgnoreQueryFilters()
+                .Where(item => item.Id == reader.Id && (item.TwoFactorLastStep == null || item.TwoFactorLastStep < step))
+                .ExecuteUpdateAsync(set => set.SetProperty(item => item.TwoFactorLastStep, step), cancellationToken) == 1;
+            if (taken)
+            {
+                reader.TwoFactorLastStep = step;
+            }
+
+            return taken;
+        }
+
+        return await UseRecoveryCodeAsync(db, reader.Id, code, cancellationToken);
     }
 
     public static async Task DisableAsync(ShelfDb db, Reader reader, CancellationToken cancellationToken = default)

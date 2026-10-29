@@ -35,6 +35,7 @@ public static class Passkeys
     private const string CreateCookie = "shelf-passkey-new";
     private const string SignInCookie = "shelf-passkey";
     private static readonly TimeSpan CeremonyLasts = TimeSpan.FromMinutes(5);
+    private static readonly object TakenLock = new();
 
     public static void Map(RouteGroupBuilder account, string signInLimit)
     {
@@ -72,13 +73,32 @@ public static class Passkeys
             Path = "/account",
         });
 
+    // The challenge kept for this ceremony, taken once: a copy of the cookie sent again is refused, as the server
+    // remembers each one it has taken until it would have run out anyway.
     private static string? Recall(HttpContext http, IDataProtectionProvider protection, string cookie)
     {
         var value = http.Request.Cookies[cookie];
         http.Response.Cookies.Delete(cookie, new CookieOptions { Path = "/account" });
+        if (value is null)
+        {
+            return null;
+        }
+
+        var taken = http.RequestServices.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
+        var key = "passkey-challenge:" + Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value)));
+        lock (TakenLock)
+        {
+            if (taken.TryGetValue(key, out _))
+            {
+                return null;
+            }
+
+            Microsoft.Extensions.Caching.Memory.CacheExtensions.Set(taken, key, true, CeremonyLasts);
+        }
+
         try
         {
-            return value is null ? null : Protector(protection).Unprotect(value);
+            return Protector(protection).Unprotect(value);
         }
         catch (CryptographicException)
         {
@@ -251,7 +271,7 @@ public static class Passkeys
 
         key.LastUsedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
-        await AccountEndpoints.SignInAsync(http, db, reader, cancellationToken);
+        await AccountEndpoints.SignInAsync(http, db, reader, cancellationToken, Localization.Words.Say("Signed in with a passkey"));
         return TypedResults.Ok(new { redirect = ReaderRules.IsLocalUrl(request.ReturnUrl) ? request.ReturnUrl : "/" });
     }
 

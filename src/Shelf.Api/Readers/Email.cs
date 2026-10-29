@@ -276,6 +276,8 @@ public static class EmailRules
 
     // A reader's new address, and whether notifications go there. When the shelf confirms addresses, a new one waits
     // for its link (Pending) and the old one stays until then; otherwise it is theirs at once.
+    // signedInRecently: a new address wants a recent sign-in, so a page left signed in can't move the account's
+    // resets to someone else's inbox. The old address is told of the change.
     public static async Task<(AccountProblem? Problem, bool Pending)> ChangeAsync(
         ShelfDb db,
         IEmailSender email,
@@ -283,19 +285,36 @@ public static class EmailRules
         string? address,
         bool notices,
         string? linkAddress,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool signedInRecently = true)
     {
         var clean = CleanAddress(address);
         var reader = await db.Readers.FirstOrDefaultAsync(item => item.Id == readerId, cancellationToken);
-        if (!Confirms(email, linkAddress) || clean is null or "" || reader is null || string.Equals(clean, reader.Email, StringComparison.OrdinalIgnoreCase))
+        var changing = reader is not null && !string.Equals(clean ?? "", reader.Email ?? "", StringComparison.OrdinalIgnoreCase)
+            && !(clean is { Length: > 0 } && string.Equals(clean, reader.PendingEmail, StringComparison.OrdinalIgnoreCase));
+        if (changing && !signedInRecently)
         {
-            return (await ReaderRules.SetEmailAsync(db, readerId, address, notices, cancellationToken), false);
+            return (AccountProblem.SignInFirst, false);
         }
 
-        var normalized = ReaderRules.NormalizeEmail(clean);
-        if (await db.Readers.AnyAsync(other => other.NormalizedEmail == normalized && other.Id != readerId, cancellationToken))
+        var old = reader?.Email;
+        if (!Confirms(email, linkAddress) || clean is null or "" || reader is null || string.Equals(clean, reader.Email, StringComparison.OrdinalIgnoreCase))
         {
-            return (AccountProblem.EmailTaken, false);
+            var problem = await ReaderRules.SetEmailAsync(db, readerId, address, notices, cancellationToken);
+            if (problem is null && changing && reader is not null)
+            {
+                await TellOldAddressAsync(email, reader, old, clean, cancellationToken);
+            }
+
+            return (problem, false);
+        }
+
+        // Taken or not, the address waits for its link the same way: the link goes to it, and confirming checks it is
+        // free. So nothing here says whether another reader has it.
+        var normalized = ReaderRules.NormalizeEmail(clean);
+        if (changing)
+        {
+            await TellOldAddressAsync(email, reader, old, clean, cancellationToken);
         }
 
         var again = reader.PendingNormalizedEmail == normalized;
@@ -309,6 +328,36 @@ public static class EmailRules
         await db.SaveChangesAsync(cancellationToken);
         await SendConfirmationAsync(db, email, reader, linkAddress!, cancellationToken);
         return (null, true);
+    }
+
+    // The address an account had is told it is changing, so a reader who didn't ask can act: by then, resets would go
+    // to the new one. Nothing when there was none, or the shelf sends no mail.
+    private static async Task TellOldAddressAsync(IEmailSender email, Reader reader, string? old, string? next, CancellationToken cancellationToken)
+    {
+        if (!email.Enabled || string.IsNullOrWhiteSpace(old))
+        {
+            return;
+        }
+
+        EmailMessage message;
+        using (Localization.Words.Speaking(reader.Language ?? Localization.Words.Current))
+        {
+            message = new EmailMessage(
+                old,
+                Localization.Words.T("Your Shelf email address is changing"),
+                string.IsNullOrWhiteSpace(next)
+                    ? Localization.Words.T("Hello {0},\n\nThe email address was taken off your Shelf account just now. If that was not you, sign in and change your password, which also ends the other ways in.", reader.Name)
+                    : Localization.Words.T("Hello {0},\n\nYour Shelf account is changing its email address to {1}. If that was not you, sign in and change your password, which also ends the other ways in.", reader.Name, next));
+        }
+
+        try
+        {
+            await email.SendAsync(message, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The sender logged it; the change itself goes ahead.
+        }
     }
 
     // Opening the link: the pending address becomes the reader's, unless someone confirmed it first.
