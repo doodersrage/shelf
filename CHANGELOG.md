@@ -7,6 +7,13 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 ### Fixed
 
 - **A bulk edit counts only the books it changed**, and says how many were too full of tags to take another, where it counted every book chosen.
+- **The journal shows each day's reading and listening time**: a minute or more with a book, in the reader, on KOReader, or in the player, as "Read The Waves for 40 min" or "Listened to … for 1 h 5 min". Only your own time is shown.
+- **A place kept on a device from before a reread no longer moves the reread on**: places queued by the reader, the player, and the offline reader say which time through they were read in, and one from an earlier read is set aside. A book kept offline learns of a reread the next time its page opens.
+- **Each browser has its own row on a book's Positions page**, named as its sign-in was ("Shelf's player · Firefox on Android"), where every browser shared one.
+- **A quote left open in a CSV no longer swallows the rest of the file**: that row is left out and counted, and the rows after it still come in. A spreadsheet import also counts the rows it left out for having no title or author, as the Goodreads import now does.
+- **A damaged file is called damaged**: a cut-off EPUB, PDF, or comic, or an audiobook zip that won't open, is reported as damaged and worth downloading again, in bulk and folder imports and on a book's page, rather than as a kind of file Shelf doesn't take.
+- **A slow or unreachable linked shelf no longer holds the Shelves and Loans pages**: questions to a linked shelf give up after ten seconds (file downloads still take as long as they need), linked shelves are asked together, Shelves names any that didn't answer, and Loans checks them after it has opened.
+- **A book holds up to 999 tracks, where it held 200**, and tracks past that are no longer dropped without a word: an upload says how many were left out, and an Audiobookshelf import fetches only the tracks it keeps and says how many stayed behind.
 
 ### Security
 
@@ -17,21 +24,6 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - **An admin's actions that can hand over an account or everyone's books need a recent sign-in**: a new password for a reader, admin rights, removing a reader, changing a reader's address, and downloading a snapshot or backup.
 - **A passkey challenge is taken once**; a copy sent again is refused.
 - **The activity log keeps sign-ins**, with the device, folds repeated failed sign-ins into one counted line, and keeps failed sign-ins to their own 1,000, so a flood can't push the rest out.
-
-### Fixed
-
-- **The journal shows each day's reading and listening time**: a minute or more with a book, in the reader, on KOReader, or in the player, as "Read The Waves for 40 min" or "Listened to … for 1 h 5 min". Only your own time is shown.
-
-- **A place kept on a device from before a reread no longer moves the reread on**: places queued by the reader, the player, and the offline reader say which time through they were read in, and one from an earlier read is set aside. A book kept offline learns of a reread the next time its page opens.
-
-- **Each browser has its own row on a book's Positions page**, named as its sign-in was ("Shelf's player · Firefox on Android"), where every browser shared one.
-
-- **A quote left open in a CSV no longer swallows the rest of the file**: that row is left out and counted, and the rows after it still come in. A spreadsheet import also counts the rows it left out for having no title or author, as the Goodreads import now does.
-- **A damaged file is called damaged**: a cut-off EPUB, PDF, or comic, or an audiobook zip that won't open, is reported as damaged and worth downloading again, in bulk and folder imports and on a book's page, rather than as a kind of file Shelf doesn't take.
-
-- **A slow or unreachable linked shelf no longer holds the Shelves and Loans pages**: questions to a linked shelf give up after ten seconds (file downloads still take as long as they need), linked shelves are asked together, Shelves names any that didn't answer, and Loans checks them after it has opened.
-
-- **A book holds up to 999 tracks, where it held 200**, and tracks past that are no longer dropped without a word: an upload says how many were left out, and an Audiobookshelf import fetches only the tracks it keeps and says how many stayed behind.
 
 ## [2.21.0] - 2026-10-29
 
