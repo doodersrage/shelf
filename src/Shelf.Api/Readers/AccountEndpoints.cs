@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Shelf.Api.Books;
 using Shelf.Api.Data;
 
@@ -91,12 +92,25 @@ public static class AccountEndpoints
         return TypedResults.Redirect(ReaderRules.IsLocalUrl(returnUrl) ? returnUrl! : "/");
     }
 
+    // Wrong codes for one account, from any address: past five in a quarter of an hour, no more are tried for it until
+    // the quarter is up, so changing address doesn't buy more guesses.
+    public const int MostWrongCodes = 5;
+    private static readonly TimeSpan WrongCodeWindow = TimeSpan.FromMinutes(15);
+
+    private static List<DateTimeOffset> WrongCodes(IMemoryCache cache, int readerId) =>
+        cache.GetOrCreate($"wrong-codes:{readerId}", entry =>
+        {
+            entry.SlidingExpiration = WrongCodeWindow;
+            return new List<DateTimeOffset>();
+        })!;
+
     private static async Task<RedirectHttpResult> SignInCode(
         [FromForm] string? code,
         [FromForm] string? returnUrl,
         HttpContext http,
         ShelfDb db,
         IDataProtectionProvider protection,
+        IMemoryCache cache,
         CancellationToken cancellationToken)
     {
         Reader? reader = null;
@@ -117,11 +131,24 @@ public static class AccountEndpoints
             return TypedResults.Redirect(Back("/signin", AccountProblem.WrongPassword, null, returnUrl));
         }
 
-        if (!await TwoFactor.CheckAsync(db, protection, reader, code, cancellationToken))
+        var wrong = WrongCodes(cache, reader.Id);
+        bool tooMany;
+        lock (wrong)
         {
+            wrong.RemoveAll(at => DateTimeOffset.UtcNow - at > WrongCodeWindow);
+            tooMany = wrong.Count >= MostWrongCodes;
+        }
+
+        if (tooMany || !await TwoFactor.CheckAsync(db, protection, reader, code, cancellationToken))
+        {
+            lock (wrong)
+            {
+                wrong.Add(DateTimeOffset.UtcNow);
+            }
+
             // Kept, so a reader can see someone has their password and is trying codes.
             await Audit.NoteAsync(db, Localization.Words.Say("A sign-in failed: wrong code"), reader, cancellationToken: cancellationToken);
-            var again = new Dictionary<string, string?> { ["problem"] = nameof(AccountProblem.CodeWrong) };
+            var again = new Dictionary<string, string?> { ["problem"] = tooMany ? nameof(AccountProblem.CodesPaused) : nameof(AccountProblem.CodeWrong) };
             if (ReaderRules.IsLocalUrl(returnUrl))
             {
                 again["returnUrl"] = returnUrl;
@@ -270,7 +297,7 @@ public static class AccountEndpoints
         return TypedResults.Redirect(ReaderRules.IsLocalUrl(returnUrl) ? returnUrl! : "/");
     }
 
-    private static async Task<Results<RedirectHttpResult, BadRequest>> SignOut(HttpContext http, IAntiforgery antiforgery, ShelfDb db)
+    private static async Task<Results<RedirectHttpResult, BadRequest>> SignOut(HttpContext http, IAntiforgery antiforgery, ShelfDb db, [FromForm] string? returnUrl)
     {
         if (!await antiforgery.IsRequestValidAsync(http))
         {
@@ -283,7 +310,8 @@ public static class AccountEndpoints
         }
 
         await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        return TypedResults.Redirect("/signin");
+        // "Sign in again" comes back to where it was asked.
+        return TypedResults.Redirect(ReaderRules.IsLocalUrl(returnUrl) ? $"/signin?returnUrl={Uri.EscapeDataString(returnUrl!)}" : "/signin");
     }
 
     private static async Task<Results<NoContent, ValidationProblem>> RemoveSelf(

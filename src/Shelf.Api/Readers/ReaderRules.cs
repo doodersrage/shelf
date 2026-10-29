@@ -87,6 +87,7 @@ public static class ReaderRules
         AccountProblem.InviteExpired => T("That invitation has expired or was used already. Ask for a new one."),
         AccountProblem.ConfirmExpired => T("That link has expired or was used already. Ask for a new one on your account."),
         AccountProblem.CodeWrong => T("That code does not match. Try the newest code from your authenticator, or a recovery code."),
+        AccountProblem.CodesPaused => T("Too many wrong codes for this account. Wait a quarter of an hour, then try again."),
         AccountProblem.SsoFailed => T("Single sign-on did not finish. Try again, or sign in with your password."),
         AccountProblem.SsoUnknown => T("This shelf has no account for that sign-on, and it is not taking new accounts. Sign in with your password, then connect single sign-on on Account."),
         AccountProblem.SsoTaken => T("That sign-on account is already connected to another reader here."),
@@ -274,12 +275,15 @@ public static class ReaderRules
         return reader;
     }
 
+    // endOthers: also end every other way in that doesn't use the password (API tokens, the device key, KOReader's
+    // password, passkeys), so a new password locks out someone who had any of them.
     public static async Task<AccountProblem?> ChangePasswordAsync(
         ShelfDb db,
         int readerId,
         string? current,
         string? password,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool endOthers = false)
     {
         var reader = await db.Readers.FirstOrDefaultAsync(item => item.Id == readerId, cancellationToken);
         // A reader made by single sign-on has no password to give; anyone else proves the one they have.
@@ -297,7 +301,18 @@ public static class ReaderRules
         reader.PasswordHash = Hasher.HashPassword(reader, password!);
         reader.PasswordUnknown = false;
         reader.Stamp = NewStamp();
+        if (endOthers)
+        {
+            (reader.KeyHash, reader.KosyncHash) = (null, null);
+        }
+
         await db.SaveChangesAsync(cancellationToken);
+        if (endOthers)
+        {
+            await db.ApiTokens.IgnoreQueryFilters().Where(token => token.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
+            await db.ReaderPasskeys.IgnoreQueryFilters().Where(passkey => passkey.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
+        }
+
         await db.ReaderSessions.Where(session => session.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
         await EndResetLinksAsync(db, readerId, cancellationToken);
         await Audit.NoteAsync(db, Localization.Words.Say("Changed the password"), reader, cancellationToken: cancellationToken);
@@ -652,6 +667,16 @@ public static class ReaderRules
         return (local.Length <= 2 ? local[..1] + "…" : $"{local[0]}…{local[^1]}") + email[at..];
     }
 
+    // When this sign-in was made, kept in the sign-in itself: adding a passkey or an API token wants a recent one.
+    public const string SignedInClaim = "shelf:signed_in";
+    public static readonly TimeSpan Fresh = TimeSpan.FromMinutes(15);
+
+    public static string SignInAgain => Localization.Words.T("To add a way to sign in, sign in again first: it proves it's you. Then come back here.");
+
+    public static bool SignedInRecently(ClaimsPrincipal? user) =>
+        long.TryParse(user?.FindFirst(SignedInClaim)?.Value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var at)
+        && DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeSeconds(at) <= Fresh;
+
     public static ClaimsPrincipal Principal(Reader reader, string scheme, string? sessionId = null)
     {
         List<Claim> claims =
@@ -662,7 +687,9 @@ public static class ReaderRules
         ];
         if (sessionId is not null)
         {
+            // A sign-in to the site, not a token or a device key: it says when it was made.
             claims.Add(new Claim(TwoFactor.SessionClaim, sessionId));
+            claims.Add(new Claim(SignedInClaim, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture)));
         }
 
         return new(new ClaimsIdentity(claims, scheme));
@@ -696,6 +723,9 @@ public enum AccountProblem
     ResetExpired,
     EmailInvalid,
     CodeWrong,
+
+    // Too many wrong codes for the account lately, from anywhere.
+    CodesPaused,
     SsoFailed,
     SsoUnknown,
     SsoTaken,

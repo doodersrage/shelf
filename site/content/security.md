@@ -11,7 +11,9 @@ Every page and every API call needs a signed-in reader, apart from a [reading li
 
 ![Sign-in & security on Account: password, two-step sign-in, passkeys, and signed-in devices](assets/images/security.png)
 
-Changing your password signs you out everywhere. Sign-in and sign-up allow ten attempts a minute from one address (`Accounts:SignInsPerMinute`).
+Changing your password signs you out everywhere. Unless you untick **Also end the other ways in**, it also ends your API tokens, your device key, KOReader's password, and your passkeys, so a new password locks out anyone who had any of them. Sign-in and sign-up allow ten attempts a minute from one address (`Accounts:SignInsPerMinute`).
+
+Adding a passkey or an API token needs a sign-in to the site within the last quarter of an hour. Past that, **Account** asks you to **Sign in again**, and brings you back to it, so a page left signed in, or a token, can't add a way in.
 
 ## Passkeys
 
@@ -50,7 +52,7 @@ Two-step sign-in asks for a code from an authenticator app after your password.
 2. Enter the six-digit code it shows, and choose **Turn on**.
 3. Keep the ten **recovery codes** somewhere safe. Each works once, in place of a code, if you lose the authenticator.
 
-The secret is sealed with the shelf's keys, so a copy of the database alone can't use it. To turn it off, enter a current code.
+The secret is sealed with the shelf's keys, so a copy of the database alone can't use it. To turn it off, enter a current code. After five wrong codes for an account in a quarter of an hour, from any address, it waits out the quarter before trying another, so changing address buys no more guesses.
 
 ## Emails about your account
 

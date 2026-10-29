@@ -3533,5 +3533,9 @@
   "Lent on": "Verliehen am",
   "Due": "Fällig",
   "other details": "weitere Angaben",
-  "While this page was open, these were changed elsewhere: {0}. Save again to keep what you entered here, or reload the page to see the book as it is now.": "Während diese Seite geöffnet war, wurde anderswo geändert: {0}. Speichern Sie erneut, um Ihre Eingaben hier zu behalten, oder laden Sie die Seite neu, um das Buch so zu sehen, wie es jetzt ist."
+  "While this page was open, these were changed elsewhere: {0}. Save again to keep what you entered here, or reload the page to see the book as it is now.": "Während diese Seite geöffnet war, wurde anderswo geändert: {0}. Speichern Sie erneut, um Ihre Eingaben hier zu behalten, oder laden Sie die Seite neu, um das Buch so zu sehen, wie es jetzt ist.",
+  "Also end the other ways in: API tokens, the device key, KOReader's password, and passkeys": "Auch die anderen Zugänge beenden: API-Tokens, den Geräteschlüssel, das KOReader-Passwort und Passkeys",
+  "To add a way to sign in, sign in again first: it proves it's you. Then come back here.": "Um einen Anmeldeweg hinzuzufügen, melden Sie sich zuerst erneut an: Das beweist, dass Sie es sind. Kommen Sie dann hierher zurück.",
+  "Sign in again": "Erneut anmelden",
+  "Too many wrong codes for this account. Wait a quarter of an hour, then try again.": "Zu viele falsche Codes für dieses Konto. Warten Sie eine Viertelstunde und versuchen Sie es dann erneut."
 }

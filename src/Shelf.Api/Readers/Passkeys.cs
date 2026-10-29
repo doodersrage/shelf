@@ -97,6 +97,12 @@ public static class Passkeys
 
     private static async Task<IResult> CreateOptions(HttpContext http, ShelfDb db, IConfiguration configuration, IDataProtectionProvider protection, CancellationToken cancellationToken)
     {
+        // A new way in wants a recent sign-in to the site.
+        if (!ReaderRules.SignedInRecently(http.User))
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Passkey"] = [ReaderRules.SignInAgain] });
+        }
+
         var reader = await db.Readers.FirstAsync(item => item.Id == db.ReaderId, cancellationToken);
         var existing = await db.ReaderPasskeys.AsNoTracking().Where(key => key.ReaderId == reader.Id).Select(key => key.CredentialId).ToListAsync(cancellationToken);
         if (existing.Count >= MaxPerReader)
@@ -129,6 +135,11 @@ public static class Passkeys
     private static async Task<IResult> Create(
         NewPasskey request, HttpContext http, ShelfDb db, IConfiguration configuration, IDataProtectionProvider protection, CancellationToken cancellationToken)
     {
+        if (!ReaderRules.SignedInRecently(http.User))
+        {
+            return Problem(ReaderRules.SignInAgain);
+        }
+
         if (Recall(http, protection, CreateCookie) is not { } json)
         {
             return Problem(Localization.Words.T("That took too long. Try again."));

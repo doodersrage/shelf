@@ -4,6 +4,12 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Security
+
+- **Adding a passkey or an API token needs a recent sign-in**, within a quarter of an hour, so a page left signed in can't add a way in; **Sign in again** brings you back to Account.
+- **A new password can end every other way in**: changing it also ends API tokens, the device key, KOReader's password, and passkeys, unless that's unticked.
+- **Wrong two-step codes are limited for the account**, five in a quarter of an hour from any address, where the limit was counted per address.
+
 ### Fixed
 
 - **A book's page left open no longer undoes changes made elsewhere**: saving its form wrote every field as it was when the page opened, so an old tab could undo a finish recorded on a phone, or count a reread twice. Now only what was changed on the page is saved; a field changed both there and elsewhere is named, and saving again keeps what was entered.

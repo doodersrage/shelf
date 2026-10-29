@@ -3533,5 +3533,9 @@
   "Lent on": "Prêté le",
   "Due": "Échéance",
   "other details": "d’autres détails",
-  "While this page was open, these were changed elsewhere: {0}. Save again to keep what you entered here, or reload the page to see the book as it is now.": "Pendant que cette page était ouverte, ceci a été modifié ailleurs : {0}. Enregistrez à nouveau pour garder ce que vous avez saisi ici, ou rechargez la page pour voir le livre tel qu’il est maintenant."
+  "While this page was open, these were changed elsewhere: {0}. Save again to keep what you entered here, or reload the page to see the book as it is now.": "Pendant que cette page était ouverte, ceci a été modifié ailleurs : {0}. Enregistrez à nouveau pour garder ce que vous avez saisi ici, ou rechargez la page pour voir le livre tel qu’il est maintenant.",
+  "Also end the other ways in: API tokens, the device key, KOReader's password, and passkeys": "Mettre fin aussi aux autres accès : jetons d’API, clé de l’appareil, mot de passe KOReader et clés d’accès",
+  "To add a way to sign in, sign in again first: it proves it's you. Then come back here.": "Pour ajouter un moyen de connexion, reconnectez-vous d’abord : cela prouve que c’est bien vous. Puis revenez ici.",
+  "Sign in again": "Se reconnecter",
+  "Too many wrong codes for this account. Wait a quarter of an hour, then try again.": "Trop de codes erronés pour ce compte. Attendez un quart d’heure, puis réessayez."
 }

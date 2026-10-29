@@ -345,8 +345,7 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
       - Open Blazor pages outlived a revoked sign-in (P2): `ShelfRevalidation` rechecks every minute, and `IsAdminAsync` now refuses a suspended admin: `FeatureTests.An_open_page_loses_a_sign_in_that_has_ended`.
       - Reset links survived a new password or email (P3): `FeatureTests.A_forgotten_password_is_reset_from_an_emailed_link`.
     - **Open, each needing a design choice:**
-      - P2: adding a passkey or API token asks for no fresh proof, and a password change leaves passkeys, tokens, and device keys working.
-      - P2: wrong codes are limited per address, not per account.
+      - **Fixed 2026-10-29 (P2):** adding a passkey or API token needs a sign-in within 15 minutes (`ReaderRules.SignedInClaim`, set only on site sign-ins; "Sign in again" signs out and returns to Account). A password change ends API tokens, the device key, KOReader's password, and passkeys unless unticked (`ChangePasswordAsync(endOthers)`). Wrong two-step codes are limited to five per account in 15 minutes, from any address, with their own message. Tests: `FreshProofTests` (4).
       - P3: a code can be reused within its 90-second window; sign-in timing and sign-up reveal which addresses have accounts; changing the email asks no password and tells the old address nothing; an admin's sensitive actions ask for no fresh sign-in; passkey challenges aren't single-use on the server; there is no breached-password check; the audit log can be flooded and doesn't log successful sign-ins.
 - [x] Test EF Core migrations against an existing populated database, not only a fresh install.
   - *Status 2026-10-28:* `UpgradeTests` rolls a populated shelf back one migration and upgrades it (task 9).

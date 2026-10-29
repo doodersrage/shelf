@@ -233,8 +233,14 @@ public static class ApiTokens
     private static async Task<Ok<ApiTokenSummary[]>> List(ShelfDb db, CancellationToken cancellationToken) =>
         TypedResults.Ok(await ListAsync(db, db.ReaderId, cancellationToken));
 
-    private static async Task<IResult> Create(NewApiTokenRequest request, ShelfDb db, CancellationToken cancellationToken)
+    // A new way in wants a recent sign-in to the site, so a session left open, or a token itself, can't make one.
+    private static async Task<IResult> Create(NewApiTokenRequest request, HttpContext http, ShelfDb db, CancellationToken cancellationToken)
     {
+        if (!ReaderRules.SignedInRecently(http.User))
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["SignIn"] = [ReaderRules.SignInAgain] });
+        }
+
         var (made, problem) = await CreateAsync(db, db.ReaderId, request.Name, request.CanChange, cancellationToken, request.Areas);
         return made is null
             ? TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Name"] = [problem!] })

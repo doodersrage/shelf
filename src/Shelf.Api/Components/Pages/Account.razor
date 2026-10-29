@@ -214,6 +214,10 @@ else
         @T("The new password again")
         <InputText type="password" @bind-Value="form.Confirm" autocomplete="new-password" />
     </label>
+    <label class="check">
+        <InputCheckbox @bind-Value="form.EndOthers" />
+        @T("Also end the other ways in: API tokens, the device key, KOReader's password, and passkeys")
+    </label>
     <p class="hint">@T("Changing it signs you out everywhere, here included.")</p>
     <button type="submit">@(passwordUnknown ? T("Set it") : T("Change it"))</button>
     @if (problem is AccountProblem shown)
@@ -318,6 +322,7 @@ else
         <input @bind="passkeyName" maxlength="80" placeholder="@(passkeys.Count == 0 ? T("My phone") : T("My laptop"))" />
     </label>
     <button type="button" @onclick="AddPasskey" disabled="@addingPasskey">@(addingPasskey ? T("Waiting for the device…") : T("Add a passkey"))</button>
+    @SignInAgain("passkeys")
 }
 else if (passkeyChecked)
 {
@@ -398,6 +403,7 @@ else if (passkeyChecked)
 @if (tokenProblem is not null)
 {
     <p class="validation-message" role="alert">@tokenProblem</p>
+    @SignInAgain("tokens")
 }
 </section>
 }
@@ -963,8 +969,39 @@ else if (pushState is not null)
         }
     }
 
+    // Where a reader whose sign-in isn't recent was asked to sign in again: the section to come back to.
+    private string? signInAgainFor;
+
+    private RenderFragment SignInAgain(string section) => @<text>
+        @if (signInAgainFor == section)
+        {
+            <form method="post" action="/account/signout" data-enhance="false" class="sign-in-again">
+                <AntiforgeryToken />
+                <input type="hidden" name="returnUrl" value="/account#@section" />
+                <button type="submit">@T("Sign in again")</button>
+            </form>
+        }
+    </text>;
+
+    private async Task<bool> SignedInRecentlyAsync(string section)
+    {
+        if (ReaderRules.SignedInRecently((await Authentication.GetAuthenticationStateAsync()).User))
+        {
+            return true;
+        }
+
+        signInAgainFor = section;
+        return false;
+    }
+
     private async Task AddPasskey()
     {
+        if (!await SignedInRecentlyAsync("passkeys"))
+        {
+            passkeyProblem = ReaderRules.SignInAgain;
+            return;
+        }
+
         addingPasskey = true;
         passkeyProblem = null;
         await using (var module = await Js.InvokeAsync<Microsoft.JSInterop.IJSObjectReference>("import", "./passkey.js"))
@@ -1067,6 +1104,12 @@ else if (pushState is not null)
 
     private async Task MakeToken()
     {
+        if (!await SignedInRecentlyAsync("tokens"))
+        {
+            (newToken, tokenProblem) = (null, ReaderRules.SignInAgain);
+            return;
+        }
+
         await using var db = await DbFactory.CreateDbContextAsync();
         (newToken, tokenProblem) = await ApiTokens.CreateAsync(db, db.ReaderId, tokenName, tokenCanChange, areas: tokenAreas);
         if (newToken is not null)
@@ -1737,7 +1780,7 @@ else if (pushState is not null)
         }
 
         await using var db = await DbFactory.CreateDbContextAsync();
-        problem = await ReaderRules.ChangePasswordAsync(db, db.ReaderId, form.Current, form.Password);
+        problem = await ReaderRules.ChangePasswordAsync(db, db.ReaderId, form.Current, form.Password, endOthers: form.EndOthers);
         if (problem is null)
         {
             Navigation.NavigateTo("/signin?notice=changed", forceLoad: true);
@@ -1759,5 +1802,8 @@ else if (pushState is not null)
         public string Current { get; set; } = "";
         public string Password { get; set; } = "";
         public string Confirm { get; set; } = "";
+
+        // On unless the reader turns it off: a new password then locks out anyone who had another way in.
+        public bool EndOthers { get; set; } = true;
     }
 }
