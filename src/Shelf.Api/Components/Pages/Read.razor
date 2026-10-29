@@ -710,7 +710,10 @@ else if (book is not null)
             LoanPlace? found = null;
             var kept = await Lending.KeepPlaceAsync(db, open, move, onlyIf: seen is null ? null : place =>
             {
-                if (place.EbookChapter == seen.EbookChapter && place.EbookCfi == seen.EbookCfi)
+                // Still where this tab saw it, or already where this move takes it.
+                var target = EbookPart(place);
+                move(target);
+                if ((place.EbookChapter == seen.EbookChapter && place.EbookCfi == seen.EbookCfi) || (place.EbookChapter == target.EbookChapter && place.EbookCfi == target.EbookCfi))
                 {
                     return true;
                 }

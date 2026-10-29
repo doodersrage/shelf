@@ -62,6 +62,9 @@ public sealed class ListeningTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.Equal((0, 300), await PlaceAsync());
         Assert.Equal(15, (await listener.GetFromJsonAsync<ListeningSummary>("/books/listening", JsonOptions))!.TodaySeconds);
 
+        // A save of the very place kept is no conflict, whatever the tab knew.
+        Assert.Equal(HttpStatusCode.NoContent, (await listener.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 301, From: new AudioSpot(0, 60)), JsonOptions)).StatusCode);
+
         // From the place it was told, the tab moves it again, back as well; and a save that says nothing moves it as before.
         Assert.Equal(HttpStatusCode.NoContent, (await listener.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 90, From: new AudioSpot(0, 300)), JsonOptions)).StatusCode);
         Assert.Equal((0, 90), await PlaceAsync());

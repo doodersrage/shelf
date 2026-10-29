@@ -130,7 +130,8 @@ public static class AudioPlayback
             }
         }, cancellationToken, request.From is not { } from || request.Replayed ? null : place =>
         {
-            if (SameSpot(place, from))
+            // Still where the player knew it, or already where it says (moved there by this same page, say).
+            if (SameSpot(place, from) || SameSpot(place, new AudioSpot(request.Track, request.Seconds)))
             {
                 return true;
             }
