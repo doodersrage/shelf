@@ -3433,5 +3433,7 @@
   "Making other formats needs Calibre installed on the server.": "Hacer otros formatos requiere Calibre instalado en el servidor.",
   "Calibre couldn't make a {0} of this book. A book locked with DRM can't be converted.": "Calibre no pudo hacer un {0} de este libro. Un libro con DRM no se puede convertir.",
   "Shelf can make an EPUB, an AZW3, a MOBI, or a PDF.": "Shelf puede hacer un EPUB, un AZW3, un MOBI o un PDF.",
-  "Make {0}": "Crear {0}"
+  "Make {0}": "Crear {0}",
+  "Your books' files in folders by author and title, as Calibre keeps them, each with a metadata.opf that Calibre and other programs read:": "Los archivos de tus libros en carpetas por autor y título, como los guarda Calibre, cada una con un metadata.opf que Calibre y otros programas leen:",
+  "download as folders": "descargar como carpetas"
 }

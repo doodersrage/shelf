@@ -159,6 +159,7 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | --- | --- |
 | `GET /books/export` | Your shelf as JSON, with quotes, sessions, highlights, earlier reads, journal entries, and the links between books. `POST /books/import` restores one, skipping books already there and journal entries already kept. |
 | `GET /books/export/full` | A zip of the JSON with every e-book, audiobook, and cover picture. `POST /books/import/full` with `file` restores one. |
+| `GET /books/export/folders` | Your books' files as `Author/Title (id)/` folders, as Calibre lays them out: each format, the cover, the audiobook under `audiobook/`, and a `metadata.opf`. For other programs; it isn't restored. |
 | `POST /books/import/csv` | A Goodreads or StoryGraph CSV export as `file`. |
 
 | `GET /books/import/recipes` | Your import recipes. `POST /books/import/recipes/preview` with `file` (and a `spec` or `recipeId`, or neither to guess one) answers with the file's columns, the recipe, the words in its status column, and its first rows as they would come in; `POST /books/import/recipes/import` with `file`, the same, and `saveAs` to keep the recipe brings it in. A `spec` is `{"columns": {"Title": "Book Name", "Author": "By"}, "statuses": {"wishlist": "Want"}, "tagSeparator": ";", "dateFormat": "dd.MM.yyyy", "ratingOutOfTen": true}`. `DELETE /books/import/recipes/{id}` forgets one. |

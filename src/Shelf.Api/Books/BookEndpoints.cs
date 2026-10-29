@@ -16,6 +16,7 @@ public static class BookEndpoints
         books.MapGet("/export", ExportLibrary).WithTags("Shelf");
         books.MapPost("/import", ImportLibrary).WithTags("Shelf");
         books.MapGet("/export/full", ExportEverything).WithTags("Shelf");
+        books.MapGet("/export/folders", ExportFolders).WithTags("Shelf");
         books.MapPost("/import/full", ImportEverything).DisableAntiforgery().WithTags("Shelf");
         books.MapPost("/import/csv", ImportCsv).DisableAntiforgery().WithTags("Shelf");
         books.MapGet("/reminders", Asking.Remind).WithTags("Lending");
@@ -350,6 +351,14 @@ public static class BookEndpoints
         var path = TempFileResult.NewPath(".zip");
         await Backup.WriteShelfAsync(db, ebooks, audio, covers, path, cancellationToken);
         return new TempFileResult(path, "application/zip", $"shelf-backup-{DateTime.UtcNow:yyyy-MM-dd}.zip");
+    }
+
+    // The books as Author/Title folders, as Calibre lays them out, each with its files and a metadata.opf.
+    private static async Task<TempFileResult> ExportFolders(ShelfDb db, EbookStore ebooks, AudioStore audio, CoverStore covers, CancellationToken cancellationToken)
+    {
+        var path = TempFileResult.NewPath(".zip");
+        await FolderExport.WriteAsync(db, ebooks, audio, covers, path, cancellationToken);
+        return new TempFileResult(path, "application/zip", $"shelf-folders-{DateTime.UtcNow:yyyy-MM-dd}.zip");
     }
 
     // A Goodreads or StoryGraph export. Like the other uploads, it answers the Backup page's form with a redirect back.

@@ -494,7 +494,8 @@ The user asked for what Calibre has and Shelf lacks, in this order, one at a tim
   - Not done: the restore drill (`BackupCheck`) checks main files only; Shelf-to-Shelf trading and linked shelves carry the main e-book only; removing a format asks no confirmation (as removing the main file doesn't).
 - [x] **Convert on demand** (2026-10-29). `EbookFormats.ConvertAsync` has Calibre's `ebook-convert` (`Ebooks:Convert`) make an EPUB, AZW3, MOBI, or PDF from the book's EPUB, or its main e-book, and keeps it as another format through the same checks as an upload. One conversion at a time, five minutes each, in a temp folder that's always removed. The buttons show only when the converter answers `--version` (asked once per process). There's also `POST /books/{id}/ebook/formats/convert`. Test: `EbookFormatsTests.Calibre_makes_another_format_from_the_books_own`, with a stand-in converter (CI has no Calibre).
   - Not verified: a real Calibre conversion. Calibre isn't installed here or in CI.
-- [ ] **A readable export**: the library's files as `Author/Title/` folders with an OPF each, as a download. The stored layout stays as it is.
+- [x] **A readable export** (2026-10-29). `GET /books/export/folders` (`FolderExport`), linked on the Backup page: `Author/Title (id)/` with every format named for the book, the cover, the audiobook under `audiobook/`, and an OPF 2.0 `metadata.opf` with Calibre's series and rating fields. Only the reader's own books, and no notes. The stored layout is unchanged. Test: `FolderExportTests`.
+  - Not verified: adding the folders to a real Calibre (none installed here).
 - Not planned (reasons given to the user): USB device management (a web server can't reach a cable; OPDS, Kobo sync, and Send to Kindle cover it), news downloads, an e-book editor, and plugins (other people's code on a shared server).
 
 ### Acceptance criteria

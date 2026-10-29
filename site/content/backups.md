@@ -25,6 +25,8 @@ A backup on the same disk as the shelf does not help if that disk fails. Set `Ba
 
 On **Backup & restore**, **Download everything** gives a zip of your shelf: the catalog, notes, reviews, quotes, reading log, highlights, e-books, audiobooks, and cover pictures. **download JSON** gives just the catalog, without files.
 
+**download as folders** gives your books' files laid out as Calibre lays out its library: a folder for each author, a folder for each of their books named `Title (id)`, and in it every format of the e-book named for the book, the cover, the audiobook's tracks under `audiobook/`, and a `metadata.opf` with the title, authors, series, rating, tags, ISBN, publisher, language, and year. Calibre reads it with **Add books › Add from folders and sub-folders › one book per folder**, and so can other programs that read OPF. It's for moving to other programs, not a backup: notes, reviews, reading history, and highlights stay in **Download everything**, and Shelf doesn't restore from it.
+
 The zip also carries your records in plainer forms, with a `README.md` saying what each file is: `books.csv`, a row a book, for a spreadsheet; `collections.json`, with the note on each book; `loans.json`, every loan of your books; and `borrowed-highlights.json`, what you marked in books others lent you. Only your own records are in it. Each reader on a shelf downloads their own, and nothing of another reader's is ever in it.
 
 Every file in it is listed in `manifest.json` with its size and SHA-256, and `SCHEMA.md` says what each file holds, field by field, so the download can be checked and read without Shelf. Restoring one holds it against its manifest and says if any file was damaged or changed since.
