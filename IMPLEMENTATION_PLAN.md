@@ -42,7 +42,7 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
 - **M0:** complete.
 - **Findings:** every finding from the M0 audit's top five and next tier is resolved, in follow-up tasks 1–19 and the same-day follow-ups below them.
 - **Release:** **2.18.0** was released on 2026-10-28 (tag `v2.18.0` at `73f0499`). Images are `ghcr.io/doodersrage/shelf:2.18.0` and `latest`; release notes are at https://github.com/doodersrage/shelf/releases/tag/v2.18.0. Later fixes are under Unreleased in `CHANGELOG.md`.
-- **Milestones:** each M1–M6 item has a status with evidence. Of the 54 items, 39 are `[x]`, 11 are `[~]`, and 4 are `[!]`. The `[~]` and `[!]` items are the remaining work. The code review of 2026-10-28 left known defects that need a design choice before fixing, each listed under its item. The most serious left is a P1: the book form can save stale reading dates. The other P1, an older tab or device overwriting a newer reading position, was fixed on 2026-10-29.
+- **Milestones:** each M1–M6 item has a status with evidence. Of the 54 items, 39 are `[x]`, 11 are `[~]`, and 4 are `[!]`. The `[~]` and `[!]` items are the remaining work. The code review of 2026-10-28 left known defects that need a design choice before fixing, each listed under its item. Both P1s from that review are fixed: the stale book form and an older tab or device overwriting a newer reading position (2026-10-29).
 - **Accepted limits:** see each task. They include stale Kobo "Finished" pushes, app sessions and merges from before 2.18.0, PostgreSQL without `pg_dump` not copied offsite, restore undo, the `/alive` HEALTHCHECK, `pg_dump`'s password on its command line, and the unreachable xmldom advisory (no epubjs release fixes it; see M6 dependencies).
 
 ---
@@ -561,7 +561,7 @@ The user asked for what Audiobookshelf has and Shelf lacks, all of it, one at a 
       - Imports stamped undated "read" books as finished today (P1): `FeatureTests.A_goodreads_export_comes_in…` now has an undated row.
       - The progress bar ignored e-book progress (P2): `ReadingLifeTests.Progress_counts_the_place_in_the_ebook`.
     - **Open:**
-      - P1, needs a decision: the book form saves the reading status and dates as they were when the page opened, so saving an old tab can undo a finish made elsewhere, or count a reread twice. Proposed: write reading fields only when changed in the form, and refuse when they changed underneath.
+      - **Fixed 2026-10-29 (P1):** the book form saved every field as it was when the page opened, so an old tab could undo a finish made elsewhere or count a reread twice. Now `BookFormModel.Merge` writes only what the form changed over the book as it is now; a field changed both here and elsewhere is named, and a second save keeps the form's value. The API's `PUT /books/{id}` stays a whole replacement. Tests: `BookFormMergeTests`, `library.spec` "a book's page left open…".
       - P2: merging two finished entries keeps one finish and drops the other's year; unmerge restores it.
 - [!] Ensure charts and milestones explain their definitions and handle incomplete data gracefully.
   - *Status 2026-10-28:* Needs a person to judge.

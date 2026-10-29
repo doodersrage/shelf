@@ -3529,5 +3529,9 @@
   "The server's ({0})": "Celui du serveur ({0})",
   "That isn't a time zone Shelf knows.": "Ce n’est pas un fuseau horaire que Shelf connaît.",
   "Shared with you without downloads, this book opens a chapter at a time.": "Partagé avec vous sans téléchargements, ce livre s’ouvre chapitre par chapitre.",
-  "Without downloads, a member still reads and listens in Shelf, but can't take the files: no downloads, e-reader catalog, casting, or Audiobookshelf app copies, and EPUBs open a chapter at a time. PDFs, comics, and recordings still reach the browser whole, as streaming does anywhere.": "Sans téléchargements, un membre lit et écoute toujours dans Shelf, mais ne peut pas emporter les fichiers : ni téléchargements, ni catalogue pour liseuses, ni diffusion, ni copies dans les applications Audiobookshelf, et les EPUB s’ouvrent chapitre par chapitre. Les PDF, les BD et les enregistrements arrivent toujours entiers dans le navigateur, comme tout streaming."
+  "Without downloads, a member still reads and listens in Shelf, but can't take the files: no downloads, e-reader catalog, casting, or Audiobookshelf app copies, and EPUBs open a chapter at a time. PDFs, comics, and recordings still reach the browser whole, as streaming does anywhere.": "Sans téléchargements, un membre lit et écoute toujours dans Shelf, mais ne peut pas emporter les fichiers : ni téléchargements, ni catalogue pour liseuses, ni diffusion, ni copies dans les applications Audiobookshelf, et les EPUB s’ouvrent chapitre par chapitre. Les PDF, les BD et les enregistrements arrivent toujours entiers dans le navigateur, comme tout streaming.",
+  "Lent on": "Prêté le",
+  "Due": "Échéance",
+  "other details": "d’autres détails",
+  "While this page was open, these were changed elsewhere: {0}. Save again to keep what you entered here, or reload the page to see the book as it is now.": "Pendant que cette page était ouverte, ceci a été modifié ailleurs : {0}. Enregistrez à nouveau pour garder ce que vous avez saisi ici, ou rechargez la page pour voir le livre tel qu’il est maintenant."
 }

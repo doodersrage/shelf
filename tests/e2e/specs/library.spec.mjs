@@ -257,3 +257,32 @@ test("another format is added beside the main e-book, and made the main one", as
   noProblems(page);
 });
 
+test("a book's page left open saves only what was changed on it, and asks when the same was changed elsewhere", async ({ browser }) => {
+  const page = await signUp(browser, unique("Stale Tab"));
+  const book = await createBook(page, { title: "Opened Long Ago", author: "Someone", status: "Reading" });
+  await page.goto(`/library/${book.id}#details`);
+  await ready(page);
+  await page.locator("summary", { hasText: "Edit the catalog" }).click();
+
+  // Finished elsewhere while the page sat open; here, only the title changes.
+  const finishing = await page.request.put(`/books/${book.id}`, { data: { title: "Opened Long Ago", author: "Someone", status: "Finished" } });
+  expect(finishing.ok()).toBe(true);
+  await page.getByLabel("Title", { exact: true }).fill("Opened Long Ago, Renamed");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Saved.")).toBeVisible();
+  let now = await (await page.request.get(`/books/${book.id}`)).json();
+  expect([now.title, now.status]).toEqual(["Opened Long Ago, Renamed", "Finished"]);
+
+  // The status changed both elsewhere and here: named, and kept only on a second save.
+  await page.request.put(`/books/${book.id}`, { data: { title: "Opened Long Ago, Renamed", author: "Someone", status: "Abandoned" } });
+  await page.locator("select", { has: page.locator('option[value="Want"]') }).first().selectOption("Want");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.locator(".validation-errors")).toContainText("changed elsewhere: Status");
+  expect((await (await page.request.get(`/books/${book.id}`)).json()).status).toBe("Abandoned");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Saved.")).toBeVisible();
+  now = await (await page.request.get(`/books/${book.id}`)).json();
+  expect(now.status).toBe("Want");
+  noProblems(page);
+});
+

@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Fixed
+
+- **A book's page left open no longer undoes changes made elsewhere**: saving its form wrote every field as it was when the page opened, so an old tab could undo a finish recorded on a phone, or count a reread twice. Now only what was changed on the page is saved; a field changed both there and elsewhere is named, and saving again keeps what was entered.
+
 ## [2.20.0] - 2026-10-29
 
 What Calibre and Audiobookshelf users would miss, now in Shelf, and reading places that are never sent backwards. The database gains tables and one column, and changes nothing that is there.

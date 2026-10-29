@@ -251,6 +251,27 @@ public sealed class BookFormModel
         Tags = "";
     }
 
+    // A form saved over a book that may have changed since it was opened (a tab left open, a finish on a phone): what
+    // the form changed is written, the rest stays as the book is now. A field changed both here and there, to
+    // different values, is a clash, named for the reader to decide.
+    public static (BookFormModel Merged, string[] Clashes) Merge(BookFormModel opened, BookFormModel edited, BookFormModel now)
+    {
+        var merged = new BookFormModel();
+        var clashes = new List<string>();
+        foreach (var property in typeof(BookFormModel).GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance).Where(item => item.CanRead && item.CanWrite))
+        {
+            var (before, mine, theirs) = (property.GetValue(opened), property.GetValue(edited), property.GetValue(now));
+            var changed = !Equals(before, mine);
+            property.SetValue(merged, changed ? mine : theirs);
+            if (changed && !Equals(before, theirs) && !Equals(mine, theirs))
+            {
+                clashes.Add(property.Name);
+            }
+        }
+
+        return (merged, [.. clashes]);
+    }
+
     public static BookFormModel From(Book book) => new()
     {
         Title = book.Title,

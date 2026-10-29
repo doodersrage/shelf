@@ -3529,5 +3529,9 @@
   "The server's ({0})": "Die des Servers ({0})",
   "That isn't a time zone Shelf knows.": "Diese Zeitzone kennt Shelf nicht.",
   "Shared with you without downloads, this book opens a chapter at a time.": "Ohne Downloads mit Ihnen geteilt, öffnet sich dieses Buch Kapitel für Kapitel.",
-  "Without downloads, a member still reads and listens in Shelf, but can't take the files: no downloads, e-reader catalog, casting, or Audiobookshelf app copies, and EPUBs open a chapter at a time. PDFs, comics, and recordings still reach the browser whole, as streaming does anywhere.": "Ohne Downloads liest und hört ein Mitglied weiter in Shelf, kann die Dateien aber nicht mitnehmen: keine Downloads, kein E-Reader-Katalog, kein Streaming auf andere Geräte, keine Kopien in den Audiobookshelf-Apps, und EPUBs öffnen sich Kapitel für Kapitel. PDFs, Comics und Aufnahmen kommen weiter ganz im Browser an, wie jedes Streaming."
+  "Without downloads, a member still reads and listens in Shelf, but can't take the files: no downloads, e-reader catalog, casting, or Audiobookshelf app copies, and EPUBs open a chapter at a time. PDFs, comics, and recordings still reach the browser whole, as streaming does anywhere.": "Ohne Downloads liest und hört ein Mitglied weiter in Shelf, kann die Dateien aber nicht mitnehmen: keine Downloads, kein E-Reader-Katalog, kein Streaming auf andere Geräte, keine Kopien in den Audiobookshelf-Apps, und EPUBs öffnen sich Kapitel für Kapitel. PDFs, Comics und Aufnahmen kommen weiter ganz im Browser an, wie jedes Streaming.",
+  "Lent on": "Verliehen am",
+  "Due": "Fällig",
+  "other details": "weitere Angaben",
+  "While this page was open, these were changed elsewhere: {0}. Save again to keep what you entered here, or reload the page to see the book as it is now.": "Während diese Seite geöffnet war, wurde anderswo geändert: {0}. Speichern Sie erneut, um Ihre Eingaben hier zu behalten, oder laden Sie die Seite neu, um das Buch so zu sehen, wie es jetzt ist."
 }

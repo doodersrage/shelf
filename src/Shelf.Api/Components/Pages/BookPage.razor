@@ -2191,9 +2191,32 @@ else if (book is not null)
         if (book is not null && replaceDraft)
         {
             draft = BookFormModel.From(book);
+            opened = BookFormModel.From(book);
             fieldDraft = customValues.ToDictionary(item => item.FieldId, item => item.Value);
         }
     }
+
+    // The form as it was when the page loaded the book, to tell what this page changed from what changed elsewhere.
+    private BookFormModel? opened;
+
+    private string FieldLabel(string name) => name switch
+    {
+        nameof(BookFormModel.Status) => T("Status"),
+        nameof(BookFormModel.StartedOn) => T("Started"),
+        nameof(BookFormModel.FinishedOn) => T("Finished"),
+        nameof(BookFormModel.CurrentPage) => T("Current page"),
+        nameof(BookFormModel.Rating) => T("Rating"),
+        nameof(BookFormModel.LoanedTo) => T("Loaned to"),
+        nameof(BookFormModel.LoanedOn) => T("Lent on"),
+        nameof(BookFormModel.DueOn) => T("Due"),
+        nameof(BookFormModel.Title) => T("Title"),
+        nameof(BookFormModel.Author) => T("Author"),
+        nameof(BookFormModel.Tags) => T("Tags"),
+        nameof(BookFormModel.Notes) => T("Notes"),
+        nameof(BookFormModel.Review) => T("Review"),
+        nameof(BookFormModel.Location) => T("Place"),
+        _ => T("other details"),
+    };
 
     private CustomValueResponse[] customValues = [];
     private EbookFormatResponse[] formats = [];
@@ -2301,6 +2324,18 @@ else if (book is not null)
             return;
         }
 
+        // What this form changed goes over the book as it is now; a field changed elsewhere too, since the page
+        // opened, is named, and a second save keeps what was entered here.
+        var now = BookFormModel.From(existing);
+        var (merged, clashes) = BookFormModel.Merge(opened ?? now, draft, now);
+        if (clashes.Length > 0)
+        {
+            formErrors = new() { ["Clash"] = [T("While this page was open, these were changed elsewhere: {0}. Save again to keep what you entered here, or reload the page to see the book as it is now.", string.Join(", ", clashes.Select(FieldLabel)))] };
+            opened = now;
+            return;
+        }
+
+        write = merged.ToWrite();
         BookRules.Apply(existing, write, today: db.Today);
         await BookRules.SyncTagsAsync(db, existing, write.Tags, CancellationToken.None);
         await db.SaveChangesAsync();
