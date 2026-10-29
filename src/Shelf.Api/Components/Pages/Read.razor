@@ -165,9 +165,13 @@ else if (book is not null)
             {
                 <p class="hint reader-pages" aria-live="polite">@T("Page {0} of {1} in this chapter", page, pages) · @T("Tap the sides, swipe, or use the arrow keys to turn.")</p>
             }
-            @if (Classic == "1")
+            @if (Classic == "1" && mayDownload)
             {
                 <p class="hint"><a href="/library/@book.Id/read">@T("Back to the page-turning reader")</a></p>
+            }
+            else if (!mayDownload)
+            {
+                <p class="hint">@T("Shared with you without downloads, this book opens a chapter at a time.")</p>
             }
             @MarkList(T("In this chapter"))
         }
@@ -588,7 +592,10 @@ else if (book is not null)
     public string? Classic { get; set; }
 
     // The page-turning reader, on epub.js: the whole book in one view, the place kept to the word as an EPUB CFI.
-    private bool UseEngine => chapters is { Count: > 0 } && Classic != "1" && !alongOn && book is not null && EbookStore.IsEpub(book.EbookStoredName);
+    // A household member who may not download reads a chapter at a time: the page-turning reader takes the whole file.
+    private bool UseEngine => chapters is { Count: > 0 } && Classic != "1" && mayDownload && !alongOn && book is not null && EbookStore.IsEpub(book.EbookStoredName);
+
+    private bool mayDownload = true;
     private ElementReference epubHost;
     private IJSObjectReference? epub;
     private bool engineOpen;
@@ -805,6 +812,7 @@ else if (book is not null)
         await using var db = await DbFactory.CreateDbContextAsync();
         open = await Lending.OpenAsync(db, Id);
         book = open?.Book;
+        mayDownload = open is null || await Households.MayDownloadAsync(db, open);
         borrowed = open?.Borrowed == true;
         missing = book is null;
         chapters = null;

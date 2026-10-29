@@ -200,6 +200,14 @@ test("a collection shared as a household library opens its books to the reader c
   await shared.getByRole("link", { name: `Read ${book.title}` }).click();
   await ready(member);
   await expect(member.locator(".reader-where")).toContainText("Chapter 1 of 2", { timeout: 20_000 });
+
+  // Without downloads, the book opens a chapter at a time, and still reads.
+  await owner.locator("details.household").getByLabel("Can download files").uncheck();
+  await expect(owner.locator("details.household").getByLabel("Can download files")).not.toBeChecked();
+  await member.goto(`/library/${book.id}/read`);
+  await ready(member);
+  await expect(member.getByText("opens a chapter at a time")).toBeVisible();
+  await expect(member.frameLocator("iframe.reader-frame").locator("body")).toContainText("Call me Ishmael", { timeout: 20_000 });
   noProblems(owner);
   noProblems(member);
 });

@@ -655,8 +655,10 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
             ? Results.NotFound()
             : await File(id, ino, db, cancellationToken);
 
+    // The apps read an EPUB whole, so a household member who may not download reads it in Shelf instead.
     private async Task<IResult> Ebook(int id, ShelfDb db, CancellationToken cancellationToken) =>
-        await OpenAsync(db, id, cancellationToken) is { } found && ebooks.OpenPath(found.Book.EbookStoredName) is { } epub && EbookStore.IsEpub(found.Book.EbookStoredName)
+        await OpenAsync(db, id, cancellationToken) is { } found && await Households.MayDownloadAsync(db, found.Open, cancellationToken)
+            && ebooks.OpenPath(found.Book.EbookStoredName) is { } epub && EbookStore.IsEpub(found.Book.EbookStoredName)
             ? Results.File(epub, "application/epub+zip", found.Book.EbookFileName ?? "book.epub", enableRangeProcessing: true)
             : Results.NotFound();
 

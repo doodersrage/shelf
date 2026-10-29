@@ -123,9 +123,17 @@ public static class EbookEndpoints
         EbookStore store,
         CancellationToken cancellationToken)
     {
-        var book = (await Lending.OpenAsync(db, id, cancellationToken))?.Book;
+        var open = await Lending.OpenAsync(db, id, cancellationToken);
+        var book = open?.Book;
         var path = book is null ? null : store.OpenPath(book.EbookStoredName);
         if (book is null || path is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        // A whole EPUB is a download: a household member who may not download reads it a chapter at a time instead.
+        // A PDF and a comic have no smaller way to be read here, and go whole.
+        if (EbookStore.IsEpub(book.EbookStoredName) && !await Households.MayDownloadAsync(db, open!, cancellationToken))
         {
             return TypedResults.NotFound();
         }

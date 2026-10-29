@@ -72,7 +72,10 @@ public sealed class HouseholdsTests(ShelfApiFactory factory) : IClassFixture<She
         // No downloads, and explicit books kept back: read still, but not taken, and the explicit one gone from view.
         var membership = Assert.Single((await owner.GetFromJsonAsync<HouseholdMember[]>($"/books/collections/{collection.Id}/members", JsonOptions))!);
         Assert.Equal(HttpStatusCode.NoContent, (await owner.PutAsJsonAsync($"/books/collections/{collection.Id}/members/{membership.Id}", new MemberChange(CanDownload: false, HideExplicit: true), JsonOptions)).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await member.GetAsync($"/books/{book.Id}/ebook/file")).StatusCode);
+        // Read a chapter at a time, never the whole EPUB.
+        Assert.Equal(HttpStatusCode.NotFound, (await member.GetAsync($"/books/{book.Id}/ebook/file")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await member.GetAsync($"/books/{book.Id}/ebook/chapters/0")).StatusCode);
+        Assert.Contains("opens a chapter at a time", await member.GetStringAsync($"/library/{book.Id}/read"));
         Assert.Equal(HttpStatusCode.NotFound, (await member.GetAsync($"/books/{book.Id}/ebook/download")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await member.GetAsync($"/books/{adult.Id}/ebook/file")).StatusCode);
         // Nor through the e-reader catalog, nor the Audiobookshelf apps' own download.
@@ -90,7 +93,7 @@ public sealed class HouseholdsTests(ShelfApiFactory factory) : IClassFixture<She
         var login = await (await app.PostAsJsonAsync("/login", new { username = "Household Member", password = ShelfApiFactory.Password })).Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>();
         app.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", login!["user"]!["accessToken"]!.GetValue<string>());
         Assert.Equal(HttpStatusCode.NotFound, (await app.GetAsync($"/api/items/{book.Id}/file/{AbsJson.EbookIno(book.Id)}/download")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await app.GetAsync($"/api/items/{book.Id}/ebook")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await app.GetAsync($"/api/items/{book.Id}/ebook")).StatusCode);
         Assert.Equal(["Read at Home"], Assert.Single((await member.GetFromJsonAsync<HouseholdLibrary[]>("/books/households", JsonOptions))!).Books.Select(item => item.Title));
 
         // Let go: closed at once.

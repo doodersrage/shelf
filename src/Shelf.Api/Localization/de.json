@@ -3522,11 +3522,12 @@
   "{0}'s household library, shared with you. Your place, highlights, and bookmarks in its books are your own.": "Die Haushaltsbibliothek von {0}, mit Ihnen geteilt. Ihre Stelle, Markierungen und Lesezeichen in ihren Büchern gehören Ihnen.",
   "{0}, from {1}": "{0}, von {1}",
   "Another address was made for this book just now. Make one again if you need it.": "Für dieses Buch wurde gerade eine andere Adresse erstellt. Erstellen Sie bei Bedarf eine neue.",
-  "Without downloads, a member still reads and listens in Shelf, but can't take the files: no downloads, e-reader catalog, casting, or offline copies in the Audiobookshelf apps. Reading in a browser fetches the file, as streaming does anywhere, so this keeps files from being taken casually.": "Ohne Downloads liest und hört ein Mitglied weiter in Shelf, kann die Dateien aber nicht mitnehmen: keine Downloads, kein E-Reader-Katalog, kein Streaming auf andere Geräte, keine Offline-Kopien in den Audiobookshelf-Apps. Lesen im Browser lädt die Datei, wie jedes Streaming; das verhindert also vor allem das beiläufige Mitnehmen.",
   "Read the {0} from now on? The place in the e-book starts again at the beginning, for you and anyone reading it with you; the e-book now kept stays as another format.": "Ab jetzt das {0} lesen? Die Stelle im E-Book beginnt wieder am Anfang, für Sie und alle, die es mit Ihnen lesen; das bisherige E-Book bleibt als weiteres Format.",
   "Remove the {0}? Its file is deleted, and can't be brought back.": "{0} entfernen? Die Datei wird gelöscht und lässt sich nicht wiederherstellen.",
   "E-books in the household libraries and collections shared with you, where you may download them.": "E-Books aus den Haushaltsbibliotheken und Sammlungen, die mit Ihnen geteilt sind, sofern Sie sie herunterladen dürfen.",
   "Time zone, for the days you read and listen on": "Zeitzone, für die Tage, an denen Sie lesen und hören",
   "The server's ({0})": "Die des Servers ({0})",
-  "That isn't a time zone Shelf knows.": "Diese Zeitzone kennt Shelf nicht."
+  "That isn't a time zone Shelf knows.": "Diese Zeitzone kennt Shelf nicht.",
+  "Shared with you without downloads, this book opens a chapter at a time.": "Ohne Downloads mit Ihnen geteilt, öffnet sich dieses Buch Kapitel für Kapitel.",
+  "Without downloads, a member still reads and listens in Shelf, but can't take the files: no downloads, e-reader catalog, casting, or Audiobookshelf app copies, and EPUBs open a chapter at a time. PDFs, comics, and recordings still reach the browser whole, as streaming does anywhere.": "Ohne Downloads liest und hört ein Mitglied weiter in Shelf, kann die Dateien aber nicht mitnehmen: keine Downloads, kein E-Reader-Katalog, kein Streaming auf andere Geräte, keine Kopien in den Audiobookshelf-Apps, und EPUBs öffnen sich Kapitel für Kapitel. PDFs, Comics und Aufnahmen kommen weiter ganz im Browser an, wie jedes Streaming."
 }
