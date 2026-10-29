@@ -99,3 +99,19 @@ test("the compact table holds every book, drawing only those in view, with the c
   await expect(page.locator(".book-table th", { hasText: "Place" })).toHaveCount(0);
   noProblems(page);
 });
+
+// A tablet upright and a phone on its side: every main page fits the width, with nothing to scroll sideways.
+for (const [label, viewport] of [["a tablet", { width: 820, height: 1180 }], ["a phone on its side", { width: 844, height: 390 }]]) {
+  test(`the main pages fit ${label}`, async ({ browser }) => {
+    const page = await signUp(browser, unique("Sideways"), { viewport });
+    const book = await createBook(page, { title: unique("Wide Margins"), author: "Someone", status: "Reading" });
+    for (const path of ["/", "/library", `/library/${book.id}`, "/loans", "/journal", "/account", "/backup", "/fields"]) {
+      await page.goto(path);
+      await ready(page);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(overflow, `${path} scrolls sideways by ${overflow}px`).toBeLessThanOrEqual(1);
+    }
+
+    noProblems(page);
+  });
+}

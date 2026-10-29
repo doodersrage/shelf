@@ -591,6 +591,7 @@ The user asked for what Audiobookshelf has and Shelf lacks, all of it, one at a 
 
 - [~] Test narrow phones, tablets, desktop, landscape orientation, touch targets, and virtual keyboard interactions.
   - *Status 2026-10-28:* Phone-width accessibility audit (task 14) and the phone specs in `getting-around.spec`. Tablet, landscape, and virtual keyboard not tested.
+  - *Status 2026-10-29:* `getting-around.spec` checks the main pages fit a tablet (820×1180) and a phone on its side (844×390) with no sideways scrolling. The virtual keyboard still needs a real device.
 - [x] Verify PWA installation and offline behavior against documented capabilities; distinguish cached app shell from genuinely available offline books/audio.
   - *Status 2026-10-28:* `offline.spec` (kept book, kept audiobook, offline highlights) runs in CI. Install itself is a browser action, not tested.
 - [x] Test offline progress, queued actions if supported, conflict resolution, and recovery after reconnection.
