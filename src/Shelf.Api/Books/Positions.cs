@@ -96,11 +96,34 @@ public static class Positions
             }
         }
 
+        Fill(report, said, kept);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException) when (db.Entry(report).State == EntityState.Added)
+        {
+            // The same source told twice at once (a player saving as a book ends, say): the other made the row
+            // first, so this one fills it in. The place itself was kept before this.
+            foreach (var entry in db.ChangeTracker.Entries<PositionReport>().ToList())
+            {
+                entry.State = EntityState.Detached;
+            }
+
+            if (await db.PositionReports.FirstOrDefaultAsync(item => item.ReaderId == readerId && item.BookId == bookId && item.Source == source && item.Device == device, cancellationToken) is { } made)
+            {
+                Fill(made, said, kept);
+                await db.SaveChangesAsync(cancellationToken);
+            }
+        }
+    }
+
+    private static void Fill(PositionReport report, LoanPlace said, LoanPlace kept)
+    {
         (report.EbookChapter, report.EbookCfi, report.EbookProgress) = (said.EbookChapter, said.EbookCfi is { Length: <= 1000 } cfi ? cfi : null, said.EbookProgress);
         (report.AudioTrack, report.AudioSeconds) = (said.AudioTrack, said.AudioSeconds);
         report.At = DateTimeOffset.UtcNow;
         report.Kept = Same(report, kept);
-        await db.SaveChangesAsync(cancellationToken);
     }
 
     public static async Task<PositionsOfBook?> ForBookAsync(ShelfDb db, int bookId, AudioStore? audio = null, CancellationToken cancellationToken = default)

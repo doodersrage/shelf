@@ -72,6 +72,22 @@ public sealed class ListeningTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.Equal((0, 20), await PlaceAsync());
     }
 
+    // Several saves of a new book's place at the same moment, as a player sends when a book ends: each is kept or
+    // told why, none fails, and the record of where the player had the book is one row.
+    [Fact]
+    public async Task Places_saved_at_the_same_moment_all_go_through()
+    {
+        var listener = await factory.SignUpAsync("Racing Saves");
+        for (var round = 0; round < 5; round++)
+        {
+            var book = await WithAudioAsync(listener, $"Raced {round}");
+            var saves = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => listener.PutAsJsonAsync($"/books/{book.Id}/audio/place", new AudioPlaceRequest(0, 12), JsonOptions)));
+            Assert.All(saves, response => Assert.Equal(HttpStatusCode.NoContent, response.StatusCode));
+            var positions = (await listener.GetFromJsonAsync<PositionsOfBook>($"/books/{book.Id}/positions", JsonOptions))!;
+            Assert.Single(positions.Reports, report => report.Device == "player");
+        }
+    }
+
     [Fact]
     public async Task Time_listened_is_kept_by_day_for_each_listener()
     {
@@ -165,7 +181,7 @@ public sealed class ListeningTests(ShelfApiFactory factory) : IClassFixture<Shel
     private static async Task<BookResponse> WithAudioAsync(HttpClient client, string title)
     {
         var book = await (await client.PostAsJsonAsync("/books", new CreateBookRequest(title, "Someone", BookStatus.Reading, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions);
-        using var content = new MultipartFormDataContent { { new StreamContent(BooksEndpointTests.ZipText("01.mp3", "a track")), "file", "heard.zip" } };
+        using var content = new MultipartFormDataContent { { new StreamContent(BooksEndpointTests.ZipText("01.mp3", "a track of " + title)), "file", "heard.zip" } };
         await client.PostAsync($"/books/{book!.Id}/audio", content);
         return book;
     }
