@@ -138,7 +138,12 @@
     <p class="hint">@T("From another app or service?") <a href="/import/spreadsheet">@T("Bring in any spreadsheet")</a>, @T("choosing which column holds what.")</p>
     @if (Csv == "done")
     {
-        <p class="saved" role="status">@T("Imported from {0}. Added {1}, filled in the reading of {2} already on your shelf, and skipped {3} with nothing new or missing a title or author.", Source == "StoryGraph" ? "The StoryGraph" : "Goodreads", Localization.Counts.Books(Added), Updated, Skipped)</p>
+        <p class="saved" role="status">@T("Imported from {0}. Added {1}, filled in the reading of {2} already on your shelf, and skipped {3} with nothing new.", Source == "StoryGraph" ? "The StoryGraph" : "Goodreads", Localization.Counts.Books(Added), Updated, Skipped)
+            @if (Unusable > 0)
+            {
+                @(" " + (Unusable == 1 ? T("1 row was missing a title or an author, so it was left out.") : T("{0} rows were missing a title or an author, so they were left out.", Unusable)))
+            }
+        </p>
     }
     else if (Csv == "unreadable")
     {
@@ -255,6 +260,9 @@
 
     [SupplyParameterFromQuery]
     public string? Source { get; set; }
+
+    [SupplyParameterFromQuery]
+    public int Unusable { get; set; }
 
     private async Task ImportBackup(InputFileChangeEventArgs change)
     {

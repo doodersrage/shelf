@@ -166,9 +166,12 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
             7235533,"The Way of Kings (The Stormlight Archive, #1)",Brandon Sanderson,"Sanderson, Brandon",,"=""0765326353""","=""9780765326355""",5,4.65,Tor,Hardcover,1007,2010,2010,2023/05/01,2023/01/02,"fantasy, read",,read,So good.,,,1,0
             17332218,"Words of Radiance (The Stormlight Archive, #2)",Brandon Sanderson,"Sanderson, Brandon",,"=""""","=""""",5,4.76,Tor,Hardcover,1087,2014,2014,2024/02/02,2023/01/02,,,read,,,,1,0
             25371,"Star Wars: Thrawn",Timothy Zahn,"Zahn, Timothy",,"=""""","=""""",0,4.2,Del Rey,Hardcover,427,2017,2017,,2024/01/04,to-read,,to-read,,,,0,0
+            99999,"A Book With No Author",,,,"=""""","=""""",0,0,,,,,,,2024/01/04,to-read,,to-read,,,,0,0
             """""";
         var response = await PostCsvAsync(csv.Replace("            ", ""), "goodreads_library_export.csv");
-        Assert.Contains("added=1&updated=1&skipped=1", response.RequestMessage?.RequestUri?.Query);
+        // The row with no author is left out, and counted apart from the books skipped as nothing new.
+        Assert.Contains("added=1&updated=1&skipped=1&unusable=1", response.RequestMessage?.RequestUri?.Query);
+        Assert.Contains("1 row was missing a title or an author", await response.Content.ReadAsStringAsync());
 
         var kings = await _client.GetFromJsonAsync<BookResponse>($"/books/{audiobook.Id}", JsonOptions);
         Assert.Equal("The Way of Kings (Unabridged)", kings!.Title);

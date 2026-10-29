@@ -4,6 +4,15 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Added
+
+- **Each reader keeps a time zone**, taken from their browser the first time and changed on **Account**. Reading days, streaks, goals, the dates a book is started and finished, loans, the journal, and listening sessions follow it, so an evening's reading counts on that evening. Without one, the server's zone is used (UTC in the Docker image), so nothing changes until it's set. The migration adds one column.
+
+### Changed
+
+- **Household books go where a member's own do**: into their playlists, KOReader sync (with a place of their own), their notes export, and **Shared with you** in the e-reader catalog, where they may download. A child's books shared by their guardian go the same ways.
+- **A household member without downloads reads an EPUB a chapter at a time**: the classic reader opens for them, and the whole EPUB, and the Audiobookshelf apps' e-book reader, are refused. PDFs, comics, and recordings have no smaller way to be read and still go whole.
+
 ### Security
 
 - **Adding a passkey or an API token needs a recent sign-in**, within a quarter of an hour, so a page left signed in can't add a way in; **Sign in again** brings you back to Account.
@@ -12,6 +21,11 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Fixed
 
+- **Pages turned while the connection is down are no longer lost**: the EPUB and PDF readers keep the place on the device and send it when the shelf can be reached again, moving your place forward only.
+- **Merging two finished entries keeps both reads**: the earlier finish becomes an earlier read, so it still counts in its year; unmerging takes it back.
+- **One unforeseen failure no longer stops the Audiobookshelf importer** until a restart: that book fails alone, and later imports still run.
+- **A Goodreads or StoryGraph import counts the rows it left out** for having no title or author, apart from the books skipped as nothing new.
+- **Failed downloads leave no temporary files**: a linked shelf's file that's too big or cut off, a Shelf-to-Shelf download cut off, and a full backup or server snapshot cancelled partway.
 - **A book's page left open no longer undoes changes made elsewhere**: saving its form wrote every field as it was when the page opened, so an old tab could undo a finish recorded on a phone, or count a reread twice. Now only what was changed on the page is saved; a field changed both there and elsewhere is named, and saving again keeps what was entered.
 
 ## [2.20.0] - 2026-10-29

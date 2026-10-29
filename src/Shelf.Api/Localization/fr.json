@@ -765,7 +765,6 @@
   "Import folder": "Dossier d'importation",
   "Import this file": "Importer ce fichier",
   "Imported from Audiobookshelf": "A importé depuis Audiobookshelf",
-  "Imported from {0}. Added {1}, filled in the reading of {2} already on your shelf, and skipped {3} with nothing new or missing a title or author.": "Importé depuis {0}. Ajoutés : {1}. Lecture complétée pour {2} déjà présents. Ignorés car sans rien de nouveau ou sans titre ni auteur : {3}.",
   "Imports, details being filled in, and other work Shelf does in the background show here while they run, and for a while after.": "Les imports, les détails en cours de complétion et les autres tâches de fond de Shelf apparaissent ici pendant qu'elles tournent, et un moment après.",
   "In": "Dans",
   "In all": "Au total",
@@ -3537,5 +3536,10 @@
   "Also end the other ways in: API tokens, the device key, KOReader's password, and passkeys": "Mettre fin aussi aux autres accès : jetons d’API, clé de l’appareil, mot de passe KOReader et clés d’accès",
   "To add a way to sign in, sign in again first: it proves it's you. Then come back here.": "Pour ajouter un moyen de connexion, reconnectez-vous d’abord : cela prouve que c’est bien vous. Puis revenez ici.",
   "Sign in again": "Se reconnecter",
-  "Too many wrong codes for this account. Wait a quarter of an hour, then try again.": "Trop de codes erronés pour ce compte. Attendez un quart d’heure, puis réessayez."
+  "Too many wrong codes for this account. Wait a quarter of an hour, then try again.": "Trop de codes erronés pour ce compte. Attendez un quart d’heure, puis réessayez.",
+  "The import stopped unexpectedly. Try it again.": "L’importation s’est arrêtée de façon inattendue. Réessayez.",
+  "Something went wrong with this one. Try it again.": "Un problème est survenu avec celui-ci. Réessayez.",
+  "Imported from {0}. Added {1}, filled in the reading of {2} already on your shelf, and skipped {3} with nothing new.": "Importé depuis {0}. Ajoutés : {1}. Lecture complétée pour {2} déjà présents. Ignorés car sans rien de nouveau : {3}.",
+  "{0} rows were missing a title or an author, so they were left out.": "{0} lignes n’avaient pas de titre ou d’auteur, elles ont donc été laissées de côté.",
+  "1 row was missing a title or an author, so it was left out.": "1 ligne n’avait pas de titre ou d’auteur, elle a donc été laissée de côté."
 }

@@ -614,6 +614,7 @@ public static class ShelfSync
 
     private static async Task<Stream?> DownloadAsync(HttpClient client, SyncBook book, string kind, CancellationToken cancellationToken)
     {
+        string? temp = null;
         try
         {
             using var response = await client.GetAsync($"books/sync/{book.Key}/{kind}", HttpCompletionOption.ResponseHeadersRead, cancellationToken);
@@ -622,7 +623,7 @@ public static class ShelfSync
                 return null;
             }
 
-            var temp = Path.Combine(Path.GetTempPath(), $"shelf-sync-{Guid.NewGuid():N}");
+            temp = Path.Combine(Path.GetTempPath(), $"shelf-sync-{Guid.NewGuid():N}");
             await using (var file = File.Create(temp))
             await using (var body = await response.Content.ReadAsStreamAsync(cancellationToken))
             {
@@ -633,6 +634,12 @@ public static class ShelfSync
         }
         catch (Exception ex) when (ex is HttpRequestException or Polly.ExecutionRejectedException or TaskCanceledException or IOException)
         {
+            // A download cut off leaves nothing behind.
+            if (temp is not null && File.Exists(temp))
+            {
+                File.Delete(temp);
+            }
+
             return null;
         }
     }

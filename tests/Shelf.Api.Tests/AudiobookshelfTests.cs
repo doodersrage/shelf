@@ -199,6 +199,31 @@ public sealed class AudiobookshelfTests(ShelfApiFactory factory) : IClassFixture
         Assert.Equal(gedId, moby.OwnerId);
     }
 
+    // A book that fails in a way no one foresaw fails alone: the rest come, and the next import still runs.
+    [Fact]
+    public async Task An_unforeseen_failure_fails_one_book_not_the_importer()
+    {
+        var fake = new FakeState { Breaks = "/api/items/li-earthsea/file/201/download" };
+        await using var app = Fake(fake);
+        var client = app.CreateClient();
+        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Abs Survivor", ["email"] = ShelfApiFactory.EmailOf("Abs Survivor"), ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
+        var readerId = await factory.ReaderIdAsync("Abs Survivor");
+        var http = app.Services.GetRequiredService<IHttpClientFactory>().CreateClient(AbsClient.ClientName);
+        var connection = await AbsClient.ConnectAsync(http, AbsClient.ServerAddress("abs.example.org")!, "good-key", null, null, CancellationToken.None);
+        var items = (await AbsClient.ItemsAsync(http, connection, "lib-books", CancellationToken.None)).Take(2).ToList();
+        var importer = app.Services.GetRequiredService<AbsImporter>();
+
+        var job = importer.Start(readerId, connection, new AbsOptions(), items);
+        await FinishAsync(job);
+        Assert.Equal(AbsState.Failed, job.Books["li-earthsea"].State);
+        Assert.Equal(AbsState.Done, job.Books["li-moby"].State);
+
+        fake.Breaks = null;
+        var again = importer.Start(readerId, connection, new AbsOptions(), items.Take(1).ToList());
+        await FinishAsync(again);
+        Assert.Equal(AbsState.Done, again.Books["li-earthsea"].State);
+    }
+
     private WebApplicationFactory<Program> Fake(FakeState state) => factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
     {
         services.AddHttpClient(AbsClient.ClientName).ConfigurePrimaryHttpMessageHandler(() => new FakeAudiobookshelf(state));
@@ -220,6 +245,9 @@ public sealed class AudiobookshelfTests(ShelfApiFactory factory) : IClassFixture
     {
         public double EarthseaTime { get; set; } = 8.5;
         public System.Collections.Concurrent.ConcurrentDictionary<string, int> Downloads { get; } = new();
+
+        // A path that fails in a way the importer doesn't expect.
+        public string? Breaks { get; set; }
     }
 
     private sealed class FakeAudiobookshelf(FakeState? state = null) : HttpMessageHandler
@@ -233,6 +261,11 @@ public sealed class AudiobookshelfTests(ShelfApiFactory factory) : IClassFixture
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var path = request.RequestUri!.AbsolutePath;
+            if (path == _state.Breaks)
+            {
+                throw new NotSupportedException("Something no one foresaw.");
+            }
+
             var token = request.Headers.Authorization?.Parameter;
             HttpResponseMessage Json(string body) => new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
             HttpResponseMessage Bytes(byte[] body, string type) => new(HttpStatusCode.OK) { Content = new ByteArrayContent(body) { Headers = { ContentType = new(type) } } };

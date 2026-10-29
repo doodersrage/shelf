@@ -7,7 +7,8 @@ namespace Shelf.Api.Books;
 // A row as a book, with the other people it names (co-authors, translators, narrators), to know it by on the shelf.
 public sealed record CsvBook(BookWrite Write, DateTimeOffset? AddedAt, IReadOnlyList<string>? OtherAuthors = null);
 
-public sealed record CsvLibrary(string Source, IReadOnlyList<CsvBook> Books);
+// Unusable: rows left out as they have no title or author, counted so the reader hears of them.
+public sealed record CsvLibrary(string Source, IReadOnlyList<CsvBook> Books, int Unusable = 0);
 
 // Reads a library exported from Goodreads or The StoryGraph into books for this shelf.
 public static partial class LibraryCsv
@@ -24,12 +25,14 @@ public static partial class LibraryCsv
         int Column(string name) => header.FindIndex(item => item.Equals(name, StringComparison.OrdinalIgnoreCase));
         if (Column("Exclusive Shelf") >= 0 && Column("Title") >= 0 && Column("Author") >= 0)
         {
-            return new CsvLibrary("Goodreads", rows.Skip(1).Select(row => Goodreads(row, Column)).OfType<CsvBook>().ToList());
+            var read = rows.Skip(1).Select(row => Goodreads(row, Column)).ToList();
+            return new CsvLibrary("Goodreads", read.OfType<CsvBook>().ToList(), read.Count(book => book is null));
         }
 
         if (Column("Read Status") >= 0 && Column("Title") >= 0 && Column("Authors") >= 0)
         {
-            return new CsvLibrary("StoryGraph", rows.Skip(1).Select(row => StoryGraph(row, Column)).OfType<CsvBook>().ToList());
+            var read = rows.Skip(1).Select(row => StoryGraph(row, Column)).ToList();
+            return new CsvLibrary("StoryGraph", read.OfType<CsvBook>().ToList(), read.Count(book => book is null));
         }
 
         return null;

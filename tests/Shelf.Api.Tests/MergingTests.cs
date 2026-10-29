@@ -13,6 +13,28 @@ public sealed class MergingTests(ShelfApiFactory factory) : IClassFixture<ShelfA
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
+    // Two entries each finished, on different days, are two reads: merged, both count in their years; unmerged, each
+    // entry has its own finish again and the earlier read made for the merge goes.
+    [Fact]
+    public async Task Merging_two_finishes_keeps_both_reads()
+    {
+        var reader = await factory.SignUpAsync("Twice Finisher");
+        var first = await CreateAsync(reader, new CreateBookRequest("The Word for World Is Forest", "Ursula K. Le Guin", BookStatus.Finished, 3, StartedOn: new DateOnly(2019, 5, 1), FinishedOn: new DateOnly(2019, 5, 20)));
+        var second = await CreateAsync(reader, new CreateBookRequest("The Word for World is Forest", "Ursula K. Le Guin", BookStatus.Finished, 5, StartedOn: new DateOnly(2024, 2, 1), FinishedOn: new DateOnly(2024, 2, 10)));
+        Assert.Equal(HttpStatusCode.NoContent, (await reader.PostAsJsonAsync($"/books/{first.Id}/merge", new MergeRequest(second.Id), JsonOptions)).StatusCode);
+
+        var kept = (await reader.GetFromJsonAsync<BookResponse>($"/books/{first.Id}", JsonOptions))!;
+        Assert.Equal((new DateOnly(2024, 2, 1), new DateOnly(2024, 2, 10)), (kept.StartedOn, kept.FinishedOn));
+        var reads = (await reader.GetFromJsonAsync<ReadThrough[]>($"/books/{first.Id}/reads", JsonOptions))!;
+        var earlier = Assert.Single(reads, read => !read.Current);
+        Assert.Equal((new DateOnly(2019, 5, 1), new DateOnly(2019, 5, 20), (int?)3), (earlier.StartedOn, earlier.FinishedOn, earlier.Rating));
+
+        var trashed = Assert.Single(await reader.GetFromJsonAsync<TrashView[]>("/books/trash", JsonOptions) ?? [], item => item.BookId == second.Id);
+        Assert.True((await reader.PostAsync($"/books/trash/{trashed.Id}/restore", null)).IsSuccessStatusCode);
+        Assert.DoesNotContain((await reader.GetFromJsonAsync<ReadThrough[]>($"/books/{first.Id}/reads", JsonOptions))!, read => !read.Current);
+        Assert.Equal(new DateOnly(2019, 5, 20), (await reader.GetFromJsonAsync<BookResponse>($"/books/{first.Id}", JsonOptions))!.FinishedOn);
+    }
+
     [Fact]
     public async Task Look_alikes_are_found_and_merged_into_one_book()
     {

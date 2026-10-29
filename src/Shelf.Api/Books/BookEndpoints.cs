@@ -377,7 +377,17 @@ public static class BookEndpoints
         CancellationToken cancellationToken)
     {
         var path = TempFileResult.NewPath(".zip");
-        await Backup.WriteShelfAsync(db, ebooks, audio, covers, path, cancellationToken);
+        try
+        {
+            await Backup.WriteShelfAsync(db, ebooks, audio, covers, path, cancellationToken);
+        }
+        catch
+        {
+            // Cancelled or failed partway: the half-made zip goes.
+            File.Delete(path);
+            throw;
+        }
+
         return new TempFileResult(path, "application/zip", $"shelf-backup-{DateTime.UtcNow:yyyy-MM-dd}.zip");
     }
 
@@ -414,7 +424,7 @@ public static class BookEndpoints
         }
 
         var result = await BookRules.ImportCsvAsync(db, library, cancellationToken);
-        return TypedResults.Redirect($"/backup?csv=done&source={library.Source}&added={result.Added}&updated={result.Updated}&skipped={result.Skipped}");
+        return TypedResults.Redirect($"/backup?csv=done&source={library.Source}&added={result.Added}&updated={result.Updated}&skipped={result.Skipped}&unusable={library.Unusable}");
     }
 
     // Like the e-book upload, this answers the form on the Backup page with a redirect back to it.

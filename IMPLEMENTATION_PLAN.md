@@ -366,8 +366,9 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
       - Restore dropped refused files without saying so (P2).
     - **Open:**
       - P2: a slow linked shelf can hold the Shelves and Loans pages, with a 1 h timeout.
-      - P2: failed linked-shelf and Shelf-to-Shelf downloads, and a cancelled full-library download, leave temporary files.
-      - P2: CSV rows with no title or author aren't counted apart from duplicates; one unexpected error stops the Audiobookshelf importer until restart; tracks past 200 are dropped silently.
+      - **Fixed 2026-10-29 (P2):** failed linked-shelf and Shelf-to-Shelf downloads, and a cancelled full backup or snapshot, delete their temporary files. Test: `LeftoverFileTests`.
+      - **Fixed 2026-10-29 (P2):** CSV rows with no title or author are counted and reported apart (`CsvLibrary.Unusable`); an unforeseen error fails one Audiobookshelf book, or at worst one import, never the importer (`AudiobookshelfTests.An_unforeseen_failure_fails_one_book_not_the_importer`).
+      - P2 (open): Audiobookshelf tracks past 200 are dropped silently.
       - P3: an unclosed quote swallows the rest of a CSV; bulk and folder imports say "unsupported" for a damaged file.
 - [x] Define conflict rules for progress and metadata arriving from multiple devices or integrations.
   - *Status 2026-10-28:* Forward-only for devices and late replays, live playback both ways, reread resets (tasks 5–8). Documented in `reading.md` and `audiobooks.md`.
@@ -561,7 +562,7 @@ The user asked for what Audiobookshelf has and Shelf lacks, all of it, one at a 
       - The progress bar ignored e-book progress (P2): `ReadingLifeTests.Progress_counts_the_place_in_the_ebook`.
     - **Open:**
       - **Fixed 2026-10-29 (P1):** the book form saved every field as it was when the page opened, so an old tab could undo a finish made elsewhere or count a reread twice. Now `BookFormModel.Merge` writes only what the form changed over the book as it is now; a field changed both here and elsewhere is named, and a second save keeps the form's value. The API's `PUT /books/{id}` stays a whole replacement. Tests: `BookFormMergeTests`, `library.spec` "a book's page left open…".
-      - P2: merging two finished entries keeps one finish and drops the other's year; unmerge restores it.
+      - **Fixed 2026-10-29 (P2):** merging two finished entries on different days makes the earlier finish a `PastRead` of the kept book (noted as `MergeReceipt.PastReadAdded`, removed on unmerge). Test: `MergingTests.Merging_two_finishes_keeps_both_reads`.
 - [!] Ensure charts and milestones explain their definitions and handle incomplete data gracefully.
   - *Status 2026-10-28:* Needs a person to judge.
 - [x] Review current recommendations and “what to read next” behavior for transparency and usefulness.

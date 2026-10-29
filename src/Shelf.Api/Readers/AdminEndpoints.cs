@@ -109,7 +109,19 @@ public static class AdminEndpoints
     private static async Task<Results<TempFileResult, ProblemHttpResult>> Snapshot(ShelfDb db, EbookStore ebooks, AudioStore audio, CoverStore covers, IConfiguration configuration, CancellationToken cancellationToken)
     {
         var path = TempFileResult.NewPath(".zip");
-        if (!await Backup.WriteSnapshotAsync(db, ebooks, audio, covers, path, cancellationToken, pgDump: configuration["Database:PgDump"]))
+        bool written;
+        try
+        {
+            written = await Backup.WriteSnapshotAsync(db, ebooks, audio, covers, path, cancellationToken, pgDump: configuration["Database:PgDump"]);
+        }
+        catch
+        {
+            // Cancelled or failed partway: the half-made zip goes.
+            File.Delete(path);
+            throw;
+        }
+
+        if (!written)
         {
             // A snapshot without the database would be mistaken for one that can bring the server back.
             File.Delete(path);

@@ -765,7 +765,6 @@
   "Import folder": "Importordner",
   "Import this file": "Diese Datei importieren",
   "Imported from Audiobookshelf": "Hat aus Audiobookshelf importiert",
-  "Imported from {0}. Added {1}, filled in the reading of {2} already on your shelf, and skipped {3} with nothing new or missing a title or author.": "Aus {0} importiert. {1} hinzugefügt, bei {2} schon vorhandenen das Lesen ergänzt, {3} übersprungen, weil nichts Neues dabei war oder Titel oder Autor fehlte.",
   "Imports, details being filled in, and other work Shelf does in the background show here while they run, and for a while after.": "Übernahmen, ergänzte Angaben und andere Arbeit, die Shelf im Hintergrund erledigt, erscheinen hier, solange sie laufen, und eine Weile danach.",
   "In": "In",
   "In all": "Insgesamt",
@@ -3537,5 +3536,10 @@
   "Also end the other ways in: API tokens, the device key, KOReader's password, and passkeys": "Auch die anderen Zugänge beenden: API-Tokens, den Geräteschlüssel, das KOReader-Passwort und Passkeys",
   "To add a way to sign in, sign in again first: it proves it's you. Then come back here.": "Um einen Anmeldeweg hinzuzufügen, melden Sie sich zuerst erneut an: Das beweist, dass Sie es sind. Kommen Sie dann hierher zurück.",
   "Sign in again": "Erneut anmelden",
-  "Too many wrong codes for this account. Wait a quarter of an hour, then try again.": "Zu viele falsche Codes für dieses Konto. Warten Sie eine Viertelstunde und versuchen Sie es dann erneut."
+  "Too many wrong codes for this account. Wait a quarter of an hour, then try again.": "Zu viele falsche Codes für dieses Konto. Warten Sie eine Viertelstunde und versuchen Sie es dann erneut.",
+  "The import stopped unexpectedly. Try it again.": "Der Import wurde unerwartet beendet. Versuchen Sie es erneut.",
+  "Something went wrong with this one. Try it again.": "Bei diesem ist etwas schiefgegangen. Versuchen Sie es erneut.",
+  "Imported from {0}. Added {1}, filled in the reading of {2} already on your shelf, and skipped {3} with nothing new.": "Aus {0} importiert. {1} hinzugefügt, bei {2} schon vorhandenen das Lesen ergänzt, {3} übersprungen, weil nichts Neues dabei war.",
+  "{0} rows were missing a title or an author, so they were left out.": "{0} Zeilen fehlte ein Titel oder ein Autor, daher wurden sie ausgelassen.",
+  "1 row was missing a title or an author, so it was left out.": "1 Zeile fehlte ein Titel oder ein Autor, daher wurde sie ausgelassen."
 }

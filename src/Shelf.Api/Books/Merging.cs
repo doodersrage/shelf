@@ -246,7 +246,23 @@ public static partial class Merging
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         // What moves is noted as it does, kept with the other entry in the trash, so restoring it takes it all back.
         var receipt = new MergeReceipt { KeptBookId = keepId };
-        FillDetails(keep, other);
+        // Both finished, on different days: two reads. The later stays the book's; the earlier becomes an earlier
+        // read, so it still counts in its own year.
+        PastRead? earlierRead = null;
+        if (keep.FinishedOn is { } keptFinish && other.FinishedOn is { } otherFinish && keptFinish != otherFinish)
+        {
+            var (earlier, later) = keptFinish < otherFinish ? (keep, other) : (other, keep);
+            earlierRead = new PastRead { BookId = keepId, StartedOn = earlier.StartedOn, FinishedOn = earlier.FinishedOn, Rating = earlier.Rating };
+            db.PastReads.Add(earlierRead);
+            var laterStart = later.StartedOn;
+            FillDetails(keep, other);
+            keep.StartedOn = laterStart ?? keep.StartedOn;
+        }
+        else
+        {
+            FillDetails(keep, other);
+        }
+
         foreach (var tag in other.Tags.Where(tag => keep.Tags.All(mine => mine.Id != tag.Id)).ToList())
         {
             keep.Tags.Add(tag);
@@ -367,6 +383,7 @@ public static partial class Merging
         other.CoverImage = coverMoves ? null : other.CoverImage;
         Unmerging.NoteKept(db, keep, receipt);
         await db.SaveChangesAsync(cancellationToken);
+        receipt.PastReadAdded = earlierRead?.Id;
         await Trash.DeleteBooksAsync(db, ebooks, audio, covers, [otherId], cancellationToken: cancellationToken);
         if (await db.TrashItems.Where(item => item.Kind == TrashKind.Book && item.BookId == otherId).OrderByDescending(item => item.Id).FirstOrDefaultAsync(cancellationToken) is { } trashed)
         {

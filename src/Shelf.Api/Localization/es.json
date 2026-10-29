@@ -765,7 +765,6 @@
   "Import folder": "Carpeta de importación",
   "Import this file": "Importar este archivo",
   "Imported from Audiobookshelf": "Importó desde Audiobookshelf",
-  "Imported from {0}. Added {1}, filled in the reading of {2} already on your shelf, and skipped {3} with nothing new or missing a title or author.": "Importado desde {0}. Añadidos: {1}. Lectura completada en {2} que ya estaban en tu estantería. Omitidos por no traer nada nuevo o no tener título o autor: {3}.",
   "Imports, details being filled in, and other work Shelf does in the background show here while they run, and for a while after.": "Las importaciones, los detalles que se completan y otro trabajo que Shelf hace en segundo plano aparecen aquí mientras duran, y un tiempo después.",
   "In": "En",
   "In all": "En total",
@@ -3537,5 +3536,10 @@
   "Also end the other ways in: API tokens, the device key, KOReader's password, and passkeys": "Terminar también las otras formas de entrar: tokens de API, la clave del dispositivo, la contraseña de KOReader y las llaves de acceso",
   "To add a way to sign in, sign in again first: it proves it's you. Then come back here.": "Para añadir una forma de entrar, vuelve a iniciar sesión primero: así se comprueba que eres tú. Luego vuelve aquí.",
   "Sign in again": "Volver a iniciar sesión",
-  "Too many wrong codes for this account. Wait a quarter of an hour, then try again.": "Demasiados códigos incorrectos para esta cuenta. Espera un cuarto de hora y vuelve a intentarlo."
+  "Too many wrong codes for this account. Wait a quarter of an hour, then try again.": "Demasiados códigos incorrectos para esta cuenta. Espera un cuarto de hora y vuelve a intentarlo.",
+  "The import stopped unexpectedly. Try it again.": "La importación se detuvo de forma inesperada. Vuelve a intentarlo.",
+  "Something went wrong with this one. Try it again.": "Algo salió mal con este. Vuelve a intentarlo.",
+  "Imported from {0}. Added {1}, filled in the reading of {2} already on your shelf, and skipped {3} with nothing new.": "Importado desde {0}. Añadidos: {1}. Lectura completada en {2} que ya estaban en tu estantería. Omitidos por no traer nada nuevo: {3}.",
+  "{0} rows were missing a title or an author, so they were left out.": "A {0} filas les faltaba el título o el autor, así que se dejaron fuera.",
+  "1 row was missing a title or an author, so it was left out.": "A 1 fila le faltaba el título o el autor, así que se dejó fuera."
 }

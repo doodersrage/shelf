@@ -445,75 +445,99 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
             }
 
             CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(job.Language);
-
-            // The reader's own progress, bookmarks, history, and lists, read once for the whole import.
-            if (job.Options.Any || job.StartedOnly)
+            try
             {
-                try
-                {
-                    job.Life = await AbsClient.ReadingLifeAsync(clients.CreateClient(job.ClientName), job.Connection, job.AbsUserId,
-                        job.Options with { Progress = job.Options.Progress || job.StartedOnly }, stoppingToken);
-                }
-                catch (Exception ex) when (ex is AbsProblem or HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException)
-                {
-                    if (stoppingToken.IsCancellationRequested)
-                    {
-                        return;
-                    }
-
-                    logger.LogInformation(ex, "Could not read the reader's progress from Audiobookshelf; the books come without it.");
-                }
+                await RunAsync(job, stoppingToken);
             }
-
-            if (job.StartedOnly)
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {
-                job.Narrow([.. job.Items.Where(item => job.Life?.Progress.ContainsKey(item.Id) == true || job.Life?.History.ContainsKey(item.Id) == true)]);
+                // Something no one foresaw ends this import, not the importer: the next one still runs.
+                logger.LogError(ex, "An Audiobookshelf import stopped unexpectedly.");
+                foreach (var item in job.Items.Where(item => job.Books[item.Id].State is AbsState.Waiting or AbsState.Downloading))
+                {
+                    Set(job, item.Id, line => line with { State = AbsState.Failed, Note = T("The import stopped unexpectedly. Try it again.") });
+                }
+
+                job.Finished = true;
             }
+        }
+    }
 
-            var onShelf = await OnShelfAsync(job, stoppingToken);
-            foreach (var item in job.Items)
+    private async Task RunAsync(AbsImportJob job, CancellationToken stoppingToken)
+    {
+        // The reader's own progress, bookmarks, history, and lists, read once for the whole import.
+        if (job.Options.Any || job.StartedOnly)
+        {
+            try
             {
-                if (job.Stopping)
+                job.Life = await AbsClient.ReadingLifeAsync(clients.CreateClient(job.ClientName), job.Connection, job.AbsUserId,
+                    job.Options with { Progress = job.Options.Progress || job.StartedOnly }, stoppingToken);
+            }
+            catch (Exception ex) when (ex is AbsProblem or HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException)
+            {
+                if (stoppingToken.IsCancellationRequested)
                 {
-                    Set(job, item.Id, line => line with { State = AbsState.Skipped, Note = T("Stopped before this one.") });
-                    continue;
+                    return;
                 }
 
-                try
-                {
-                    if (onShelf.TryGetValue(item.Id, out var bookId))
-                    {
-                        await UpdateAsync(job, item, bookId, stoppingToken);
-                    }
-                    else
-                    {
-                        await ImportAsync(job, item, stoppingToken);
-                    }
-                }
-                catch (Exception ex) when (ex is AbsProblem or HttpRequestException or Polly.ExecutionRejectedException or IOException or TaskCanceledException or JsonException or KeyNotFoundException or InvalidOperationException)
-                {
-                    if (stoppingToken.IsCancellationRequested)
-                    {
-                        return;
-                    }
+                logger.LogInformation(ex, "Could not read the reader's progress from Audiobookshelf; the books come without it.");
+            }
+        }
 
-                    logger.LogInformation(ex, "Could not import {Title} from Audiobookshelf.", item.Title);
-                    Set(job, item.Id, line => line with { State = AbsState.Failed, Note = ex is AbsProblem ? ex.Message : T("The download did not finish.") });
-                }
+        if (job.StartedOnly)
+        {
+            job.Narrow([.. job.Items.Where(item => job.Life?.Progress.ContainsKey(item.Id) == true || job.Life?.History.ContainsKey(item.Id) == true)]);
+        }
+
+        var onShelf = await OnShelfAsync(job, stoppingToken);
+        foreach (var item in job.Items)
+        {
+            if (job.Stopping)
+            {
+                Set(job, item.Id, line => line with { State = AbsState.Skipped, Note = T("Stopped before this one.") });
+                continue;
             }
 
             try
             {
-                await ListsAsync(job, stoppingToken);
+                if (onShelf.TryGetValue(item.Id, out var bookId))
+                {
+                    await UpdateAsync(job, item, bookId, stoppingToken);
+                }
+                else
+                {
+                    await ImportAsync(job, item, stoppingToken);
+                }
             }
-            catch (Exception ex) when (ex is DbUpdateException or InvalidOperationException)
+            catch (Exception ex) when (ex is AbsProblem or HttpRequestException or Polly.ExecutionRejectedException or IOException or TaskCanceledException or JsonException or KeyNotFoundException or InvalidOperationException)
             {
-                logger.LogInformation(ex, "Could not make the collections from Audiobookshelf.");
-            }
+                if (stoppingToken.IsCancellationRequested)
+                {
+                    return;
+                }
 
-            job.Finished = true;
-            await NoteAsync(job, stoppingToken);
+                logger.LogInformation(ex, "Could not import {Title} from Audiobookshelf.", item.Title);
+                Set(job, item.Id, line => line with { State = AbsState.Failed, Note = ex is AbsProblem ? ex.Message : T("The download did not finish.") });
+            }
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+            {
+                // One book that fails in a way no one foresaw fails alone; the rest still come.
+                logger.LogWarning(ex, "Could not import {Title} from Audiobookshelf.", item.Title);
+                Set(job, item.Id, line => line with { State = AbsState.Failed, Note = T("Something went wrong with this one. Try it again.") });
+            }
         }
+
+        try
+        {
+            await ListsAsync(job, stoppingToken);
+        }
+        catch (Exception ex) when (ex is DbUpdateException or InvalidOperationException)
+        {
+            logger.LogInformation(ex, "Could not make the collections from Audiobookshelf.");
+        }
+
+        job.Finished = true;
+        await NoteAsync(job, stoppingToken);
     }
 
     private static void Set(AbsImportJob job, string itemId, Func<AbsImportLine, AbsImportLine> change) =>

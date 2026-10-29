@@ -143,6 +143,7 @@ public sealed class LinkClient(IHttpClientFactory clients, IDataProtectionProvid
     public async Task<string?> DownloadAsync(ShelfLink link, string path, long mostBytes, CancellationToken cancellationToken)
     {
         var target = Path.Combine(Path.GetTempPath(), $"shelf-link-{Guid.NewGuid():N}");
+        var whole = false;
         try
         {
             using var request = Request(link, HttpMethod.Get, path);
@@ -167,6 +168,7 @@ public sealed class LinkClient(IHttpClientFactory clients, IDataProtectionProvid
                 await file.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
             }
 
+            whole = true;
             return target;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
@@ -175,7 +177,8 @@ public sealed class LinkClient(IHttpClientFactory clients, IDataProtectionProvid
         }
         finally
         {
-            if (File.Exists(target) && new FileInfo(target).Length == 0)
+            // Anything short of the whole file (too big, cut off, cancelled) is no use to anyone: it goes.
+            if (!whole && File.Exists(target))
             {
                 File.Delete(target);
             }

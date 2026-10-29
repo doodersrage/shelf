@@ -32,6 +32,9 @@ public sealed class MergeReceipt
 
     public List<string> TagsAdded { get; set; } = [];
 
+    // The earlier of two finishes, made an earlier read of the kept book; the restored book has its own again.
+    public int? PastReadAdded { get; set; }
+
     // Stored files the kept book took because it had none of the kind.
     public string? Ebook { get; set; }
 
@@ -121,6 +124,11 @@ public static class Unmerging
         var collections = receipt.Collections.Except(theirs).ToList();
         await db.CollectionBooks.IgnoreQueryFilters().Where(entry => collections.Contains(entry.CollectionId) && entry.BookId == keptId)
             .ExecuteUpdateAsync(set => set.SetProperty(entry => entry.BookId, restoredId), cancellationToken);
+
+        if (receipt.PastReadAdded is int addedRead)
+        {
+            await db.PastReads.IgnoreQueryFilters().Where(row => row.Id == addedRead && row.BookId == keptId).ExecuteDeleteAsync(cancellationToken);
+        }
 
         // Time added to a day of the kept book is taken off it, and the restored book has its own day again.
         foreach (var day in receipt.ListeningAdded)
