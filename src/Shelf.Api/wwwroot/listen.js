@@ -147,13 +147,78 @@
     });
   }
 
+  // Casting to a Chromecast or AirPlay, by the browser's own Remote Playback: the device fetches the tracks itself,
+  // without the reader's sign-in, so while it's connected the player plays signed addresses the shelf hands out.
+  let castAvailable = false;
+  let casting = false;
+  let castUrls = null;
+  const castable = () => Boolean(plan?.bookId && !plan.placeUrl && (audio.remote || audio.webkitShowPlaybackTargetPicker));
+  const trackUrl = (index) => (casting && castUrls?.[index]) || plan.tracks[index].url;
+
+  if (audio.remote?.watchAvailability) {
+    audio.remote.watchAvailability((available) => {
+      castAvailable = available;
+      if (available && !castUrls) prepareCast();
+      render();
+    }).catch(() => {
+      // This browser can't tell, or can't cast audio: the button stays hidden.
+    });
+    audio.remote.addEventListener("connect", () => {
+      casting = true;
+      render();
+    });
+    audio.remote.addEventListener("disconnect", () => {
+      casting = false;
+      if (plan && track >= 0) setTrack(track, audio.currentTime || 0, wantPlay);
+      render();
+    });
+  } else if (audio.webkitShowPlaybackTargetPicker) {
+    audio.addEventListener("webkitplaybacktargetavailabilitychanged", (event) => {
+      castAvailable = event.availability === "available";
+      if (castAvailable && !castUrls) prepareCast();
+      render();
+    });
+  }
+
+  // The signed addresses, asked for as a book opens where casting can happen, so the button needn't wait on them.
+  async function prepareCast() {
+    castUrls = null;
+    if (!castAvailable || !castable()) return;
+    const bookId = plan.bookId;
+    try {
+      const response = await fetch(`/books/${bookId}/audio/cast`, { credentials: "same-origin" });
+      if (response.ok && plan?.bookId === bookId) castUrls = (await response.json()).tracks;
+    } catch {
+      // Out of reach: casting waits.
+    }
+  }
+
+  // Within the tap: the track goes over to its signed address, where it was, and the browser asks which device.
+  function cast() {
+    if (!plan || track < 0) return;
+    if (castUrls) {
+      casting = true;
+      const index = track;
+      const at = pending ? pending.seconds : audio.currentTime || 0;
+      // Forgotten first, so the same track loads again from its signed address.
+      track = -1;
+      setTrack(index, at, wantPlay);
+    }
+    const asked = audio.remote ? audio.remote.prompt() : Promise.resolve(audio.webkitShowPlaybackTargetPicker());
+    Promise.resolve(asked).catch(() => {
+      // Chosen nowhere: back to the shelf's own addresses.
+      casting = audio.remote?.state === "connected";
+      if (!casting && plan && track >= 0) setTrack(track, audio.currentTime || 0, wantPlay);
+    });
+  }
+
   function setTrack(index, seconds, play) {
     wantPlay = play;
     if (index !== track || !audio.src) {
       track = index;
       pending = { seconds };
       switching = true;
-      audio.src = plan.tracks[index].url;
+      audio.src = trackUrl(index);
       audio.defaultPlaybackRate = rate;
       audio.playbackRate = rate;
       audio.load();
@@ -568,6 +633,10 @@
           element.hidden = !undo;
           if (undo) fill(element, [clock(undo.time)]);
           break;
+        case "cast":
+          element.hidden = !(castAvailable && castable());
+          element.setAttribute("aria-pressed", casting ? "true" : "false");
+          break;
         case "note":
           element.hidden = !note;
           if (note && element.dataset[note]) fill(element, [element.dataset[note]]);
@@ -655,6 +724,7 @@
     write(STORE, { bookId: next.bookId, planUrl: next.planUrl });
     await prepare(next);
     handle();
+    prepareCast();
     // A place kept here that the shelf has not had yet is newer than the shelf's.
     const local = read(`shelf-audio-place-${keyOf(next)}`, null);
     const from = local?.waiting ? local : next;
@@ -791,6 +861,7 @@
       case "chapter": move(chapters[Number(control.dataset.chapter)]?.start ?? 0); break;
       case "undo": if (undo) { const back = undo.time; undo = null; seek(back); } break;
       case "close": close(); break;
+      case "cast": cast(); break;
       default: return;
     }
     event.preventDefault();

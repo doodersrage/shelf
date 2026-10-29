@@ -96,6 +96,7 @@ public static class BookEndpoints
         AudioTagging.Map(books);
         Playlists.Map(books);
         AudioFeeds.Map(books);
+        CastLinks.Map(app, books);
         ReadingTime.Map(books);
         YearReview.Map(books);
         Merging.Map(books);

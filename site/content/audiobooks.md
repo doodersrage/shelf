@@ -94,6 +94,12 @@ Shelf uses any service with OpenAI's transcription API and word times. Set `Read
 
 When ffmpeg is there, Shelf always cuts tracks into ten-minute pieces, which shows progress as it goes and loses less if something fails. The recording goes to the service you choose and nowhere else.
 
+## Casting to a speaker or TV
+
+Where the browser can cast, **Play on another device** shows beside the player's buttons: Chrome to a Chromecast or Google speaker, and Safari to AirPlay. It uses the browser's own way of casting, so nothing is loaded from Google or Apple. The device fetches the recording itself, so while it plays there Shelf gives it addresses for this book's tracks that work for twelve hours, and only while the book is still yours or lent to you. The place is kept as ever, from the player in the browser.
+
+The button shows only when the browser says a device is near; Firefox can't cast at all. Podcast episodes saved on the shelf aren't cast.
+
 ## Listening in a podcast app
 
 **Listen in a podcast app**, under the recording on a book's page, makes a private feed of the book for any podcast app, as Audiobookshelf opens one: each track an episode, in order, with its cover, and a single file's chapters where the app shows them. Paste the address it shows into the app; it's shown only once, so copy it then. **Make a new address** stops the old one, and **Stop the feed** stops it altogether.

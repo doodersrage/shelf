@@ -3476,5 +3476,6 @@
   "Make a feed": "Crear un canal",
   "Stop the feed": "Detener el canal",
   "A podcast feed needs a recording.": "Un canal de pódcast necesita una grabación.",
-  "{0}, by {1}, from Shelf.": "{0}, de {1}, desde Shelf."
+  "{0}, by {1}, from Shelf.": "{0}, de {1}, desde Shelf.",
+  "Play on another device": "Reproducir en otro dispositivo"
 }

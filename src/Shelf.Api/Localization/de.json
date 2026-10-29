@@ -3476,5 +3476,6 @@
   "Make a feed": "Feed erstellen",
   "Stop the feed": "Feed beenden",
   "A podcast feed needs a recording.": "Ein Podcast-Feed braucht eine Aufnahme.",
-  "{0}, by {1}, from Shelf.": "{0} von {1}, aus Shelf."
+  "{0}, by {1}, from Shelf.": "{0} von {1}, aus Shelf.",
+  "Play on another device": "Auf einem anderen Gerät abspielen"
 }

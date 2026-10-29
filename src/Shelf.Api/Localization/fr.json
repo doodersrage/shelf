@@ -3476,5 +3476,6 @@
   "Make a feed": "Créer un flux",
   "Stop the feed": "Arrêter le flux",
   "A podcast feed needs a recording.": "Un flux de podcast demande un enregistrement.",
-  "{0}, by {1}, from Shelf.": "{0}, de {1}, depuis Shelf."
+  "{0}, by {1}, from Shelf.": "{0}, de {1}, depuis Shelf.",
+  "Play on another device": "Lire sur un autre appareil"
 }

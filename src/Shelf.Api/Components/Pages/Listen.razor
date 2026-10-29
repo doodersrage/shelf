@@ -69,6 +69,7 @@ else if (book is not null)
                     <button type="button" class="icon-button play big" data-player="toggle" data-label-play="@T("Play")" data-label-pause="@T("Pause")" aria-label="@T("Play")"><PlayerIcon Name="play" /><PlayerIcon Name="pause" /></button>
                     <button type="button" class="icon-button jump" data-player="forward" aria-label="@T("Forward")"><PlayerIcon Name="forward" /><span class="jump-by" data-show="forward-by">30</span></button>
                     <button type="button" class="icon-button" data-player="next" aria-label="@T("Next chapter")" disabled="@(plan.Chapters.Length < 2)"><PlayerIcon Name="next" /></button>
+                    <button type="button" class="icon-button" data-player="cast" data-show="cast" aria-label="@T("Play on another device")" hidden><PlayerIcon Name="cast" /></button>
                 </div>
                 @* After a chapter, the scrubber, or a bookmark moves the book far, a few seconds to take it back. *@
                 <button type="button" class="quiet listen-undo" data-player="undo" data-show="undo" data-template="@T("Back to {0}")" aria-live="polite" hidden></button>
