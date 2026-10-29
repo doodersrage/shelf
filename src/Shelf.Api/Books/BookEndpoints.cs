@@ -405,7 +405,7 @@ public static class BookEndpoints
 
             return TypedResults.Redirect(result is null
                 ? "/backup?restore=unreadable"
-                : $"/backup?restore=done&added={result.Added}&skipped={result.Skipped}&files={result.Files}&damaged={result.Damaged}&collections={result.Collections}&loans={result.Loans}");
+                : $"/backup?restore=done&added={result.Added}&skipped={result.Skipped}&files={result.Files}&damaged={result.Damaged}&collections={result.Collections}&loans={result.Loans}&lost={result.Lost}");
         }
         finally
         {

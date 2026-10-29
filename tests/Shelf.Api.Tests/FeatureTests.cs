@@ -121,9 +121,10 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
             4,"The Dispossessed",Ursula K. Le Guin,"Le Guin, Ursula K.",,"=""""","=""""",0,4.21,Harper,Hardcover,387,1994,1974,,2024/01/02,currently-reading,,currently-reading,,,,0,0
             5,"Kindred",Octavia E. Butler,"Butler, Octavia E.",,"=""""","=""""",0,4.28,Beacon,Paperback,264,2003,1979,,2024/01/03,to-read,,to-read,,,,0,0
             6,"Gravity's Rainbow",Thomas Pynchon,"Pynchon, Thomas",,"=""""","=""""",0,4.0,Penguin,Paperback,776,2006,1973,,2024/01/04,did-not-finish,,did-not-finish,,,,0,0
+            7,"The Lathe of Heaven",Ursula K. Le Guin,"Le Guin, Ursula K.",,"=""""","=""""",0,4.0,Scribner,Paperback,184,2008,1971,,2024/01/05,read,,read,,,,1,0
             """""";
         var response = await PostCsvAsync(csv.Replace("            ", ""), "goodreads_library_export.csv");
-        Assert.Contains("csv=done&source=Goodreads&added=4&updated=0&skipped=0", response.RequestMessage?.RequestUri?.Query);
+        Assert.Contains("csv=done&source=Goodreads&added=5&updated=0&skipped=0", response.RequestMessage?.RequestUri?.Query);
 
         var books = await _client.GetFromJsonAsync<BookResponse[]>("/books?author=Ursula%20K.%20Le%20Guin", JsonOptions);
         var wizard = books!.Single(book => book.Title == "A Wizard of Earthsea");
@@ -142,12 +143,16 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal(["fantasy", "favourites"], wizard.Tags);
         Assert.Equal(new DateTimeOffset(2023, 12, 1, 0, 0, 0, TimeSpan.Zero), wizard.AddedAt);
         Assert.Equal(BookStatus.Reading, books!.Single(book => book.Title == "The Dispossessed").Status);
+
+        // Read on no day Goodreads knows: finished, and in no year, rather than finished the day it came in.
+        var lathe = books!.Single(book => book.Title == "The Lathe of Heaven");
+        Assert.Equal((BookStatus.Finished, (DateOnly?)null, (DateOnly?)null), (lathe.Status, lathe.FinishedOn, lathe.StartedOn));
         var all = await _client.GetFromJsonAsync<BookResponse[]>("/books", JsonOptions);
         Assert.Equal(BookStatus.Want, all!.Single(book => book.Title == "Kindred").Status);
         Assert.Equal(BookStatus.Abandoned, all!.Single(book => book.Title == "Gravity's Rainbow").Status);
 
         var again = await PostCsvAsync(csv.Replace("            ", ""), "goodreads_library_export.csv");
-        Assert.Contains("added=0&updated=0&skipped=4", again.RequestMessage?.RequestUri?.Query);
+        Assert.Contains("added=0&updated=0&skipped=5", again.RequestMessage?.RequestUri?.Query);
     }
 
     [Fact]
@@ -370,6 +375,12 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.True(link.Success);
         Assert.Contains("Choose a new password", await visitor.GetStringAsync(link.Value));
 
+        // A second link asked for meanwhile: the new password ends it too, unused as it is.
+        await ShelfApiFactory.PostFormAsync(visitor, "/forgot", "/account/forgot", new() { ["who"] = "forgetful@example.org" });
+        var second = System.Text.RegularExpressions.Regex.Match(factory.Mail.Sent.Last(mail => mail.To == "forgetful@example.org").Body, @"/reset\?token=([A-Za-z0-9_-]+)").Value;
+        Assert.NotEqual(link.Value, second);
+        Assert.Contains("Choose a new password", await visitor.GetStringAsync(second));
+
         var mismatch = await ShelfApiFactory.PostFormAsync(visitor, link.Value, "/account/reset", new()
         {
             ["token"] = link.Groups[1].Value,
@@ -387,6 +398,7 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal("/signin?notice=reset", reset.Headers.Location?.OriginalString);
         Assert.Equal(HttpStatusCode.Unauthorized, (await reader.GetAsync("/books")).StatusCode);
         Assert.Contains("has expired or was used already", await visitor.GetStringAsync(link.Value));
+        Assert.Contains("has expired or was used already", await visitor.GetStringAsync(second));
 
         var signedIn = await ShelfApiFactory.PostFormAsync(visitor, "/signin", "/account/signin", new()
         {
@@ -646,12 +658,21 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         var recovery = (await confirmed.Content.ReadFromJsonAsync<RecoveryCodes>(JsonOptions))!.Codes;
         Assert.Equal(10, recovery.Length);
 
+        // Once on, starting again (which would turn it off) is refused: only turning it off, with a code, may.
+        Assert.Equal(HttpStatusCode.BadRequest, (await phone.PostAsync("/account/two-factor/start", null)).StatusCode);
+
         var laptop = factory.CreateClient(new() { AllowAutoRedirect = false });
         var password = await ShelfApiFactory.PostFormAsync(laptop, "/signin", "/account/signin", new() { ["name"] = "Careful Reader", ["password"] = ShelfApiFactory.Password });
         Assert.Equal("/signin/code", password.Headers.Location?.OriginalString);
         Assert.Equal(HttpStatusCode.Unauthorized, (await laptop.GetAsync("/books")).StatusCode);
         var wrong = await ShelfApiFactory.PostFormAsync(laptop, "/signin/code", "/account/signin/code", new() { ["code"] = "123456" });
         Assert.Contains("problem=CodeWrong", wrong.Headers.Location?.OriginalString);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var careful = await factory.ReaderIdAsync("Careful Reader");
+            Assert.True(await scope.ServiceProvider.GetRequiredService<ShelfDb>().AuditEntries.AnyAsync(entry => (entry.ActorId == careful || entry.TargetId == careful) && entry.Action == "A sign-in failed: wrong code"));
+        }
+
         var right = await ShelfApiFactory.PostFormAsync(laptop, "/signin/code", "/account/signin/code", new() { ["code"] = Now() });
         Assert.Equal("/", right.Headers.Location?.OriginalString);
         Assert.Equal(HttpStatusCode.OK, (await laptop.GetAsync("/books")).StatusCode);
@@ -953,5 +974,37 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         using var mistyped = factory.WithWebHostBuilder(builder => builder.UseSetting("Hosting:BehindProxy", "true").UseSetting("Hosting:KnownProxies", "10.0.0.2, 10.0.0.300"));
         var error = Assert.ThrowsAny<Exception>(() => mistyped.CreateClient());
         Assert.Contains("10.0.0.300", (error.InnerException ?? error).Message);
+    }
+
+    // An open page is asked again each minute whether its sign-in still holds: a device signed out, or an account
+    // suspended, ends it there too. And a suspended admin is no admin.
+    [Fact]
+    public async Task An_open_page_loses_a_sign_in_that_has_ended()
+    {
+        await factory.SignUpAsync("Open Page Reader");
+        var id = await factory.ReaderIdAsync("Open Page Reader");
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+        var reader = await db.Readers.FirstAsync(item => item.Id == id);
+        var session = await db.ReaderSessions.AsNoTracking().FirstAsync(item => item.ReaderId == id);
+        var user = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(
+            [new(System.Security.Claims.ClaimTypes.NameIdentifier, id.ToString()), new(ReaderRules.StampClaim, reader.Stamp!), new(TwoFactor.SessionClaim, session.Id)], "test"));
+        Assert.True(await ShelfRevalidation.StillSignedInAsync(db, user));
+        Assert.True(await ShelfRevalidation.StillSignedInAsync(db, new System.Security.Claims.ClaimsPrincipal()));
+
+        reader.IsAdmin = true;
+        await db.SaveChangesAsync();
+        Assert.True(await ReaderRules.IsAdminAsync(db, id));
+        reader.Suspended = true;
+        await db.SaveChangesAsync();
+        Assert.False(await ShelfRevalidation.StillSignedInAsync(db, user));
+        Assert.False(await ReaderRules.IsAdminAsync(db, id));
+
+        reader.Suspended = false;
+        reader.IsAdmin = false;
+        await db.SaveChangesAsync();
+        Assert.True(await ShelfRevalidation.StillSignedInAsync(db, user));
+        await TwoFactor.SignOutDeviceAsync(db, id, session.Id);
+        Assert.False(await ShelfRevalidation.StillSignedInAsync(db, user));
     }
 }

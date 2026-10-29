@@ -52,6 +52,17 @@ public sealed class TidyTests(ShelfApiFactory factory) : IClassFixture<ShelfApiF
         var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
         var group = Assert.Single(await Tidy.AuthorGroupsAsync(db));
         Assert.Equal(3, group.Spellings.Count);
+        // Made as the Tidy page makes it, under a batch, and undone from Trash & undo, as the page promises.
+        var batch = await History.StartAsync(db, BatchKind.Edit, "Authors");
+        using (History.Use(batch.Id))
+        {
+            Assert.Equal(2, await Tidy.UseSpellingAsync(db, [.. group.Spellings.Select(item => item.Name)], "Ursula K. Le Guin"));
+        }
+
+        Assert.Empty(await Tidy.AuthorGroupsAsync(db));
+        var stores = scope.ServiceProvider;
+        Assert.NotNull(await History.UndoAsync(db, stores.GetRequiredService<EbookStore>(), stores.GetRequiredService<AudioStore>(), stores.GetRequiredService<CoverStore>(), batch.Id));
+        Assert.Equal(3, Assert.Single(await Tidy.AuthorGroupsAsync(db)).Spellings.Count);
         Assert.Equal(2, await Tidy.UseSpellingAsync(db, [.. group.Spellings.Select(item => item.Name)], "Ursula K. Le Guin"));
         Assert.Empty(await Tidy.AuthorGroupsAsync(db));
 

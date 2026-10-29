@@ -399,4 +399,26 @@ public sealed class ReadingLifeTests(ShelfApiFactory factory) : IClassFixture<Sh
         Assert.Contains("and 1 more", years);
         Assert.Contains("href=\"/years/2021\"", years);
     }
+
+    // Progress counts the place in the e-book, which the readers and devices move, as well as the page.
+    [Theory]
+    [InlineData(320, null, 0.6, 0.6)]
+    [InlineData(320, 160, 0.2, 0.5)]
+    [InlineData(null, null, 0.3, 0.3)]
+    [InlineData(320, 32, null, 0.1)]
+    public void Progress_counts_the_place_in_the_ebook(int? pages, int? page, double? place, double expected)
+    {
+        var book = new Book { Title = "Measured", Author = "Someone", Pages = pages, CurrentPage = page, EbookProgress = place };
+        Assert.Equal(expected, BookProgress.Fraction(book, null!)!.Value, 3);
+    }
+
+    // An earlier read kept with no end ends where the next began, so each session counts in one read only.
+    [Fact]
+    public void An_earlier_read_with_no_end_ends_where_the_next_began()
+    {
+        var past = new[] { new PastRead { Id = 1, StartedOn = new DateOnly(2024, 1, 1), FinishedOn = null } };
+        var sessions = new[] { new DateOnly(2024, 1, 10), new DateOnly(2024, 6, 10), new DateOnly(2024, 6, 20) };
+        var reads = Rereads.Throughs(past, new DateOnly(2024, 6, 1), null, null, BookStatus.Reading, sessions, [], []);
+        Assert.Equal([1, 2], reads.Select(read => read.Sessions));
+    }
 }

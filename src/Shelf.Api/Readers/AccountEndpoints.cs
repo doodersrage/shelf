@@ -23,15 +23,15 @@ public static class AccountEndpoints
         account.MapPost("/signin/code", SignInCode).AllowAnonymous().RequireRateLimiting(SignInLimit);
         account.MapGet("/sessions", Sessions).RequireAuthorization();
         account.MapDelete("/sessions/{id}", EndSession).RequireAuthorization();
-        account.MapPost("/two-factor/start", StartTwoFactor).RequireAuthorization();
-        account.MapPost("/two-factor/confirm", ConfirmTwoFactor).RequireAuthorization();
-        account.MapPost("/two-factor/disable", DisableTwoFactor).RequireAuthorization();
+        account.MapPost("/two-factor/start", StartTwoFactor).RequireAuthorization().RequireRateLimiting(SignInLimit);
+        account.MapPost("/two-factor/confirm", ConfirmTwoFactor).RequireAuthorization().RequireRateLimiting(SignInLimit);
+        account.MapPost("/two-factor/disable", DisableTwoFactor).RequireAuthorization().RequireRateLimiting(SignInLimit);
         Passkeys.Map(account, SignInLimit);
         ApiTokens.Map(account);
         SingleSignOn.Map(account, SignInLimit);
         account.MapPost("/signup", SignUp).AllowAnonymous().RequireRateLimiting(SignInLimit);
         account.MapPost("/signout", SignOut).AllowAnonymous();
-        account.MapPost("/remove", RemoveSelf).RequireAuthorization();
+        account.MapPost("/remove", RemoveSelf).RequireAuthorization().RequireRateLimiting(SignInLimit);
         account.MapPost("/forgot", Forgot).AllowAnonymous().RequireRateLimiting(SignInLimit);
         account.MapPost("/reset", Reset).AllowAnonymous().RequireRateLimiting(SignInLimit);
         account.MapPut("/email", SetEmail).RequireAuthorization();
@@ -119,6 +119,8 @@ public static class AccountEndpoints
 
         if (!await TwoFactor.CheckAsync(db, protection, reader, code, cancellationToken))
         {
+            // Kept, so a reader can see someone has their password and is trying codes.
+            await Audit.NoteAsync(db, Localization.Words.Say("A sign-in failed: wrong code"), reader, cancellationToken: cancellationToken);
             var again = new Dictionary<string, string?> { ["problem"] = nameof(AccountProblem.CodeWrong) };
             if (ReaderRules.IsLocalUrl(returnUrl))
             {
@@ -142,9 +144,15 @@ public static class AccountEndpoints
     private static async Task<Results<NoContent, NotFound>> EndSession(string id, ShelfDb db, CancellationToken cancellationToken) =>
         await TwoFactor.SignOutDeviceAsync(db, db.ReaderId, id, cancellationToken) > 0 ? TypedResults.NoContent() : TypedResults.NotFound();
 
-    private static async Task<Ok<TwoFactorStart>> StartTwoFactor(ShelfDb db, IDataProtectionProvider protection, CancellationToken cancellationToken)
+    private static async Task<Results<Ok<TwoFactorStart>, ValidationProblem>> StartTwoFactor(ShelfDb db, IDataProtectionProvider protection, CancellationToken cancellationToken)
     {
         var reader = await db.Readers.FirstAsync(item => item.Id == db.ReaderId, cancellationToken);
+        // Starting again replaces the secret and turns two-step off: once it is on, only turning it off, with a code, may.
+        if (reader.TwoFactorEnabled)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Code"] = [Localization.Words.T("Two-step sign-in is already on. Turn it off with a code first.")] });
+        }
+
         var secret = TwoFactor.NewSecret();
         reader.TwoFactorSecret = TwoFactor.Protector(protection).Protect(secret);
         reader.TwoFactorEnabled = false;

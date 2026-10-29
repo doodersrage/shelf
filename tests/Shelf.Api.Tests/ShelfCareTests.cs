@@ -316,6 +316,40 @@ public sealed class ShelfCareTests(ShelfApiFactory factory) : IClassFixture<Shel
             Assert.Contains("restore=done&added=1&skipped=0&files=2", restored.RequestMessage?.RequestUri?.Query);
         }
 
+        // The same download with its e-book spoiled: the book and its recording still come back, and the lost file is said.
+        var spoiled = new MemoryStream();
+        using (var from = new ZipArchive(new MemoryStream(zip)))
+        using (var to = new ZipArchive(spoiled, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var entry in from.Entries)
+            {
+                await using var write = to.CreateEntry(entry.FullName).Open();
+                if (entry.FullName == "books/0001/ebook/packed.epub")
+                {
+                    await write.WriteAsync("not an e-book any more"u8.ToArray());
+                }
+                else
+                {
+                    await using var read = entry.Open();
+                    await read.CopyToAsync(write);
+                }
+            }
+        }
+
+        var unlucky = await factory.SignUpAsync("Unlucky Restorer");
+        using (var content = new MultipartFormDataContent())
+        {
+            content.Add(new ByteArrayContent(spoiled.ToArray()), "file", "backup.zip");
+            var restored = await unlucky.PostAsync("/books/import/full", content);
+            Assert.Contains("restore=done&added=1&skipped=0&files=1", restored.RequestMessage?.RequestUri?.Query);
+            Assert.Contains("lost=1", restored.RequestMessage?.RequestUri?.Query);
+            Assert.Contains("1 files could not be brought back", System.Net.WebUtility.HtmlDecode(await restored.Content.ReadAsStringAsync()));
+        }
+
+        var partial = Assert.Single(await unlucky.GetFromJsonAsync<BookResponse[]>("/books", JsonOptions) ?? []);
+        Assert.Null(partial.EbookFileName);
+        Assert.NotNull(partial.AudioFileName);
+
         var copy = Assert.Single(await target.GetFromJsonAsync<BookResponse[]>("/books", JsonOptions) ?? []);
         Assert.Equal("Packed Up", copy.Title);
         Assert.Equal(["kept"], copy.Tags);

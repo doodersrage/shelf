@@ -78,16 +78,30 @@ public static class AudioEndpoints
         }
     }
 
+    // The old recording goes only once the book names the new one, as for e-books.
     public static async Task AttachAsync(ShelfDb db, AudioStore store, CoverStore covers, Book book, string storedName, string fileName, CancellationToken cancellationToken)
     {
-        store.Delete(book.AudioStoredName);
+        var old = book.AudioStoredName;
         book.AudioStoredName = storedName;
         book.AudioFileName = fileName;
         book.AudioTrack = 0;
         book.AudioSeconds = 0;
         book.Format ??= BookFormat.Audiobook;
-        await Covers.NoteAudioArtAsync(book, store, covers, cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await Covers.NoteAudioArtAsync(book, store, covers, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            store.Delete(storedName);
+            throw;
+        }
+
+        if (old != storedName)
+        {
+            store.Delete(old);
+        }
     }
 
     public static async Task<Results<NoContent, NotFound>> Remove(
@@ -102,13 +116,14 @@ public static class AudioEndpoints
             return TypedResults.NotFound();
         }
 
-        store.Delete(book.AudioStoredName);
+        var old = book.AudioStoredName;
         book.AudioStoredName = null;
         book.AudioChapterNames = null;
         book.AudioFileName = null;
         book.AudioTrack = null;
         book.AudioSeconds = null;
         await db.SaveChangesAsync(cancellationToken);
+        store.Delete(old);
         return TypedResults.NoContent();
     }
 

@@ -100,6 +100,7 @@ public static class Backup
         var added = new Book?[export.Books.Length];
         var result = await BookRules.ImportAsync(db, export, cancellationToken, added);
         var files = 0;
+        var lost = 0;
         for (var index = 0; index < added.Length; index++)
         {
             if (added[index] is not { } book)
@@ -107,46 +108,22 @@ public static class Backup
                 continue;
             }
 
-            var prefix = Folder(index) + "/";
-            var ebook = zip.Entries.FirstOrDefault(item => item.FullName.StartsWith(prefix + "ebook/", StringComparison.Ordinal) && item.Name.Length > 0);
-            if (ebook is not null)
+            // One book's files failing (damaged in the download, or no room left) leaves the others: before, it ended
+            // the restore with the books already saved, said "nothing was added", and lost the files already written.
+            try
             {
-                await using var stream = ebook.Open();
-                var saved = await ebooks.SaveAsync(stream, ebook.Name, cancellationToken);
-                if (saved.Status == EbookSaveStatus.Saved)
-                {
-                    book.EbookStoredName = saved.StoredName;
-                    book.EbookFileName = saved.FileName;
-                    book.EbookChapter = 0;
-                    Covers.Note(book, ebooks);
-                    files++;
-                }
+                (var brought, var missed) = await RestoreFilesAsync(zip, Folder(index) + "/", book, ebooks, audio, covers, cancellationToken);
+                files += brought;
+                lost += missed;
             }
-
-            if (zip.Entries.FirstOrDefault(item => item.FullName.StartsWith(prefix + "cover.", StringComparison.Ordinal)) is { } cover)
+            catch (Exception ex) when (ex is InvalidDataException or IOException)
             {
-                await using var stream = cover.Open();
-                if (await covers.SaveAsync(stream, cancellationToken) is { } kept)
-                {
-                    book.CoverImage = kept;
-                    files++;
-                }
-            }
-
-            var tracks = zip.Entries
-                .Where(item => item.FullName.StartsWith(prefix + "audio/", StringComparison.Ordinal) && item.Name.Length > 0)
-                .OrderBy(item => item.Name, StringComparer.Ordinal)
-                .ToList();
-            if (tracks.Count > 0 && await RestoreAudioAsync(audio, book, tracks, cancellationToken))
-            {
-                files++;
+                lost++;
             }
         }
 
-        if (files > 0)
-        {
-            await db.SaveChangesAsync(cancellationToken);
-        }
+        // Saved whatever came back, even if a book's later file failed after its first was written.
+        await db.SaveChangesAsync(cancellationToken);
 
         // The download's collections and past loans, onto the books here they were of: those just brought back, and
         // those skipped as already on the shelf.
@@ -156,7 +133,59 @@ public static class Backup
 
         // A download with a manifest is held up against it, and what doesn't match is said.
         var check = Preservation.Check(zipPath);
-        return new RestoreResult(result.Added, result.Skipped, files, check.Damaged.Length + check.Missing.Length, collections, loans);
+        return new RestoreResult(result.Added, result.Skipped, files, check.Damaged.Length + check.Missing.Length, collections, loans, lost);
+    }
+
+    // A book's e-book, cover, and recording from the download, and how many came back and how many could not.
+    private static async Task<(int Brought, int Missed)> RestoreFilesAsync(ZipArchive zip, string prefix, Book book, EbookStore ebooks, AudioStore audio, CoverStore covers, CancellationToken cancellationToken)
+    {
+        var (brought, missed) = (0, 0);
+        var ebook = zip.Entries.FirstOrDefault(item => item.FullName.StartsWith(prefix + "ebook/", StringComparison.Ordinal) && item.Name.Length > 0);
+        if (ebook is not null)
+        {
+            await using var stream = ebook.Open();
+            var saved = await ebooks.SaveAsync(stream, ebook.Name, cancellationToken);
+            if (saved.Status == EbookSaveStatus.Saved)
+            {
+                book.EbookStoredName = saved.StoredName;
+                book.EbookFileName = saved.FileName;
+                book.EbookChapter = 0;
+                Covers.Note(book, ebooks);
+                brought++;
+            }
+            else
+            {
+                missed++;
+            }
+        }
+
+        if (zip.Entries.FirstOrDefault(item => item.FullName.StartsWith(prefix + "cover.", StringComparison.Ordinal)) is { } cover)
+        {
+            await using var stream = cover.Open();
+            if (await covers.SaveAsync(stream, cancellationToken) is { } kept)
+            {
+                book.CoverImage = kept;
+                brought++;
+            }
+        }
+
+        var tracks = zip.Entries
+            .Where(item => item.FullName.StartsWith(prefix + "audio/", StringComparison.Ordinal) && item.Name.Length > 0)
+            .OrderBy(item => item.Name, StringComparer.Ordinal)
+            .ToList();
+        if (tracks.Count > 0)
+        {
+            if (await RestoreAudioAsync(audio, book, tracks, cancellationToken))
+            {
+                brought++;
+            }
+            else
+            {
+                missed++;
+            }
+        }
+
+        return (brought, missed);
     }
 
     // For each book in the download, by its place there, the id of the book on this shelf it is now.
@@ -467,7 +496,7 @@ public static class Backup
     }
 }
 
-public sealed record RestoreResult(int Added, int Skipped, int Files, int Damaged = 0, int Collections = 0, int Loans = 0);
+public sealed record RestoreResult(int Added, int Skipped, int Files, int Damaged = 0, int Collections = 0, int Loans = 0, int Lost = 0);
 
 // Sends a file made for this one response, then deletes it.
 public sealed class TempFileResult(string path, string contentType, string? downloadName = null) : IResult

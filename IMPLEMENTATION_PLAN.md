@@ -42,7 +42,7 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
 - **M0:** complete.
 - **Findings:** every finding from the M0 audit's top five and next tier is resolved, in follow-up tasks 1–19 and the same-day follow-ups below them.
 - **Release:** **2.18.0** was released on 2026-10-28 (tag `v2.18.0` at `73f0499`). Images are `ghcr.io/doodersrage/shelf:2.18.0` and `latest`; release notes are at https://github.com/doodersrage/shelf/releases/tag/v2.18.0. Later fixes are under Unreleased in `CHANGELOG.md`.
-- **Milestones:** each M1–M6 item has a status with evidence. Of the 54 items, 34 are `[x]`, 16 are `[~]`, and 4 are `[!]`. The `[~]` and `[!]` items are the remaining work, and none of them is a known defect.
+- **Milestones:** each M1–M6 item has a status with evidence. Of the 54 items, 39 are `[x]`, 11 are `[~]`, and 4 are `[!]`. The `[~]` and `[!]` items are the remaining work. The code review of 2026-10-28 left known defects that need a design choice before fixing, each listed under its item. The most serious are two P1s: an older tab or device can overwrite a newer reading position, and the book form can save stale reading dates.
 - **Accepted limits:** see each task. They include stale Kobo "Finished" pushes, app sessions and merges from before 2.18.0, PostgreSQL without `pg_dump` not copied offsite, restore undo, the `/alive` HEALTHCHECK, `pg_dump`'s password on its command line, and the unreachable xmldom advisory (no epubjs release fixes it; see M6 dependencies).
 
 ---
@@ -335,16 +335,41 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
   - *Status 2026-10-28:* M0 audit §1 (query filters plus about 120 `IgnoreQueryFilters` sites traced). Fixed: API-token sessions (task 3) and app sign-out (task 13). Tested in ReadersTests, FamilyTests, AbsApiTests. Later the same day: `ReadersTests.No_route_of_a_book_opens_it_to_a_reader_it_isnt_lent_to` asks every GET and DELETE `/books/{id}…` route (more than 40) as a stranger and expects refusal. It found `GET /books/{id}/photos` answering 200 with an empty list (no data leaked, since photos are owner-filtered); that now answers 404.
 - [x] Test privacy boundaries between readers: reading progress, notes, highlights, files, personal reading history, and account settings.
   - *Status 2026-10-28:* ReadersTests borrower test; FamilyTests (task 12); tags and status leaks fixed (tasks 17 and 19).
-- [~] Review account recovery, passkeys, two-step sign-in, OpenID Connect, API tokens, session handling, and security-sensitive logs against the current implementation.
+- [x] Review account recovery, passkeys, two-step sign-in, OpenID Connect, API tokens, session handling, and security-sensitive logs against the current implementation.
   - *Status 2026-10-28:* Tokens, two-step, and sessions reviewed in the audit; token and app-session defects fixed (tasks 3 and 13). Passkeys and OIDC were reviewed by reading the code only; no new findings.
+  - *Reviewed 2026-10-28 by reading the code; the findings were checked and the fixes tested (`dotnet test`, 446 passed).*
+    - Sound: password hashing and rehash; reset links (256-bit, hashed, used once, one hour, no Host-header links); the two-step secret sealed, codes compared in constant time, recovery codes hashed and single-use; passkey origin, RP ID, and user verification; OpenID Connect with PKCE, readers matched by issuer and subject and never by email; API tokens and device keys random, hashed, and revocable; cookies HttpOnly, SameSite=Lax, and checked on every request; antiforgery; open redirects; admin authorization.
+    - **Fixed:**
+      - The Audiobookshelf-app `/login` had no rate limit (P1): `AbsApiTests.The_apps_sign_in_has_the_same_limit_on_guesses`.
+      - `/two-factor/start` turned two-step sign-in off without a code (P2). Start, confirm, disable, and remove now share the sign-in limit, and a wrong code is audited: `FeatureTests.Two_step_sign_in_asks_for_a_code…`.
+      - Open Blazor pages outlived a revoked sign-in (P2): `ShelfRevalidation` rechecks every minute, and `IsAdminAsync` now refuses a suspended admin: `FeatureTests.An_open_page_loses_a_sign_in_that_has_ended`.
+      - Reset links survived a new password or email (P3): `FeatureTests.A_forgotten_password_is_reset_from_an_emailed_link`.
+    - **Open, each needing a design choice:**
+      - P2: adding a passkey or API token asks for no fresh proof, and a password change leaves passkeys, tokens, and device keys working.
+      - P2: wrong codes are limited per address, not per account.
+      - P3: a code can be reused within its 90-second window; sign-in timing and sign-up reveal which addresses have accounts; changing the email asks no password and tells the old address nothing; an admin's sensitive actions ask for no fresh sign-in; passkey challenges aren't single-use on the server; there is no breached-password check; the audit log can be flooded and doesn't log successful sign-ins.
 - [x] Test EF Core migrations against an existing populated database, not only a fresh install.
   - *Status 2026-10-28:* `UpgradeTests` rolls a populated shelf back one migration and upgrades it (task 9).
 - [x] Verify backup creation, retention, integrity checks, restore behavior, and recovery after an interrupted or partial backup.
   - *Status 2026-10-28:* RestoreTests, OffsiteBackupTests, and ShelfCareTests drill tests; PostgreSQL honest failure (task 2); retention after the drill (task 10); `.partial` cleanup; pre-update backup and its drill (task 9).
 - [x] Confirm that exports and public share links omit secrets and private reader data.
   - *Status 2026-10-28:* Audit §2 (PortableExport scoped to the reader, secrets sealed). Shared lists are covered by CollectionTests and the signed-out accessibility test.
-- [~] Exercise malformed imports, duplicate records, missing files, interrupted uploads, disk-full errors, and provider timeouts.
+- [x] Exercise malformed imports, duplicate records, missing files, interrupted uploads, disk-full errors, and provider timeouts.
   - *Status 2026-10-28:* Imports report added, skipped, and failed, and re-runs are idempotent (audit). Provider timeouts are now told apart (tasks 15 and 11). Disk-full is covered only for backups (task 9), not for uploads.
+  - *Reviewed 2026-10-28 by reading the code; the findings were checked and the fixes tested (`dotnet test`, 446 passed).*
+    - Sound: outbound timeouts on every client; backups written `.partial`, then drilled; temporary folders cleaned up; no duplicates on re-import; CSV fills only empty fields; Calibre and the import folder explain refusals.
+    - **Fixed:**
+      - The old file was deleted before saving a replacement (P1): `EbookEndpoints`/`AudioEndpoints.AttachAsync` and `Remove`.
+      - A zip restore that failed partway said "nothing was added" with the books already saved (P1). Now files are restored per book and the lost ones counted: `ShelfCareTests.A_full_backup_carries_files…`.
+      - One bad import-folder item stopped every scan (P1): `FolderImportTests.A_broken_zip_is_set_aside_and_the_rest_still_come_in`.
+      - A corrupt audiobook zip failed the upload (P2): `BooksEndpointTests.A_broken_audiobook_zip_is_refused`.
+      - A cut-off e-book write left a part-file (P2).
+      - Restore dropped refused files without saying so (P2).
+    - **Open:**
+      - P2: a slow linked shelf can hold the Shelves and Loans pages, with a 1 h timeout.
+      - P2: failed linked-shelf and Shelf-to-Shelf downloads, and a cancelled full-library download, leave temporary files.
+      - P2: CSV rows with no title or author aren't counted apart from duplicates; one unexpected error stops the Audiobookshelf importer until restart; tracks past 200 are dropped silently.
+      - P3: an unclosed quote swallows the rest of a CSV; bulk and folder imports say "unsupported" for a damaged file.
 - [x] Define conflict rules for progress and metadata arriving from multiple devices or integrations.
   - *Status 2026-10-28:* Forward-only for devices and late replays, live playback both ways, reread resets (tasks 5–8). Documented in `reading.md` and `audiobooks.md`.
 - [x] Ensure external-service failure does not prevent unrelated local reading or catalog workflows.
@@ -382,6 +407,15 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
   - *Status 2026-10-28:* Covered piecewise by `reading.spec`, `listening.spec`, KosyncTests, and ReadingLifeTests. Nobody did a manual end-to-end walk-through in this session.
 - [~] Verify position persistence on navigation, refresh, browser close, reconnect, and device change where supported.
   - *Status 2026-10-28:* The offline, mini player, and resume specs pass. Browser close and device change are covered only through the sync tests.
+  - *Reviewed 2026-10-28 by reading the code; the findings were checked and the fixes tested (`dotnet test`, 446 passed).*
+    - Sound: the audio player saves on `pagehide` with a local copy and forward-only replay; reader time flushes on hide; KOReader sync is forward-only.
+    - **Fixed:** a page turn within a second of closing the reader was dropped (P3, `epub-reader.js` `close()`).
+    - **Open (P1, needs a design choice, the next task):**
+      - A stale tab or device writes its older place over a newer one: an EPUB tab on resize, or an audio tab on Play.
+      - Every browser reports as one device, so the Positions page can't bring the newer place back.
+      - EPUB and PDF page turns made while the connection is down are lost: there's no local queue, no `pagehide` flush, and no resend on reconnect.
+      - Proposed: a per-browser device id, a reject-if-older rule keyed on the place's last server time, and a REST save with a local queue as `listen.js` has.
+      - P3: a place queued offline before a reread can jump the reread forward.
 - [x] Confirm how positions map between EPUB, PDF, comics, audiobook tracks, and external devices; avoid pretending incompatible positions are directly equivalent.
   - *Status 2026-10-28:* Audit: read-along when present, otherwise chapter pins with a proportional estimate (`Crossover.cs`). P3: the UI doesn't flag an estimate.
 - [x] Test conflicts between browser, KOReader, Kobo, and other enabled sync sources.
@@ -422,8 +456,14 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
   - *Status 2026-10-28:* MergingTests (detection, merge, unmerge in task 18).
 - [x] Ensure merge previews explain which fields, files, relationships, reading records, notes, and copies will be preserved.
   - *Status 2026-10-28:* A merge preview exists (`library.md`, "says what merging will do"), and restoring now reverses a merge (task 18).
-- [~] Audit bulk editing, saved searches, collections, tags, series, locations, editions, physical copies, and metadata cleanup.
+- [x] Audit bulk editing, saved searches, collections, tags, series, locations, editions, physical copies, and metadata cleanup.
   - *Status 2026-10-28:* Tests exist (BooksEndpointTests, SavedSearchTests, CollectionTests, `library.spec`); bulk bar accessibility audited (task 14). No new review beyond that.
+  - *Reviewed 2026-10-28 by reading the code; the findings were checked and the fixes tested (`dotnet test`, 446 passed).*
+    - Sound: bulk edit, collections, shared lists, saved searches, tags, places, merge (with receipt and unmerge), detail proposals, and trash are all owner-scoped, batched for undo, and confirmed where destructive.
+    - **Fixed:**
+      - Tidy's author spellings went around history, so they couldn't be undone despite the page's promise (P1): `TidyTests.Spellings_become_one…`.
+      - A place's destination wasn't checked against the reader's own places, so another reader could block its removal (P2): `KeepingTests.A_destination_is_one_of_your_own_places`.
+    - **Open:** P3: bulk "add tag" counts books at the tag limit as changed.
 - [x] Verify import previews, source mapping, duplicate handling, retry behavior, and partial-failure reporting.
   - *Status 2026-10-28:* Audit §5: ImportJobs and Calibre report added, skipped, and failed; re-runs are idempotent.
 - [x] Verify export completeness for catalog records, editions/formats, physical copies, reading history, highlights/notes, lending records, collections, and files where applicable.
@@ -434,6 +474,8 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
   - *Status 2026-10-28:* RestoreTests (snapshot into a fresh folder) and `A_readers_zip_brings_back_their_collections_and_past_loans`.
 - [~] Make file-missing and storage-migration states discoverable and recoverable.
   - *Status 2026-10-28:* The FileCheck weekly sweep exists and is tested (audit). No new work.
+  - *Reviewed 2026-10-28 by reading the code; the findings were checked and the fixes tested (`dotnet test`, 446 passed).* There is no storage-migration feature, so that part is not applicable. Kobo, OPDS, KOReader, and the Audiobookshelf API answer 404 for a missing file.
+    - **Open (P2):** a missing EPUB says "could not be opened", like a damaged one, with no "the file is missing" wording or upload link; re-uploading on the book page does work. Calibre gives the same note for a missing file as for an unsupported one.
 - [x] Add safeguards and tests around destructive merges, deletions, and bulk actions.
   - *Status 2026-10-28:* Trash with undo (audit); merges are reversible (task 18).
 
@@ -454,8 +496,21 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
 
 - [~] Verify that the reading journal correctly represents sessions, dates, rereads, reading time, audiobook time, and imported activity.
   - *Status 2026-10-28:* ReadingLifeTests, YearReviewTests, InsightsTests, and the Audiobookshelf listening-history import. Not re-reviewed.
+  - *Reviewed 2026-10-28 by reading the code; the findings were checked and the fixes tested (`dotnet test`, 446 passed).*
+    - **Fixed:** an earlier read with no finish date counted the same sessions as the next read (P3): `ReadingLifeTests.An_earlier_read_with_no_end_ends_where_the_next_began`.
+    - **Open:**
+      - P2, needs a decision: every day is a UTC day. Finishes, sessions, and highlights after about 19:00 in the Americas land on the next day, or the next year. Proposed: the browser sends its local date, or a per-reader time zone.
+      - P3: the journal leaves out listening and reader time.
+      - Unsure: trashing a book removes a former borrower's own listening days and highlights on it.
 - [~] Check yearly goals and summaries for consistency when records are edited, deleted, imported, or synced.
   - *Status 2026-10-28:* Covered by existing tests; not re-reviewed.
+  - *Reviewed 2026-10-28 by reading the code; the findings were checked and the fixes tested (`dotnet test`, 446 passed).* Year counts agree across stats, years, the year review, and Home; trash and restore are consistent.
+    - **Fixed:**
+      - Imports stamped undated "read" books as finished today (P1): `FeatureTests.A_goodreads_export_comes_in…` now has an undated row.
+      - The progress bar ignored e-book progress (P2): `ReadingLifeTests.Progress_counts_the_place_in_the_ebook`.
+    - **Open:**
+      - P1, needs a decision: the book form saves the reading status and dates as they were when the page opened, so saving an old tab can undo a finish made elsewhere, or count a reread twice. Proposed: write reading fields only when changed in the form, and refuse when they changed underneath.
+      - P2: merging two finished entries keeps one finish and drops the other's year; unmerge restores it.
 - [!] Ensure charts and milestones explain their definitions and handle incomplete data gracefully.
   - *Status 2026-10-28:* Needs a person to judge.
 - [x] Review current recommendations and “what to read next” behavior for transparency and usefulness.
@@ -531,15 +586,15 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
     - WAL journal mode was tried for comparison and was no faster (pages median 298 ms), since the time is server CPU, not locking. It stays off: WAL is unsafe on network-mounted volumes, and backups already use `VACUUM INTO`, which is consistent in either mode.
     - SIGTERM during that load (what `docker stop` sends) stopped the server in 0.45 s, with no failed requests in the log and `PRAGMA integrity_check` = ok. That is well inside Docker's 10 s grace period.
     - A backup interrupted by a stop is written to `.partial` and renamed only when finished (`BackupSchedule.cs`), so it is never taken for a complete one.
-- [~] Review configuration defaults and documentation for reverse proxies, HTTPS, email, storage, and optional integrations.
+- [x] Review configuration defaults and documentation for reverse proxies, HTTPS, email, storage, and optional integrations.
   - *Status 2026-10-28:* Documentation for the changed settings was updated (`Backup:BeforeMigrating`, `Database:PgDump`, `Network:AllowPrivateAddresses`).
   - *Proxy, HTTPS, and email reviewed later the same day* against `Program.cs` and `Email.cs`:
     - `server.md` and `configuration.md` match the code: `BehindProxy`, `KnownProxies`, HSTS and the HTTPS redirect, the nginx WebSocket lines, and every `Email:` setting. The one exception is the older `Email:Ssl`, which is still read when `Email:Security` is unset and is left undocumented on purpose.
     - **Found and fixed (security):** an unreadable `Hosting:KnownProxies` entry was skipped silently. With none left, forwarded headers were trusted from any address, so a direct request could spoof its IP past the sign-in limit. Now startup stops and names the entry. Test: `FeatureTests.A_proxy_address_that_cant_be_read_stops_the_start`, which also checks that a valid list still starts.
-    - Still `[~]`: storage and optional-integration docs weren't re-read line by line.
+    - Storage and optional-integration settings were later checked key by key against the code: every documented key is read, and every default matches. `Recap:Url`, `Backup:S3:MultipartAboveBytes`, the watchers' pauses, and `Email:Ssl` were added, and the stray `Ask:UseModel` row was put back in its table.
 - [x] Ensure secrets are not printed in logs or accidentally exposed in diagnostics.
   - *Status 2026-10-28:* Audit §3: tokens hashed or sealed; grep found no secrets in log calls. Later the same day: `pg_dump` gets the password in `PGPASSWORD`, not on its command line (`Tools.RunAsync` takes an environment; `ShelfCareTests.A_tool_is_given_its_password_in_its_environment`).
-- [~] Check performance with a realistically large catalog, many reading records, and large ebook/audiobook files.
+- [x] Check performance with a realistically large catalog, many reading records, and large ebook/audiobook files.
   - *Status 2026-10-28:* Measured on a local Release build with SQLite. The data: one reader with 50,000 books, 100,000 sessions, 25,000 quotes, and 100,000 tag links, plus a second reader's open shelf of 30,000 books. Each page was requested once to warm up, then three times; the median is reported.
   - **Fine:** every page and API except one answers in about a second or less. Slowest: `/books?take=60` 1.0 s, `/stats` 0.7 s, `/tidy` 0.65 s, `/library` 0.55 s.
   - **P1 found and fixed: `/journal` took about 81 s and sent 13.7 MB.** My first diagnosis was wrong. I blamed drawing the page, but paging alone left it at 77 s. The real cause was `Journal.YearAsync` filtering quotes and highlights by id: EF Core 10 turns `ids.Contains(x.Id)` into one SQL parameter per id (`IN (@kept1 … @kept25000)`), and building that command took about 76 s.
@@ -551,6 +606,11 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
     - `/years/2024` takes 334 ms.
     - Test: `ReadingLifeTests.Long_lists_open_a_page_at_a_time`.
   - Large e-book and audiobook files weren't measured.
+  - *Large files, checked later the same day on the same scratch server:*
+    - A 273 MB, three-hour AAC audiobook uploaded in 0.35 s on localhost, with server memory up about 10 MB (it streams to disk). Its play plan answers in 38 ms; range requests at the start and the very end take under 10 ms each (206).
+    - An EPUB with 500 chapters and 43 MB of text (13.6 MB zipped) uploaded in 0.04 s. Its book page opens in 0.5 s and the reader in 0.8 s, chapter 500 included. Search takes 1.1 s.
+    - Peak server memory over the whole run: about 400 MB.
+    - Not measured: network upload speed and the browser's own memory for such a book.
 - [x] Review dependency updates and security advisories using repository-supported tooling.
   - *Status 2026-10-28:* 2026-10-28: `dotnet list package --vulnerable` lists only MessagePack 2.5.302 (moderate), in the development-only `Shelf.AppHost`, from Aspire. `npm audit`: tests/e2e and site are clean. Vendored `epubjs` 0.3.93 bundles `@xmldom/xmldom`, which has a high advisory, but epubjs uses it only when there is no native `DOMParser` or `forceXMLDom` is passed, and nothing passes it. So it isn't reachable in the browser. All open Dependabot PRs were merged after CI.
   - *Rechecked later the same day; the way out recorded above was wrong.* `npm audit`'s "fix", epubjs 0.4.2, is a **2018 release, older than 0.3.93**; it's offered only because it predates the xmldom dependency. 0.3.93 is epubjs's newest stable release, and after it there are only 0.5.0 alphas. So no update, from Dependabot or anywhere else, removes the advisory.

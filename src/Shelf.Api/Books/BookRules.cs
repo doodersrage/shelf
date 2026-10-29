@@ -146,7 +146,9 @@ public static class BookRules
             : errors.ToDictionary(pair => pair.Key, pair => pair.Value.ToArray(), StringComparer.Ordinal);
     }
 
-    public static void Apply(Book book, BookWrite write)
+    // Imports pass stampDates false: a book read on no day given stays undated (finished, but in no year), where today
+    // would count every undated "read" row of an export as finished the day it was brought in.
+    public static void Apply(Book book, BookWrite write, bool stampDates = true)
     {
         var created = book.Id == 0;
         var previous = book.Status;
@@ -227,7 +229,7 @@ public static class BookRules
 
         // Stamp the reading dates when a book enters Reading or Finished, unless a date was supplied.
         var statusChanged = created || previous != write.Status;
-        if (statusChanged)
+        if (statusChanged && stampDates)
         {
             StampDates(book, write.Status, today);
         }
@@ -665,7 +667,7 @@ public static class BookRules
                 Title = write.Title.Trim(),
                 Author = write.Author.Trim(),
             };
-            Apply(book, write);
+            Apply(book, write, stampDates: false);
             if (source.AddedAt != default)
             {
                 book.AddedAt = source.AddedAt;
@@ -846,7 +848,7 @@ public static class BookRules
             }
 
             var book = new Book { Title = write.Title.Trim(), Author = write.Author.Trim() };
-            Apply(book, write);
+            Apply(book, write, stampDates: false);
             if (row.AddedAt is { } addedAt)
             {
                 book.AddedAt = addedAt;

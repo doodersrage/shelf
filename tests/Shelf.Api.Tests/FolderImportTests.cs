@@ -65,6 +65,33 @@ public sealed class FolderImportTests(ShelfApiFactory factory) : IClassFixture<S
         Assert.True(File.Exists(Path.Combine(mine, FolderImport.Imported, "again.epub")));
     }
 
+    // A zip that won't open is refused and set aside, and what comes after it is still taken: it stopped the scan.
+    [Fact]
+    public async Task A_broken_zip_is_set_aside_and_the_rest_still_come_in()
+    {
+        await using var app = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("Import:Folder", folder);
+            builder.UseSetting("Import:SettleSeconds", "0");
+            builder.UseSetting("Import:EverySeconds", "3600");
+        });
+        var reader = app.CreateClient();
+        await ShelfApiFactory.PostFormAsync(reader, "/signup", "/account/signup", new() { ["name"] = "Broken Zip Reader", ["email"] = ShelfApiFactory.EmailOf("Broken Zip Reader"), ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
+        var import = app.Services.GetRequiredService<FolderImport>();
+        await import.ScanAsync(CancellationToken.None);
+
+        var mine = Path.Combine(folder, "broken zip reader");
+        Directory.CreateDirectory(mine);
+        await File.WriteAllBytesAsync(Path.Combine(mine, "a-broken.zip"), [0x50, 0x4B, 0x03, 0x04, 1, 2, 3, 4, 5, 6, 7, 8]);
+        await File.WriteAllBytesAsync(Path.Combine(mine, "z-dispossessed.epub"), ImportTests.Epub("The Dispossessed", "Ursula K. Le Guin", null, "en", cover: false));
+        await import.ScanAsync(CancellationToken.None);
+        await import.ScanAsync(CancellationToken.None);
+
+        var added = Assert.Single((await reader.GetFromJsonAsync<List<BookResponse>>("/books", JsonOptions))!);
+        Assert.Equal("The Dispossessed", added.Title);
+        Assert.True(File.Exists(Path.Combine(mine, FolderImport.NotAdded, "a-broken.zip")));
+    }
+
     [Fact]
     public async Task A_folder_of_tracks_becomes_one_audiobook_and_a_growing_file_waits()
     {

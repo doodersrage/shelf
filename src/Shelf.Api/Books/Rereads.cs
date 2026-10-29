@@ -130,8 +130,10 @@ public static class Rereads
     }
 
     public static async Task<PastRead[]> ForBookAsync(ShelfDb db, int bookId, CancellationToken cancellationToken = default) =>
+        // By the day each ended, or began when no end was kept; a read with neither comes after the dated ones.
         await db.PastReads.AsNoTracking().Where(read => read.BookId == bookId)
-            .OrderBy(read => read.FinishedOn).ThenBy(read => read.Id).ToArrayAsync(cancellationToken);
+            .OrderBy(read => (read.FinishedOn ?? read.StartedOn) == null).ThenBy(read => read.FinishedOn ?? read.StartedOn).ThenBy(read => read.Id)
+            .ToArrayAsync(cancellationToken);
 
     // Every read of the book, first to last; what was logged, highlighted, and quoted falls in the read whose days
     // it was made in. Null for a book not on the shelf; one read, the book's own, for a book never read again.
@@ -173,7 +175,10 @@ public static class Rereads
                 break;
             }
 
-            var end = current ? (DateOnly?)null : past[index].FinishedOn;
+            // An earlier read kept with no end ends the day before the next began: open-ended, it and every read after
+            // it each counted the same sessions, highlights, and quotes.
+            var next = current ? null : index + 1 < past.Count ? past[index + 1].StartedOn : startedOn;
+            var end = current ? (DateOnly?)null : past[index].FinishedOn ?? next?.AddDays(-1);
             bool Within(DateOnly day) => (after is null || day > after) && (end is null || day <= end);
             reads.Add(new ReadThrough(
                 current ? null : past[index].Id,

@@ -191,18 +191,18 @@ public static class PlaceTree
         }
 
         var before = Paths(places);
-        var (name, parent) = (place.Name, place.ParentId);
+        var (name, parent, destination) = (place.Name, place.ParentId, place.DestinationId);
         place.Name = Clean(request.Name) ?? "";
         place.ParentId = request.ParentId;
+        place.DestinationId = request.DestinationId == id ? null : request.DestinationId;
         if (Check(places, place) is { } problem)
         {
-            (place.Name, place.ParentId) = (name, parent);
+            (place.Name, place.ParentId, place.DestinationId) = (name, parent, destination);
             return problem;
         }
 
         place.Kind = Enum.IsDefined(request.Kind) ? request.Kind : place.Kind;
         place.Temporary = request.Temporary || place.Kind == PlaceKind.Box;
-        place.DestinationId = request.DestinationId == id ? null : request.DestinationId;
         place.Note = Note(request.Note);
         var after = Paths(places);
         await RewriteAsync(db, places.Select(item => (before[item.Id], after[item.Id])).Where(pair => pair.Item1 != pair.Item2).ToList(), cancellationToken);
@@ -452,6 +452,12 @@ public static class PlaceTree
                     return T("Places go at most {0} deep.", MaxDepth);
                 }
             }
+        }
+
+        // A destination is one of the reader's own places too: another reader's would block them removing it.
+        if (place.DestinationId is int destinationId && !places.Any(item => item.Id == destinationId))
+        {
+            return T("That place isn't on your shelf.");
         }
 
         if (places.Any(item => item != place && item.Id != place.Id && item.ParentId == place.ParentId && item.Name.Equals(place.Name, StringComparison.OrdinalIgnoreCase)))

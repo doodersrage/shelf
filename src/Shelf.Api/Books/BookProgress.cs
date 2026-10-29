@@ -38,7 +38,11 @@ public static class BookProgress
             return heard / length;
         }
 
-        return book.Pages is int pages && pages > 0 ? Math.Clamp((book.CurrentPage ?? 0) / (double)pages, 0, 1) : null;
+        // The page reached, or the place in the e-book (Shelf's reader, KOReader, and Kobo move that, not the page),
+        // whichever is further: by pages alone, a book read far in the reader showed nothing done.
+        double? byPage = book.Pages is int pages && pages > 0 ? Math.Clamp((book.CurrentPage ?? 0) / (double)pages, 0, 1) : null;
+        double? byPlace = book.EbookProgress is double place and > 0 ? Math.Clamp(place, 0, 1) : null;
+        return byPage is null && byPlace is null ? null : Math.Max(byPage ?? 0, byPlace ?? 0);
     }
 
     // The open books, the one last read or listened to first; one only started, with nothing logged, after those.

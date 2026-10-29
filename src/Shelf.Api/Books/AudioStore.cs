@@ -93,6 +93,17 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
 
             return new AudioSave(AudioSaveStatus.Saved, storedName, display);
         }
+        catch (InvalidDataException)
+        {
+            // A zip that won't open, or a track inside it that won't read, is refused like any file Shelf can't take,
+            // rather than failing the whole upload (and, in an import, everything after it).
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+
+            return new AudioSave(AudioSaveStatus.Unsupported, null, null);
+        }
         catch
         {
             if (Directory.Exists(directory))

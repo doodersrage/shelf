@@ -6,10 +6,27 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Security
 
+- **The Audiobookshelf apps' sign-in has the same limit on guesses as the web's**: it checked the same password with no limit at all, so it could be guessed at without end.
+- **Two-step sign-in can't be turned off without a code**: starting its setup again while it was on turned it off, with no code asked for and nothing logged. Now that's refused, and the code step, turning it off, and removing an account have the sign-in limit too.
+- **A wrong two-step code is logged**, so a reader can see that someone has their password and is trying codes.
+- **An open page ends when its sign-in does**: signing a device out, changing the password, "Sign out everywhere else", or suspending an account ended the next request, but a page already open kept working. Now open pages are checked every minute. And a suspended admin is no longer an admin.
+- **A new password ends the reset links sent before it**, and so does changing the email address.
 - **A mistyped proxy address no longer trusts every proxy**: an entry in `Hosting:KnownProxies` that wasn't an address or a range (a typo like `10.0.0.300`) was skipped without a word, and with none left, forwarded headers were trusted from anywhere, so a request straight to Shelf's port could claim another address to get around the sign-in limit. Now Shelf won't start with one, and the log names it.
 
 ### Fixed
 
+- **Replacing or removing a book's file can't lose it**: the old file was deleted before the change was saved, so a failed save left the book naming a file that was gone.
+- **A backup restore that hits a bad file goes on**: one damaged file, or a full disk, ended the restore with its books already added, said "nothing was added", and lost the files already written. Now every book's files are tried, what came back is kept, and the page says how many files couldn't be brought back. E-books and recordings the restore turned away, as damaged or too large, are counted there too, where they went unmentioned.
+- **One bad item in the import folder no longer stops it**: a zip that wouldn't open stopped the scan at that item, every time, for every reader after it. It's set aside under `.not-added` now, and the scan goes on.
+- **An audiobook zip that won't open is refused**, as a file Shelf can't take, rather than failing the upload or the import it was part of.
+- **An e-book upload cut off partway leaves nothing behind**: a full disk or an ended request left a part-file that nothing would ever remove.
+- **Goodreads, StoryGraph, and other imports keep an undated read undated**: a book marked read with no date came in as finished the day it was imported, so an import of old reads filled this year's goal. Now it's finished, in no year. Restoring a JSON backup does the same.
+- **Tidy's author spellings can be undone**, as the page says: the change went straight to the database, around the history Trash & undo works from.
+- **Progress counts the place in the e-book**: the progress bar and Continue card went by pages alone, so a book read far in Shelf's reader, KOReader, or a Kobo showed nothing done.
+- **An earlier read with no finish date ends where the next began**: open-ended, it and the read after it each counted the same sessions, highlights, and quotes.
+- **A page turned just before leaving the reader is saved**: the last turn within a second of closing it was dropped.
+- **A storage place's destination must be one of your own places**: naming another reader's place blocked them from removing it.
+- **The configuration page lists every setting**: `Recap:Url`, `Backup:S3:MultipartAboveBytes`, the watchers' pauses, and the older `Email:Ssl`; and `Ask:UseModel` is back in its table.
 - **A damaged e-book is turned away when it's added**: a file cut short in downloading, or one named `.epub`, `.pdf`, or `.cbz` that isn't one, was kept with "The e-book is on the shelf" and failed only when you opened it. Now it's refused there and then, with a message that it looks damaged or incomplete; the book keeps whatever file it had.
 - **Long lists open light**: on a big shelf, **Quotes & highlights**, **Series**, **Reading**, and **Years** each drew everything at once, pages of up to several megabytes. Now quotes and highlights come 200 at a time and series 100, each with **Show more** and **Show all** (a search still looks through them all); **Reading** shows the 24 books opened latest, with a link to every one in the library; and **Years** shows up to 60 books a year, with a link to that year's page for the rest.
 

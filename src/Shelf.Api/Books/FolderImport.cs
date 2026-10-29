@@ -82,13 +82,13 @@ public sealed class FolderImport(IServiceScopeFactory scopes, BookImport import,
                     foreach (var item in Entries(entry))
                     {
                         current.Add(item);
-                        taken += await TryAsync(owner.Id, entry, item, cancellationToken) ? 1 : 0;
+                        taken += await TryOrSetAsideAsync(owner.Id, entry, item, cancellationToken) ? 1 : 0;
                     }
                 }
                 else if (admin is int adminId)
                 {
                     current.Add(entry);
-                    taken += await TryAsync(adminId, root, entry, cancellationToken) ? 1 : 0;
+                    taken += await TryOrSetAsideAsync(adminId, root, entry, cancellationToken) ? 1 : 0;
                 }
             }
 
@@ -185,6 +185,30 @@ public sealed class FolderImport(IServiceScopeFactory scopes, BookImport import,
         logger.LogInformation("Import folder: {Item} for reader {Reader}: {Outcomes}.", Path.GetFileName(item), readerId,
             string.Join(", ", results.Select(result => $"{result.FileName} {result.Outcome}")));
         return true;
+    }
+
+    // One item that fails in a way no rule foresaw is set aside with the refused, and the scan goes on: thrown out of
+    // the scan, it stopped every item after it, other readers' too, at every scan.
+    private async Task<bool> TryOrSetAsideAsync(int readerId, string home, string item, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await TryAsync(readerId, home, item, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Import folder: {Item} could not be added, and is set aside.", Path.GetFileName(item));
+            try
+            {
+                PutAway(item, home, refused: true);
+            }
+            catch (Exception again) when (again is IOException or UnauthorizedAccessException)
+            {
+                logger.LogWarning(again, "Import folder: {Item} could not be set aside.", Path.GetFileName(item));
+            }
+
+            return false;
+        }
     }
 
     private void PutAway(string item, string home, bool refused)

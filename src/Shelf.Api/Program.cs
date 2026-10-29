@@ -348,6 +348,7 @@ builder.Services.AddAuthorizationBuilder()
         .AddAuthenticationSchemes(CookieAuthenticationDefaults.AuthenticationScheme, ShelfKeyHandler.SchemeName)
         .RequireAuthenticatedUser());
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider, ShelfRevalidation>();
 var signInsPerMinute = builder.Configuration.GetValue("Accounts:SignInsPerMinute", 10);
 builder.Services.AddRateLimiter(options =>
 {

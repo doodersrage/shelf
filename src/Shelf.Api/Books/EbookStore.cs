@@ -45,42 +45,52 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
         var storedName = $"{Guid.NewGuid():N}{extension}";
         var fullPath = Path.Combine(Root, storedName);
         using var fingerprint = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        await using (var output = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        // A copy cut off (the disk full, the request ended) leaves no part-file behind: nothing would ever name it.
+        try
         {
-            var buffer = new byte[81920];
-            long total = 0;
-            while (true)
+            await using (var output = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
-                var read = await source.ReadAsync(buffer, cancellationToken);
-                if (read == 0)
+                var buffer = new byte[81920];
+                long total = 0;
+                while (true)
                 {
-                    break;
-                }
+                    var read = await source.ReadAsync(buffer, cancellationToken);
+                    if (read == 0)
+                    {
+                        break;
+                    }
 
-                total += read;
-                if (total > MaxBytes)
-                {
-                    output.Close();
-                    File.Delete(fullPath);
-                    return new EbookSave(EbookSaveStatus.TooLarge, null, null);
-                }
+                    total += read;
+                    if (total > MaxBytes)
+                    {
+                        output.Close();
+                        File.Delete(fullPath);
+                        return new EbookSave(EbookSaveStatus.TooLarge, null, null);
+                    }
 
-                fingerprint.AppendData(buffer.AsSpan(0, read));
-                await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                    fingerprint.AppendData(buffer.AsSpan(0, read));
+                    await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                }
             }
-        }
 
-        // A file that can't be what its name says (cut short, or not that kind at all) goes again, said plainly,
-        // rather than kept as an e-book the reader would fail to open.
-        if (!LooksWhole(fullPath, extension))
+            // A file that can't be what its name says (cut short, or not that kind at all) goes again, said plainly,
+            // rather than kept as an e-book the reader would fail to open.
+            if (!LooksWhole(fullPath, extension))
+            {
+                File.Delete(fullPath);
+                return new EbookSave(EbookSaveStatus.Damaged, null, null);
+            }
+
+            // The fingerprint is taken while the file streams in, so sync never has to read it again.
+            var hash = Convert.ToHexString(fingerprint.GetHashAndReset()).ToLowerInvariant();
+            await Fingerprint.WriteAsync(fullPath + Fingerprint.Extension, hash, cancellationToken);
+        }
+        catch
         {
             File.Delete(fullPath);
-            return new EbookSave(EbookSaveStatus.Damaged, null, null);
+            File.Delete(fullPath + Fingerprint.Extension);
+            throw;
         }
-
-        // The fingerprint is taken while the file streams in, so sync never has to read it again.
-        var hash = Convert.ToHexString(fingerprint.GetHashAndReset()).ToLowerInvariant();
-        await Fingerprint.WriteAsync(fullPath + Fingerprint.Extension, hash, cancellationToken);
 
         var displayName = Path.GetFileName(originalName.Trim());
         if (string.IsNullOrWhiteSpace(displayName))

@@ -68,15 +68,30 @@ public static class EbookEndpoints
         return TypedResults.Redirect($"/library/{id}?ebook=saved");
     }
 
+    // The old file goes only once the book names the new one: deleted first, a failed save left a book naming a file
+    // that was gone, and its only copy lost.
     public static async Task AttachAsync(ShelfDb db, EbookStore store, Book book, string storedName, string fileName, CancellationToken cancellationToken)
     {
-        store.Delete(book.EbookStoredName);
+        var old = book.EbookStoredName;
         book.EbookStoredName = storedName;
         book.EbookFileName = fileName;
         book.EbookChapter = 0;
         Covers.Note(book, store);
         book.Format ??= BookFormat.Ebook;
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            store.Delete(storedName);
+            throw;
+        }
+
+        if (old != storedName)
+        {
+            store.Delete(old);
+        }
     }
 
     public static async Task<Results<NoContent, NotFound>> Remove(
@@ -91,13 +106,14 @@ public static class EbookEndpoints
             return TypedResults.NotFound();
         }
 
-        store.Delete(book.EbookStoredName);
+        var old = book.EbookStoredName;
         book.EbookStoredName = null;
         book.EbookFileName = null;
         book.EbookChapter = null;
         book.FileCover = false;
         book.KoreaderDigest = null;
         await db.SaveChangesAsync(cancellationToken);
+        store.Delete(old);
         return TypedResults.NoContent();
     }
 

@@ -50,7 +50,8 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
             ["authMethods"] = new JsonArray("local"),
             ["authFormData"] = new JsonObject { ["authLoginCustomMessage"] = "" },
         }));
-        open.MapPost("/login", Login);
+        // The same password as the web sign-in, so the same limit: without it, guesses here went unchecked.
+        open.MapPost("/login", Login).RequireRateLimiting(Readers.AccountEndpoints.SignInLimit);
         open.MapPost("/auth/refresh", RefreshTokens);
         open.MapPost("/logout", () => Results.Json(new JsonObject()));
 

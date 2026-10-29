@@ -9,6 +9,8 @@ let marks = [];
 let style = {};
 let reported = 0;
 let pending = null;
+// The place held back by the once-a-second limit, sent at once when the reader closes rather than lost.
+let waiting = null;
 let ready = false;
 let hrefs = [];
 let titles = [];
@@ -375,15 +377,21 @@ function report(location) {
   const page = start.displayed?.page ?? 1;
   const pages = start.displayed?.total ?? 1;
   const percent = ready ? book.locations.percentageFromCfi(start.cfi) : null;
+  const to = net;
+  const chapter = chapterOf(book.spine.get(start.href) ?? book.spine.get(start.index));
+  const share = shareOf(location) ?? (pages > 1 ? (page - 1) / pages : 0);
   const send = () => {
     reported = Date.now();
     pending = null;
-    const share = shareOf(location) ?? (pages > 1 ? (page - 1) / pages : 0);
-    net.invokeMethodAsync("Relocated", start.cfi, chapterOf(book.spine.get(start.href) ?? book.spine.get(start.index)), share, percent ?? -1, page, pages);
+    waiting = null;
+    to.invokeMethodAsync("Relocated", start.cfi, chapter, share, percent ?? -1, page, pages).catch(() => { /* the page is going */ });
   };
   clearTimeout(pending);
   if (Date.now() - reported > 1000) send();
-  else pending = setTimeout(send, 1000);
+  else {
+    waiting = send;
+    pending = setTimeout(send, 1000);
+  }
 }
 
 export async function open(host, options, dotNet) {
@@ -569,6 +577,9 @@ export function close() {
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   stage = null;
   clearTimeout(pending);
+  const last = waiting;
+  waiting = null;
+  last?.();
   painted.clear();
   ready = false;
   try { book?.destroy(); } catch { /* already gone */ }

@@ -345,4 +345,19 @@ public sealed class AbsApiTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
         var result = await socket.ReceiveAsync(buffer, timeout.Token);
         return Encoding.UTF8.GetString(buffer, 0, result.Count);
     }
+
+    // The app's sign-in checks the same password as the web's, so it has the same limit on guesses.
+    [Fact]
+    public async Task The_apps_sign_in_has_the_same_limit_on_guesses()
+    {
+        await using var strict = factory.WithWebHostBuilder(builder => builder.UseSetting("Accounts:SignInsPerMinute", "3"));
+        var app = strict.CreateClient();
+        var answers = new List<HttpStatusCode>();
+        for (var i = 0; i < 4; i++)
+        {
+            answers.Add((await app.PostAsJsonAsync("/login", new { username = "Nobody Here", password = "guess" + i })).StatusCode);
+        }
+
+        Assert.Equal([HttpStatusCode.Unauthorized, HttpStatusCode.Unauthorized, HttpStatusCode.Unauthorized, HttpStatusCode.TooManyRequests], answers);
+    }
 }

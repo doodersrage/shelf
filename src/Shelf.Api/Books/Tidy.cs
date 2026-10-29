@@ -176,8 +176,16 @@ public static partial class Tidy
             return 0;
         }
 
+        // Saved book by book, not as one bulk update, so each change is kept in history and the batch can be undone.
         var others = spellings.Where(item => item != name).ToList();
-        return await db.Books.Where(book => others.Contains(book.Author)).ExecuteUpdateAsync(set => set.SetProperty(book => book.Author, name), cancellationToken);
+        var books = await db.Books.Where(book => others.Contains(book.Author)).ToListAsync(cancellationToken);
+        foreach (var book in books)
+        {
+            book.Author = name;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return books.Count;
     }
 
     // "Title (Series, #3)", "Title (Series Book 3)", "Series #3 - Title", "Series 03 - Title", "Series, Book 3: Title".

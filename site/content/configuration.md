@@ -119,7 +119,7 @@ Without a mail server, an admin resets forgotten passwords and notifications com
 | --- | --- | --- |
 | `Email:Host` | none | The SMTP server. Email is on once this and `Email:From` are both set. |
 | `Email:Port` | `587` | Its port. |
-| `Email:Security` | `auto` | `auto`, `starttls`, `ssl` (port 465), or `none` for a server on the same machine. |
+| `Email:Security` | `auto` | `auto`, `starttls`, `ssl` (port 465), or `none` for a server on the same machine. When it isn't set, the older `Email:Ssl` is still read: `false` means `none`. |
 | `Email:User`, `Email:Password` | none | The account to send with, if the server wants one. |
 | `Email:From` | none | The address emails come from. Required: without it, Shelf sends no email, even with `Email:Host` set. |
 | `Email:PublicAddress` | none | Shelf's own address, such as `https://shelf.example.org`, for links in emails. A password reset needs it (or `AllowedHosts` set to the shelf's own names): without it, no reset email is sent, since the link would point wherever the request claimed to be from. |
@@ -140,6 +140,7 @@ Without a mail server, an admin resets forgotten passwords and notifications com
 | `Backup:S3:Endpoint` | Amazon S3 | The service's address for anything but Amazon, such as `https://s3.us-west-004.backblazeb2.com`, `https://<account>.r2.cloudflarestorage.com`, or your MinIO. |
 | `Backup:S3:Region` | `us-east-1` | The region. |
 | `Backup:S3:Prefix` | `shelf/` | Where in the bucket the copies go. The newest `Backup:Keep` are kept there. |
+| `Backup:S3:MultipartAboveBytes` | `16777216` (16 MB) | Copies larger than this are sent in parts. Some S3-compatible services need it lower or higher. |
 | `Backup:S3:PathStyle` | `true` with an endpoint | Address the bucket as part of the path, as most S3-compatible services want. |
 | `Backup:S3:PartSizeMegabytes` | `64` | Larger backups go up in parts of this size, at least 5. |
 
@@ -192,10 +193,14 @@ Without a mail server, an admin resets forgotten passwords and notifications com
 | `Lookup:Dictionary` | `true` | **Look up** in the reader, which sends the chosen words to Wiktionary and Wikipedia. Set `false` to keep them on the shelf. |
 | `Lookup:GoogleBooks` | `true` | Ask Google Books when Open Library has no match or leaves fields blank. It sends the ISBN, or the title and author, to Google; set `false` to keep look-ups to Open Library alone. |
 | `Lookup:GoogleBooksKey` | none | A Google Books API key (free, from the Google Cloud console). Without one, look-ups share Google's allowance for anonymous callers everywhere, which often runs out for the day; Shelf then carries on with Open Library alone. |
+| `Hardcover:PauseMilliseconds` | `1100` | The pause between requests to Hardcover, which allows about one a second. |
 | `Hardcover:LookupToken` | none | A Hardcover API token that every reader's look-ups use, to fill a book's series and number and other blanks. Without it, only readers who connected Hardcover under Account ask it, with their own token. |
 | `AuthorWatch:Enabled` | `true` | The daily look at Open Library for new books by the authors readers follow. Set `false` to stop it for everyone. |
+| `AuthorWatch:LookMinutes` | `30` | How often the author watch wakes to see whether a day's look is due. |
+| `AuthorWatch:PauseMilliseconds` | `1500` | The pause between authors, to go easy on Open Library. |
 | `Finding:SearchUrl` | `https://openlibrary.org/` | Where **Find new books** and followed authors search: Open Library, or a mirror of its search API. |
 | `SeriesAlerts:Enabled` | `true` | The daily look at Open Library for new books in a series, for readers who turn it on under Series. Set `false` to stop it for everyone. |
+| `SeriesAlerts:PauseMilliseconds` | `1000` | The pause between series, to go easy on Open Library. |
 
 ## Recaps
 
@@ -204,10 +209,10 @@ Without a mail server, an admin resets forgotten passwords and notifications com
 | `Recap:ApiKey` | none | An Anthropic API key, for **Previously in this book**. Without one, recaps are off. |
 | `Recap:Model` | `claude-haiku-5-5` | The model that writes recaps. A larger one writes better, for more. |
 | `Recap:Enabled` | `true` | Turn recaps off without removing the key. |
+| `Recap:Url` | `https://api.anthropic.com/v1/messages` | Where recaps are asked for. The key and the chapters' text go to this address, so change it only to a proxy you run. |
+| `Ask:UseModel` | `true` | With a key set, lets **Ask your shelf** send the question alone to the model to understand it. `false` keeps questions on the server, read by simple rules. |
 
 The text of the chapters a reader has read is sent to Anthropic to be summed up; see [Previously in this book](reading.md#previously-in-this-book).
-
-| `Ask:UseModel` | `true` | With a key set, lets **Ask your shelf** send the question alone to the model to understand it. `false` keeps questions on the server, read by simple rules. |
 
 ## Money and updates
 

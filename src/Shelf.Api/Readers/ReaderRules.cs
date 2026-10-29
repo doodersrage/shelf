@@ -299,6 +299,7 @@ public static class ReaderRules
         reader.Stamp = NewStamp();
         await db.SaveChangesAsync(cancellationToken);
         await db.ReaderSessions.Where(session => session.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
+        await EndResetLinksAsync(db, readerId, cancellationToken);
         await Audit.NoteAsync(db, Localization.Words.Say("Changed the password"), reader, cancellationToken: cancellationToken);
         return null;
     }
@@ -316,9 +317,15 @@ public static class ReaderRules
         reader.Stamp = NewStamp();
         await db.SaveChangesAsync(cancellationToken);
         await db.ReaderSessions.Where(session => session.ReaderId == readerId).ExecuteDeleteAsync(cancellationToken);
+        await EndResetLinksAsync(db, readerId, cancellationToken);
         await Audit.NoteAsync(db, Localization.Words.Say("Set a new password"), reader, cancellationToken: cancellationToken);
         return true;
     }
+
+    // Reset links sent before a new password, or to an address no longer the reader's, stop working with it.
+    public static Task EndResetLinksAsync(ShelfDb db, int readerId, CancellationToken cancellationToken = default) =>
+        db.PasswordResets.IgnoreQueryFilters().Where(reset => reset.ReaderId == readerId && !reset.Used)
+            .ExecuteUpdateAsync(set => set.SetProperty(reset => reset.Used, true), cancellationToken);
 
     // The address a reader signs in with, and whether notifications go there too. It can change, to one no other
     // reader has, but a reader who signs in with one cannot go back to none.
@@ -361,6 +368,7 @@ public static class ReaderRules
 
         if (changed)
         {
+            await EndResetLinksAsync(db, readerId, cancellationToken);
             await Audit.NoteAsync(db, Localization.Words.Say("Changed the email address"), reader, cancellationToken: cancellationToken);
         }
 
@@ -417,7 +425,7 @@ public static class ReaderRules
     }
 
     public static async Task<bool> IsAdminAsync(ShelfDb db, int readerId, CancellationToken cancellationToken = default) =>
-        readerId != 0 && await db.Readers.AnyAsync(reader => reader.Id == readerId && reader.IsAdmin, cancellationToken);
+        readerId != 0 && await db.Readers.AnyAsync(reader => reader.Id == readerId && reader.IsAdmin && !reader.Suspended, cancellationToken);
 
     public static async Task<bool> StampMatchesAsync(ShelfDb db, int readerId, string? stamp, CancellationToken cancellationToken = default) =>
         !string.IsNullOrEmpty(stamp)

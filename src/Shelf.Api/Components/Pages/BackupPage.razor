@@ -85,6 +85,10 @@
                 @(" " + T("Brought back {0} collections and {1} past loans.", Collections, Loans))
             }
         </p>
+        @if (Lost > 0)
+        {
+            <p class="validation-message" role="alert">@T("{0} files could not be brought back, as they were damaged in the download or there was no room for them. Their books are here without them.", Lost)</p>
+        }
         @if (Damaged > 0)
         {
             <p class="validation-message" role="alert">@T("{0} files in the download did not match its manifest: they were damaged or changed after it was made. Bring back from another copy if you have one.", Damaged)</p>
@@ -232,6 +236,9 @@
 
     [SupplyParameterFromQuery]
     public int Damaged { get; set; }
+
+    [SupplyParameterFromQuery]
+    public int Lost { get; set; }
 
     [SupplyParameterFromQuery]
     public int Files { get; set; }

@@ -1516,6 +1516,17 @@ public sealed class BooksEndpointTests(ShelfApiFactory factory) : IClassFixture<
         Assert.EndsWith("?ebook=saved", (await reader.PostAsync($"/books/{book.Id}/ebook", whole)).RequestMessage!.RequestUri!.PathAndQuery);
     }
 
+    // An audiobook zip that won't open is refused as a file Shelf can't take, not a failed request.
+    [Fact]
+    public async Task A_broken_audiobook_zip_is_refused()
+    {
+        var book = await CreateAsync(new CreateBookRequest("Broken Recording", "Someone", BookStatus.Want, null));
+        using var content = new MultipartFormDataContent { { new ByteArrayContent([0x50, 0x4B, 0x03, 0x04, 1, 2, 3, 4, 5, 6, 7, 8]), "file", "tracks.zip" } };
+        var response = await _client.PostAsync($"/books/{book.Id}/audio", content);
+        Assert.EndsWith("?audio=unsupported", response.RequestMessage!.RequestUri!.PathAndQuery);
+        Assert.Null((await _client.GetFromJsonAsync<BookResponse>($"/books/{book.Id}", JsonOptions))!.AudioFileName);
+    }
+
     internal static byte[] SampleEpub(string sentence)
     {
         using var memory = new MemoryStream();

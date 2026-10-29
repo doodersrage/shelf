@@ -478,4 +478,18 @@ public sealed class KeepingTests(ShelfApiFactory factory) : IClassFixture<ShelfA
 
         public Task<CatalogMatch?> FindAsync(string? isbn, string? title, string? author, CancellationToken cancellationToken) => Task.FromResult<CatalogMatch?>(null);
     }
+
+    // A box's destination is one of the reader's own places: naming another reader's would block them removing it.
+    [Fact]
+    public async Task A_destination_is_one_of_your_own_places()
+    {
+        var other = await factory.SignUpAsync("Other Keeper");
+        var theirs = (await (await other.PostAsJsonAsync("/books/storage", new StoragePlaceRequest("Their room"), JsonOptions)).Content.ReadFromJsonAsync<JsonElement>(JsonOptions)).GetProperty("id").GetInt32();
+        var reader = await factory.SignUpAsync("Box Packer");
+        Assert.Equal(HttpStatusCode.BadRequest, (await reader.PostAsJsonAsync("/books/storage", new StoragePlaceRequest("Box", PlaceKind.Box, DestinationId: theirs), JsonOptions)).StatusCode);
+        var mine = (await (await reader.PostAsJsonAsync("/books/storage", new StoragePlaceRequest("My room"), JsonOptions)).Content.ReadFromJsonAsync<JsonElement>(JsonOptions)).GetProperty("id").GetInt32();
+        var box = (await (await reader.PostAsJsonAsync("/books/storage", new StoragePlaceRequest("Box", PlaceKind.Box, DestinationId: mine), JsonOptions)).Content.ReadFromJsonAsync<JsonElement>(JsonOptions)).GetProperty("id").GetInt32();
+        Assert.Equal(HttpStatusCode.BadRequest, (await reader.PutAsJsonAsync($"/books/storage/{box}", new StoragePlaceRequest("Box", PlaceKind.Box, DestinationId: theirs), JsonOptions)).StatusCode);
+        Assert.True((await other.DeleteAsync($"/books/storage/{theirs}")).IsSuccessStatusCode);
+    }
 }
