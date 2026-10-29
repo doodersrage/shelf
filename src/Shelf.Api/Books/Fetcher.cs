@@ -334,6 +334,7 @@ public sealed class Fetcher(IServiceScopeFactory scopes, IHttpClientFactory clie
                 ImportOutcome.Added or ImportOutcome.AddedToExisting => (GrabState.Done, T("It came in as a book of its own, since this one has a file of that kind already.")),
                 ImportOutcome.AlreadyOnShelf => (GrabState.Failed, T("That file is on another book already.")),
                 ImportOutcome.TooLarge => (GrabState.Failed, T("The file is larger than the shelf takes.")),
+                ImportOutcome.Damaged => (GrabState.Failed, T("The file looks damaged or cut short. Try again.")),
                 _ => (GrabState.Failed, T("Shelf could not read the file.")),
             };
         }

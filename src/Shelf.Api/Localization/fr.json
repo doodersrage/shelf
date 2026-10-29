@@ -2500,7 +2500,6 @@
   "Recipes": "Recettes",
   "made {0}": "créée le {0}",
   "That file has no columns to read.": "Ce fichier n'a aucune colonne à lire.",
-  "Brought in {0}, filled in the reading of {1} already on your shelf, and skipped {2} with nothing new or missing a title or author. Undo it under Trash & undo.": "{0} importés, lecture complétée pour {1} déjà dans votre bibliothèque, et {2} ignorés car sans rien de nouveau ou sans titre ni auteur. Vous pouvez le défaire dans Corbeille et annulation.",
   "Reference desk": "Bureau de recherche",
   "Questions you are looking into across your books. Gather notes, quotations, and links under each, each with the book and the page it comes from, then take it away as a bibliography or a research packet.": "Des questions que vous explorez à travers vos livres. Rassemblez sous chacune des notes, des citations et des liens, chacun avec le livre et la page d'où il vient, puis emportez le tout comme bibliographie ou dossier de recherche.",
   "A new question": "Une nouvelle question",
@@ -3545,5 +3544,10 @@
   "It had more than {0} tracks, the most a book holds, so the last {1} were left out. Join some together, or make it one M4B file, and add it again.": "Il comptait plus de {0} pistes, le maximum pour un livre, donc les {1} dernières ont été laissées de côté. Regroupez-en certaines, ou faites-en un seul fichier M4B, puis ajoutez-le à nouveau.",
   "Brought the first {0} of its {1} tracks, the most a book holds; the last {2} stay in Audiobookshelf.": "Les {0} premières de ses {1} pistes ont été importées, le maximum pour un livre ; les {2} dernières restent dans Audiobookshelf.",
   "Asking linked shelves…": "Interrogation des étagères liées…",
-  "These linked shelves didn't answer, so their books aren't shown: {0}. Try again later.": "Ces étagères liées n’ont pas répondu, leurs livres ne sont donc pas affichés : {0}. Réessayez plus tard."
+  "These linked shelves didn't answer, so their books aren't shown: {0}. Try again later.": "Ces étagères liées n’ont pas répondu, leurs livres ne sont donc pas affichés : {0}. Réessayez plus tard.",
+  "Brought in {0}, filled in the reading of {1} already on your shelf, and skipped {2} with nothing new. Undo it under Trash & undo.": "{0} importés, lecture complétée pour {1} déjà présents, et {2} ignorés sans rien de nouveau. Annulez-le dans Corbeille et annulation.",
+  "1 row was missing a title or an author, or couldn't be read, so it was left out.": "1 ligne n’avait pas de titre ou d’auteur, ou n’a pas pu être lue, elle a donc été laissée de côté.",
+  "{0} rows were missing a title or an author, or couldn't be read, so they were left out.": "{0} lignes n’avaient pas de titre ou d’auteur, ou n’ont pas pu être lues, elles ont donc été laissées de côté.",
+  "Damaged or cut short: {0}. Try downloading them again.": "Endommagés ou incomplets : {0}. Téléchargez-les à nouveau.",
+  "The file looks damaged or cut short. Try again.": "Le fichier semble endommagé ou incomplet. Réessayez."
 }

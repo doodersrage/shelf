@@ -497,6 +497,10 @@ else if (book is not null)
             }
         </p>
     }
+    else if (AudioMessage == "damaged")
+    {
+        <p class="validation-message" role="alert">@T("That file looks damaged or incomplete, so Shelf could not open it. Try downloading it again.")</p>
+    }
     else if (AudioMessage == "unsupported")
     {
         <p class="validation-message" role="alert">@T("Choose an audio file, or a zip of them.")</p>

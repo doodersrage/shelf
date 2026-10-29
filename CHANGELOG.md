@@ -6,6 +6,9 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Fixed
 
+- **A quote left open in a CSV no longer swallows the rest of the file**: that row is left out and counted, and the rows after it still come in. A spreadsheet import also counts the rows it left out for having no title or author, as the Goodreads import now does.
+- **A damaged file is called damaged**: a cut-off EPUB, PDF, or comic, or an audiobook zip that won't open, is reported as damaged and worth downloading again, in bulk and folder imports and on a book's page, rather than as a kind of file Shelf doesn't take.
+
 - **A slow or unreachable linked shelf no longer holds the Shelves and Loans pages**: questions to a linked shelf give up after ten seconds (file downloads still take as long as they need), linked shelves are asked together, Shelves names any that didn't answer, and Loans checks them after it has opened.
 
 - **A book holds up to 999 tracks, where it held 200**, and tracks past that are no longer dropped without a word: an upload says how many were left out, and an Audiobookshelf import fetches only the tracks it keeps and says how many stayed behind.

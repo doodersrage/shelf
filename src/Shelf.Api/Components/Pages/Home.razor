@@ -664,6 +664,9 @@ else if (visible.Count > 0)
     [SupplyParameterFromQuery(Name = "kindle")]
     public int? Kindle { get; set; }
 
+    [SupplyParameterFromQuery(Name = "damaged")]
+    public int? Damaged { get; set; }
+
     [SupplyParameterFromQuery(Name = "full")]
     public int? Full { get; set; }
 
@@ -691,6 +694,11 @@ else if (visible.Count > 0)
             if (Failed is > 0)
             {
                 parts.Add(T("Could not be added: {0}. Shelf takes EPUB, PDF, comics, audio, and zips, e-books up to {1} and audiobooks up to {2}.", Localization.Counts.Files(Failed.Value), Localization.Counts.Size(EbookStore.MaxBytes), Localization.Counts.Size(AudioStore.MaxBytes)));
+            }
+
+            if (Damaged is > 0)
+            {
+                parts.Add(T("Damaged or cut short: {0}. Try downloading them again.", Localization.Counts.Files(Damaged.Value)));
             }
 
             if (Kindle is > 0)

@@ -15,6 +15,9 @@ public enum ImportOutcome
 
     // Past the reader's storage limit.
     Full,
+
+    // A kind Shelf takes, but cut short or broken: worth fetching again, unlike a kind it doesn't take.
+    Damaged,
 }
 
 public sealed record ImportedFile(string FileName, ImportOutcome Outcome, int? BookId = null, string? Title = null, int? SameAsId = null);
@@ -99,6 +102,7 @@ public sealed class BookImport(EbookStore ebooks, AudioStore audio, CoverStore c
             {
                 EbookSaveStatus.TooLarge => ImportOutcome.TooLarge,
                 EbookSaveStatus.NeedsConverter => ImportOutcome.NeedsConverter,
+                EbookSaveStatus.Damaged => ImportOutcome.Damaged,
                 _ => ImportOutcome.Unsupported,
             });
         }
@@ -176,7 +180,12 @@ public sealed class BookImport(EbookStore ebooks, AudioStore audio, CoverStore c
         var saved = await audio.SaveAsync(files.Select(file => new AudioUpload(file.Name, file.Content, file.Length)).ToList(), cancellationToken, keepOrder);
         if (saved.Status != AudioSaveStatus.Saved || saved.StoredName is null || saved.FileName is null)
         {
-            return new ImportedFile(label, saved.Status == AudioSaveStatus.TooLarge ? ImportOutcome.TooLarge : ImportOutcome.Unsupported);
+            return new ImportedFile(label, saved.Status switch
+            {
+                AudioSaveStatus.TooLarge => ImportOutcome.TooLarge,
+                AudioSaveStatus.Damaged => ImportOutcome.Damaged,
+                _ => ImportOutcome.Unsupported,
+            });
         }
 
         if (db.ReaderId != 0 && !await storage.FitsAsync(db, db.ReaderId, audio.Size(saved.StoredName), cancellationToken))

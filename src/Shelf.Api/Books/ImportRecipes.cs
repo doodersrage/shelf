@@ -38,7 +38,8 @@ public sealed record RecipeRow(int Line, string? Title, string? Author, BookStat
 // the first rows read with the recipe.
 public sealed record RecipePreview(string[] Columns, RecipeSpec Spec, string[] StatusWords, RecipeRow[] Rows, int Total);
 
-public sealed record RecipeImportResult(int Added, int Skipped, int? RecipeId, int? BatchId, int Updated = 0);
+// Unusable: rows left out for having no title or author, or a quote never closed.
+public sealed record RecipeImportResult(int Added, int Skipped, int? RecipeId, int? BatchId, int Updated = 0, int Unusable = 0);
 
 public static class ImportRecipes
 {
@@ -204,7 +205,8 @@ public static class ImportRecipes
     // The file brought in with the recipe, under one change so it can be undone; kept as a recipe when named.
     public static async Task<RecipeImportResult> ImportAsync(ShelfDb db, string text, RecipeSpec spec, string? saveAs, int? recipeId, CancellationToken cancellationToken = default)
     {
-        var (books, _) = Read(LibraryCsv.Parse(text), spec);
+        var (books, rows) = Read(LibraryCsv.Parse(text, out var broken), spec);
+        var unusable = broken + rows.Count(row => row.Problem is not null);
         var result = await BookRules.ImportCsvAsync(db, new CsvLibrary("recipe", books), cancellationToken);
         var batch = await db.ChangeBatches.Where(item => item.OwnerId == db.ReaderId && item.Kind == BatchKind.Import).OrderByDescending(item => item.Id).Select(item => (int?)item.Id).FirstOrDefaultAsync(cancellationToken);
         if (!string.IsNullOrWhiteSpace(saveAs))
@@ -218,7 +220,7 @@ public static class ImportRecipes
             await db.ImportRecipes.Where(item => item.Id == used).ExecuteUpdateAsync(set => set.SetProperty(item => item.LastUsedAt, now), cancellationToken);
         }
 
-        return new RecipeImportResult(result.Added, result.Skipped, recipeId, batch, result.Updated);
+        return new RecipeImportResult(result.Added, result.Skipped, recipeId, batch, result.Updated, unusable);
     }
 
     // Kept by name: a recipe of the same name is replaced.

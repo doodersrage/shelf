@@ -15,7 +15,7 @@ public static partial class LibraryCsv
 {
     public static CsvLibrary? Read(string text)
     {
-        var rows = Parse(text);
+        var rows = Parse(text, out var broken);
         if (rows.Count == 0)
         {
             return null;
@@ -26,13 +26,13 @@ public static partial class LibraryCsv
         if (Column("Exclusive Shelf") >= 0 && Column("Title") >= 0 && Column("Author") >= 0)
         {
             var read = rows.Skip(1).Select(row => Goodreads(row, Column)).ToList();
-            return new CsvLibrary("Goodreads", read.OfType<CsvBook>().ToList(), read.Count(book => book is null));
+            return new CsvLibrary("Goodreads", read.OfType<CsvBook>().ToList(), read.Count(book => book is null) + broken);
         }
 
         if (Column("Read Status") >= 0 && Column("Title") >= 0 && Column("Authors") >= 0)
         {
             var read = rows.Skip(1).Select(row => StoryGraph(row, Column)).ToList();
-            return new CsvLibrary("StoryGraph", read.OfType<CsvBook>().ToList(), read.Count(book => book is null));
+            return new CsvLibrary("StoryGraph", read.OfType<CsvBook>().ToList(), read.Count(book => book is null) + broken);
         }
 
         return null;
@@ -163,13 +163,19 @@ public static partial class LibraryCsv
         return new CsvBook(write, Moment(Cell("Date Added")));
     }
 
-    // RFC 4180: commas separate fields, quotes wrap fields that hold commas, quotes, or line breaks.
-    public static List<string[]> Parse(string text)
+    public static List<string[]> Parse(string text) => Parse(text, out _);
+
+    // RFC 4180: commas separate fields, quotes wrap fields that hold commas, quotes, or line breaks. A quote never
+    // closed would swallow the rest of the file: that row's first line is left out instead, counted in broken, and
+    // reading goes on from the line after it.
+    public static List<string[]> Parse(string text, out int broken)
     {
+        broken = 0;
         var rows = new List<string[]>();
         var row = new List<string>();
         var field = new StringBuilder();
         var quoted = false;
+        var rowStart = 0;
         for (var index = 0; index < text.Length; index++)
         {
             var character = text[index];
@@ -208,11 +214,21 @@ public static partial class LibraryCsv
                     field.Clear();
                     rows.Add([.. row]);
                     row.Clear();
+                    rowStart = index + 1;
                     break;
                 default:
                     field.Append(character);
                     break;
             }
+        }
+
+        if (quoted)
+        {
+            var next = text.IndexOf('\n', rowStart);
+            var more = 0;
+            var rest = next < 0 ? [] : Parse(text[(next + 1)..], out more);
+            broken = 1 + more;
+            return [.. rows.Where(item => item.Any(cell => cell.Length > 0)), .. rest];
         }
 
         if (field.Length > 0 || row.Count > 0)

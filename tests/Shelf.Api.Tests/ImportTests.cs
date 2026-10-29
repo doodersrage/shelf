@@ -28,9 +28,11 @@ public sealed class ImportTests(ShelfApiFactory factory) : IClassFixture<ShelfAp
         var results = await ImportAsync(client, false,
             ("left-hand.epub", Epub("The Left Hand of Darkness", "Ursula K. Le Guin", "978-0-441-47812-5", "en", cover: true)),
             ("dispossessed.epub", Epub("The Dispossessed", "Ursula K. Le Guin", null, "en-GB", cover: false)),
-            ("notes.txt", "not a book"u8.ToArray()));
+            ("notes.txt", "not a book"u8.ToArray()),
+            ("cut-short.epub", Epub("Cut Short", "Someone", null, "en", cover: false)[..200]));
 
-        Assert.Equal([ImportOutcome.Added, ImportOutcome.Added, ImportOutcome.Unsupported], results.Select(result => result.Outcome));
+        // A kind Shelf doesn't take is unsupported; one it takes but cut off is damaged, so worth fetching again.
+        Assert.Equal([ImportOutcome.Added, ImportOutcome.Added, ImportOutcome.Damaged, ImportOutcome.Unsupported], results.Select(result => result.Outcome));
         var left = await client.GetFromJsonAsync<BookResponse>($"/books/{results[0].BookId}", JsonOptions);
         Assert.Equal("The Left Hand of Darkness", left!.Title);
         Assert.Equal("Ursula K. Le Guin", left.Author);

@@ -46,7 +46,12 @@ public static class AudioEndpoints
             var saved = await store.SaveAsync(uploads, cancellationToken);
             if (saved.Status != AudioSaveStatus.Saved || saved.StoredName is null || saved.FileName is null)
             {
-                var reason = saved.Status == AudioSaveStatus.TooLarge ? "large" : "unsupported";
+                var reason = saved.Status switch
+                {
+                    AudioSaveStatus.TooLarge => "large",
+                    AudioSaveStatus.Damaged => "damaged",
+                    _ => "unsupported",
+                };
                 return TypedResults.Redirect($"/library/{id}?audio={reason}");
             }
 

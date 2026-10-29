@@ -180,7 +180,7 @@ public sealed class FolderImport(IServiceScopeFactory scopes, BookImport import,
         }
 
         // Nothing it could take, and nothing it already had: set aside where the reader will see it.
-        var refused = results.Count > 0 && results.All(result => result.Outcome is ImportOutcome.Unsupported or ImportOutcome.TooLarge or ImportOutcome.NeedsConverter);
+        var refused = results.Count > 0 && results.All(result => result.Outcome is ImportOutcome.Unsupported or ImportOutcome.TooLarge or ImportOutcome.NeedsConverter or ImportOutcome.Damaged);
         PutAway(item, home, refused);
         logger.LogInformation("Import folder: {Item} for reader {Reader}: {Outcomes}.", Path.GetFileName(item), readerId,
             string.Join(", ", results.Select(result => $"{result.FileName} {result.Outcome}")));

@@ -262,7 +262,13 @@
         {
             await using var db = await DbFactory.CreateDbContextAsync();
             var result = await ImportRecipes.ImportAsync(db, text!, spec!, saveAs, recipeId == 0 ? null : recipeId);
-            (note, problem) = (T("Brought in {0}, filled in the reading of {1} already on your shelf, and skipped {2} with nothing new or missing a title or author. Undo it under Trash & undo.", Localization.Counts.Books(result.Added), result.Updated, result.Skipped), false);
+            var leftOut = result.Unusable switch
+            {
+                0 => "",
+                1 => " " + T("1 row was missing a title or an author, or couldn't be read, so it was left out."),
+                var many => " " + T("{0} rows were missing a title or an author, or couldn't be read, so they were left out.", many),
+            };
+            (note, problem) = (T("Brought in {0}, filled in the reading of {1} already on your shelf, and skipped {2} with nothing new. Undo it under Trash & undo.", Localization.Counts.Books(result.Added), result.Updated, result.Skipped) + leftOut, false);
             (text, preview) = (null, null);
             await LoadAsync();
         }

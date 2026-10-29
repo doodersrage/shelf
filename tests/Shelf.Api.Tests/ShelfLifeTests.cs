@@ -44,7 +44,7 @@ public sealed class ShelfLifeTests(ShelfApiFactory factory) : IClassFixture<Shel
         Assert.NotNull(shown.Rows[2].Problem);
 
         var result = (await (await reader.PostAsync("/books/import/recipes/import", Form(csv, spec, saveAs: "My old app"))).Content.ReadFromJsonAsync<RecipeImportResult>(JsonOptions))!;
-        Assert.Equal((2, 0), (result.Added, result.Skipped));
+        Assert.Equal((2, 0, 1), (result.Added, result.Skipped, result.Unusable));
         var books = (await reader.GetFromJsonAsync<BookResponse[]>("/books", JsonOptions))!;
         var left = books.Single(book => book.Title == "The Left Hand of Darkness");
         Assert.Equal((BookStatus.Finished, (int?)5, (DateOnly?)new DateOnly(2021, 3, 14), 304), (left.Status, left.Rating, left.FinishedOn, left.Pages ?? 0));
@@ -60,6 +60,22 @@ public sealed class ShelfLifeTests(ShelfApiFactory factory) : IClassFixture<Shel
         // An import by recipe is undone like any other.
         await reader.PostAsync($"/books/changes/{result.BatchId}/undo", null);
         Assert.Empty((await reader.GetFromJsonAsync<BookResponse[]>("/books", JsonOptions))!);
+    }
+
+    // A quote never closed leaves out only its own row, counted, and the rows after it are still read.
+    [Fact]
+    public void An_unclosed_quote_leaves_out_its_row_not_the_rest()
+    {
+        var rows = LibraryCsv.Parse("Title,Author\nDune,Frank Herbert\n\"Broken,Someone\nKindred,Octavia E. Butler\nLilith's Brood,Octavia E. Butler\n", out var broken);
+        Assert.Equal(1, broken);
+        Assert.Equal(["Title", "Dune", "Kindred", "Lilith's Brood"], rows.Select(row => row[0]));
+
+        var library = LibraryCsv.Read("Title,Author,Exclusive Shelf\nDune,Frank Herbert,read\n\"Broken,Someone,read\nKindred,Octavia E. Butler,to-read\n");
+        Assert.Equal((2, 1), (library!.Books.Count, library.Unusable));
+
+        // Quotes that close, across lines, are still one field.
+        Assert.Equal("two\nlines", LibraryCsv.Parse("Title\n\"two\nlines\"\n", out var none)[1][0]);
+        Assert.Equal(0, none);
     }
 
     [Fact]

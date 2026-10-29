@@ -47,6 +47,7 @@ public static class ImportEndpoints
         var failed = results.Count(result => result.Outcome is ImportOutcome.Unsupported or ImportOutcome.TooLarge);
         var kindle = results.Count(result => result.Outcome == ImportOutcome.NeedsConverter);
         var full = results.Count(result => result.Outcome == ImportOutcome.Full);
-        return TypedResults.Redirect($"/library?imported={added}&joined={joined}&skipped={skipped}&failed={failed}" + (kindle > 0 ? $"&kindle={kindle}" : "") + (full > 0 ? $"&full={full}" : ""));
+        var damaged = results.Count(result => result.Outcome == ImportOutcome.Damaged);
+        return TypedResults.Redirect($"/library?imported={added}&joined={joined}&skipped={skipped}&failed={failed}" + (kindle > 0 ? $"&kindle={kindle}" : "") + (full > 0 ? $"&full={full}" : "") + (damaged > 0 ? $"&damaged={damaged}" : ""));
     }
 }

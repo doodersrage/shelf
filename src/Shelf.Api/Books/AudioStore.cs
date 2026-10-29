@@ -107,7 +107,7 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
                 Directory.Delete(directory, recursive: true);
             }
 
-            return new AudioSave(AudioSaveStatus.Unsupported, null, null);
+            return new AudioSave(AudioSaveStatus.Damaged, null, null);
         }
         catch
         {
@@ -435,6 +435,9 @@ public enum AudioSaveStatus
     Saved,
     Unsupported,
     TooLarge,
+
+    // A zip that won't open, or a track in it that won't read.
+    Damaged,
 }
 
 // LeftOut: tracks past the most a book holds, not kept.

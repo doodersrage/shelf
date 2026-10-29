@@ -2500,7 +2500,6 @@
   "Recipes": "Recetas",
   "made {0}": "creada el {0}",
   "That file has no columns to read.": "Ese archivo no tiene columnas que leer.",
-  "Brought in {0}, filled in the reading of {1} already on your shelf, and skipped {2} with nothing new or missing a title or author. Undo it under Trash & undo.": "Se trajeron {0}, se completó la lectura de {1} que ya estaban en tu estantería y se omitieron {2} sin nada nuevo o sin título o autor. Puedes deshacerlo en Papelera y deshacer.",
   "Reference desk": "Mesa de consulta",
   "Questions you are looking into across your books. Gather notes, quotations, and links under each, each with the book and the page it comes from, then take it away as a bibliography or a research packet.": "Preguntas que investigas a través de tus libros. Reúne notas, citas y enlaces en cada una, cada cual con el libro y la página de donde viene, y llévatelo como bibliografía o como dosier de investigación.",
   "A new question": "Una nueva pregunta",
@@ -3545,5 +3544,10 @@
   "It had more than {0} tracks, the most a book holds, so the last {1} were left out. Join some together, or make it one M4B file, and add it again.": "Tenía más de {0} pistas, el máximo que admite un libro, así que las últimas {1} se dejaron fuera. Une algunas, o conviértelo en un único archivo M4B, y vuelve a añadirlo.",
   "Brought the first {0} of its {1} tracks, the most a book holds; the last {2} stay in Audiobookshelf.": "Se trajeron las primeras {0} de sus {1} pistas, el máximo que admite un libro; las últimas {2} siguen en Audiobookshelf.",
   "Asking linked shelves…": "Preguntando a las estanterías enlazadas…",
-  "These linked shelves didn't answer, so their books aren't shown: {0}. Try again later.": "Estas estanterías enlazadas no respondieron, así que sus libros no se muestran: {0}. Inténtalo más tarde."
+  "These linked shelves didn't answer, so their books aren't shown: {0}. Try again later.": "Estas estanterías enlazadas no respondieron, así que sus libros no se muestran: {0}. Inténtalo más tarde.",
+  "Brought in {0}, filled in the reading of {1} already on your shelf, and skipped {2} with nothing new. Undo it under Trash & undo.": "Se trajeron {0}, se completó la lectura de {1} que ya estaban en tu estantería y se omitieron {2} sin nada nuevo. Puedes deshacerlo en Papelera y deshacer.",
+  "1 row was missing a title or an author, or couldn't be read, so it was left out.": "A 1 fila le faltaba el título o el autor, o no se pudo leer, así que se dejó fuera.",
+  "{0} rows were missing a title or an author, or couldn't be read, so they were left out.": "A {0} filas les faltaba el título o el autor, o no se pudieron leer, así que se dejaron fuera.",
+  "Damaged or cut short: {0}. Try downloading them again.": "Dañados o incompletos: {0}. Vuelve a descargarlos.",
+  "The file looks damaged or cut short. Try again.": "El archivo parece dañado o incompleto. Inténtalo de nuevo."
 }
