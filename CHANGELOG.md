@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Fixed
+
+- **A book holds up to 999 tracks, where it held 200**, and tracks past that are no longer dropped without a word: an upload says how many were left out, and an Audiobookshelf import fetches only the tracks it keeps and says how many stayed behind.
+
 ## [2.21.0] - 2026-10-29
 
 ### Added
