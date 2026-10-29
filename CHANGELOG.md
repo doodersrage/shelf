@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.22.0] - 2026-10-29
+
 ### Added
 
 - **The Calibre import brings custom columns** as fields of your own, each of the kind it was (number, yes or no, date, rating, or text); a field you have by that name is used, and a value a book holds already is kept.
@@ -847,7 +849,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.21.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.22.0...HEAD
+[2.22.0]: https://github.com/doodersrage/shelf/compare/v2.21.0...v2.22.0
 [2.21.0]: https://github.com/doodersrage/shelf/compare/v2.20.0...v2.21.0
 [2.20.0]: https://github.com/doodersrage/shelf/compare/v2.19.1...v2.20.0
 [2.19.1]: https://github.com/doodersrage/shelf/compare/v2.19.0...v2.19.1
