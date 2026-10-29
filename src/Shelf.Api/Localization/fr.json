@@ -3559,5 +3559,6 @@
   "That needs a sign-in within the last quarter of an hour, as it can hand someone an account or every reader's books. Sign in again, then try once more.": "Cela demande une connexion datant de moins d’un quart d’heure, car cela peut donner à quelqu’un un compte ou les livres de tous les lecteurs. Reconnectez-vous, puis réessayez.",
   "That password is one of the first anyone would guess. Choose another: a few words you'll remember works well.": "Ce mot de passe est parmi les premiers que l’on essaierait. Choisissez-en un autre : quelques mots dont vous vous souviendrez conviennent bien.",
   "Signed in": "Connexion",
-  "Signed in with a passkey": "Connexion avec une clé d’accès"
+  "Signed in with a passkey": "Connexion avec une clé d’accès",
+  "Already full of tags, so not tagged: {0}.": "Déjà pleins d’étiquettes, donc non étiquetés : {0}."
 }

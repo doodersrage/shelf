@@ -14,8 +14,8 @@ public sealed record BulkRequest(
     bool Delete = false,
     string? Location = null);
 
-// How many books changed, and the change to undo them by.
-public sealed record BulkResult(int Changed, int? BatchId = null);
+// How many books changed, and the change to undo them by; AtTagLimit: books that couldn't take the tag, being full.
+public sealed record BulkResult(int Changed, int? BatchId = null, int AtTagLimit = 0);
 
 // One change to many books at once. Only the reader's own books are touched, whatever ids arrive.
 public static class Bulk
@@ -69,6 +69,7 @@ public static class Bulk
         // A place, put as a copy is put anywhere: one for a time (a box, a storage unit) keeps where it usually lives.
         var place = string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim() is { Length: > 80 } long_ ? long_[..80] : request.Location.Trim();
         var temporary = place is null ? null : await PlaceTree.TemporaryPathsAsync(db, cancellationToken);
+        var atLimit = 0;
         foreach (var book in books)
         {
             if (place is not null)
@@ -86,9 +87,16 @@ public static class Bulk
                 book.Loved = loved;
             }
 
-            if (addTag is not null && book.Tags.Count < BookRules.MaxTags && book.Tags.All(tag => tag.Name != add))
+            if (addTag is not null && book.Tags.All(tag => tag.Name != add))
             {
-                book.Tags.Add(addTag);
+                if (book.Tags.Count < BookRules.MaxTags)
+                {
+                    book.Tags.Add(addTag);
+                }
+                else
+                {
+                    atLimit++;
+                }
             }
 
             if (remove is not null)
@@ -97,9 +105,12 @@ public static class Bulk
             }
         }
 
+        // Only the books something happened to are counted: one already so, or with no room for the tag, isn't.
+        db.ChangeTracker.DetectChanges();
+        var changed = books.Count(book => db.Entry(book).State == EntityState.Modified || db.Entry(book).Collection(item => item.Tags).IsModified);
         await db.SaveChangesAsync(cancellationToken);
         await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
-        return new BulkResult(books.Count, batch.Id);
+        return new BulkResult(changed, batch.Id, atLimit);
     }
 
     // What the change was, for the list of changes that can be undone.

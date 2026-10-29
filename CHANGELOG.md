@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Fixed
+
+- **A bulk edit counts only the books it changed**, and says how many were too full of tags to take another, where it counted every book chosen.
+
 ### Security
 
 - **Each two-step code works once**, even within its half-minute; the code that turns two-step on counts as used. The migration adds one column.

@@ -986,7 +986,8 @@ else if (visible.Count > 0)
             var result = await Bulk.ApplyAsync(db, Ebooks, Audio, Covers, request);
             bulkNote = request.Delete
                 ? T("Deleted: {0}.", Localization.Counts.Books(result.Changed))
-                : T("Changed: {0}.", Localization.Counts.Books(result.Changed));
+                : T("Changed: {0}.", Localization.Counts.Books(result.Changed))
+                    + (result.AtTagLimit > 0 ? " " + T("Already full of tags, so not tagged: {0}.", Localization.Counts.Books(result.AtTagLimit)) : "");
             bulkBatch = result.BatchId;
         }
 

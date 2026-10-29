@@ -237,8 +237,16 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
 
         Assert.Equal(2, await BulkAsync(new BulkRequest(ids, Status: BookStatus.Finished)));
         Assert.Equal(2, await BulkAsync(new BulkRequest(ids, AddTag: "  Summer Reads ")));
-        Assert.Equal(2, await BulkAsync(new BulkRequest(ids, RemoveTag: "old")));
+        // Only the books something happens to count: one had "old", and loving them again changes neither.
+        Assert.Equal(1, await BulkAsync(new BulkRequest(ids, RemoveTag: "old")));
         Assert.Equal(2, await BulkAsync(new BulkRequest(ids, Loved: true)));
+        Assert.Equal(0, await BulkAsync(new BulkRequest(ids, Loved: true)));
+
+        // A book with no room for another tag isn't counted as tagged, and is named apart.
+        var full = await CreateAsync(new CreateBookRequest("Full Of Tags", "Someone", BookStatus.Want, null, Tags: [.. Enumerable.Range(1, BookRules.MaxTags).Select(i => $"tag {i}")]));
+        var tagged = (await (await _client.PostAsJsonAsync("/books/bulk", new BulkRequest([first.Id, full.Id], AddTag: "one more"), JsonOptions)).Content.ReadFromJsonAsync<BulkResult>(JsonOptions))!;
+        Assert.Equal((1, 1), (tagged.Changed, tagged.AtTagLimit));
+        await BulkAsync(new BulkRequest([first.Id], RemoveTag: "one more"));
 
         var one = await _client.GetFromJsonAsync<BookResponse>($"/books/{first.Id}", JsonOptions);
         var two = await _client.GetFromJsonAsync<BookResponse>($"/books/{second.Id}", JsonOptions);

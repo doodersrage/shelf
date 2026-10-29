@@ -466,7 +466,7 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
     - **Fixed:**
       - Tidy's author spellings went around history, so they couldn't be undone despite the page's promise (P1): `TidyTests.Spellings_become_one…`.
       - A place's destination wasn't checked against the reader's own places, so another reader could block its removal (P2): `KeepingTests.A_destination_is_one_of_your_own_places`.
-    - **Open:** P3: bulk "add tag" counts books at the tag limit as changed.
+    - **Fixed 2026-10-29 (P3):** bulk edits count only books that changed, and name those too full of tags to take another (`BulkResult.AtTagLimit`). Test: `FeatureTests.Many_books_change_at_once_and_only_the_readers_own`.
 - [x] Verify import previews, source mapping, duplicate handling, retry behavior, and partial-failure reporting.
   - *Status 2026-10-28:* Audit §5: ImportJobs and Calibre report added, skipped, and failed; re-runs are idempotent.
 - [x] Verify export completeness for catalog records, editions/formats, physical copies, reading history, highlights/notes, lending records, collections, and files where applicable.
@@ -553,7 +553,7 @@ The user asked for what Audiobookshelf has and Shelf lacks, all of it, one at a 
     - **Open:**
       - **Fixed 2026-10-29 (P2, 2.21.0):** every day was a UTC day. Each reader now keeps a time zone (from the browser, or set on Account), and days, streaks, goals, finishes, loans, and the journal follow it.
       - **Fixed 2026-10-29 (P3):** the journal shows each day's reading time (`ReadingDays`, reader and KOReader) and listening time (`ListeningDays`) of a minute or more, the reader's own (`JournalKind.ReadFor`, `Listened`). Test: `ReadingLifeTests.The_journal_gathers_a_year_and_finds_words_across_years`.
-      - Unsure: trashing a book removes a former borrower's own listening days and highlights on it.
+      - **Checked 2026-10-29:** trashing a book keeps every reader's rows with it (`Trash.CaptureBooksAsync` reads them past the reader filters), a former borrower's highlights and listening days included, and restoring it brings them back. They go only when the owner's trash is emptied or runs out.
 - [~] Check yearly goals and summaries for consistency when records are edited, deleted, imported, or synced.
   - *Status 2026-10-28:* Covered by existing tests; not re-reviewed.
   - *Reviewed 2026-10-28 by reading the code; the findings were checked and the fixes tested (`dotnet test`, 446 passed).* Year counts agree across stats, years, the year review, and Home; trash and restore are consistent.
