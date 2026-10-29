@@ -752,6 +752,7 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
             if (listened >= 1)
             {
                 await AudioPlayback.NoteListeningAsync(db, bookId, null, listened, cancellationToken);
+                await ListeningSessions.NoteAsync(db, bookId, "Audiobookshelf", (int)Math.Round(Math.Min(listened, 120)), time, cancellationToken);
             }
         }
         else if (!finished)

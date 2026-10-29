@@ -3477,5 +3477,18 @@
   "Stop the feed": "Detener el canal",
   "A podcast feed needs a recording.": "Un canal de pódcast necesita una grabación.",
   "{0}, by {1}, from Shelf.": "{0}, de {1}, desde Shelf.",
-  "Play on another device": "Reproducir en otro dispositivo"
+  "Play on another device": "Reproducir en otro dispositivo",
+  "On": "En",
+  "Your audiobooks": "Tus audiolibros",
+  "Play an audiobook, here or in an Audiobookshelf app, and each sitting shows here.": "Reproduce un audiolibro, aquí o en una aplicación de Audiobookshelf, y cada sesión aparecerá aquí.",
+  "Listening sessions": "Sesiones de escucha",
+  "Shelf's player in {0} on {1}": "El reproductor de Shelf en {0} en {1}",
+  "Began": "Empezó",
+  "Every book": "Todos los libros",
+  "In the book": "En el libro",
+  "Each time you sat down with a recording: on what, when, for how long, and from where to where in the book. Yours alone.": "Cada vez que te sentaste con una grabación: en qué, cuándo, cuánto tiempo y desde dónde hasta dónde del libro. Solo tuyo.",
+  "Shelf's player in {0}": "El reproductor de Shelf en {0}",
+  "Heard": "Escuchado",
+  "No listening yet": "Aún no has escuchado nada",
+  "Shelf's player on {0}": "El reproductor de Shelf en {0}"
 }

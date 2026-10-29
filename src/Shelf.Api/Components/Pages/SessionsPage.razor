@@ -1,0 +1,62 @@
+@page "/sessions"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("Listening sessions") · Shelf</PageTitle>
+
+<h1>@T("Listening sessions")</h1>
+<p class="hint">@T("Each time you sat down with a recording: on what, when, for how long, and from where to where in the book. Yours alone.")</p>
+
+@if (sessions.Length == 0)
+{
+    <EmptyState Title="@T("No listening yet")" Text="@T("Play an audiobook, here or in an Audiobookshelf app, and each sitting shows here.")" ActionHref="/library?audio=1" ActionLabel="@T("Your audiobooks")" />
+}
+else
+{
+    @if (Book is not null)
+    {
+        <p class="hint"><a href="/sessions">@T("Every book")</a></p>
+    }
+    <table class="sessions">
+        <thead>
+            <tr>
+                <th scope="col">@T("Began")</th>
+                @if (Book is null)
+                {
+                    <th scope="col">@T("Book")</th>
+                }
+                <th scope="col">@T("On")</th>
+                <th scope="col">@T("Heard")</th>
+                <th scope="col">@T("In the book")</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var session in sessions)
+            {
+                <tr>
+                    <td>@session.StartedAt.ShortStamp()</td>
+                    @if (Book is null)
+                    {
+                        <td><a href="/sessions?book=@session.BookId">@session.Title</a></td>
+                    }
+                    <td>@session.Device</td>
+                    <td>@ChapterEditing.Clock(session.Seconds)</td>
+                    <td>@(session.ToSeconds is double to ? $"{ChapterEditing.Clock(session.FromSeconds ?? to)} → {ChapterEditing.Clock(to)}" : "")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "book")]
+    public int? Book { get; set; }
+
+    private ListeningSessionView[] sessions = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        sessions = await ListeningSessions.ListAsync(db, Book, 200);
+    }
+}

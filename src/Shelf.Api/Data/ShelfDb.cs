@@ -65,6 +65,7 @@ public class ShelfDb : DbContext
     public DbSet<EbookFormat> EbookFormats => Set<EbookFormat>();
     public DbSet<Playlist> Playlists => Set<Playlist>();
     public DbSet<AudioFeed> AudioFeeds => Set<AudioFeed>();
+    public DbSet<ListeningSession> ListeningSessions => Set<ListeningSession>();
     public DbSet<PlaylistItem> PlaylistItems => Set<PlaylistItem>();
     public DbSet<AbsLink> AbsLinks => Set<AbsLink>();
     public DbSet<AbsSyncSetting> AbsSyncs => Set<AbsSyncSetting>();
@@ -558,6 +559,16 @@ public class ShelfDb : DbContext
             feed.HasIndex(item => item.BookId).IsUnique();
             feed.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
             feed.HasQueryFilter(item => item.Book!.OwnerId == ReaderId);
+        });
+
+        // Each sitting with a recording, the listener's own.
+        modelBuilder.Entity<ListeningSession>(session =>
+        {
+            session.Property(item => item.Device).HasMaxLength(ListeningSession.MaxDeviceLength).IsRequired();
+            session.HasIndex(item => new { item.ReaderId, item.BookId });
+            session.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
+            session.HasOne<Reader>().WithMany().HasForeignKey(item => item.ReaderId).OnDelete(DeleteBehavior.Cascade);
+            session.HasQueryFilter(item => item.ReaderId == ReaderId);
         });
 
         // A setting row belongs to the reader with the same id.

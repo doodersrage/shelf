@@ -57,6 +57,14 @@ public static class PortableExport
                     ? new PlaylistEntryExport(at, null, null, item.BookTitle ?? "")
                     : new PlaylistEntryExport(null, item.Feed, item.Guid, item.EpisodeTitle ?? ""))])).ToArray(), json, cancellationToken);
 
+        var readerId = db.ReaderId;
+        var sessions = await db.ListeningSessions.AsNoTracking().Where(item => item.ReaderId == readerId).OrderBy(item => item.Id).ToListAsync(cancellationToken);
+        await WriteJsonAsync(manifest, zip, "listening-sessions.json", sessions.Select(item => new
+        {
+            Book = place.TryGetValue(item.BookId, out var at) ? at : (int?)null,
+            item.Device, item.StartedAt, item.LastAt, item.Seconds, item.FromSeconds, item.ToSeconds,
+        }).ToArray(), json, cancellationToken);
+
         var loans = await db.LoanRecords.AsNoTracking().OrderBy(loan => loan.LentOn).ThenBy(loan => loan.Id)
             .Select(loan => new { Loan = loan, loan.Book!.Title }).ToListAsync(cancellationToken);
         await WriteJsonAsync(manifest, zip, "loans.json", loans.Select(item => new
@@ -146,6 +154,9 @@ public static class PortableExport
         - `books.csv` — the books again as a spreadsheet, a row each. Dates are written year-month-day. "Number" is the
           book's place in `shelf.json`, counting from 1. Your own fields come last, a column each.
         - `collections.json` — your collections, with the note on each book. `book` counts from 0 in `shelf.json`.
+        - `listening-sessions.json` — each sitting with a recording: the book (from 0 in `shelf.json`), what it was on,
+          when it began and last played, the seconds heard, and from where to where in the recording, in seconds. It is
+          yours to keep, and not brought back in.
         - `playlists.json` — your playlists, in order: a book by its place in `shelf.json` (from 0), or a podcast episode
           by its feed's address and the feed's own id for it.
         - `loans.json` — each time one of your books was lent: to whom, when, how often renewed, and the state it went out

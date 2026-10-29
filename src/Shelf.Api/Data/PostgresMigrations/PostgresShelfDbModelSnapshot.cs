@@ -1799,6 +1799,49 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.ToTable("ListeningDays");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.ListeningSession", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Device")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<double?>("FromSeconds")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTimeOffset>("LastAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Seconds")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double?>("ToSeconds")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("ReaderId", "BookId");
+
+                    b.ToTable("ListeningSessions");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.LoanAskRow", b =>
                 {
                     b.Property<int>("Id")
@@ -4328,6 +4371,23 @@ namespace Shelf.Api.Data.PostgresMigrations
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.ListeningDay", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Book");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.ListeningSession", b =>
                 {
                     b.HasOne("Shelf.Api.Books.Book", "Book")
                         .WithMany()

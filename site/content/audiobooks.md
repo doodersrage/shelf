@@ -94,6 +94,12 @@ Shelf uses any service with OpenAI's transcription API and word times. Set `Read
 
 When ffmpeg is there, Shelf always cuts tracks into ten-minute pieces, which shows progress as it goes and loses less if something fails. The recording goes to the service you choose and nowhere else.
 
+## Listening sessions
+
+**Listening sessions**, under **Your reading**, lists each time you sat down with a recording, as Audiobookshelf keeps them: the book, what it played on (Shelf's player in which browser on what, Listening offline, or an Audiobookshelf app), when it began, how long you heard, and from where to where in the book. Listening that goes on within a quarter of an hour on the same device is one sitting. **Listening sessions** under a book's recording shows that book's alone.
+
+Sessions are yours alone; no one else on the shelf sees them, admins included. The device is named by browser and system only, never anything that tells one phone from another. They go out in the full export as `listening-sessions.json`. Times are shown in UTC, as Shelf counts days.
+
 ## Casting to a speaker or TV
 
 Where the browser can cast, **Play on another device** shows beside the player's buttons: Chrome to a Chromecast or Google speaker, and Safari to AirPlay. It uses the browser's own way of casting, so nothing is loaded from Google or Apple. The device fetches the recording itself, so while it plays there Shelf gives it addresses for this book's tracks that work for twelve hours, and only while the book is still yours or lent to you. The place is kept as ever, from the player in the browser.

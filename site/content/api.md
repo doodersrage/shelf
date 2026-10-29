@@ -111,6 +111,7 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | `GET /books/{id}/ebook/ocr/{page}` | The words read from a scanned PDF page, with where each sits. |
 | `POST /books/{id}/audio` | Upload an audio file or a zip of tracks, up to 1 GB (`Uploads:MaxAudioMegabytes`). `DELETE` removes it. |
 | `GET /books/{id}/audio/tracks/{index}` | One track, with range requests for seeking. |
+| `GET /books/listening/sessions` | Your listening sessions, newest first: book, device, when, seconds heard, and where in the recording. `?book=` for one book; `?take=` up to 500. |
 | `GET /books/{id}/audio/cast` | Addresses for each track that a cast device can fetch without signing in, good for twelve hours and only while the book is yours or lent to you. |
 | `GET /books/{id}/audio/feed` | Whether the book's private podcast feed is on. `POST` makes a new address and answers `{"url": "…"}`, shown only then (the old address stops); `DELETE` stops it. The feed, its tracks, and its cover are under `/listen-feed/{secret}/`, open to anyone with the address. |
 | `GET /books/playlists` | Your playlists. `POST {"name": "…"}` makes one; `GET`, `PUT` (rename), and `DELETE /books/playlists/{id}`; `POST /books/playlists/{id}/items` with `{"bookId": 3}` or `{"episodeId": 9}` adds to the end; `DELETE /books/playlists/{id}/items/{itemId}` takes one out; `POST /books/playlists/{id}/move` with `{"itemId": 5, "step": -1}` moves one up or down. Each item gives its player `planUrl`. |

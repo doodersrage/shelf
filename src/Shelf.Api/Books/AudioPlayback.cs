@@ -107,7 +107,7 @@ public static class AudioPlayback
 
     // Where the player is: kept as it is, back or forward, since a listener moves both ways; a place sent late, from
     // listening offline, moves it on only, so a device catching up never undoes listening done elsewhere since.
-    private static async Task<Results<NoContent, Conflict<AudioSpot>, NotFound, ValidationProblem>> Place(int id, AudioPlaceRequest request, ShelfDb db, AudioStore store, CancellationToken cancellationToken)
+    private static async Task<Results<NoContent, Conflict<AudioSpot>, NotFound, ValidationProblem>> Place(int id, AudioPlaceRequest request, HttpContext http, ShelfDb db, AudioStore store, CancellationToken cancellationToken)
     {
         if (await Lending.OpenAsync(db, id, cancellationToken) is not { } open || string.IsNullOrWhiteSpace(open.Book.AudioStoredName))
         {
@@ -142,6 +142,10 @@ public static class AudioPlayback
         if (request.Listened is double listened && listened >= 1)
         {
             await NoteListeningAsync(db, open.Book.Id, request.Day, listened, cancellationToken);
+            var lengths = store.Lengths(open.Book.AudioStoredName);
+            var at = lengths.Take(request.Track).Sum(length => length ?? 0) + request.Seconds;
+            await ListeningSessions.NoteAsync(db, open.Book.Id, request.Replayed ? Localization.Words.T("Listening offline") : ListeningSessions.Describe(http.Request.Headers.UserAgent),
+                (int)Math.Round(Math.Min(listened, MostAtOnce)), at, cancellationToken);
         }
 
         return moved is not null ? TypedResults.Conflict(moved) : TypedResults.NoContent();
@@ -223,6 +227,7 @@ public static class AudioPlayback
         if (request.Seconds >= 1)
         {
             await NoteListeningAsync(db, id, request.Day, request.Seconds, cancellationToken, most: 24 * 60 * 60, daysBack: 31);
+            await ListeningSessions.NoteAsync(db, id, Localization.Words.T("Listening offline"), (int)Math.Round(Math.Min(request.Seconds, 24 * 60 * 60)), null, cancellationToken);
         }
 
         return TypedResults.NoContent();

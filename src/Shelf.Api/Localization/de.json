@@ -3477,5 +3477,18 @@
   "Stop the feed": "Feed beenden",
   "A podcast feed needs a recording.": "Ein Podcast-Feed braucht eine Aufnahme.",
   "{0}, by {1}, from Shelf.": "{0} von {1}, aus Shelf.",
-  "Play on another device": "Auf einem anderen Gerät abspielen"
+  "Play on another device": "Auf einem anderen Gerät abspielen",
+  "On": "Auf",
+  "Your audiobooks": "Ihre Hörbücher",
+  "Play an audiobook, here or in an Audiobookshelf app, and each sitting shows here.": "Spielen Sie ein Hörbuch ab, hier oder in einer Audiobookshelf-App, und jede Sitzung erscheint hier.",
+  "Listening sessions": "Hörsitzungen",
+  "Shelf's player in {0} on {1}": "Shelfs Player in {0} auf {1}",
+  "Began": "Beginn",
+  "Every book": "Alle Bücher",
+  "In the book": "Im Buch",
+  "Each time you sat down with a recording: on what, when, for how long, and from where to where in the book. Yours alone.": "Jedes Mal, wenn Sie eine Aufnahme gehört haben: worauf, wann, wie lange und von wo bis wo im Buch. Nur für Sie.",
+  "Shelf's player in {0}": "Shelfs Player in {0}",
+  "Heard": "Gehört",
+  "No listening yet": "Noch nichts gehört",
+  "Shelf's player on {0}": "Shelfs Player auf {0}"
 }

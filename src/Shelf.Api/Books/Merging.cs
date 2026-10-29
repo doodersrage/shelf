@@ -309,6 +309,11 @@ public static partial class Merging
         await db.Highlights.IgnoreQueryFilters().Where(mark => mark.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(mark => mark.BookId, keepId), cancellationToken);
         await db.Sessions.IgnoreQueryFilters().Where(session => session.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(session => session.BookId, keepId), cancellationToken);
 
+        // Its listening sessions, by anyone who listened.
+        var movedSessions = await db.ListeningSessions.IgnoreQueryFilters().Where(item => item.BookId == otherId).Select(item => item.Id).ToListAsync(cancellationToken);
+        Unmerging.Moved(receipt, nameof(ShelfDb.ListeningSessions), movedSessions);
+        await db.ListeningSessions.IgnoreQueryFilters().Where(item => movedSessions.Contains(item.Id)).ExecuteUpdateAsync(set => set.SetProperty(item => item.BookId, keepId), cancellationToken);
+
         // Its places in playlists, where the kept book isn't in that playlist already.
         var keptLists = await db.PlaylistItems.Where(item => item.BookId == keepId).Select(item => item.PlaylistId).ToListAsync(cancellationToken);
         var movedItems = await db.PlaylistItems.Where(item => item.BookId == otherId && !keptLists.Contains(item.PlaylistId)).Select(item => item.Id).ToListAsync(cancellationToken);

@@ -6,6 +6,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Added
 
+- **Listening sessions**, as Audiobookshelf keeps them: each sitting with a recording, with the book, what it played on, when, how long, and from where to where. Under **Your reading** and under a book's recording; private to the listener, admins included; in the full export.
 - **Casting**: **Play on another device**, beside the player's buttons where the browser can cast, sends the book to a Chromecast or AirPlay through the browser's own Remote Playback, with nothing loaded from Google or Apple. The device fetches the tracks by addresses signed for twelve hours, for this reader and recording only.
 - **An audiobook as a private podcast**, as Audiobookshelf opens a feed: **Listen in a podcast app**, on a book's page, makes a secret address for any podcast app, each track an episode in order, with the cover and a single file's chapters. It's shown once and only a hash of it is kept; a new address stops the old, and it can be stopped. The place isn't kept in step with Shelf.
 - **Playlists**, as Audiobookshelf has them: audiobooks and podcast episodes together, in the order you choose, played one into the next. Add from a book's page or an episode's; reorder, take out, play from any one; things gone since are passed over. Private to you, and in the full export.

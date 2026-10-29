@@ -50,6 +50,7 @@ public static class NavMap
         new("reading", T("Your reading"),
         [
             new("/journal", T("Journal"), "diary notes"),
+            new("/sessions", T("Listening sessions"), "listened history devices audiobook time"),
             new("/quotes", T("Quotes & highlights"), "highlights passages readwise"),
             new("/words", T("Words and passages"), "vocabulary translation language"),
             new("/agenda", T("Calendar"), "agenda ics plans goals"),
