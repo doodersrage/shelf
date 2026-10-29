@@ -3,6 +3,7 @@
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject NavigationManager Navigation
 @inject EbookStore Ebooks
+@inject EpubDetailsStore WithDetails
 @inject AudioStore Audio
 @inject CoverStore Covers
 @inject OcrService Ocr
@@ -1146,7 +1147,11 @@ else if (book is not null)
     <h3>@T("E-book")</h3>
     @if (!string.IsNullOrWhiteSpace(book.EbookFileName))
     {
-        <p>@book.EbookFileName</p>
+        <p>@book.EbookFileName · <a href="/books/@book.Id/ebook/download" download>@T("Download the file")</a></p>
+        @if (EbookStore.IsEpub(book.EbookStoredName))
+        {
+            <p class="hint">@T("The download carries this book's title, authors, series, and cover as Shelf has them, so other apps and devices show them too. The file kept here is unchanged.")</p>
+        }
         <button type="button" @onclick="RemoveEbook">@T("Remove the file")</button>
     }
     <form action="/books/@book.Id/ebook" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
@@ -1285,7 +1290,7 @@ else if (book is not null)
         try
         {
             await using var db = await DbFactory.CreateDbContextAsync();
-            var problem = await Kindle.SendAsync(db, Ebooks, Email, book.Id, CancellationToken.None);
+            var problem = await Kindle.SendAsync(db, Ebooks, WithDetails, Email, book.Id, CancellationToken.None);
             kindleSent = problem is null;
             kindleNeedsAddress = !kindleSent && !await db.Readers.AnyAsync(reader => reader.Id == db.ReaderId && reader.KindleEmail != null);
             kindleNote = problem ?? T("Sent. It reaches the Kindle in a few minutes, once Amazon has it.");

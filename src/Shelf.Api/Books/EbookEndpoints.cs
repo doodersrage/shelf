@@ -134,6 +134,23 @@ public static class EbookEndpoints
         return Results.File(path, type, enableRangeProcessing: true);
     }
 
+    // The file to keep, named for the book: an EPUB with the shelf's details written into a copy of it.
+    public static async Task<IResult> Download(
+        int id,
+        ShelfDb db,
+        EpubDetailsStore withDetails,
+        CancellationToken cancellationToken)
+    {
+        var book = (await Lending.OpenAsync(db, id, cancellationToken))?.Book;
+        if (book is null || await withDetails.PathForAsync(book, cancellationToken) is not { } path)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var name = NotesExport.FileName(book)[..^".md".Length] + Path.GetExtension(book.EbookStoredName)!.ToLowerInvariant();
+        return Results.File(path, EbookStore.ContentType(book.EbookStoredName), name, enableRangeProcessing: true);
+    }
+
     public static async Task<IResult> Chapter(
         int id,
         int index,

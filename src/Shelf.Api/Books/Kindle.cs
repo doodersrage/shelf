@@ -15,7 +15,7 @@ public static class Kindle
     public static bool Takes(Book book) => EbookStore.IsEpub(book.EbookStoredName) || EbookStore.IsPdf(book.EbookStoredName);
 
     // Null once it is sent, otherwise why not.
-    public static async Task<string?> SendAsync(ShelfDb db, EbookStore store, IEmailSender email, int bookId, CancellationToken cancellationToken)
+    public static async Task<string?> SendAsync(ShelfDb db, EbookStore store, EpubDetailsStore withDetails, IEmailSender email, int bookId, CancellationToken cancellationToken)
     {
         if (!email.Enabled)
         {
@@ -34,7 +34,8 @@ public static class Kindle
         }
 
         var book = open.Book;
-        if (!Takes(book) || store.OpenPath(book.EbookStoredName) is not { } path)
+        // An EPUB goes with the shelf's details written in, so the Kindle shows its title, authors, and cover.
+        if (!Takes(book) || await withDetails.PathForAsync(book, cancellationToken) is not { } path)
         {
             return T("A Kindle takes an EPUB or a PDF by email; this book has neither.");
         }
@@ -64,8 +65,8 @@ public static class Kindle
         return null;
     }
 
-    public static async Task<IResult> Send(int id, ShelfDb db, EbookStore store, IEmailSender email, CancellationToken cancellationToken) =>
-        await SendAsync(db, store, email, id, cancellationToken) is { } problem
+    public static async Task<IResult> Send(int id, ShelfDb db, EbookStore store, EpubDetailsStore withDetails, IEmailSender email, CancellationToken cancellationToken) =>
+        await SendAsync(db, store, withDetails, email, id, cancellationToken) is { } problem
             ? TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Kindle"] = [problem] })
             : TypedResults.NoContent();
 }

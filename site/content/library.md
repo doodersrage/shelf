@@ -59,6 +59,12 @@ Give an ISBN, or a title and author, and **Look up** fills the empty fields from
 
 Tags are kept in lowercase, and an ISBN can be typed with or without hyphens.
 
+### Details that go with the file
+
+**Download the file**, under **Files** on a book's page, names the file for its author and title. An EPUB comes with Shelf's details written into it, as Calibre writes them: the title, the authors, the series and number, the publisher, the language, the year, the ISBN, and Shelf's cover when it keeps one. Other apps and e-readers then show the book as Shelf does. **Send to Kindle** sends the same copy. Your notes, review, rating, and tags are never written into a file.
+
+The file kept on the shelf is never changed. The reader, the OPDS catalog, and KOReader use it as it is, so KOReader still knows the book by its file. A Kobo gets Shelf's details through its own sync.
+
 ## Views and filters
 
 The library shows covers or a list, and remembers your choice. Search, status, and sort are always in view, with chips for books on loan, e-books, and audiobooks; **Loved** and **Read next** sit under **More filters**. A filter from elsewhere (an author, series, tag, place, or recommender you followed a link from) shows as a chip of its own under the list's tools, and so do the ones under **More filters**: tap one's **×** to take it away, or **Clear filters** to take them all.

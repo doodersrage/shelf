@@ -482,6 +482,18 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
 - [x] Add safeguards and tests around destructive merges, deletions, and bulk actions.
   - *Status 2026-10-28:* Trash with undo (audit); merges are reversible (task 18).
 
+### Calibre gaps (asked for 2026-10-29)
+
+The user asked for what Calibre has and Shelf lacks, in this order, one at a time:
+
+- [x] **Details written into downloaded EPUBs** (2026-10-29). `EpubDetails` writes title, authors, series (Calibre's and EPUB 3's way), publisher, language, year, ISBN, and the shelf's cover into a cached copy (`EpubDetailsStore`, `ebooks/with-details`), remade when they change. It's used by the new `GET /books/{id}/ebook/download` (linked on the book page) and Send to Kindle. Notes, review, rating, and tags are never written. The stored file is untouched, so OPDS, the reader, and KOReader's digest matching are unaffected. Backups now leave out `kepub/` and `with-details/`. Tests: `EpubDetailsTests` (EPUB 2 and 3 packages, language codes, the download and its privacy).
+  - Not done: a cover with no `CoverImage` (an address only) isn't written; the Kobo download isn't stamped (Kobo takes details from sync); OPDS isn't stamped, which would break KOReader's file-based matching.
+- [ ] **Fields of your own**: a reader's own fields (text, number, date, yes/no), editable, searchable, and in exports and backups. Needs a migration.
+- [ ] **Several formats per book**: more than one e-book file per book, with a preferred one for the reader and sync. Large: schema, uploads, reader, OPDS, Kobo, KOReader, backups, duplicates.
+- [ ] **Convert on demand**: through Calibre's `ebook-convert` when installed, kept as another format. Depends on several formats.
+- [ ] **A readable export**: the library's files as `Author/Title/` folders with an OPF each, as a download. The stored layout stays as it is.
+- Not planned (reasons given to the user): USB device management (a web server can't reach a cable; OPDS, Kobo sync, and Send to Kindle cover it), news downloads, an e-book editor, and plugins (other people's code on a shared server).
+
 ### Acceptance criteria
 
 - Import/export operations report what was added, skipped, updated, or rejected and why.

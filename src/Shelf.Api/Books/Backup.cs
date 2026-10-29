@@ -351,7 +351,8 @@ public static class Backup
             zip.CreateEntryFromFile(database, entry);
             if (includeFiles)
             {
-                AddFolder(zip, ebooks.Root, "ebooks");
+                // Kobo's copies and the copies with the book's details are made again as wanted.
+                AddFolder(zip, ebooks.Root, "ebooks", "kepub", "with-details");
                 AddFolder(zip, audio.Root, "audio");
             }
 
@@ -468,7 +469,7 @@ public static class Backup
         }
     }
 
-    private static void AddFolder(ZipArchive zip, string root, string name)
+    private static void AddFolder(ZipArchive zip, string root, string name, params string[] skipped)
     {
         if (!Directory.Exists(root))
         {
@@ -478,6 +479,11 @@ public static class Backup
         foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
         {
             var relative = Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/');
+            if (skipped.Any(folder => relative.StartsWith(folder + "/", StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
             zip.CreateEntryFromFile(file, $"{name}/{relative}", CompressionLevel.NoCompression);
         }
     }

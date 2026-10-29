@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Added
+
+- **A downloaded EPUB carries Shelf's details**: **Download the file** on a book's page, and **Send to Kindle**, write the book's title, authors, series and number, publisher, language, year, ISBN, and cover into a copy of the EPUB, as Calibre does, so other apps and devices show it as Shelf does. Notes, reviews, ratings, and tags are never written, and the stored file is never changed, so the reader and KOReader's sync work as before. Backups leave out these copies and Kobo's KEPUBs, which are made again when wanted.
+
 ### Fixed
 
 - **A reader or player left open no longer sends your place back**: a tab open since yesterday saved its old place over the one read since on another device, as soon as it was resized or played. The reader now asks, with **Go there** and **Keep my place here**; the player goes to the newer place as it starts, with **Back to** for a minute.

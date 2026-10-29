@@ -3383,5 +3383,6 @@
   "Go to finds any page or book by a few letters: Ctrl K or / opens it from anywhere.": "Gehe zu findet jede Seite und jedes Buch mit ein paar Buchstaben: Strg K oder / öffnet es von überall.",
   "Your place was moved in another tab or on another device, so the player went there.": "Ihre Stelle wurde in einem anderen Tab oder auf einem anderen Gerät verschoben, daher ist der Player dorthin gesprungen.",
   "Your place was moved in another tab or on another device, to {0}. Pages turned here are not saved until you choose.": "Ihre Stelle wurde in einem anderen Tab oder auf einem anderen Gerät verschoben, nach {0}. Hier umgeblätterte Seiten werden erst gespeichert, wenn Sie sich entscheiden.",
-  "Keep my place here": "Meine Stelle hier behalten"
+  "Keep my place here": "Meine Stelle hier behalten",
+  "The download carries this book's title, authors, series, and cover as Shelf has them, so other apps and devices show them too. The file kept here is unchanged.": "Der Download enthält Titel, Autoren, Reihe und Cover dieses Buchs so, wie Shelf sie kennt, damit andere Apps und Geräte sie ebenfalls anzeigen. Die hier gespeicherte Datei bleibt unverändert."
 }
