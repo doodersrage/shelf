@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.20.0] - 2026-10-29
+
 What Calibre and Audiobookshelf users would miss, now in Shelf, and reading places that are never sent backwards. The database gains tables and one column, and changes nothing that is there.
 
 ### Added
@@ -784,7 +786,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.19.1...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.20.0...HEAD
+[2.20.0]: https://github.com/doodersrage/shelf/compare/v2.19.1...v2.20.0
 [2.19.1]: https://github.com/doodersrage/shelf/compare/v2.19.0...v2.19.1
 [2.19.0]: https://github.com/doodersrage/shelf/compare/v2.18.0...v2.19.0
 [2.18.0]: https://github.com/doodersrage/shelf/compare/v2.17.1...v2.18.0
