@@ -1284,7 +1284,8 @@ else if (book is not null)
     <h3>@T("Audiobook")</h3>
     @if (!string.IsNullOrWhiteSpace(book.AudioFileName))
     {
-        <p>@book.AudioFileName</p>
+        <p>@book.AudioFileName · <a href="/books/@book.Id/audio/download" download>@T("Download the recording")</a></p>
+        <p class="hint">@T("The download carries this book's title, author, narrator, and cover in its files, and its chapters in a single file, so other players show them. The files kept here are unchanged.")</p>
         <button type="button" @onclick="RemoveAudio">@T("Remove the recording")</button>
     }
     @if (!string.IsNullOrWhiteSpace(book.AudioStoredName) || book.Format == BookFormat.Audiobook)

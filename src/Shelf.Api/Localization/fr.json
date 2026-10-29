@@ -3435,5 +3435,7 @@
   "Shelf can make an EPUB, an AZW3, a MOBI, or a PDF.": "Shelf peut faire un EPUB, un AZW3, un MOBI ou un PDF.",
   "Make {0}": "Créer {0}",
   "Your books' files in folders by author and title, as Calibre keeps them, each with a metadata.opf that Calibre and other programs read:": "Les fichiers de vos livres dans des dossiers par auteur et titre, comme Calibre les range, chacun avec un metadata.opf que Calibre et d’autres programmes lisent :",
-  "download as folders": "télécharger en dossiers"
+  "download as folders": "télécharger en dossiers",
+  "Download the recording": "Télécharger l’enregistrement",
+  "The download carries this book's title, author, narrator, and cover in its files, and its chapters in a single file, so other players show them. The files kept here are unchanged.": "Le téléchargement porte dans ses fichiers le titre, l’auteur, le narrateur et la couverture de ce livre, et ses chapitres s’il tient en un seul fichier, pour que les autres lecteurs les affichent. Les fichiers conservés ici restent inchangés."
 }

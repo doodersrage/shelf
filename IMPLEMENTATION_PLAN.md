@@ -496,6 +496,18 @@ The user asked for what Calibre has and Shelf lacks, in this order, one at a tim
   - Not verified: a real Calibre conversion. Calibre isn't installed here or in CI.
 - [x] **A readable export** (2026-10-29). `GET /books/export/folders` (`FolderExport`), linked on the Backup page: `Author/Title (id)/` with every format named for the book, the cover, the audiobook under `audiobook/`, and an OPF 2.0 `metadata.opf` with Calibre's series and rating fields. Only the reader's own books, and no notes. The stored layout is unchanged. Test: `FolderExportTests`.
   - Not verified: adding the folders to a real Calibre (none installed here).
+### Audiobookshelf gaps (asked for 2026-10-29)
+
+The user asked for what Audiobookshelf has and Shelf lacks, all of it, one at a time:
+
+- [x] **Details written into audio files** (2026-10-29). `GET /books/{id}/audio/download` (`AudioTagging`): ffmpeg `-c:a copy` writes title/album/artist/album artist/composer (narrator)/date/grouping (series)/track and the cover into temp copies (one file as itself with the player's chapters for MP4 kinds; tracks as a numbered zip). Stored files untouched; without ffmpeg the files go as stored. Also: temp downloads now send a `filename*` so any title is a safe header. Test: `AudioTaggingTests` (real ffmpeg, read back with ffprobe; CI has ffmpeg).
+- [ ] Playlists: a queue of audiobooks and podcast episodes that plays through.
+- [ ] A private podcast feed for an audiobook.
+- [ ] Casting to Chromecast from the web player.
+- [ ] A listening-session history.
+- [ ] A narrators page; sharing one audiobook by link.
+- To ask the user about: shared libraries with permissions, and files read in place. Both change Shelf's model.
+
 - Not planned (reasons given to the user): USB device management (a web server can't reach a cable; OPDS, Kobo sync, and Send to Kindle cover it), news downloads, an e-book editor, and plugins (other people's code on a shared server).
 
 ### Acceptance criteria

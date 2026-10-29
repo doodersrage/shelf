@@ -27,7 +27,7 @@ public sealed class M4bService(IServiceScopeFactory scopes, AudioStore audio, Co
     private readonly ConcurrentDictionary<string, string?> _making = new();
     private bool? _available;
 
-    private string Tool => configuration["Audio:FFmpeg"] ?? configuration["ReadAlong:FFmpeg"] ?? "ffmpeg";
+    public string Tool => configuration["Audio:FFmpeg"] ?? configuration["ReadAlong:FFmpeg"] ?? "ffmpeg";
 
     // Asked once, off the page's own thread: waiting there on the answer could keep it from ever coming.
     public bool Available => _available ??= Task.Run(() => Tools.RunAsync(Tool, ["-version"], TimeSpan.FromSeconds(10), CancellationToken.None)).GetAwaiter().GetResult() is not null;

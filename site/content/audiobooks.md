@@ -19,6 +19,8 @@ Under the list of chapters in the player, **Edit the chapters** lets you name ea
 
 ### One M4B from many tracks
 
+**Download the recording**, under **Files** on a book's page, gives the recording with Shelf's details written into its files, as Audiobookshelf embeds them: the book's title as the album, the author as the artist, the narrator as the composer, the year, the series, and the cover; a single file also takes the player's chapters, and tracks come as a zip, each numbered and named. ffmpeg copies the sound as it is, so nothing is re-encoded, and the files kept on the shelf are never changed. Without ffmpeg the files come as they are.
+
 A recording in many tracks can be joined into one M4B, with the player's chapters (Audible's, your own, or one a track), the book's title, author, and narrator, and its cover. On the book's page, choose **Make one M4B**; Shelf makes it in the background with ffmpeg. Then **Download the M4B** for another player, or **Use it in place of the tracks** to keep it as the book's recording, with your place kept. It needs ffmpeg on the server (`--build-arg FFMPEG=true` for the Docker image); `Audio:M4bBitrate` sets its quality (64k by default, plenty for speech).
 
 ### Matching it on Audible

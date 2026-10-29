@@ -548,7 +548,9 @@ public sealed class TempFileResult(string path, string contentType, string? down
             httpContext.Response.ContentLength = new FileInfo(path).Length;
             if (downloadName is not null)
             {
-                httpContext.Response.Headers.ContentDisposition = $"attachment; filename=\"{downloadName}\"";
+                // A name in any language: plain letters for old clients, and the name itself as filename*.
+                var plain = new string(downloadName.Select(letter => letter is >= ' ' and <= '~' and not '"' and not '\\' ? letter : '_').ToArray());
+                httpContext.Response.Headers.ContentDisposition = new Microsoft.Net.Http.Headers.ContentDispositionHeaderValue("attachment") { FileName = plain, FileNameStar = downloadName }.ToString();
             }
 
             await using var input = File.OpenRead(path);

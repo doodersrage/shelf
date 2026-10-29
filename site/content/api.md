@@ -111,6 +111,7 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | `GET /books/{id}/ebook/ocr/{page}` | The words read from a scanned PDF page, with where each sits. |
 | `POST /books/{id}/audio` | Upload an audio file or a zip of tracks, up to 1 GB (`Uploads:MaxAudioMegabytes`). `DELETE` removes it. |
 | `GET /books/{id}/audio/tracks/{index}` | One track, with range requests for seeking. |
+| `GET /books/{id}/audio/download` | The recording with the book's details written into its files (one file as itself, tracks as a zip), by ffmpeg without re-encoding; as stored without ffmpeg. |
 | `GET /books/{id}/audio/plan` | What the player needs: the tracks with their lengths in seconds, the chapters (each in a track, from a time), where you stopped, and your speed. |
 | `PUT /books/{id}/audio/place` | `{"track": 2, "seconds": 341.5}` keeps your place in the recording exactly, back or forward. Add `"listened": 15, "day": "2026-10-10"` to count seconds of listening on that day. Add `"from": {"track": 2, "seconds": 300}`, the place you last had from Shelf, and the place moves only if it is still there: moved since by another device, the answer is `409` with the place now kept, and the time listened still counts. |
 | `POST /books/{id}/audio/listened` | `{"day": "2026-10-09", "seconds": 5400}` counts time listened with no connection, sent later: up to a day's worth, from the last month. |
