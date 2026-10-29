@@ -51,6 +51,20 @@ else if (book is not null)
         {
             <p>@T("This book has no e-book file.")@if (!borrowed) { <text> <a href="/library/@book.Id">@T("Add one")</a></text> }</p>
         }
+        else if (Ebooks.OpenPath(book.EbookStoredName) is null)
+        {
+            @* The book says it has a file, and the server has lost it (a disk moved, a folder restored without it). *@
+            <p class="validation-message" role="alert">@T("This book's e-book file is missing from the server, so it can't be opened.")
+                @if (!borrowed)
+                {
+                    <text> <a href="/library/@book.Id#files">@T("Upload it again")</a></text>
+                }
+                else
+                {
+                    <text> @T("Ask its owner to upload it again.")</text>
+                }
+            </p>
+        }
         else if (EbookStore.IsPdf(book.EbookStoredName))
         {
             <div class="reader-nav">

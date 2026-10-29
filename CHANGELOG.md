@@ -12,6 +12,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Fixed
 
+- **A missing file is called missing**: the reader says a book's file is gone from the server and links to upload it again, where it said it couldn't be opened; and the Calibre import says when a listed file is missing from Calibre's folder, or is damaged or too large.
 - **A downloaded EPUB carries a cover known only by its web address**, fetched once and kept, where it went without.
 - **Trading with another shelf finds the right entry when a book is on the shelf twice**, a paper copy and an e-book say: the one with the file, where it took whichever came first.
 - **A sign-in no longer fails if the activity log can't be written**, as could happen just after a restore.

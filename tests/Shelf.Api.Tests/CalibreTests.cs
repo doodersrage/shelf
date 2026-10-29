@@ -86,6 +86,9 @@ public sealed class CalibreTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Null(lathe.EbookFileName);
         Assert.Equal(3, lathe.Rating);
         Assert.Null(shelf.Single(book => book.Title == "A Wizard of Earthsea").EbookFileName);
+        // Listed by Calibre but missing from its folder: said so, apart from a book with no file Shelf takes.
+        Assert.Equal("Its EPUB file is missing from the Calibre folder, so it came without a file.", job.Entries[3].Note);
+        Assert.Equal("No file Shelf takes; added to the catalog.", job.Entries[2].Note);
 
         // A second run brings nothing twice.
         var again = new CalibreJob(Guid.NewGuid(), readerId, library, CalibreLibrary.Read(library));

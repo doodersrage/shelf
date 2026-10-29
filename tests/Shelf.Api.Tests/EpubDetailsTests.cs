@@ -180,6 +180,30 @@ public sealed class EpubDetailsTests(ShelfApiFactory factory) : IClassFixture<Sh
         Assert.Equal(1, asked);
     }
 
+    // A book whose file the server has lost says so in the reader, with the way to put it back, not "could not open".
+    [Fact]
+    public async Task A_missing_file_is_called_missing_in_the_reader()
+    {
+        var reader = await factory.SignUpAsync("Lost File Reader");
+        var book = (await (await reader.PostAsJsonAsync("/books", new CreateBookRequest("Mislaid", "Someone", BookStatus.Reading, null), JsonOptions)).Content.ReadFromJsonAsync<BookResponse>(JsonOptions))!;
+        using (var content = new MultipartFormDataContent { { new ByteArrayContent(BooksEndpointTests.SampleEpub($"Mislaid {Guid.NewGuid():N}.")), "file", "mislaid.epub" } })
+        {
+            await reader.PostAsync($"/books/{book.Id}/ebook", content);
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>();
+            var stored = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+                Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.IgnoreQueryFilters(db.Books), item => item.Id == book.Id);
+            File.Delete(scope.ServiceProvider.GetRequiredService<EbookStore>().OpenPath(stored.EbookStoredName)!);
+        }
+
+        var page = await reader.GetStringAsync($"/library/{book.Id}/read");
+        Assert.Contains("missing from the server", page);
+        Assert.Contains($"/library/{book.Id}#files", page);
+    }
+
     private sealed class Answers(Func<HttpRequestMessage, HttpResponseMessage> answer) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => Task.FromResult(answer(request));

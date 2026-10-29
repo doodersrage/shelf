@@ -478,7 +478,7 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
 - [~] Make file-missing and storage-migration states discoverable and recoverable.
   - *Status 2026-10-28:* The FileCheck weekly sweep exists and is tested (audit). No new work.
   - *Reviewed 2026-10-28 by reading the code; the findings were checked and the fixes tested (`dotnet test`, 446 passed).* There is no storage-migration feature, so that part is not applicable. Kobo, OPDS, KOReader, and the Audiobookshelf API answer 404 for a missing file.
-    - **Open (P2):** a missing EPUB says "could not be opened", like a damaged one, with no "the file is missing" wording or upload link; re-uploading on the book page does work. Calibre gives the same note for a missing file as for an unsupported one.
+    - **Fixed 2026-10-29 (P2):** a missing file is called missing in the reader, with an upload link for the owner (`EpubDetailsTests.A_missing_file_is_called_missing_in_the_reader`); the Calibre import says when a listed file is missing from its folder, damaged, or too large (`CalibreTests`).
 - [x] Add safeguards and tests around destructive merges, deletions, and bulk actions.
   - *Status 2026-10-28:* Trash with undo (audit); merges are reversible (task 18).
 

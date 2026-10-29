@@ -159,6 +159,11 @@ public static partial class CalibreLibrary
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    // The first kind Shelf takes that Calibre lists for the book but its folder doesn't hold; null when none is missing.
+    public static string? Missing(string library, CalibreBook book) =>
+        Preferred.FirstOrDefault(format => book.Files.FirstOrDefault(file => file.Format == format) is { Name: not null } file
+            && !File.Exists(Path.Combine(library, book.Folder, $"{file.Name}.{format.ToLowerInvariant()}")));
+
     // The file to bring for a book, as a full path, with its kind; null when none of its files is one Shelf takes.
     public static (string Path, string Format)? Best(string library, CalibreBook book)
     {
@@ -428,6 +433,7 @@ public sealed class CalibreImporter(IServiceScopeFactory scopes, ShelfJobs regis
         var known = new FileDetails(book.Title, book.Author, book.Isbn, book.Publisher, book.Year, book.Language);
 
         ImportedFile? result = null;
+        string? missingNote = null;
         if (CalibreLibrary.Best(job.Library, book) is { } file)
         {
             await using var stream = File.OpenRead(file.Path);
@@ -445,9 +451,21 @@ public sealed class CalibreImporter(IServiceScopeFactory scopes, ShelfJobs regis
                 return line with
                 {
                     State = CalibreState.Failed,
-                    Note = result.Outcome == ImportOutcome.NeedsConverter ? T("A Kindle file needs Calibre's converter on the server.") : T("Shelf could not read its files."),
+                    Note = result.Outcome switch
+                    {
+                        ImportOutcome.NeedsConverter => T("A Kindle file needs Calibre's converter on the server."),
+                        ImportOutcome.Damaged => T("Its {0} file looks damaged or cut short.", file.Format),
+                        ImportOutcome.TooLarge => T("Its {0} file is larger than the shelf takes.", file.Format),
+                        ImportOutcome.Full => T("There's no room left in your storage for it."),
+                        _ => T("Shelf could not read its files."),
+                    },
                 };
             }
+        }
+        else if (CalibreLibrary.Missing(job.Library, book) is { } missing)
+        {
+            // Calibre lists a file Shelf takes, and its folder doesn't hold it: said, and the book comes as an entry.
+            missingNote = T("Its {0} file is missing from the Calibre folder, so it came without a file.", missing);
         }
 
         var bookId = result?.BookId ?? await import.CatalogAsync(db, known, cancellationToken);
@@ -475,6 +493,6 @@ public sealed class CalibreImporter(IServiceScopeFactory scopes, ShelfJobs regis
         }
 
         await db.SaveChangesAsync(cancellationToken);
-        return line with { State = CalibreState.Done, BookId = entry.Id, Note = result is null ? T("No file Shelf takes; added to the catalog.") : null };
+        return line with { State = CalibreState.Done, BookId = entry.Id, Note = result is null ? missingNote ?? T("No file Shelf takes; added to the catalog.") : null };
     }
 }
