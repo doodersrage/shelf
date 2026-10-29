@@ -2195,7 +2195,7 @@ else if (book is not null)
             await using var db = await DbFactory.CreateDbContextAsync();
             if (await db.Books.FirstOrDefaultAsync(item => item.Id == Id) is { } current)
             {
-                var outcome = await EbookFormats.ConvertAsync(db, Ebooks, Storage, current, to);
+                var outcome = await EbookFormats.ConvertAsync(db, Ebooks, Storage, current, to, covers: Covers);
                 (convertNote, convertOk) = (EbookFormats.Describe(outcome, to), outcome == "saved");
             }
         }

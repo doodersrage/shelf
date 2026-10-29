@@ -22,7 +22,7 @@ public sealed record EpubDetailsToWrite(
     string? Isbn,
     string? CoverPath)
 {
-    public static EpubDetailsToWrite For(Book book, CoverStore covers) => new(
+    public static EpubDetailsToWrite For(Book book, CoverStore? covers) => new(
         book.Title,
         AbsJson.Split(book.Author).Where(name => name != BookImport.UnknownAuthor).ToList(),
         book.Series,
@@ -31,7 +31,7 @@ public sealed record EpubDetailsToWrite(
         EpubDetails.LanguageCode(book.Language),
         book.Year,
         book.Isbn,
-        covers.OpenPath(book.CoverImage));
+        covers?.OpenPath(book.CoverImage));
 }
 
 public static class EpubDetails

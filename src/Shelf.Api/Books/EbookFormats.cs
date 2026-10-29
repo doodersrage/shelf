@@ -37,14 +37,14 @@ public static class EbookFormats
             await ListAsync(db, store, id, cancellationToken) is { } formats ? TypedResults.Ok(formats) : TypedResults.NotFound()).WithTags("Files");
         books.MapPost("/{id:int}/ebook/formats", Upload).DisableAntiforgery().WithTags("Files");
         books.MapGet("/{id:int}/ebook/formats/{formatId:int}", Download).WithTags("Files");
-        books.MapPost("/{id:int}/ebook/formats/convert", async Task<IResult> (int id, ConvertRequest request, ShelfDb db, EbookStore store, Storage storage, CancellationToken cancellationToken) =>
+        books.MapPost("/{id:int}/ebook/formats/convert", async Task<IResult> (int id, ConvertRequest request, ShelfDb db, EbookStore store, Storage storage, CoverStore covers, CancellationToken cancellationToken) =>
         {
             if (await db.Books.FirstOrDefaultAsync(item => item.Id == id, cancellationToken) is not { } book)
             {
                 return TypedResults.NotFound();
             }
 
-            var outcome = await ConvertAsync(db, store, storage, book, request.To ?? "", cancellationToken);
+            var outcome = await ConvertAsync(db, store, storage, book, request.To ?? "", cancellationToken, covers);
             return outcome == "saved"
                 ? TypedResults.Ok(new { outcome })
                 : TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["To"] = [Describe(outcome, request.To ?? "")] }, extensions: new Dictionary<string, object?> { ["outcome"] = outcome });
@@ -129,7 +129,7 @@ public static class EbookFormats
 
     // Another format made from the book's own by Calibre, and kept as one: from its EPUB where it has one, as Calibre
     // converts that best, else from the main e-book.
-    public static async Task<string> ConvertAsync(ShelfDb db, EbookStore store, Storage storage, Book book, string to, CancellationToken cancellationToken = default)
+    public static async Task<string> ConvertAsync(ShelfDb db, EbookStore store, Storage storage, Book book, string to, CancellationToken cancellationToken = default, CoverStore? covers = null)
     {
         var target = to.Trim().TrimStart('.').ToUpperInvariant();
         if (!Makeable.Contains(target))
@@ -158,7 +158,7 @@ public static class EbookFormats
         string? made = null;
         try
         {
-            made = await store.ConvertToAsync(source, "." + target.ToLowerInvariant(), cancellationToken);
+            made = await store.ConvertToAsync(source, "." + target.ToLowerInvariant(), cancellationToken, Details(book, covers));
             if (made is null)
             {
                 return "failed";
@@ -174,6 +174,34 @@ public static class EbookFormats
             EbookStore.DeleteMade(made);
             Converting.Release();
         }
+    }
+
+    // Shelf's details for Calibre to write into what it makes, as the EPUB download carries them: never tags, notes,
+    // a review, or a rating.
+    public static List<string> Details(Book book, CoverStore? covers)
+    {
+        var details = EpubDetailsToWrite.For(book, covers);
+        List<string> options = ["--title", details.Title];
+        if (details.Authors.Count > 0)
+        {
+            options.AddRange(["--authors", string.Join(" & ", details.Authors)]);
+        }
+
+        void Add(string option, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                options.AddRange([option, value]);
+            }
+        }
+
+        Add("--series", details.Series);
+        Add("--series-index", details.Series is null ? null : details.SeriesNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Add("--publisher", details.Publisher);
+        Add("--language", details.Language);
+        Add("--isbn", details.Isbn);
+        Add("--cover", details.CoverPath);
+        return options;
     }
 
     public static string Describe(string outcome, string to) => outcome switch

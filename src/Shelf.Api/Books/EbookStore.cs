@@ -226,7 +226,8 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
 
     // A stored e-book in another format, made by Calibre in a folder of its own, which the caller deletes with
     // DeleteMade once done. Null when Calibre can't read it (one locked with DRM, say) or isn't there.
-    public async Task<string?> ConvertToAsync(string storedName, string extension, CancellationToken cancellationToken)
+    // options: more for ebook-convert, as the details to write into what it makes.
+    public async Task<string?> ConvertToAsync(string storedName, string extension, CancellationToken cancellationToken, IReadOnlyList<string>? options = null)
     {
         if (OpenPath(storedName) is not { } source)
         {
@@ -236,7 +237,7 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
         var folder = Path.Combine(Path.GetTempPath(), $"shelf-convert-{Guid.NewGuid():N}");
         Directory.CreateDirectory(folder);
         var made = Path.Combine(folder, "book" + extension);
-        if (await Tools.RunAsync(Converter, [source, made], TimeSpan.FromMinutes(5), cancellationToken) is not null && File.Exists(made) && new FileInfo(made).Length > 0)
+        if (await Tools.RunAsync(Converter, [source, made, .. options ?? []], TimeSpan.FromMinutes(5), cancellationToken) is not null && File.Exists(made) && new FileInfo(made).Length > 0)
         {
             return made;
         }
