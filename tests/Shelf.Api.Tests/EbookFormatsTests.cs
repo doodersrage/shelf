@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO.Compression;
 using System.Net;
@@ -156,5 +158,57 @@ public sealed class EbookFormatsTests(ShelfApiFactory factory) : IClassFixture<S
         Assert.True(unmerged.Restored);
         Assert.Equal("other.pdf", (await reader.GetFromJsonAsync<BookResponse>($"/books/{unmerged.BookId}", JsonOptions))!.EbookFileName);
         Assert.Empty((await reader.GetFromJsonAsync<EbookFormatResponse[]>($"/books/{epubEntry.Id}/ebook/formats", JsonOptions))!);
+    }
+
+    // Another format made by Calibre from the book's EPUB is kept as one; asked for one the book has, or without
+    // Calibre, it says so and makes nothing.
+    [Fact]
+    public async Task Calibre_makes_another_format_from_the_books_own()
+    {
+        var reader = await factory.SignUpAsync("Format Maker");
+        var book = await BookWithEpubAsync(reader, "Made Formats");
+        var folder = Path.Combine(Path.GetTempPath(), $"shelf-make-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        try
+        {
+            // A stand-in for ebook-convert: it answers --version, and writes a Kindle book wherever it's asked.
+            var kindle = Path.Combine(folder, "made.azw3");
+            await File.WriteAllBytesAsync(kindle, Kindle("made by the stand-in"));
+            var converter = Path.Combine(folder, "ebook-convert");
+            await File.WriteAllTextAsync(converter, $"#!/bin/sh\n[ \"$1\" = --version ] && exit 0\ncp '{kindle}' \"$2\"\n");
+            if (OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            File.SetUnixFileMode(converter, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            await using var scope = factory.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<Shelf.Api.Readers.ShelfReader>().Use(await factory.ReaderIdAsync("Format Maker"));
+            var db = scope.ServiceProvider.GetRequiredService<Shelf.Api.Data.ShelfDb>();
+            var shared = scope.ServiceProvider.GetRequiredService<EbookStore>();
+            EbookStore With(string tool) => new(
+                scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>(),
+                new Microsoft.Extensions.Configuration.ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["EbookStore:Root"] = shared.Root,
+                    ["Ebooks:Convert"] = tool,
+                }).Build());
+            var storage = scope.ServiceProvider.GetRequiredService<Storage>();
+            var entry = await db.Books.FirstAsync(item => item.Id == book.Id);
+
+            Assert.Equal("unavailable", await EbookFormats.ConvertAsync(db, With(Path.Combine(folder, "missing")), storage, entry, "azw3"));
+            Assert.Equal("unsupported", await EbookFormats.ConvertAsync(db, With(converter), storage, entry, "docx"));
+            Assert.Equal("have", await EbookFormats.ConvertAsync(db, With(converter), storage, entry, "epub"));
+            Assert.Equal("saved", await EbookFormats.ConvertAsync(db, With(converter), storage, entry, "AZW3"));
+            Assert.Equal("have", await EbookFormats.ConvertAsync(db, With(converter), storage, entry, "azw3"));
+            var made = Assert.Single((await reader.GetFromJsonAsync<EbookFormatResponse[]>($"/books/{book.Id}/ebook/formats", JsonOptions))!);
+            Assert.Equal(("AZW3", "main.azw3"), (made.Format, made.FileName));
+            Assert.Equal(await File.ReadAllBytesAsync(kindle), await reader.GetByteArrayAsync($"/books/{book.Id}/ebook/formats/{made.Id}"));
+            Assert.Empty(Directory.GetDirectories(Path.GetTempPath(), "shelf-convert-*").Where(dir => Directory.GetLastWriteTimeUtc(dir) > DateTime.UtcNow.AddMinutes(-1)));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
     }
 }

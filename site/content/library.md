@@ -71,6 +71,8 @@ Your fields are yours alone: no other reader on the shelf sees them, even on a b
 
 A book can keep other formats of its e-book beside the main one, as Calibre keeps them: an AZW3 for a Kindle, or the PDF with the printed pages. Add one under **Other formats**, under **Files** on the book's page. It's kept exactly as it came, Kindle files included, with one of each format to a book: a second AZW3 replaces the first.
 
+With Calibre installed on the server (see [Running the server](server.md)), Shelf can make the others itself: **Make AZW3**, **Make PDF**, and so on, under **Other formats**, have Calibre convert the book, from its EPUB where it has one, and keep the result as another format. It can take a minute, one book at a time. A book locked with DRM can't be converted.
+
 The reader, your place, KOReader, and Kobo go by the main e-book. **Make it the main e-book** swaps an EPUB, PDF, or comic in, keeping the main one before as another format; your place starts again at the beginning, since a place in one file means nothing in another. Other formats can be downloaded, are offered beside the main e-book in the [OPDS catalog](devices.md#e-reader-apps-opds), go out in the full export under `formats/`, and come back with the book from the trash. Merging two entries for one book keeps the other entry's formats, and its main e-book when it's a different format.
 
 ### Details that go with the file

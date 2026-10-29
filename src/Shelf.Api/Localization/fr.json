@@ -3424,5 +3424,14 @@
   "Remove the {0}": "Supprimer le {0}",
   "Shelf's reader opens an EPUB, a PDF, or a comic; this format can't be the main e-book.": "Le lecteur de Shelf ouvre un EPUB, un PDF ou une BD ; ce format ne peut pas être le livre numérique principal.",
   "That's the format of the main e-book. To replace the main e-book, upload it under E-book.": "C’est le format du livre numérique principal. Pour le remplacer, téléversez-le sous Livre numérique.",
-  "The format is kept with the book.": "Le format est gardé avec le livre."
+  "The format is kept with the book.": "Le format est gardé avec le livre.",
+  "Made by Calibre from this book:": "Fait par Calibre à partir de ce livre :",
+  "Making the {0}… This can take a minute.": "Création du {0}… Cela peut prendre une minute.",
+  "The {0} is made and kept with the book.": "Le {0} est fait et gardé avec le livre.",
+  "The book has a {0} already.": "Le livre a déjà un {0}.",
+  "The book needs an e-book to make another format from.": "Le livre a besoin d’un livre numérique pour en faire un autre format.",
+  "Making other formats needs Calibre installed on the server.": "Faire d’autres formats demande que Calibre soit installé sur le serveur.",
+  "Calibre couldn't make a {0} of this book. A book locked with DRM can't be converted.": "Calibre n’a pas pu faire un {0} de ce livre. Un livre verrouillé par DRM ne peut pas être converti.",
+  "Shelf can make an EPUB, an AZW3, a MOBI, or a PDF.": "Shelf peut faire un EPUB, un AZW3, un MOBI ou un PDF.",
+  "Make {0}": "Créer {0}"
 }

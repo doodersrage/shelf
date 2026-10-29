@@ -218,6 +218,41 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
         }
     }
 
+    // Whether Calibre's converter answers here, asked once for each place it is looked for.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Task<bool>> Answers = new();
+
+    public Task<bool> CanConvertAsync() =>
+        Answers.GetOrAdd(Converter, tool => Task.Run(async () => await Tools.RunAsync(tool, ["--version"], TimeSpan.FromSeconds(30), CancellationToken.None) is not null));
+
+    // A stored e-book in another format, made by Calibre in a folder of its own, which the caller deletes with
+    // DeleteMade once done. Null when Calibre can't read it (one locked with DRM, say) or isn't there.
+    public async Task<string?> ConvertToAsync(string storedName, string extension, CancellationToken cancellationToken)
+    {
+        if (OpenPath(storedName) is not { } source)
+        {
+            return null;
+        }
+
+        var folder = Path.Combine(Path.GetTempPath(), $"shelf-convert-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        var made = Path.Combine(folder, "book" + extension);
+        if (await Tools.RunAsync(Converter, [source, made], TimeSpan.FromMinutes(5), cancellationToken) is not null && File.Exists(made) && new FileInfo(made).Length > 0)
+        {
+            return made;
+        }
+
+        DeleteMade(made);
+        return null;
+    }
+
+    public static void DeleteMade(string? made)
+    {
+        if (made is not null && Path.GetDirectoryName(made) is { } folder && Path.GetFileName(folder).StartsWith("shelf-convert-", StringComparison.Ordinal) && Directory.Exists(folder))
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
     public static string ContentType(string? storedName) => Path.GetExtension(storedName ?? "").ToLowerInvariant() switch
     {
         ".pdf" => "application/pdf",

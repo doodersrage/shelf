@@ -4,6 +4,7 @@
 @inject NavigationManager Navigation
 @inject EbookStore Ebooks
 @inject EpubDetailsStore WithDetails
+@inject Storage Storage
 @inject AudioStore Audio
 @inject CoverStore Covers
 @inject OcrService Ocr
@@ -1243,6 +1244,28 @@ else if (book is not null)
             }
         </ul>
     }
+    @if (book.EbookStoredName is not null && canConvert)
+    {
+        var makeable = EbookFormats.Makeable.Where(name => name != EbookStore.FormatOf(book.EbookStoredName) && formats.All(format => format.Format != name)).ToList();
+        @if (makeable.Count > 0)
+        {
+            <p class="convert-formats">
+                @T("Made by Calibre from this book:")
+                @foreach (var name in makeable)
+                {
+                    <button type="button" class="quiet" disabled="@(converting is not null)" @onclick="() => Convert(name)">@T("Make {0}", name)</button>
+                }
+            </p>
+        }
+    }
+    @if (converting is not null)
+    {
+        <p class="hint" role="status">@T("Making the {0}… This can take a minute.", converting)</p>
+    }
+    else if (convertNote is not null)
+    {
+        <p class="@(convertOk ? "saved" : "validation-message")" role="@(convertOk ? "status" : "alert")">@convertNote</p>
+    }
     <form action="/books/@book.Id/ebook/formats" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
         <label>
             @T("Another format of this book (EPUB, PDF, CBZ, AZW3, or MOBI), kept as it is beside the main e-book")
@@ -2142,6 +2165,7 @@ else if (book is not null)
             .ToList();
         customValues = book is null ? [] : await CustomFields.ForBookAsync(db, book.Id) ?? [];
         formats = book is null ? [] : await EbookFormats.ListAsync(db, Ebooks, book.Id) ?? [];
+        canConvert = book?.EbookStoredName is not null && await Ebooks.CanConvertAsync();
         if (book is not null && replaceDraft)
         {
             draft = BookFormModel.From(book);
@@ -2151,6 +2175,31 @@ else if (book is not null)
 
     private CustomValueResponse[] customValues = [];
     private EbookFormatResponse[] formats = [];
+    private bool canConvert;
+    private string? converting;
+    private string? convertNote;
+    private bool convertOk;
+
+    private async Task Convert(string to)
+    {
+        (converting, convertNote) = (to, null);
+        StateHasChanged();
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            if (await db.Books.FirstOrDefaultAsync(item => item.Id == Id) is { } current)
+            {
+                var outcome = await EbookFormats.ConvertAsync(db, Ebooks, Storage, current, to);
+                (convertNote, convertOk) = (EbookFormats.Describe(outcome, to), outcome == "saved");
+            }
+        }
+        finally
+        {
+            converting = null;
+        }
+
+        await LoadAsync(replaceDraft: false);
+    }
 
     private async Task MakeMain(int formatId)
     {
