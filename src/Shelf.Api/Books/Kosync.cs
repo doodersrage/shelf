@@ -113,12 +113,14 @@ public static partial class Kosync
     private static async Task<IResult> Auth(HttpContext http, ShelfDb db, ShelfReader shelfReader, CancellationToken cancellationToken) =>
         await SignedInAsync(http, db, shelfReader, cancellationToken) is null ? Unauthorized() : Results.Json(new { authorized = "OK" });
 
-    // The reader's own or borrowed e-book KOReader calls this document: by its sampled MD5, or by its file name's.
+    // The reader's own, borrowed, or shared e-book KOReader calls this document: by its sampled MD5, or by its file
+    // name's. A shared one keeps a place of the reader's own, as in Shelf's reader.
     private static async Task<Book?> FindAsync(ShelfDb db, string document, CancellationToken cancellationToken)
     {
         var me = db.ReaderId;
+        var shared = await Lending.SharedIdsAsync(db, cancellationToken);
         var books = await db.Books.IgnoreQueryFilters()
-            .Where(book => (book.OwnerId == me || book.BorrowerId == me) && book.EbookStoredName != null)
+            .Where(book => (book.OwnerId == me || book.BorrowerId == me || shared.Contains(book.Id)) && book.EbookStoredName != null)
             .Select(book => new { book.Id, book.KoreaderDigest, book.EbookFileName })
             .ToListAsync(cancellationToken);
         var match = books.FirstOrDefault(book => book.KoreaderDigest == document)

@@ -25,10 +25,12 @@ public static class NotesExport
     public static async Task<IResult> All(ShelfDb db, EbookStore store, CancellationToken cancellationToken)
     {
         var me = db.ReaderId;
+        // A shared book's highlights are the reader's own, as a borrowed one's are.
+        var shared = await Lending.SharedIdsAsync(db, cancellationToken);
         var ids = await db.Books.IgnoreQueryFilters().AsNoTracking()
             .Where(book => (book.OwnerId == me && (book.Quotes.Any() || db.Highlights.Any(mark => mark.BookId == book.Id && mark.ReaderId == null)
                     || book.Review != null || book.Notes != null))
-                || (book.BorrowerId == me && db.Highlights.Any(mark => mark.BookId == book.Id && mark.ReaderId == me)))
+                || ((book.BorrowerId == me || shared.Contains(book.Id)) && db.Highlights.Any(mark => mark.BookId == book.Id && mark.ReaderId == me)))
             .OrderBy(book => book.Author).ThenBy(book => book.Title)
             .Select(book => book.Id)
             .ToListAsync(cancellationToken);

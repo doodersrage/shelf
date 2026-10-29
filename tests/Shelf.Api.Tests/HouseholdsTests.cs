@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -113,5 +114,71 @@ public sealed class HouseholdsTests(ShelfApiFactory factory) : IClassFixture<She
 
         var collection = (await (await owner.PostAsJsonAsync("/books/collections", new CollectionRequest("Grown-ups"), JsonOptions)).Content.ReadFromJsonAsync<CollectionResponse>(JsonOptions))!;
         Assert.Equal(HttpStatusCode.BadRequest, (await owner.PostAsJsonAsync($"/books/collections/{collection.Id}/members", new MemberRequest(childId), JsonOptions)).StatusCode);
+    }
+
+    // A household book goes where a member's own do: into their playlists, the e-reader catalog when they may download,
+    // KOReader sync with a place of their own, and their notes export with their own highlights.
+    [Fact]
+    public async Task Household_books_reach_playlists_the_catalog_koreader_and_notes()
+    {
+        var owner = await factory.SignUpAsync("Services Owner");
+        var member = await factory.SignUpAsync("Services Member");
+        var memberId = await factory.ReaderIdAsync("Services Member");
+        var book = await BookAsync(owner, "Shared Everywhere");
+        using (var content = new MultipartFormDataContent { { new StreamContent(BooksEndpointTests.ZipText("01.mp3", "a shared recording")), "file", "shared.zip" } })
+        {
+            await owner.PostAsync($"/books/{book.Id}/audio", content);
+        }
+
+        var collection = (await (await owner.PostAsJsonAsync("/books/collections", new CollectionRequest("Everywhere"), JsonOptions)).Content.ReadFromJsonAsync<CollectionResponse>(JsonOptions))!;
+        await owner.PostAsJsonAsync($"/books/collections/{collection.Id}/books", new CollectionBookRequest(book.Id), JsonOptions);
+        await owner.PostAsJsonAsync($"/books/collections/{collection.Id}/members", new MemberRequest(memberId), JsonOptions);
+
+        // A playlist of the member's own holds it, and shows it by its title.
+        var list = (await (await member.PostAsJsonAsync("/books/playlists", new PlaylistRequest("Mine"), JsonOptions)).Content.ReadFromJsonAsync<PlaylistSummary>(JsonOptions))!;
+        Assert.Equal(HttpStatusCode.NoContent, (await member.PostAsJsonAsync($"/books/playlists/{list.Id}/items", new PlaylistAddRequest(book.Id, null), JsonOptions)).StatusCode);
+        var entry = Assert.Single((await member.GetFromJsonAsync<PlaylistView>($"/books/playlists/{list.Id}", JsonOptions))!.Items);
+        Assert.Equal(("Shared Everywhere", false, $"/library/{book.Id}/listen"), (entry.Title, entry.Gone, entry.Link));
+
+        // The catalog's Shared with you, while downloads are allowed.
+        string key;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(memberId);
+            var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
+            key = await ReaderRules.NewKeyAsync(db, memberId);
+            (await db.Readers.FirstAsync(item => item.Id == memberId)).KosyncHash = Kosync.HashOf("koreader-secret");
+            await db.SaveChangesAsync();
+        }
+
+        var device = factory.CreateClient();
+        device.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"kobo:{key}")));
+        Assert.Contains($"/opds/books/{book.Id}/file", await device.GetStringAsync("/opds/shared"));
+        var membership = Assert.Single((await owner.GetFromJsonAsync<HouseholdMember[]>($"/books/collections/{collection.Id}/members", JsonOptions))!);
+        await owner.PutAsJsonAsync($"/books/collections/{collection.Id}/members/{membership.Id}", new MemberChange(CanDownload: false, HideExplicit: false), JsonOptions);
+        Assert.DoesNotContain($"/opds/books/{book.Id}/file", await device.GetStringAsync("/opds/shared"));
+
+        // KOReader keeps the member's own place in it, and leaves the owner's.
+        string digest;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            digest = (await scope.ServiceProvider.GetRequiredService<ShelfDb>().Books.IgnoreQueryFilters().FirstAsync(item => item.Id == book.Id)).KoreaderDigest!;
+        }
+
+        var koreader = factory.CreateClient();
+        koreader.DefaultRequestHeaders.Accept.ParseAdd(Kosync.AcceptType);
+        koreader.DefaultRequestHeaders.Add("x-auth-user", "Services Member");
+        koreader.DefaultRequestHeaders.Add("x-auth-key", Convert.ToHexString(System.Security.Cryptography.MD5.HashData("koreader-secret"u8.ToArray())).ToLowerInvariant());
+        var put = await koreader.PutAsJsonAsync("/kosync/syncs/progress", new { document = digest, progress = "/body/DocFragment[1]/body", percentage = 0.5, device = "Kobo", device_id = "kobo-1" });
+        Assert.True(put.IsSuccessStatusCode, await put.Content.ReadAsStringAsync());
+        Assert.Contains((await member.GetFromJsonAsync<PositionsOfBook>($"/books/{book.Id}/positions", JsonOptions))!.Reports, report => report.Source == "KOReader");
+        Assert.DoesNotContain((await owner.GetFromJsonAsync<PositionsOfBook>($"/books/{book.Id}/positions", JsonOptions))!.Reports, report => report.Source == "KOReader");
+
+        // The member's notes export carries their highlight in it.
+        await member.PostAsJsonAsync($"/books/{book.Id}/highlights", new CreateHighlightRequest("The text", 0, "A member's thought for the export."), JsonOptions);
+        using var notes = new System.IO.Compression.ZipArchive(new MemoryStream(await member.GetByteArrayAsync("/books/notes.zip")));
+        var file = Assert.Single(notes.Entries);
+        using var text = new StreamReader(file.Open());
+        Assert.Contains("A member's thought for the export.", await text.ReadToEndAsync());
     }
 }

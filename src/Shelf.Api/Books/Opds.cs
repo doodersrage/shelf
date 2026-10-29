@@ -20,6 +20,7 @@ public static class Opds
         opds.MapGet("/", Root);
         opds.MapGet("/books", Books);
         opds.MapGet("/borrowed", Borrowed);
+        opds.MapGet("/shared", Shared);
         opds.MapGet("/books/{id:int}/file", File);
         opds.MapGet("/books/{id:int}/formats/{formatId:int}", Format);
     }
@@ -34,6 +35,7 @@ public static class Opds
             ("finished", Localization.Words.T("Finished"), "/opds/books?status=Finished", Localization.Words.T("The e-books you have finished.")),
             ("all", Localization.Words.T("All e-books"), "/opds/books", Localization.Words.T("Every e-book on your shelf.")),
             ("borrowed", Localization.Words.T("Lent to you"), "/opds/borrowed", Localization.Words.T("E-books other readers have lent you.")),
+            ("shared", Localization.Words.T("Shared with you"), "/opds/shared", Localization.Words.T("E-books in the household libraries and collections shared with you, where you may download them.")),
         })
         {
             feed.Add(new XElement(Atom + "entry",
@@ -66,6 +68,22 @@ public static class Opds
     }
 
     // A file taken to a device is a download: refused to a household member who may not download.
+    // Books shared with the reader that they may take to a device: a guardian's collection's, and a household
+    // library's where their membership allows downloads.
+    private static async Task<IResult> Shared(ShelfDb db, CancellationToken cancellationToken)
+    {
+        var ids = await Households.DownloadableIdsAsync(db, cancellationToken);
+        if (await Readers.Family.SharedBooksAsync(db, cancellationToken) is { } family)
+        {
+            ids.UnionWith(family.Books.Select(book => book.Id));
+        }
+
+        var books = await db.Books.IgnoreQueryFilters().AsNoTracking()
+            .Where(book => ids.Contains(book.Id) && book.EbookStoredName != null)
+            .ToListAsync(cancellationToken);
+        return Xml(Acquire("urn:shelf:opds:shared", Localization.Words.T("Shared with you"), "/opds/shared", books, await FormatsAsync(db, books, cancellationToken)), Acquisition);
+    }
+
     private static async Task<IResult> File(int id, ShelfDb db, EbookStore store, CancellationToken cancellationToken)
     {
         var open = await Lending.OpenAsync(db, id, cancellationToken);

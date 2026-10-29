@@ -147,6 +147,19 @@ public static class Lending
         return await Households.SharedBookAsync(db, bookId, cancellationToken) is { } household ? new OpenBook(household, Borrowed: true, Shared: true, Household: true) : null;
     }
 
+    // The books shared with this reader, from a guardian's collection or a household library, by id: for the services
+    // that look over every book a reader may read (KOReader, the e-reader catalog, playlists, notes).
+    public static async Task<HashSet<int>> SharedIdsAsync(ShelfDb db, CancellationToken cancellationToken = default)
+    {
+        var ids = (await Households.LibrariesAsync(db, cancellationToken)).SelectMany(library => library.Books).Select(book => book.Id).ToHashSet();
+        if (await Family.SharedBooksAsync(db, cancellationToken) is { } family)
+        {
+            ids.UnionWith(family.Books.Select(book => book.Id));
+        }
+
+        return ids;
+    }
+
     // Whether a book opened a while ago may still be read: still lent to the reader, or still shared with them.
     public static async Task<bool> StillOpenAsync(ShelfDb db, OpenBook open, CancellationToken cancellationToken = default)
     {

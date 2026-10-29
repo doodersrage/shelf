@@ -36,6 +36,8 @@ Shelf has an OPDS catalog, the format many reading apps browse, such as KOReader
 
 The catalog lists your e-books by status, and the books lent to you, ready to download.
 
+Besides your own e-books and those lent to you, **Shared with you** lists the books in household libraries and collections shared with you, where you may download them.
+
 ## Audiobookshelf's phone apps
 
 [Audiobookshelf](https://www.audiobookshelf.org)'s own apps, for Android and iPhone, can sign in to Shelf as they would to an Audiobookshelf server. That gives Shelf phone apps: listening with the screen off and from the lock screen, downloads to listen offline, Android Auto and CarPlay, sleep timers, and the apps' own e-book reader.

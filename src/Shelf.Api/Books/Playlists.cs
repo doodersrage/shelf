@@ -126,18 +126,24 @@ public static class Playlists
             {
                 item.Id,
                 item.BookId,
-                BookTitle = item.Book == null ? null : item.Book.Title,
-                BookAuthor = item.Book == null ? null : item.Book.Author,
-                Audio = item.Book == null ? null : item.Book.AudioStoredName,
-                Cover = item.Book == null ? null : Covers.For(item.Book.Id, item.Book.CoverUrl, item.Book.FileCover, item.Book.CoverImage),
                 item.EpisodeId,
                 EpisodeTitle = item.Episode == null || item.Episode.Podcast!.OwnerId != readerId ? null : item.Episode.Title,
                 Show = item.Episode == null || item.Episode.Podcast!.OwnerId != readerId ? null : item.Episode.Podcast!.Title,
                 PodcastId = item.Episode == null || item.Episode.Podcast!.OwnerId != readerId ? (int?)null : item.Episode.PodcastId,
             })
             .ToListAsync(cancellationToken);
+
+        // The books as this reader may open them: their own, lent to them, or shared with them; any other is gone.
+        var bookIds = items.Where(item => item.BookId is not null).Select(item => item.BookId!.Value).ToList();
+        var shared = bookIds.Count == 0 ? [] : await Lending.SharedIdsAsync(db, cancellationToken);
+        var books = await db.Books.IgnoreQueryFilters().AsNoTracking()
+            .Where(book => bookIds.Contains(book.Id) && (book.OwnerId == readerId || book.BorrowerId == readerId || shared.Contains(book.Id)))
+            .Select(book => new { book.Id, book.OwnerId, book.Title, book.Author, book.AudioStoredName, book.CoverUrl, book.FileCover, book.CoverImage })
+            .ToDictionaryAsync(book => book.Id, cancellationToken);
         return new PlaylistView(list.Id, list.Name, [.. items.Select(item => item.BookId is int bookId
-            ? new PlaylistEntry(item.Id, item.BookTitle ?? T("A book no longer on your shelf"), item.BookAuthor ?? "", $"/books/{bookId}/audio/plan", $"/library/{bookId}", item.Cover, item.Audio is null)
+            ? books.TryGetValue(bookId, out var book)
+                ? new PlaylistEntry(item.Id, book.Title, book.Author, $"/books/{bookId}/audio/plan", book.OwnerId == readerId ? $"/library/{bookId}" : $"/library/{bookId}/listen", Covers.For(book.Id, book.CoverUrl, book.FileCover, book.CoverImage), book.AudioStoredName is null)
+                : new PlaylistEntry(item.Id, T("A book no longer on your shelf"), "", $"/books/{bookId}/audio/plan", "/library", null, true)
             : new PlaylistEntry(item.Id, item.EpisodeTitle ?? T("An episode no longer in its feed"), item.Show ?? "", $"/books/podcasts/episodes/{item.EpisodeId}/plan", item.PodcastId is int show ? $"/podcasts/{show}" : "/podcasts", null, item.EpisodeTitle is null))]);
     }
 
@@ -149,15 +155,15 @@ public static class Playlists
             return "";
         }
 
+        // A book the reader may open: their own, lent to them, or shared with them.
         if (bookId is int book)
         {
-            var audio = await db.Books.Where(item => item.Id == book).Select(item => new { item.AudioStoredName }).FirstOrDefaultAsync(cancellationToken);
-            if (audio is null)
+            if (await Lending.OpenAsync(db, book, cancellationToken) is not { } open)
             {
                 return "";
             }
 
-            if (audio.AudioStoredName is null)
+            if (open.Book.AudioStoredName is null)
             {
                 return T("A playlist holds things to listen to; this book has no recording.");
             }

@@ -117,6 +117,7 @@ else if (book is not null)
                     </label>
                 </div>
                 <p class="hint" role="status" data-show="note" data-slept="@T("Paused by the sleep timer. Play to carry on from here.")" data-finished="@T("The end. The book is marked finished.")" data-ended="@T("The end of the book.")" data-moved="@T("Your place was moved in another tab or on another device, so the player went there.")" hidden></p>
+                <p><AddToPlaylist BookId="plan.BookId" Title="@plan.Title" /></p>
 
                 @if (plan.HasEbook)
                 {

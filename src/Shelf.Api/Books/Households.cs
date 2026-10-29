@@ -90,6 +90,25 @@ public static class Households
         return await Opening(db, open.Book.Id).AnyAsync(member => member.CanDownload && !(member.HideExplicit && isExplicit), cancellationToken);
     }
 
+    // The household books this reader may download, by id, in one look: for the e-reader catalog, which hands out files.
+    public static async Task<HashSet<int>> DownloadableIdsAsync(ShelfDb db, CancellationToken cancellationToken = default)
+    {
+        var readerId = db.ReaderId;
+        if (readerId == 0 || await Family.IsRestrictedAsync(db, cancellationToken: cancellationToken))
+        {
+            return [];
+        }
+
+        // Flat, over the collections' books, as SQLite takes it.
+        return (await db.CollectionBooks.IgnoreQueryFilters().AsNoTracking()
+            .Where(entry => entry.Book!.OwnerId == entry.Collection!.OwnerId
+                && !db.Readers.Any(owner => owner.Id == entry.Collection.OwnerId && owner.Suspended)
+                && db.CollectionMembers.IgnoreQueryFilters().Any(member => member.CollectionId == entry.CollectionId && member.ReaderId == readerId && member.CanDownload
+                    && (!member.HideExplicit || !entry.Book.Tags.Any(tag => tag.Name == CollectionMember.ExplicitTag))))
+            .Select(entry => entry.BookId)
+            .ToListAsync(cancellationToken)).ToHashSet();
+    }
+
     // The household libraries shared with this reader, with the books each opens to them.
     public static async Task<HouseholdLibrary[]> LibrariesAsync(ShelfDb db, CancellationToken cancellationToken = default)
     {

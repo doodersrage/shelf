@@ -72,7 +72,7 @@ For each member:
 - **Can download files**: on by default. Turned off, they still read and listen in Shelf, but taking the files is refused: the downloads (the e-book with its details, other formats, the recording, the M4B), the e-reader catalog, casting, and the Audiobookshelf apps' downloads for offline listening. Reading in a browser still fetches the file, as streaming does anywhere, so this keeps files from being taken casually rather than from being taken at all.
 - **Keep books tagged explicit from them**: books with the tag `explicit` don't show for them and won't open for them.
 
-**Stop sharing** closes the books to them at once; what they wrote in them stays theirs, out of sight, and comes back if you share again. A child's account can't be a member: it reads what its guardian shares with their children. Household books open in Shelf's own reader and player; the e-reader catalog, KOReader, Kobo, and the Audiobookshelf apps still offer only your own books and books lent to you.
+**Stop sharing** closes the books to them at once; what they wrote in them stays theirs, out of sight, and comes back if you share again. A child's account can't be a member: it reads what its guardian shares with their children. Household books go where a member's own do: their playlists, KOReader sync (with their own place), their notes export, and **Shared with you** in the [e-reader catalog](devices.md#e-reader-apps-opds) when they may download. Kobo sync still offers only a reader's own books and books lent to them.
 
 ## Open shelves
 
