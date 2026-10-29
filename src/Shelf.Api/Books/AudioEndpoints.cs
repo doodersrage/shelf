@@ -67,7 +67,7 @@ public static class AudioEndpoints
             }
 
             await AttachAsync(db, store, covers, book, saved.StoredName, saved.FileName, cancellationToken);
-            return TypedResults.Redirect($"/library/{id}?audio=saved");
+            return TypedResults.Redirect(saved.LeftOut > 0 ? $"/library/{id}?audio=saved&left={saved.LeftOut}" : $"/library/{id}?audio=saved");
         }
         finally
         {

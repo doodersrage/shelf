@@ -490,7 +490,12 @@ else if (book is not null)
     }
     @if (AudioMessage == "saved")
     {
-        <p class="saved" role="status">@T("The audiobook is on the shelf.")</p>
+        <p class="saved" role="status">@T("The audiobook is on the shelf.")
+            @if (LeftTracks > 0)
+            {
+                @(" " + T("It had more than {0} tracks, the most a book holds, so the last {1} were left out. Join some together, or make it one M4B file, and add it again.", AudioStore.MaxTracks, LeftTracks))
+            }
+        </p>
     }
     else if (AudioMessage == "unsupported")
     {
@@ -1811,6 +1816,9 @@ else if (book is not null)
 
     [SupplyParameterFromQuery(Name = "audio")]
     public string? AudioMessage { get; set; }
+
+    [SupplyParameterFromQuery(Name = "left")]
+    public int LeftTracks { get; set; }
 
     [SupplyParameterFromQuery(Name = "cover")]
     public string? CoverMessage { get; set; }

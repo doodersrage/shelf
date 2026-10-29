@@ -587,10 +587,12 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
             ImportedFile? read = null;
             long total = 0;
 
+            // Only as many tracks as a book holds are fetched; the rest are named in the line, not dropped unsaid.
+            var tracksLeft = Math.Max(0, audioFiles.Count - AudioStore.MaxTracks);
             if (audioFiles.Count > 0)
             {
                 var downloaded = new List<(string Path, string Name)>();
-                foreach (var (file, position) in audioFiles.Select((file, position) => (file, position)))
+                foreach (var (file, position) in audioFiles.Take(AudioStore.MaxTracks).Select((file, position) => (file, position)))
                 {
                     var name = Path.GetFileName(AbsClient.Text(file.GetProperty("metadata"), "filename") ?? $"track{Path.GetExtension(AbsClient.Text(file.GetProperty("metadata"), "ext") ?? ".mp3")}");
                     // Numbered on disk, since two discs can each have a 01.mp3; the order Audiobookshelf gives is kept.
@@ -662,7 +664,14 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
             }
 
             await db.SaveChangesAsync(cancellationToken);
-            Set(job, item.Id, line => line with { State = AbsState.Done, BookId = book.Id, Note = heard?.Outcome == ImportOutcome.AlreadyOnShelf || read?.Outcome == ImportOutcome.AlreadyOnShelf ? T("Some of its files were on your shelf already.") : null });
+            Set(job, item.Id, line => line with
+            {
+                State = AbsState.Done,
+                BookId = book.Id,
+                Note = tracksLeft > 0
+                    ? T("Brought the first {0} of its {1} tracks, the most a book holds; the last {2} stay in Audiobookshelf.", AudioStore.MaxTracks, audioFiles.Count, tracksLeft)
+                    : heard?.Outcome == ImportOutcome.AlreadyOnShelf || read?.Outcome == ImportOutcome.AlreadyOnShelf ? T("Some of its files were on your shelf already.") : null,
+            });
         }
         finally
         {

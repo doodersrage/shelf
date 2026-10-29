@@ -3541,5 +3541,7 @@
   "Something went wrong with this one. Try it again.": "Algo salió mal con este. Vuelve a intentarlo.",
   "Imported from {0}. Added {1}, filled in the reading of {2} already on your shelf, and skipped {3} with nothing new.": "Importado desde {0}. Añadidos: {1}. Lectura completada en {2} que ya estaban en tu estantería. Omitidos por no traer nada nuevo: {3}.",
   "{0} rows were missing a title or an author, so they were left out.": "A {0} filas les faltaba el título o el autor, así que se dejaron fuera.",
-  "1 row was missing a title or an author, so it was left out.": "A 1 fila le faltaba el título o el autor, así que se dejó fuera."
+  "1 row was missing a title or an author, so it was left out.": "A 1 fila le faltaba el título o el autor, así que se dejó fuera.",
+  "It had more than {0} tracks, the most a book holds, so the last {1} were left out. Join some together, or make it one M4B file, and add it again.": "Tenía más de {0} pistas, el máximo que admite un libro, así que las últimas {1} se dejaron fuera. Une algunas, o conviértelo en un único archivo M4B, y vuelve a añadirlo.",
+  "Brought the first {0} of its {1} tracks, the most a book holds; the last {2} stay in Audiobookshelf.": "Se trajeron las primeras {0} de sus {1} pistas, el máximo que admite un libro; las últimas {2} siguen en Audiobookshelf."
 }

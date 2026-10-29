@@ -15,7 +15,9 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
             MaxBytes = Math.Min(megabytes.Value, 1024 * 1024) * 1024L * 1024;
         }
     }
-    private const int MaxTracks = 200;
+    // Tracks are stored as 000- to 999-, and played in that order, so a book holds up to 999 of them; any past that
+    // are left out, and counted, so the reader is told.
+    public const int MaxTracks = 999;
 
     private static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -42,6 +44,7 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
         try
         {
             string? display;
+            var leftOut = 0;
             if (files.Count == 1 && IsZip(files[0].Name))
             {
                 var expanded = await ExpandZipAsync(directory, files[0], cancellationToken);
@@ -52,6 +55,7 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
                 }
 
                 display = expanded.Display;
+                leftOut = expanded.LeftOut;
             }
             else
             {
@@ -79,6 +83,7 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
                 }
 
                 display = count == 1 ? DisplayName(audio[0].Name) : $"{count} tracks";
+                leftOut = audio.Count - count;
             }
 
             if (display is null || TrackFiles(storedName).Count == 0)
@@ -91,7 +96,7 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
                 return new AudioSave(AudioSaveStatus.Unsupported, null, null);
             }
 
-            return new AudioSave(AudioSaveStatus.Saved, storedName, display);
+            return new AudioSave(AudioSaveStatus.Saved, storedName, display, leftOut);
         }
         catch (InvalidDataException)
         {
@@ -307,13 +312,13 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
         return full;
     }
 
-    private async Task<(string? Display, bool TooLarge)> ExpandZipAsync(string directory, AudioUpload zip, CancellationToken cancellationToken)
+    private async Task<(string? Display, bool TooLarge, int LeftOut)> ExpandZipAsync(string directory, AudioUpload zip, CancellationToken cancellationToken)
     {
         var archivePath = Path.Combine(directory, "upload.zip");
         var total = await CopyAsync(zip.Content, archivePath, 0, cancellationToken);
         if (total < 0)
         {
-            return (null, true);
+            return (null, true, 0);
         }
 
         var entries = new List<ZipArchiveEntry>();
@@ -345,7 +350,7 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
         }
 
         File.Delete(archivePath);
-        return tooLarge ? (null, true) : (entries.Count == 0 ? null : DisplayName(zip.Name), false);
+        return tooLarge ? (null, true, 0) : (entries.Count == 0 ? null : DisplayName(zip.Name), false, Math.Max(0, entries.Count - MaxTracks));
     }
 
     private static async Task<long> WriteTrackAsync(
@@ -432,7 +437,8 @@ public enum AudioSaveStatus
     TooLarge,
 }
 
-public sealed record AudioSave(AudioSaveStatus Status, string? StoredName, string? FileName);
+// LeftOut: tracks past the most a book holds, not kept.
+public sealed record AudioSave(AudioSaveStatus Status, string? StoredName, string? FileName, int LeftOut = 0);
 
 public sealed record AudioUpload(string Name, Stream Content, long Length);
 

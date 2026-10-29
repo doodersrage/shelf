@@ -863,6 +863,31 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
         Assert.Equal("?ebook=saved", (await UploadEbookAsync(stranger, theirs!.Id, epub)).RequestMessage!.RequestUri!.Query);
     }
 
+    // A book holds up to 999 tracks, in order; any past that are left out, and the page says how many.
+    [Fact]
+    public async Task Tracks_past_the_most_a_book_holds_are_left_out_and_counted()
+    {
+        var book = await CreateAsync(new CreateBookRequest("A Very Long Recording", "Someone", BookStatus.Reading, null));
+        var zip = new MemoryStream();
+        using (var archive = new System.IO.Compression.ZipArchive(zip, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            for (var track = 1; track <= AudioStore.MaxTracks + 2; track++)
+            {
+                using var writer = new StreamWriter(archive.CreateEntry($"{track:0000}.mp3").Open());
+                writer.Write($"track {track}");
+            }
+        }
+
+        zip.Position = 0;
+        using var content = new MultipartFormDataContent { { new StreamContent(zip), "file", "long.zip" } };
+        var response = await _client.PostAsync($"/books/{book.Id}/audio", content);
+        Assert.Equal("?audio=saved&left=2", response.RequestMessage!.RequestUri!.Query);
+        Assert.Contains("the last 2 were left out", await response.Content.ReadAsStringAsync());
+        var player = await _client.GetStringAsync($"/library/{book.Id}/listen");
+        Assert.Contains("0999.mp3", player);
+        Assert.DoesNotContain("1000.mp3", player);
+    }
+
     [Fact]
     public async Task The_same_recording_on_a_second_book_is_held_and_an_old_hold_is_swept()
     {

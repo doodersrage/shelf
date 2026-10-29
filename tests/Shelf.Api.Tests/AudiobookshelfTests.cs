@@ -224,6 +224,34 @@ public sealed class AudiobookshelfTests(ShelfApiFactory factory) : IClassFixture
         Assert.Equal(AbsState.Done, again.Books["li-earthsea"].State);
     }
 
+    // A book in more tracks than Shelf holds brings the first 999, fetching no more, and its line says so.
+    [Fact]
+    public async Task A_book_in_too_many_tracks_brings_what_fits_and_says_so()
+    {
+        var fake = new FakeState { ManyTracks = AudioStore.MaxTracks + 3 };
+        await using var app = Fake(fake);
+        var client = app.CreateClient();
+        await ShelfApiFactory.PostFormAsync(client, "/signup", "/account/signup", new() { ["name"] = "Abs Long Listener", ["email"] = ShelfApiFactory.EmailOf("Abs Long Listener"), ["password"] = ShelfApiFactory.Password, ["confirm"] = ShelfApiFactory.Password });
+        var readerId = await factory.ReaderIdAsync("Abs Long Listener");
+        var http = app.Services.GetRequiredService<IHttpClientFactory>().CreateClient(AbsClient.ClientName);
+        var connection = await AbsClient.ConnectAsync(http, AbsClient.ServerAddress("abs.example.org")!, "good-key", null, null, CancellationToken.None);
+        var items = (await AbsClient.ItemsAsync(http, connection, "lib-books", CancellationToken.None)).Take(1).ToList();
+
+        var job = app.Services.GetRequiredService<AbsImporter>().Start(readerId, connection, new AbsOptions(), items);
+        for (var attempt = 0; attempt < 1200 && !job.Finished; attempt++)
+        {
+            await Task.Delay(50);
+        }
+
+        Assert.True(job.Finished);
+        var line = job.Books["li-earthsea"];
+        Assert.Equal(AbsState.Done, line.State);
+        Assert.Contains("the last 3 stay in Audiobookshelf", line.Note);
+        Assert.Equal(AudioStore.MaxTracks, fake.ManyFetched);
+        var book = await client.GetFromJsonAsync<BookResponse>($"/books/{line.BookId}", JsonOptions);
+        Assert.Equal($"{AudioStore.MaxTracks} tracks", book!.AudioFileName);
+    }
+
     private WebApplicationFactory<Program> Fake(FakeState state) => factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
     {
         services.AddHttpClient(AbsClient.ClientName).ConfigurePrimaryHttpMessageHandler(() => new FakeAudiobookshelf(state));
@@ -248,6 +276,10 @@ public sealed class AudiobookshelfTests(ShelfApiFactory factory) : IClassFixture
 
         // A path that fails in a way the importer doesn't expect.
         public string? Breaks { get; set; }
+
+        // Earthsea in this many tracks, each fetched counted, when set.
+        public int? ManyTracks { get; set; }
+        public int ManyFetched;
     }
 
     private sealed class FakeAudiobookshelf(FakeState? state = null) : HttpMessageHandler
@@ -286,6 +318,22 @@ public sealed class AudiobookshelfTests(ShelfApiFactory factory) : IClassFixture
             if (token is not ("good-key" or "access-token"))
             {
                 return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+            }
+
+            if (_state.ManyTracks is int many)
+            {
+                if (path == "/api/items/li-earthsea")
+                {
+                    var files = string.Join(",", Enumerable.Range(1, many).Select(index =>
+                        "{\"index\":" + index + ",\"ino\":\"" + (9000 + index) + "\",\"duration\":1,\"metadata\":{\"filename\":\"" + index.ToString("0000") + ".mp3\",\"ext\":\".mp3\"}}"));
+                    return Json("{\"id\":\"li-earthsea\",\"media\":{\"metadata\":{\"title\":\"A Wizard of Earthsea\",\"authorName\":\"Ursula K. Le Guin\"},\"audioFiles\":[" + files + "],\"ebookFile\":null}}");
+                }
+
+                if (path.StartsWith("/api/items/li-earthsea/file/9", StringComparison.Ordinal))
+                {
+                    Interlocked.Increment(ref _state.ManyFetched);
+                    return Bytes(Encoding.UTF8.GetBytes(path), "audio/mpeg");
+                }
             }
 
             return path switch
