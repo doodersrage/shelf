@@ -34,6 +34,9 @@ public sealed class MergeReceipt
 
     // Stored files the kept book took because it had none of the kind.
     public string? Ebook { get; set; }
+
+    // The merged-away book's main e-book, kept by the other as another format.
+    public string? EbookAsFormat { get; set; }
     public string? Audio { get; set; }
     public string? Cover { get; set; }
 }
@@ -96,6 +99,8 @@ public static class Unmerging
         await db.JournalEntries.IgnoreQueryFilters().Where(row => journal.Contains(row.Id) && row.BookId == keptId).ExecuteUpdateAsync(set => set.SetProperty(row => row.BookId, restoredId), cancellationToken);
         var listened = Ids(nameof(ShelfDb.ListeningDays));
         await db.ListeningDays.IgnoreQueryFilters().Where(row => listened.Contains(row.Id) && row.BookId == keptId).ExecuteUpdateAsync(set => set.SetProperty(row => row.BookId, restoredId), cancellationToken);
+        var formats = Ids(nameof(ShelfDb.EbookFormats));
+        await db.EbookFormats.IgnoreQueryFilters().Where(row => formats.Contains(row.Id) && row.BookId == keptId).ExecuteUpdateAsync(set => set.SetProperty(row => row.BookId, restoredId), cancellationToken);
         var values = Ids(nameof(ShelfDb.CustomValues));
         await db.CustomValues.IgnoreQueryFilters().Where(row => values.Contains(row.Id) && row.BookId == keptId).ExecuteUpdateAsync(set => set.SetProperty(row => row.BookId, restoredId), cancellationToken);
         var readDays = Ids(nameof(ShelfDb.ReadingDays));
@@ -153,6 +158,12 @@ public static class Unmerging
         if (receipt.Ebook is { } ebook && kept.EbookStoredName is null)
         {
             restored.EbookStoredName = ebook;
+        }
+
+        if (receipt.EbookAsFormat is { } asFormat && restored.EbookStoredName is null)
+        {
+            await db.EbookFormats.IgnoreQueryFilters().Where(row => row.BookId == keptId && row.StoredName == asFormat).ExecuteDeleteAsync(cancellationToken);
+            restored.EbookStoredName = asFormat;
         }
 
         if (receipt.Audio is { } recording && kept.AudioStoredName is null)

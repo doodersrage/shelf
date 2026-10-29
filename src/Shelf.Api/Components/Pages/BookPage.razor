@@ -453,6 +453,24 @@ else if (book is not null)
     {
         <p class="validation-message" role="alert">@T("That file would take you past your storage limit. Ask an admin for more room, or remove files you no longer need.")</p>
     }
+    else if (FormatMessage == "saved")
+    {
+        <p class="saved" role="status">@T("The format is kept with the book.")</p>
+    }
+    else if (FormatMessage == "main")
+    {
+        <p class="validation-message" role="alert">@T("That's the format of the main e-book. To replace the main e-book, upload it under E-book.")</p>
+    }
+    else if (FormatMessage is "unsupported" or "damaged" or "large" or "full")
+    {
+        <p class="validation-message" role="alert">@(FormatMessage switch
+        {
+            "damaged" => T("That file looks damaged or incomplete, so Shelf could not open it. Try downloading it again."),
+            "large" => T("That file is larger than {0}.", Localization.Counts.Size(EbookStore.MaxBytes)),
+            "full" => T("That file would take you past your storage limit. Ask an admin for more room, or remove files you no longer need."),
+            _ => T("Another format can be an EPUB, a PDF, a comic, or a Kindle book (AZW3, AZW, or MOBI) without DRM."),
+        })</p>
+    }
     else if (EbookMessage == "convert")
     {
         <p class="validation-message" role="alert">@T("That Kindle file could not be turned into an EPUB. Shelf needs Calibre installed on the server for that, and a file locked with DRM cannot be converted at all.")</p>
@@ -502,7 +520,7 @@ else if (book is not null)
         <p class="inscription">@book.Inscription</p>
     }
 
-    <SectionTabs Label="@T("This book")" Tabs="BookTabs" Sections="BookSections" Default="@((EbookMessage ?? AudioMessage ?? CoverMessage ?? PhotoMessage ?? HeldToken) is null ? null : "tab-copy")" @bind-Active="tab" />
+    <SectionTabs Label="@T("This book")" Tabs="BookTabs" Sections="BookSections" Default="@((EbookMessage ?? FormatMessage ?? AudioMessage ?? CoverMessage ?? PhotoMessage ?? HeldToken) is null ? null : "tab-copy")" @bind-Active="tab" />
 
     @if (tab == "tab-reading")
     {
@@ -1206,6 +1224,35 @@ else if (book is not null)
         <button type="submit">@T("Upload")</button>
     </form>
 
+    @* Other formats of the same book, as Calibre keeps them: to download or send on, and to make the main one. *@
+    <h4>@T("Other formats")</h4>
+    @if (formats.Length > 0)
+    {
+        <ul class="plain-list formats">
+            @foreach (var format in formats)
+            {
+                <li>
+                    <strong>@format.Format</strong> <span class="hint">@format.FileName · @Localization.Counts.Size(format.Size)</span>
+                    <a href="/books/@book.Id/ebook/formats/@format.Id" download>@T("Download")</a>
+                    @if (format.CanBeMain)
+                    {
+                        <button type="button" class="quiet" @onclick="() => MakeMain(format.Id)">@T("Make it the main e-book")</button>
+                    }
+                    <button type="button" class="quiet danger" @onclick="() => RemoveFormat(format.Id)" aria-label="@T("Remove the {0}", format.Format)">@T("Remove")</button>
+                </li>
+            }
+        </ul>
+    }
+    <form action="/books/@book.Id/ebook/formats" method="post" enctype="multipart/form-data" data-enhance="false" data-upload>
+        <label>
+            @T("Another format of this book (EPUB, PDF, CBZ, AZW3, or MOBI), kept as it is beside the main e-book")
+            <input type="file" name="file" accept=".epub,.pdf,.cbz,.cbr,.cb7,.cbt,.mobi,.azw3,.azw" required />
+        </label>
+        <progress data-upload-progress max="100" hidden></progress>
+        <p class="hint" data-upload-status role="status" hidden></p>
+        <button type="submit">@T("Add the format")</button>
+    </form>
+
     @if (EbookStore.IsComic(book.EbookStoredName))
     {
         <ComicVineSearch BookId="book.Id" InitialQuery="@(book.Series is { } series ? $"{series} {book.SeriesNumber}".Trim() : book.Title)" Changed="() => LoadAsync()" />
@@ -1714,6 +1761,9 @@ else if (book is not null)
     [SupplyParameterFromQuery(Name = "ebook")]
     public string? EbookMessage { get; set; }
 
+    [SupplyParameterFromQuery(Name = "format")]
+    public string? FormatMessage { get; set; }
+
     [SupplyParameterFromQuery(Name = "audio")]
     public string? AudioMessage { get; set; }
 
@@ -2091,6 +2141,7 @@ else if (book is not null)
             .Where(copy => (copy.HasEbook && book.EbookStoredName is null) || (copy.HasAudio && book.AudioStoredName is null))
             .ToList();
         customValues = book is null ? [] : await CustomFields.ForBookAsync(db, book.Id) ?? [];
+        formats = book is null ? [] : await EbookFormats.ListAsync(db, Ebooks, book.Id) ?? [];
         if (book is not null && replaceDraft)
         {
             draft = BookFormModel.From(book);
@@ -2099,6 +2150,21 @@ else if (book is not null)
     }
 
     private CustomValueResponse[] customValues = [];
+    private EbookFormatResponse[] formats = [];
+
+    private async Task MakeMain(int formatId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await EbookFormats.MakeMainAsync(db, Ebooks, Id, formatId);
+        await LoadAsync(replaceDraft: false);
+    }
+
+    private async Task RemoveFormat(int formatId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await EbookFormats.RemoveAsync(db, Ebooks, Id, formatId);
+        await LoadAsync(replaceDraft: false);
+    }
     private Dictionary<int, string?> fieldDraft = [];
 
     private string? FieldDraft(int fieldId) => fieldDraft.GetValueOrDefault(fieldId);

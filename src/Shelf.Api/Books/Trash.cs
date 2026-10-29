@@ -102,10 +102,13 @@ public static class Trash
             var captured = await CaptureBooksAsync(db, chunk, cancellationToken);
             var photos = (await db.CopyPhotos.AsNoTracking().Where(photo => chunk.Contains(photo.BookId)).Select(photo => new { photo.BookId, photo.StoredName }).ToListAsync(cancellationToken))
                 .ToLookup(photo => photo.BookId, photo => photo.StoredName);
+            var formats = (await db.EbookFormats.AsNoTracking().Where(format => chunk.Contains(format.BookId)).Select(format => new { format.BookId, format.StoredName }).ToListAsync(cancellationToken))
+                .ToLookup(format => format.BookId, format => format.StoredName);
             foreach (var (id, (payload, book)) in captured)
             {
                 var files = new List<string>();
                 if (book.EbookStoredName is { } ebook) files.Add("e:" + ebook);
+                files.AddRange(formats[id].Select(format => "e:" + format));
                 if (book.AudioStoredName is { } recording) files.Add("a:" + recording);
                 if (book.CoverImage is { } cover) files.Add("c:" + cover);
                 files.AddRange(photos[id].Select(photo => "p:" + photo));
@@ -461,7 +464,8 @@ public static class Trash
             var (kind, name) = (line[..2], line[2..]);
             var used = kind switch
             {
-                "e:" => await db.Books.IgnoreQueryFilters().AnyAsync(book => book.EbookStoredName == name, cancellationToken),
+                "e:" => await db.Books.IgnoreQueryFilters().AnyAsync(book => book.EbookStoredName == name, cancellationToken)
+                    || await db.EbookFormats.IgnoreQueryFilters().AnyAsync(format => format.StoredName == name, cancellationToken),
                 "a:" => await db.Books.IgnoreQueryFilters().AnyAsync(book => book.AudioStoredName == name, cancellationToken),
                 "c:" => await db.Books.IgnoreQueryFilters().AnyAsync(book => book.CoverImage == name, cancellationToken),
                 _ => await db.CopyPhotos.IgnoreQueryFilters().AnyAsync(photo => photo.StoredName == name, cancellationToken),

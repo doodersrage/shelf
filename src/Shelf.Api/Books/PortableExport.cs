@@ -127,7 +127,8 @@ public static class PortableExport
           and came back in.
         - `borrowed-highlights.json` — what you marked in books you borrowed from others. It is yours to keep, but is not
           brought back in: those books are other readers'.
-        - `books/0001/` and on — the e-book, audiobook tracks, and cover picture of each book, numbered as in `books.csv`.
+        - `books/0001/` and on — the e-book, audiobook tracks, and cover picture of each book, numbered as in `books.csv`,
+          with the book's other e-book formats under `formats/`.
         - `manifest.json` — every other file with its size and SHA-256, to show the download is whole; `SCHEMA.md` says
           what each file holds, field by field.
 

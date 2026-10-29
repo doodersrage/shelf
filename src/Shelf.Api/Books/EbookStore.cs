@@ -23,12 +23,13 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
 
     public static bool IsKindle(string name) => Path.GetExtension(name).ToLowerInvariant() is ".mobi" or ".azw3" or ".azw" or ".kfx";
 
-    public async Task<EbookSave> SaveAsync(Stream source, string originalName, CancellationToken cancellationToken)
+    // keepAsIs: another format of a book, kept as it came, so a Kindle file stays one for a Kindle.
+    public async Task<EbookSave> SaveAsync(Stream source, string originalName, CancellationToken cancellationToken, bool keepAsIs = false)
     {
         var extension = Path.GetExtension(originalName).ToLowerInvariant();
-        if (IsKindle(originalName))
+        if (IsKindle(originalName) && !(keepAsIs && extension is ".mobi" or ".azw3" or ".azw"))
         {
-            return await ConvertAsync(source, originalName, cancellationToken);
+            return keepAsIs ? new EbookSave(EbookSaveStatus.Unsupported, null, null) : await ConvertAsync(source, originalName, cancellationToken);
         }
 
         if (IsOtherComic(originalName))
@@ -36,7 +37,7 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
             return await RepackAsync(source, originalName, cancellationToken);
         }
 
-        if (extension is not ".epub" and not ".pdf" and not ".cbz")
+        if (extension is not ".epub" and not ".pdf" and not ".cbz" and not ".mobi" and not ".azw3" and not ".azw")
         {
             return new EbookSave(EbookSaveStatus.Unsupported, null, null);
         }
@@ -111,6 +112,14 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
     {
         try
         {
+            // A Kindle book names itself BOOKMOBI sixty bytes in.
+            if (extension is ".mobi" or ".azw3" or ".azw")
+            {
+                using var kindle = File.OpenRead(path);
+                var start = new byte[68];
+                return kindle.ReadAtLeast(start, start.Length, throwOnEndOfStream: false) == start.Length && start.AsSpan(60, 8).SequenceEqual("BOOKMOBI"u8);
+            }
+
             if (extension == ".pdf")
             {
                 using var file = File.OpenRead(path);
@@ -213,8 +222,16 @@ public sealed class EbookStore(IWebHostEnvironment environment, IConfiguration c
     {
         ".pdf" => "application/pdf",
         ".cbz" => "application/vnd.comicbook+zip",
+        ".mobi" => "application/x-mobipocket-ebook",
+        ".azw3" or ".azw" => "application/vnd.amazon.ebook",
         _ => "application/epub+zip",
     };
+
+    // What Shelf's reader opens, and so what a book's main e-book can be.
+    public static bool IsReadable(string? storedName) => IsEpub(storedName) || IsPdf(storedName) || IsComic(storedName);
+
+    // The format a file is, in a word: EPUB, PDF, AZW3.
+    public static string FormatOf(string? storedName) => Path.GetExtension(storedName ?? "").TrimStart('.').ToUpperInvariant();
 
     public string? OpenPath(string? storedName)
     {

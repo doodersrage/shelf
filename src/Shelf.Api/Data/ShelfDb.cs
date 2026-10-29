@@ -62,6 +62,7 @@ public class ShelfDb : DbContext
     public DbSet<SavedSearch> SavedSearches => Set<SavedSearch>();
     public DbSet<CustomField> CustomFields => Set<CustomField>();
     public DbSet<CustomValue> CustomValues => Set<CustomValue>();
+    public DbSet<EbookFormat> EbookFormats => Set<EbookFormat>();
     public DbSet<AbsLink> AbsLinks => Set<AbsLink>();
     public DbSet<AbsSyncSetting> AbsSyncs => Set<AbsSyncSetting>();
     public DbSet<FetchSetting> FetchSettings => Set<FetchSetting>();
@@ -515,6 +516,17 @@ public class ShelfDb : DbContext
             value.HasOne(item => item.Book).WithMany(book => book.CustomValues).HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
             value.HasOne(item => item.Field).WithMany().HasForeignKey(item => item.FieldId).OnDelete(DeleteBehavior.Cascade);
             value.HasQueryFilter(item => item.Book!.OwnerId == ReaderId);
+        });
+
+        // A book's other e-book formats, beside the main one.
+        modelBuilder.Entity<EbookFormat>(format =>
+        {
+            format.Property(item => item.StoredName).HasMaxLength(48).IsRequired();
+            format.Property(item => item.FileName).HasMaxLength(EbookFormat.MaxFileNameLength).IsRequired();
+            format.HasIndex(item => item.BookId);
+            format.HasIndex(item => item.StoredName);
+            format.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
+            format.HasQueryFilter(item => item.Book!.OwnerId == ReaderId);
         });
 
         // A setting row belongs to the reader with the same id.

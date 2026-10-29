@@ -104,7 +104,8 @@ Statuses are `Want`, `Reading`, `Finished`, and `Abandoned`; formats are `Hardco
 | Call | What it does |
 | --- | --- |
 | `POST /books/{id}/ebook` | Upload an EPUB, PDF, comic, or Kindle file, up to 80 MB by default ([upload limits](configuration.md#upload-limits)). `DELETE` removes it. Answers with a redirect to the book's page; `?ebook=duplicate&held=…` means the same file is on another book. Send `keepBoth=true` to add it anyway. |
-| `GET /books/{id}/ebook/file` | The e-book file. |
+| `GET /books/{id}/ebook/file` | The e-book file. `GET /books/{id}/ebook/download` is the same file named for the book, an EPUB with Shelf's details written in. |
+| `GET /books/{id}/ebook/formats` | The book's other formats. `POST` one as `file` (EPUB, PDF, CBZ, AZW3, AZW, or MOBI, kept as it is); it answers with a redirect to the book's page with `?format=saved`, or the reason it wasn't kept. `GET /books/{id}/ebook/formats/{formatId}` downloads one; `DELETE` removes it; `POST …/{formatId}/main` makes an EPUB, PDF, or comic the main e-book, keeping the main one before as another format. |
 | `GET /books/{id}/ebook/chapters/{index}` | One EPUB chapter, ready to show. |
 | `GET /books/{id}/ebook/pages/{index}` | One page of a comic, as an image. |
 | `GET /books/{id}/ebook/ocr/{page}` | The words read from a scanned PDF page, with where each sits. |

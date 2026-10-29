@@ -267,6 +267,25 @@ public static partial class Merging
             await db.BookTexts.Where(text => text.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(text => text.BookId, keepId), cancellationToken);
         }
 
+        // Other e-book formats: the merged-away book's, and its main e-book when the kept one's is another format,
+        // come across where the kept book has none of that format.
+        var keepFormats = (await db.EbookFormats.Where(format => format.BookId == keepId).Select(format => format.StoredName).ToListAsync(cancellationToken)).Select(EbookStore.FormatOf).ToHashSet();
+        if (keep.EbookStoredName is { } keptMain)
+        {
+            keepFormats.Add(EbookStore.FormatOf(keptMain));
+        }
+
+        var movingFormats = (await db.EbookFormats.Where(format => format.BookId == otherId).ToListAsync(cancellationToken))
+            .Where(format => keepFormats.Add(EbookStore.FormatOf(format.StoredName))).Select(format => format.Id).ToList();
+        Unmerging.Moved(receipt, nameof(ShelfDb.EbookFormats), movingFormats);
+        await db.EbookFormats.Where(format => movingFormats.Contains(format.Id)).ExecuteUpdateAsync(set => set.SetProperty(format => format.BookId, keepId), cancellationToken);
+        var mainAsFormat = !ebookMoves && other.EbookStoredName is { } otherMain && keepFormats.Add(EbookStore.FormatOf(otherMain));
+        if (mainAsFormat)
+        {
+            db.EbookFormats.Add(new EbookFormat { BookId = keepId, StoredName = other.EbookStoredName!, FileName = other.EbookFileName ?? other.EbookStoredName!, AddedAt = DateTimeOffset.UtcNow });
+            receipt.EbookAsFormat = other.EbookStoredName;
+        }
+
         if (audioMoves)
         {
             (keep.AudioStoredName, keep.AudioFileName, keep.AudioTrack, keep.AudioSeconds) = (other.AudioStoredName, other.AudioFileName, other.AudioTrack, other.AudioSeconds);
@@ -332,7 +351,7 @@ public static partial class Merging
 
         // The other entry goes to the trash with what is left of it and the files it kept, should the merge have been
         // a mistake; a file that came across is the kept book's now and no longer the other's.
-        other.EbookStoredName = ebookMoves ? null : other.EbookStoredName;
+        other.EbookStoredName = ebookMoves || mainAsFormat ? null : other.EbookStoredName;
         other.AudioStoredName = audioMoves ? null : other.AudioStoredName;
         other.CoverImage = coverMoves ? null : other.CoverImage;
         Unmerging.NoteKept(db, keep, receipt);

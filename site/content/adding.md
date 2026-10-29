@@ -47,7 +47,7 @@ Under **Add a book**, **Or add from files** takes as many files as you like at o
 | EPUB | Its title, author, ISBN, publisher, language, and cover. |
 | PDF | Its title and author, when Poppler's `pdfinfo` is installed; otherwise its file name. |
 | Comic (`.cbz`) | Its `ComicInfo.xml`: title or series and number, writer, and publisher. |
-| Kindle (`.mobi`, `.azw3`, `.azw`) | Turned into an EPUB first, when Calibre is installed. |
+| Kindle (`.mobi`, `.azw3`, `.azw`) | Turned into an EPUB first, when Calibre is installed. To keep a Kindle file as it is, add it to a book as [another format](library.md#other-formats). |
 | Audio (mp3, m4a, m4b, aac, ogg, opus, wav, flac) | Its album and artist tags. Tracks that share an album become one audiobook. |
 | A zip of tracks | One audiobook. |
 

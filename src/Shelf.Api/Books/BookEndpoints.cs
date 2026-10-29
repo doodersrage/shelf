@@ -91,6 +91,7 @@ public static class BookEndpoints
         AudioPlayback.Map(books);
         Collections.Map(books);
         CustomFields.Map(books);
+        EbookFormats.Map(books);
         ReadingTime.Map(books);
         YearReview.Map(books);
         Merging.Map(books);

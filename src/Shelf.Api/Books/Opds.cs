@@ -21,6 +21,7 @@ public static class Opds
         opds.MapGet("/books", Books);
         opds.MapGet("/borrowed", Borrowed);
         opds.MapGet("/books/{id:int}/file", File);
+        opds.MapGet("/books/{id:int}/formats/{formatId:int}", Format);
     }
 
     private static IResult Root(ShelfDb db)
@@ -52,7 +53,7 @@ public static class Opds
             .Where(book => book.EbookStoredName != null && (status == null || book.Status == status))
             .ToListAsync(cancellationToken);
         var title = status is { } chosen ? BookRules.StatusLabel(chosen) : Localization.Words.T("All e-books");
-        return Xml(Acquire($"urn:shelf:opds:books:{status}", title, status is null ? "/opds/books" : $"/opds/books?status={status}", books), Acquisition);
+        return Xml(Acquire($"urn:shelf:opds:books:{status}", title, status is null ? "/opds/books" : $"/opds/books?status={status}", books, await FormatsAsync(db, books, cancellationToken)), Acquisition);
     }
 
     private static async Task<IResult> Borrowed(ShelfDb db, CancellationToken cancellationToken)
@@ -61,7 +62,7 @@ public static class Opds
         var books = await db.Books.IgnoreQueryFilters().AsNoTracking()
             .Where(book => readerId != 0 && book.BorrowerId == readerId && book.EbookStoredName != null)
             .ToListAsync(cancellationToken);
-        return Xml(Acquire("urn:shelf:opds:borrowed", "Lent to you", "/opds/borrowed", books), Acquisition);
+        return Xml(Acquire("urn:shelf:opds:borrowed", "Lent to you", "/opds/borrowed", books, await FormatsAsync(db, books, cancellationToken)), Acquisition);
     }
 
     private static async Task<IResult> File(int id, ShelfDb db, EbookStore store, CancellationToken cancellationToken)
@@ -76,7 +77,26 @@ public static class Opds
         return Results.File(path, MediaType(book.EbookStoredName), book.EbookFileName ?? Path.GetFileName(path), enableRangeProcessing: true);
     }
 
-    private static XElement Acquire(string id, string title, string self, IEnumerable<Book> books)
+    // A book's other formats, each a download beside the main e-book, as the app on the device can choose.
+    private static async Task<ILookup<int, EbookFormat>> FormatsAsync(ShelfDb db, List<Book> books, CancellationToken cancellationToken)
+    {
+        var ids = books.Select(book => book.Id).ToList();
+        return (await db.EbookFormats.IgnoreQueryFilters().AsNoTracking().Where(format => ids.Contains(format.BookId)).ToListAsync(cancellationToken)).ToLookup(format => format.BookId);
+    }
+
+    private static async Task<IResult> Format(int id, int formatId, ShelfDb db, EbookStore store, CancellationToken cancellationToken)
+    {
+        if (await Lending.OpenAsync(db, id, cancellationToken) is null
+            || await db.EbookFormats.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(format => format.Id == formatId && format.BookId == id, cancellationToken) is not { } format
+            || store.OpenPath(format.StoredName) is not { } path)
+        {
+            return TypedResults.NotFound();
+        }
+
+        return Results.File(path, EbookStore.ContentType(format.StoredName), format.FileName, enableRangeProcessing: true);
+    }
+
+    private static XElement Acquire(string id, string title, string self, IEnumerable<Book> books, ILookup<int, EbookFormat>? formats = null)
     {
         var feed = Feed(id, title, self, Acquisition);
         foreach (var book in books.OrderBy(item => item.Title, StringComparer.OrdinalIgnoreCase))
@@ -87,6 +107,11 @@ public static class Opds
                 new XElement(Atom + "author", new XElement(Atom + "name", book.Author)),
                 new XElement(Atom + "updated", book.AddedAt.ToString("o")),
                 Link("http://opds-spec.org/acquisition", $"/opds/books/{book.Id}/file", MediaType(book.EbookStoredName)));
+            foreach (var format in formats?[book.Id] ?? [])
+            {
+                entry.Add(Link("http://opds-spec.org/acquisition", $"/opds/books/{book.Id}/formats/{format.Id}", EbookStore.ContentType(format.StoredName)));
+            }
+
             if (book.Language is { } language)
             {
                 entry.Add(new XElement(Dc + "language", language));

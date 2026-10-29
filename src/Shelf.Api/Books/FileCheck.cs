@@ -53,6 +53,7 @@ public static class FileCheck
         var books = db.Books.IgnoreQueryFilters().AsNoTracking();
         var used = new HashSet<(FileKind, string)>();
         used.UnionWith((await books.Where(book => book.EbookStoredName != null).Select(book => book.EbookStoredName!).ToListAsync(cancellationToken)).Select(name => (FileKind.Ebook, name)));
+        used.UnionWith((await db.EbookFormats.IgnoreQueryFilters().AsNoTracking().Select(format => format.StoredName).ToListAsync(cancellationToken)).Select(name => (FileKind.Ebook, name)));
         used.UnionWith((await books.Where(book => book.AudioStoredName != null).Select(book => book.AudioStoredName!).ToListAsync(cancellationToken)).Select(name => (FileKind.Audio, name)));
         used.UnionWith((await books.Where(book => book.CoverImage != null).Select(book => book.CoverImage!).ToListAsync(cancellationToken)).Select(name => (FileKind.Cover, name)));
         used.UnionWith((await db.CopyPhotos.IgnoreQueryFilters().AsNoTracking().Select(photo => photo.StoredName).ToListAsync(cancellationToken)).Select(name => (FileKind.Photo, name)));

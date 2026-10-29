@@ -1112,6 +1112,37 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("DetailProposals");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.EbookFormat", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("StoredName")
+                        .IsRequired()
+                        .HasMaxLength(48)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("StoredName");
+
+                    b.ToTable("EbookFormats");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.EventRecord", b =>
                 {
                     b.Property<long>("Id")
@@ -3898,6 +3929,17 @@ namespace Shelf.Api.Data.Migrations
                     b.HasOne("Shelf.Api.Readers.Reader", null)
                         .WithMany()
                         .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Book");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.EbookFormat", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

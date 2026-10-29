@@ -67,6 +67,12 @@ A filled-in field shows with the book's details. Its value links to the other bo
 
 Your fields are yours alone: no other reader on the shelf sees them, even on a book you lend them. They go out in the export, as a column each in `books.csv` and in `shelf.json`, and come back in when it's restored.
 
+### Other formats
+
+A book can keep other formats of its e-book beside the main one, as Calibre keeps them: an AZW3 for a Kindle, or the PDF with the printed pages. Add one under **Other formats**, under **Files** on the book's page. It's kept exactly as it came, Kindle files included, with one of each format to a book: a second AZW3 replaces the first.
+
+The reader, your place, KOReader, and Kobo go by the main e-book. **Make it the main e-book** swaps an EPUB, PDF, or comic in, keeping the main one before as another format; your place starts again at the beginning, since a place in one file means nothing in another. Other formats can be downloaded, are offered beside the main e-book in the [OPDS catalog](devices.md#e-reader-apps-opds), go out in the full export under `formats/`, and come back with the book from the trash. Merging two entries for one book keeps the other entry's formats, and its main e-book when it's a different format.
+
 ### Details that go with the file
 
 **Download the file**, under **Files** on a book's page, names the file for its author and title. An EPUB comes with Shelf's details written into it, as Calibre writes them: the title, the authors, the series and number, the publisher, the language, the year, the ISBN, and Shelf's cover when it keeps one. Other apps and e-readers then show the book as Shelf does. **Send to Kindle** sends the same copy. Your notes, review, rating, and tags are never written into a file.

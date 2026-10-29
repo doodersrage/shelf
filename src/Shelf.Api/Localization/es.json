@@ -3415,5 +3415,14 @@
   "Your fields": "Tus campos",
   "filled in": "rellenado",
   "{0} is ready. Fill it in when editing a book.": "{0} está listo. Rellénalo al editar un libro.",
-  "{0} is removed.": "{0} se ha quitado."
+  "{0} is removed.": "{0} se ha quitado.",
+  "Add the format": "Añadir el formato",
+  "Another format can be an EPUB, a PDF, a comic, or a Kindle book (AZW3, AZW, or MOBI) without DRM.": "Otro formato puede ser un EPUB, un PDF, un cómic o un libro de Kindle (AZW3, AZW o MOBI) sin DRM.",
+  "Another format of this book (EPUB, PDF, CBZ, AZW3, or MOBI), kept as it is beside the main e-book": "Otro formato de este libro (EPUB, PDF, CBZ, AZW3 o MOBI), guardado tal cual junto al libro electrónico principal",
+  "Make it the main e-book": "Hacerlo el libro electrónico principal",
+  "Other formats": "Otros formatos",
+  "Remove the {0}": "Quitar el {0}",
+  "Shelf's reader opens an EPUB, a PDF, or a comic; this format can't be the main e-book.": "El lector de Shelf abre un EPUB, un PDF o un cómic; este formato no puede ser el libro electrónico principal.",
+  "That's the format of the main e-book. To replace the main e-book, upload it under E-book.": "Ese es el formato del libro electrónico principal. Para reemplazarlo, súbelo en Libro electrónico.",
+  "The format is kept with the book.": "El formato se guarda con el libro."
 }

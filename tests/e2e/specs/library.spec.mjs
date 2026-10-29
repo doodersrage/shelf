@@ -234,3 +234,24 @@ test("a field of one's own is made, filled in on a book, and leads to the books 
   await expect(page.getByRole("link", { name: "The Loose Book" })).toHaveCount(0);
   noProblems(page);
 });
+
+test("another format is added beside the main e-book, and made the main one", async ({ browser }) => {
+  const page = await signUp(browser, unique("Formatter"));
+  const book = await createBook(page, { title: "Moby-Dick", author: "Herman Melville", status: "Reading" });
+  await upload(page, book.id, "ebook", "moby.epub", "application/epub+zip");
+  await page.goto(`/library/${book.id}#files`);
+  await ready(page);
+  await page.locator('form[action$="/ebook/formats"] input[name=file]').setInputFiles(fixture("three.pdf"));
+  await Promise.all([page.waitForURL(/format=saved/), page.locator('form[action$="/ebook/formats"] button[type=submit]').click()]);
+  await expect(page.getByText("The format is kept with the book.")).toBeVisible();
+  const formats = page.locator("ul.formats");
+  await expect(formats).toContainText("PDF");
+  await expect(formats.getByRole("link", { name: "Download" })).toHaveAttribute("href", /\/ebook\/formats\/\d+$/);
+
+  await formats.getByRole("button", { name: "Make it the main e-book" }).click();
+  await expect(formats).toContainText("EPUB");
+  await expect(formats).toContainText("moby.epub");
+  await expect(page.getByText("three.pdf").first()).toBeVisible();
+  noProblems(page);
+});
+

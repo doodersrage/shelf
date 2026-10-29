@@ -69,8 +69,9 @@ public sealed class Storage(EbookStore ebooks, AudioStore audio, CoverStore cove
         var files = await db.Books.IgnoreQueryFilters().AsNoTracking().Where(book => book.OwnerId == readerId)
             .Select(book => new { book.EbookStoredName, book.AudioStoredName, book.CoverImage }).ToListAsync(cancellationToken);
         var shows = await db.Podcasts.IgnoreQueryFilters().AsNoTracking().Where(podcast => podcast.OwnerId == readerId).Select(podcast => podcast.Id).ToListAsync(cancellationToken);
+        var formats = await db.EbookFormats.IgnoreQueryFilters().AsNoTracking().Where(format => format.Book!.OwnerId == readerId).Select(format => format.StoredName).ToListAsync(cancellationToken);
         return (
-            files.Sum(file => EbookSize(file.EbookStoredName)),
+            files.Sum(file => EbookSize(file.EbookStoredName)) + formats.Sum(EbookSize),
             files.Sum(file => audio.Size(file.AudioStoredName)),
             files.Sum(file => covers.OpenPath(file.CoverImage) is { } path ? new FileInfo(path).Length : 0),
             shows.Sum(id => Folder(Path.Combine(podcasts.Root, id.ToString(CultureInfo.InvariantCulture)))));

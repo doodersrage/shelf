@@ -39,6 +39,7 @@ public static class Backup
         }
 
         await PortableExport.WriteAsync(db, zip, books, JsonOptions, manifest, cancellationToken);
+        var formats = (await db.EbookFormats.AsNoTracking().ToListAsync(cancellationToken)).ToLookup(format => format.BookId);
 
         for (var index = 0; index < books.Count; index++)
         {
@@ -46,6 +47,16 @@ public static class Backup
             if (ebooks.OpenPath(book.EbookStoredName) is { } ebookPath && book.EbookFileName is { } fileName)
             {
                 await manifest.CopyAsync(zip, ebookPath, $"{Folder(index)}/ebook/{SafeName(fileName)}", cancellationToken);
+            }
+
+            // Its other formats, each under its own format's name so two files called the same don't meet.
+            foreach (var format in formats[book.Id])
+            {
+                if (ebooks.OpenPath(format.StoredName) is { } formatPath)
+                {
+                    var name = Path.GetFileNameWithoutExtension(SafeName(format.FileName)) + Path.GetExtension(format.StoredName).ToLowerInvariant();
+                    await manifest.CopyAsync(zip, formatPath, $"{Folder(index)}/formats/{EbookStore.FormatOf(format.StoredName).ToLowerInvariant()}/{name}", cancellationToken);
+                }
             }
 
             // A kept cover picture travels with its book; a cover address is in the catalog already.
@@ -112,7 +123,7 @@ public static class Backup
             // the restore with the books already saved, said "nothing was added", and lost the files already written.
             try
             {
-                (var brought, var missed) = await RestoreFilesAsync(zip, Folder(index) + "/", book, ebooks, audio, covers, cancellationToken);
+                (var brought, var missed) = await RestoreFilesAsync(db, zip, Folder(index) + "/", book, ebooks, audio, covers, cancellationToken);
                 files += brought;
                 lost += missed;
             }
@@ -137,7 +148,7 @@ public static class Backup
     }
 
     // A book's e-book, cover, and recording from the download, and how many came back and how many could not.
-    private static async Task<(int Brought, int Missed)> RestoreFilesAsync(ZipArchive zip, string prefix, Book book, EbookStore ebooks, AudioStore audio, CoverStore covers, CancellationToken cancellationToken)
+    private static async Task<(int Brought, int Missed)> RestoreFilesAsync(ShelfDb db, ZipArchive zip, string prefix, Book book, EbookStore ebooks, AudioStore audio, CoverStore covers, CancellationToken cancellationToken)
     {
         var (brought, missed) = (0, 0);
         var ebook = zip.Entries.FirstOrDefault(item => item.FullName.StartsWith(prefix + "ebook/", StringComparison.Ordinal) && item.Name.Length > 0);
@@ -151,6 +162,22 @@ public static class Backup
                 book.EbookFileName = saved.FileName;
                 book.EbookChapter = 0;
                 Covers.Note(book, ebooks);
+                brought++;
+            }
+            else
+            {
+                missed++;
+            }
+        }
+
+        // The other formats, kept as they came.
+        foreach (var entry in zip.Entries.Where(item => item.FullName.StartsWith(prefix + "formats/", StringComparison.Ordinal) && item.Name.Length > 0))
+        {
+            await using var stream = entry.Open();
+            var saved = await ebooks.SaveAsync(stream, entry.Name, cancellationToken, keepAsIs: true);
+            if (saved is { Status: EbookSaveStatus.Saved, StoredName: { } storedName, FileName: { } fileName })
+            {
+                db.EbookFormats.Add(new EbookFormat { BookId = book.Id, StoredName = storedName, FileName = fileName, AddedAt = DateTimeOffset.UtcNow });
                 brought++;
             }
             else
