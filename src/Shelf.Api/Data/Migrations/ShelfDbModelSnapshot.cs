@@ -3586,6 +3586,10 @@ namespace Shelf.Api.Data.Migrations
                     b.Property<bool>("Suspended")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("TimeZone")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("INTEGER");
 

@@ -9,6 +9,7 @@
 @inject CoverStore Covers
 @using Microsoft.JSInterop
 @inject IJSRuntime Js
+@inject ReaderTime Clock
 
 <PageTitle>@T("Library") · Shelf</PageTitle>
 
@@ -913,7 +914,7 @@ else if (visible.Count > 0)
         }
     }
 
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+    private DateOnly Today => Clock.Today;
 
     private int ChecksOn => new[] { lovedOnly, loanedOnly, queuedOnly, fileOnly, audioOnly, goneOnly }.Count(on => on);
 
@@ -1294,7 +1295,7 @@ else if (visible.Count > 0)
             Title = write.Title.Trim(),
             Author = write.Author.Trim(),
         };
-        BookRules.Apply(book, write);
+        BookRules.Apply(book, write, today: db.Today);
         db.Books.Add(book);
         await BookRules.SyncTagsAsync(db, book, write.Tags, CancellationToken.None);
         await db.SaveChangesAsync();
@@ -1316,7 +1317,7 @@ else if (visible.Count > 0)
             return;
         }
 
-        BookRules.ChangeStatus(book, status);
+        BookRules.ChangeStatus(book, status, db.Today);
         await db.SaveChangesAsync();
         await LoadAsync();
     }

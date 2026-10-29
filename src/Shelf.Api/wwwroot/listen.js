@@ -325,8 +325,8 @@
     render();
   });
 
-  // The day as the shelf counts days (UTC, as reading sessions and the streak do), taken now rather than when sent.
-  const shelfDay = () => new Date().toISOString().slice(0, 10);
+  // The day where the listener is, as the shelf counts days, taken now rather than when sent.
+  const shelfDay = () => new Date().toLocaleDateString("en-CA");
 
   // The place is kept on this device as well, marked waiting until the shelf has it: with no connection (a kept
   // book in the offline player, say) it goes back once the shelf answers again, as does the time listened.

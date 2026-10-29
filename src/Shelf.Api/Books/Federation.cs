@@ -554,7 +554,7 @@ public sealed class Federation(IServiceScopeFactory scopes, LinkClient client, E
         }
 
         var server = await db.ShelfLinks.AsNoTracking().Where(link => link.Id == ask.Reader!.LinkId).Select(link => link.Name).FirstOrDefaultAsync(cancellationToken) ?? "";
-        (book.RemoteBorrowerId, book.LoanedTo, book.LoanedOn, book.DueOn) = (ask.RemoteReaderId, Fit($"{ask.Reader!.Name} ({server})", 120), DateOnly.FromDateTime(DateTime.UtcNow), dueOn);
+        (book.RemoteBorrowerId, book.LoanedTo, book.LoanedOn, book.DueOn) = (ask.RemoteReaderId, Fit($"{ask.Reader!.Name} ({server})", 120), db.Today, dueOn);
         db.RemoteAsks.Remove(ask);
         await db.SaveChangesAsync(cancellationToken);
         return LendResult.Lent;

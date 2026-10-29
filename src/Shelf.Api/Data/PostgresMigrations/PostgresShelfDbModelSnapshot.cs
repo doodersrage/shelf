@@ -3747,6 +3747,10 @@ namespace Shelf.Api.Data.PostgresMigrations
                     b.Property<bool>("Suspended")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("TimeZone")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("boolean");
 

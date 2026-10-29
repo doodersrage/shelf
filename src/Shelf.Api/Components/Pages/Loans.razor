@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject Federation Federation
+@inject ReaderTime Clock
 
 <PageTitle>@T("Loans") · Shelf</PageTitle>
 
@@ -207,7 +208,7 @@ else
 }
 
 @code {
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+    private DateOnly Today => Clock.Today;
 
     private LoanAsks asks = new([], []);
     private readonly Dictionary<int, DateOnly?> dueDates = [];

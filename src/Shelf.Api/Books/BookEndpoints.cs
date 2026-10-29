@@ -155,6 +155,7 @@ public static class BookEndpoints
 
         app.MapGet("/settings", GetSettings).WithTags("Shelf").RequireAuthorization();
         app.MapPut("/settings", UpdateSettings).WithTags("Shelf").RequireAuthorization();
+        app.MapPut("/settings/timezone", SetTimeZone).WithTags("Shelf").RequireAuthorization();
 
         return books;
     }
@@ -226,7 +227,7 @@ public static class BookEndpoints
             Title = write.Title.Trim(),
             Author = write.Author.Trim(),
         };
-        BookRules.Apply(book, write);
+        BookRules.Apply(book, write, today: db.Today);
         db.Books.Add(book);
         await BookRules.SyncTagsAsync(db, book, write.Tags, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
@@ -253,7 +254,7 @@ public static class BookEndpoints
             return TypedResults.NotFound();
         }
 
-        BookRules.Apply(book, write);
+        BookRules.Apply(book, write, today: db.Today);
         await BookRules.SyncTagsAsync(db, book, write.Tags, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         await BookRules.RemoveUnusedTagsAsync(db, cancellationToken);
@@ -343,6 +344,25 @@ public static class BookEndpoints
         }
 
         await Trash.DeleteRowAsync(db, quote, TrashKind.Quote, id, quote.Text, await TitleAsync(db, id, cancellationToken), cancellationToken);
+        return TypedResults.NoContent();
+    }
+
+    // Where the reader is, as an IANA time zone, for the days they read on. onlyIfUnset: the browser's own guess,
+    // kept only when the reader hasn't chosen one.
+    private static async Task<Results<NoContent, ValidationProblem>> SetTimeZone(TimeZoneRequest request, ShelfDb db, CancellationToken cancellationToken)
+    {
+        if (request.Zone is { Length: > 0 } given && !ReaderClock.IsZone(given))
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Zone"] = [Localization.Words.T("That isn't a time zone Shelf knows.")] });
+        }
+
+        var me = await db.Readers.FirstAsync(reader => reader.Id == db.ReaderId, cancellationToken);
+        if (!request.OnlyIfUnset || me.TimeZone is null)
+        {
+            me.TimeZone = string.IsNullOrWhiteSpace(request.Zone) ? null : request.Zone;
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
         return TypedResults.NoContent();
     }
 
@@ -506,7 +526,7 @@ public static class BookEndpoints
         var session = new ReadingSession
         {
             BookId = book.Id,
-            Date = request.Date ?? DateOnly.FromDateTime(DateTime.UtcNow),
+            Date = request.Date ?? db.Today,
             FromPage = request.FromPage,
             ToPage = request.ToPage,
             Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
@@ -626,7 +646,7 @@ public static class BookEndpoints
             .Where(book => book.Status == chosen)
             .OrderBy(book => book.Id)
             .ToListAsync(cancellationToken);
-        var pick = BookRules.Pick(books, chosen, DateOnly.FromDateTime(DateTime.UtcNow));
+        var pick = BookRules.Pick(books, chosen, db.Today);
         return pick is null ? TypedResults.NotFound() : TypedResults.Ok(BookResponse.From(pick));
     }
 
@@ -677,7 +697,7 @@ public static class BookEndpoints
         int? year = null,
         int? month = null)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = db.Today;
         var chosenYear = year ?? today.Year;
         var chosenMonth = month ?? today.Month;
         if (chosenMonth is < 1 or > 12 || chosenYear is < 1 or > 9999)
@@ -694,7 +714,7 @@ public static class BookEndpoints
         var loans = await db.Books.AsNoTracking()
             .Select(book => new { book.LoanedTo, book.DueOn })
             .ToListAsync(cancellationToken);
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = db.Today;
         return TypedResults.Ok(BookRules.Loans(loans.Select(loan => (loan.LoanedTo, loan.DueOn)), today));
     }
 

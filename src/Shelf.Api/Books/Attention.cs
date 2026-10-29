@@ -22,7 +22,7 @@ public static class Attention
             return items;
         }
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = db.Today;
         var lateOut = await db.Books.AsNoTracking()
             .Where(book => book.LoanedTo != null && book.DueOn != null && book.DueOn < today)
             .OrderBy(book => book.DueOn)

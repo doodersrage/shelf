@@ -60,6 +60,16 @@
     <script src="@Assets["jump.js"]"></script>
     <script src="@Assets["more.js"]"></script>
     <script type="module" src="@Assets["passkey.js"]"></script>
+    @if (zoneUnset)
+    {
+        @* A reader who has never said where they are: the browser's time zone, sent once, for the days they read on. *@
+        <script>
+            (() => {
+                const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                if (zone) fetch("/settings/timezone", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ zone, onlyIfUnset: true }), credentials: "same-origin" }).catch(() => { });
+            })();
+        </script>
+    }
     <script>
         // Keeps the offline reader, and the books kept for it, on this device.
         if ("serviceWorker" in navigator) {
@@ -77,12 +87,15 @@
     // Light or dark as the reader chose in Account; nothing, and the device decides.
     private string? theme;
 
+    private bool zoneUnset;
+
     protected override async Task OnInitializedAsync()
     {
         if (Http?.User.Identity?.IsAuthenticated == true)
         {
             await using var db = await DbFactory.CreateDbContextAsync();
             theme = await BookRules.GetThemeAsync(db);
+            zoneUnset = db.ReaderId != 0 && db.ReaderZone is null;
         }
     }
 }

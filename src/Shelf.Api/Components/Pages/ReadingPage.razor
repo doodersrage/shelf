@@ -1,6 +1,7 @@
 @page "/reading"
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject AudioStore Audio
+@inject ReaderTime Clock
 
 <PageTitle>@T("Reading") · Shelf</PageTitle>
 
@@ -149,7 +150,7 @@ else
         open = await BookProgress.LatestFirstAsync(db, books.Where(book => book.Status == BookStatus.Reading));
         queue = books.Where(book => book.Status == BookStatus.Want).OrderBy(book => book.Title, StringComparer.CurrentCultureIgnoreCase).Take(8).ToList();
 
-        var since = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-60);
+        var since = Clock.Today.AddDays(-60);
         var sessions = await db.Sessions.AsNoTracking().Where(session => session.Date >= since).OrderByDescending(session => session.Date).Take(20)
             .Select(session => new { session.Date, session.BookId, session.Book!.Title, session.FromPage, session.ToPage }).ToListAsync();
         var heard = await db.ListeningDays.AsNoTracking().Where(day => day.ReaderId == db.ReaderId && day.Day >= since).OrderByDescending(day => day.Day).Take(20)

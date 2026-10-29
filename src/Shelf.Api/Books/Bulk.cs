@@ -78,7 +78,7 @@ public static class Bulk
 
             if (request.Status is { } status)
             {
-                BookRules.ChangeStatus(book, status);
+                BookRules.ChangeStatus(book, status, db.Today);
             }
 
             if (request.Loved is { } loved)

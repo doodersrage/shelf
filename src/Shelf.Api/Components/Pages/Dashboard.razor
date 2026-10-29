@@ -1,6 +1,7 @@
 @page "/"
 @inject IDbContextFactory<ShelfDb> DbFactory
 @inject AudioStore Audio
+@inject ReaderTime Clock
 
 <PageTitle>@T("Home") · Shelf</PageTitle>
 
@@ -325,7 +326,7 @@ else
             newOnShelves = openShelves.Length > 0 ? await Asking.NewOnOpenShelvesAsync(db, 8) : [];
         }
         goal = await BookRules.GetGoalAsync(db);
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = Clock.Today;
         finishedThisYear = books.Count(book => book.Status == BookStatus.Finished && book.FinishedOn?.Year == today.Year) + await Rereads.EarlierFinishesAsync(db, today.Year);
 
         // The book last read or listened to leads.

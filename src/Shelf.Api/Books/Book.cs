@@ -780,6 +780,8 @@ public sealed record LibraryExport(int YearlyGoal, BookResponse[] Books, Journal
 // The reader's own fields, and what each book holds in them: Book counts from 0 in Books.
 public sealed record FieldExport(string Name, FieldKind Kind);
 
+public sealed record TimeZoneRequest(string? Zone, bool OnlyIfUnset = false);
+
 public sealed record FieldValueExport(int Book, string Field, string Value);
 
 public sealed record GoalExport(int Year, GoalKind Kind, string? Name, int Target);

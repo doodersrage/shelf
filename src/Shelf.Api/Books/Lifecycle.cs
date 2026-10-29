@@ -99,8 +99,8 @@ public static class Lifecycle
             return T("Give a price from 0 on.");
         }
 
-        var on = request.On ?? DateOnly.FromDateTime(DateTime.UtcNow);
-        if (on > DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1))
+        var on = request.On ?? db.Today;
+        if (on > db.Today.AddDays(1))
         {
             return T("Give a day that has come.");
         }
@@ -129,7 +129,7 @@ public static class Lifecycle
     // Worked out from the shelf as it is, when asked. A copy came when it was acquired, or else when it was added.
     public static async Task<LifecycleReport> ReportAsync(ShelfDb db, DateOnly? today = null, CancellationToken cancellationToken = default)
     {
-        var now = today ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var now = today ?? db.Today;
         var books = await db.Books.AsNoTracking().Where(book => book.VisitingLinkId == null)
             .Select(book => new
             {

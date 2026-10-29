@@ -1,6 +1,7 @@
 @page "/c/{Id:int}"
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
+@inject ReaderTime Clock
 
 @* Where a copy's QR label leads: lend it or mark it back, standing at the shelf with a phone. *@
 <PageTitle>@(book?.Title ?? T("Lending")) · Shelf</PageTitle>
@@ -87,7 +88,7 @@ else if (book is not null)
     [Parameter]
     public int Id { get; set; }
 
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+    private DateOnly Today => Clock.Today;
 
     private Book? book;
     private bool missing;
@@ -95,14 +96,18 @@ else if (book is not null)
     private List<string> waiting = [];
     private int readerId;
     private string? borrower;
-    private DateOnly? due = Today.AddDays(LoanHistory.DefaultRenewDays);
+    private DateOnly? due;
     private CopyCondition? condition;
     private string? loanNote;
     private string? note;
     private bool problem;
     private bool busy;
 
-    protected override async Task OnParametersSetAsync() => await LoadAsync();
+    protected override async Task OnParametersSetAsync()
+    {
+        due ??= Today.AddDays(LoanHistory.DefaultRenewDays);
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {

@@ -47,7 +47,7 @@ public static class ReadingQueue
 
     public static async Task<QueueView> ViewAsync(ShelfDb db, DateOnly? today = null, CancellationToken cancellationToken = default)
     {
-        var now = today ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var now = today ?? db.Today;
         var queued = await db.Books.AsNoTracking().Where(book => book.Queued && book.Status == BookStatus.Want && book.LeftOn == null)
             .OrderBy(book => book.QueueOrder == null).ThenBy(book => book.QueueOrder).ThenBy(book => book.Id).ToListAsync(cancellationToken);
         var series = queued.Where(book => book.Series is not null && book.SeriesNumber is not null).Select(book => book.Series!).Distinct().ToList();

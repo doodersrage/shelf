@@ -35,6 +35,26 @@ public class ShelfDb : DbContext
     // Every query sees only this reader's books. No reader means no books, never the unclaimed ones.
     public int ReaderId => _reader?.Id ?? 0;
 
+    // Today where this reader is, by the time zone they keep; looked up once for this context.
+    public DateOnly Today => ReaderClock.Today(ReaderZone);
+
+    public string? ReaderZone
+    {
+        get
+        {
+            if (_zoneFor != ReaderId)
+            {
+                _zone = ReaderId == 0 ? null : Readers.AsNoTracking().Where(reader => reader.Id == ReaderId).Select(reader => reader.TimeZone).FirstOrDefault();
+                _zoneFor = ReaderId;
+            }
+
+            return _zone;
+        }
+    }
+
+    private string? _zone;
+    private int? _zoneFor;
+
     // PostgreSQL rather than the usual SQLite: the few places that speak to the database directly ask.
     public bool IsPostgres => Database.ProviderName?.Contains("Npgsql", StringComparison.Ordinal) == true;
 
@@ -879,6 +899,7 @@ public class ShelfDb : DbContext
             reader.HasOne<Reader>().WithMany().HasForeignKey(r => r.GuardianId).OnDelete(DeleteBehavior.SetNull);
             reader.HasOne<Reader>().WithMany().HasForeignKey(r => r.SandboxOf).OnDelete(DeleteBehavior.Restrict);
             reader.Property(r => r.Name).HasMaxLength(ReaderRules.MaxNameLength).IsRequired();
+            reader.Property(r => r.TimeZone).HasMaxLength(ReaderClock.MaxZoneLength);
             reader.Property(r => r.NormalizedName).HasMaxLength(ReaderRules.MaxNameLength).IsRequired();
             reader.Property(r => r.PasswordHash).HasMaxLength(200).IsRequired();
             reader.Property(r => r.KeyHash).HasMaxLength(64);

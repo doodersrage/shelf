@@ -93,7 +93,7 @@ public static class Rereads
         book.EbookProgress = null;
         book.AudioTrack = null;
         book.AudioSeconds = null;
-        BookRules.ChangeStatus(book, BookStatus.Reading);
+        BookRules.ChangeStatus(book, BookStatus.Reading, db.Today);
 
         // Devices still hold the last time through. KOReader's place is kept but marked, so the device saying it
         // again doesn't jump the reread to the end; the Kobo is told at its next sync that the book is being read

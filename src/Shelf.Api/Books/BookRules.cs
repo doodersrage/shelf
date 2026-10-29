@@ -148,11 +148,12 @@ public static class BookRules
 
     // Imports pass stampDates false: a book read on no day given stays undated (finished, but in no year), where today
     // would count every undated "read" row of an export as finished the day it was brought in.
-    public static void Apply(Book book, BookWrite write, bool stampDates = true)
+    // today: the day where the reader is (ShelfDb.Today); the server's own when not given.
+    public static void Apply(Book book, BookWrite write, bool stampDates = true, DateOnly? today = null)
     {
         var created = book.Id == 0;
         var previous = book.Status;
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var day = today ?? ReaderClock.Today(null);
 
         book.Title = write.Title.Trim();
         book.Author = write.Author.Trim();
@@ -216,7 +217,7 @@ public static class BookRules
             book.LoanedOn = write.LoanedOn;
             if (book.LoanedOn is null && !string.Equals(previousLoan, book.LoanedTo, StringComparison.Ordinal))
             {
-                book.LoanedOn = today;
+                book.LoanedOn = day;
             }
 
             book.DueOn = write.DueOn;
@@ -231,7 +232,7 @@ public static class BookRules
         var statusChanged = created || previous != write.Status;
         if (statusChanged && stampDates)
         {
-            StampDates(book, write.Status, today);
+            StampDates(book, write.Status, day);
         }
     }
 
@@ -253,7 +254,7 @@ public static class BookRules
         }
     }
 
-    public static void ChangeStatus(Book book, BookStatus status)
+    public static void ChangeStatus(Book book, BookStatus status, DateOnly? today = null)
     {
         if (book.Status == status)
         {
@@ -261,7 +262,7 @@ public static class BookRules
         }
 
         book.Status = status;
-        StampDates(book, status, DateOnly.FromDateTime(DateTime.UtcNow));
+        StampDates(book, status, today ?? ReaderClock.Today(null));
 
         if (status != BookStatus.Want)
         {
@@ -333,7 +334,7 @@ public static class BookRules
             .ToListAsync(cancellationToken);
 
         var ratings = rows.Where(row => row.Rating is not null).Select(row => (double)row.Rating!.Value).ToList();
-        var year = DateOnly.FromDateTime(DateTime.UtcNow).Year;
+        var year = db.Today.Year;
 
         return new ShelfStatsResponse(
             rows.Count,

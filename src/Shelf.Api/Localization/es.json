@@ -3525,5 +3525,8 @@
   "Without downloads, a member still reads and listens in Shelf, but can't take the files: no downloads, e-reader catalog, casting, or offline copies in the Audiobookshelf apps. Reading in a browser fetches the file, as streaming does anywhere, so this keeps files from being taken casually.": "Sin descargas, un miembro sigue leyendo y escuchando en Shelf, pero no puede llevarse los archivos: ni descargas, ni catálogo para lectores electrónicos, ni transmisión, ni copias sin conexión en las aplicaciones de Audiobookshelf. Leer en un navegador obtiene el archivo, como cualquier streaming, así que esto evita que se lleven los archivos sin más.",
   "Read the {0} from now on? The place in the e-book starts again at the beginning, for you and anyone reading it with you; the e-book now kept stays as another format.": "¿Leer el {0} a partir de ahora? El punto en el libro electrónico vuelve al principio, para ti y para quien lo lea contigo; el libro electrónico actual queda como otro formato.",
   "Remove the {0}? Its file is deleted, and can't be brought back.": "¿Quitar el {0}? Su archivo se elimina y no se puede recuperar.",
-  "E-books in the household libraries and collections shared with you, where you may download them.": "Libros electrónicos de las bibliotecas familiares y colecciones compartidas contigo, cuando puedes descargarlos."
+  "E-books in the household libraries and collections shared with you, where you may download them.": "Libros electrónicos de las bibliotecas familiares y colecciones compartidas contigo, cuando puedes descargarlos.",
+  "Time zone, for the days you read and listen on": "Zona horaria, para los días en que lees y escuchas",
+  "The server's ({0})": "La del servidor ({0})",
+  "That isn't a time zone Shelf knows.": "Esa no es una zona horaria que Shelf conozca."
 }

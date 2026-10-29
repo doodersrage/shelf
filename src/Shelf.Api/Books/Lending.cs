@@ -66,7 +66,7 @@ public static class Lending
 
         if (book.BorrowerId != readerId)
         {
-            book.LoanedOn = DateOnly.FromDateTime(DateTime.UtcNow);
+            book.LoanedOn = db.Today;
         }
 
         book.BorrowerId = borrower.Id;

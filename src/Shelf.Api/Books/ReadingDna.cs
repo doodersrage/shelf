@@ -182,5 +182,5 @@ public static class ReadingDna
     }
 
     public static void Map(RouteGroupBuilder books) =>
-        books.MapGet("/dna", async (ShelfDb db, CancellationToken cancellationToken) => TypedResults.Ok(await BuildAsync(db, DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken)));
+        books.MapGet("/dna", async (ShelfDb db, CancellationToken cancellationToken) => TypedResults.Ok(await BuildAsync(db, db.Today, cancellationToken)));
 }

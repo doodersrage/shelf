@@ -769,7 +769,7 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
 
         if (finished && !found.Open.Borrowed && await db.Books.FirstOrDefaultAsync(item => item.Id == bookId, cancellationToken) is { Status: not BookStatus.Finished } book)
         {
-            BookRules.ChangeStatus(book, BookStatus.Finished);
+            BookRules.ChangeStatus(book, BookStatus.Finished, db.Today);
             await db.SaveChangesAsync(cancellationToken);
         }
 
@@ -902,7 +902,7 @@ public sealed class AbsApi(AbsSocket socket, IDataProtectionProvider protection,
     {
         var me = db.ReaderId;
         var days = await db.ListeningDays.IgnoreQueryFilters().AsNoTracking().Where(item => item.ReaderId == me).Include(item => item.Book).ToListAsync(cancellationToken);
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = db.Today;
         var byItem = new JsonObject();
         foreach (var group in days.GroupBy(item => item.BookId))
         {

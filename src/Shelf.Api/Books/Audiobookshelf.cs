@@ -756,7 +756,7 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
         var changed = false;
         if (job.Options.Progress && life.Progress.TryGetValue(itemId, out var progress))
         {
-            changed |= Place(book, progress, lengths, ebooks);
+            changed |= Place(book, progress, lengths, ebooks, db.Today);
         }
 
         if (job.Options.Bookmarks && book.AudioStoredName is not null && life.Bookmarks.TryGetValue(itemId, out var marks))
@@ -811,7 +811,7 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
     }
 
     // Where the reader stopped: finished, or a time across the tracks and a place in the e-book; with when they began.
-    private static bool Place(Book book, AbsProgress progress, IReadOnlyList<double> lengths, EbookStore ebooks)
+    private static bool Place(Book book, AbsProgress progress, IReadOnlyList<double> lengths, EbookStore ebooks, DateOnly today)
     {
         static DateOnly? Day(long? at) => at is long ms ? DateOnly.FromDateTime(DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime) : null;
         var started = Day(progress.StartedAt);
@@ -856,7 +856,7 @@ public sealed class AbsImporter(IServiceScopeFactory scopes, IHttpClientFactory 
             if (book.Status == BookStatus.Want)
             {
                 book.Status = BookStatus.Reading;
-                book.StartedOn ??= DateOnly.FromDateTime(DateTime.UtcNow);
+                book.StartedOn ??= today;
             }
         }
 

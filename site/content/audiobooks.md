@@ -98,7 +98,7 @@ When ffmpeg is there, Shelf always cuts tracks into ten-minute pieces, which sho
 
 **Listening sessions**, under **Your reading**, lists each time you sat down with a recording, as Audiobookshelf keeps them: the book, what it played on (Shelf's player in which browser on what, Listening offline, or an Audiobookshelf app), when it began, how long you heard, and from where to where in the book. Listening that goes on within a quarter of an hour on the same device is one sitting. **Listening sessions** under a book's recording shows that book's alone.
 
-Sessions are yours alone; no one else on the shelf sees them, admins included. The device is named by browser and system only, never anything that tells one phone from another. They go out in the full export as `listening-sessions.json`. Times are shown in UTC, as Shelf counts days.
+Sessions are yours alone; no one else on the shelf sees them, admins included. The device is named by browser and system only, never anything that tells one phone from another. They go out in the full export as `listening-sessions.json`. Times are shown in your time zone (see below).
 
 ## Casting to a speaker or TV
 

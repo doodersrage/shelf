@@ -26,6 +26,10 @@ A book's page is in tabs: **Reading** (the reading log, quotes, highlights, wher
 
 When you mark a book finished, its page offers a rating, a quote to keep, and the next book from your read-next list. Take any of them, or dismiss it.
 
+## Your time zone
+
+Shelf counts the days you read and listen on by your own time zone, so an evening's reading is that evening's, for your streak, your reading days, your goals, and the dates a book is started and finished. The first time you sign in, Shelf takes your browser's time zone; change it under **Language and region** on **Account**. Without one, the server's time zone is used, which is UTC in the Docker image.
+
 ## Statuses
 
 Every book is one of four, each shown with a different small shape as well as its word, so status never depends on color:

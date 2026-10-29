@@ -24,7 +24,7 @@ public sealed record AudioPlanTrack(int Index, string Title, double? Length, str
 public sealed record AudioPlanChapter(int Index, string Title, int Track, double Start);
 
 // Listened is how many seconds the player played since it last said, by the clock rather than the book, and Day
-// the day it was played (in UTC, as the shelf counts days), which matters for time sent late.
+// the day it was played (where the listener is, as the shelf counts days), which matters for time sent late.
 // Replayed: a place kept on the device while the shelf couldn't be reached, sent once it can; it moves the place on only.
 // From: where the player last knew the shelf's place, when it says. Kept elsewhere since (another tab, a phone), the
 // place is not moved; the answer is 409 with the place now kept, for the player to go to.
@@ -164,7 +164,7 @@ public static class AudioPlayback
 
     public static async Task NoteListeningAsync(ShelfDb db, int bookId, DateOnly? day, double listened, CancellationToken cancellationToken = default, int most = MostAtOnce, int daysBack = 1)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = db.Today;
         var when = day is { } given && given.DayNumber - today.DayNumber <= 1 && today.DayNumber - given.DayNumber <= daysBack ? given : today;
         var seconds = (int)Math.Round(Math.Min(listened, most));
         var row = await db.ListeningDays.FirstOrDefaultAsync(item => item.BookId == bookId && item.Day == when, cancellationToken);
@@ -182,7 +182,7 @@ public static class AudioPlayback
 
     public static async Task<ListeningSummary> SummaryAsync(ShelfDb db, DateOnly? today = null, CancellationToken cancellationToken = default)
     {
-        var day = today ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var day = today ?? db.Today;
         // Books lent to the listener count too, so the books' own filter (the owner's shelf) is set aside here.
         var me = db.ReaderId;
         var rows = await db.ListeningDays.IgnoreQueryFilters().AsNoTracking()
@@ -248,7 +248,7 @@ public static class AudioPlayback
             return TypedResults.Ok(new FinishedResponse(false));
         }
 
-        BookRules.ChangeStatus(book, BookStatus.Finished);
+        BookRules.ChangeStatus(book, BookStatus.Finished, db.Today);
         book.AudioTrack = 0;
         book.AudioSeconds = 0;
         await db.SaveChangesAsync(cancellationToken);

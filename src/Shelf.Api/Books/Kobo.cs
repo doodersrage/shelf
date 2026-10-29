@@ -276,11 +276,11 @@ public static partial class Kobo
             entry.Status = status;
             if (status == "Finished")
             {
-                BookRules.ChangeStatus(tracked, BookStatus.Finished);
+                BookRules.ChangeStatus(tracked, BookStatus.Finished, db.Today);
             }
             else if (status == "Reading" && tracked.Status == BookStatus.Want)
             {
-                BookRules.ChangeStatus(tracked, BookStatus.Reading);
+                BookRules.ChangeStatus(tracked, BookStatus.Reading, db.Today);
             }
         }
 

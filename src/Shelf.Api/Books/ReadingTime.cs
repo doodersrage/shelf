@@ -40,7 +40,7 @@ public static class ReadingTime
             .Where(item => item.ReaderId == me && me != 0)
             .Select(item => new AudioPlayback.TimeRow(item.BookId, item.Day, item.Seconds + item.DeviceSeconds, item.Book!.Title, item.Book.Author))
             .ToListAsync(cancellationToken);
-        return AudioPlayback.Summarize(rows, today ?? DateOnly.FromDateTime(DateTime.UtcNow));
+        return AudioPlayback.Summarize(rows, today ?? db.Today);
     }
 
     private static async Task<Results<NoContent, NotFound>> Note(int id, ReadingTimeRequest request, ShelfDb db, CancellationToken cancellationToken)
@@ -55,7 +55,7 @@ public static class ReadingTime
             return TypedResults.NoContent();
         }
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = db.Today;
         var when = request.Day is { } given && Math.Abs(given.DayNumber - today.DayNumber) <= 1 ? given : today;
         var seconds = (int)Math.Round(Math.Min(request.Seconds, MostAtOnce));
         var row = await db.ReadingDays.FirstOrDefaultAsync(item => item.BookId == id && item.Day == when, cancellationToken);

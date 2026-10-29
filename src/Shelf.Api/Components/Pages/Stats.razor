@@ -2,6 +2,7 @@
 @page "/insights"
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
+@inject ReaderTime Clock
 
 <PageTitle>@T("Insights") · Shelf</PageTitle>
 
@@ -432,7 +433,7 @@ else
                 Sessions = book.Sessions.ToList(),
             })
             .ToListAsync();
-        var year = DateOnly.FromDateTime(DateTime.UtcNow).Year;
+        var year = Clock.Today.Year;
         // Earlier reads of books read again count in the years they were finished.
         var counted = shelf.Concat(await Rereads.EarlierBooksAsync(db)).ToList();
         finished = BookRules.FinishedInYear(counted, year).ToList();
@@ -458,10 +459,10 @@ else
         var pages = shelf.ToDictionary(book => book.Id, book => book.Pages ?? 0);
         pagesThisYear = finished.Sum(book => pages.GetValueOrDefault(book.Id));
         marked = null;
-        streak = BookRules.ReadingStreak(shelf.SelectMany(book => book.Sessions).Select(session => session.Date).Concat(listenedOn).Concat(readOn), DateOnly.FromDateTime(DateTime.UtcNow));
+        streak = BookRules.ReadingStreak(shelf.SelectMany(book => book.Sessions).Select(session => session.Date).Concat(listenedOn).Concat(readOn), Clock.Today);
     }
 
-    private DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+    private DateOnly Today => Clock.Today;
 
 
     private DateOnly ThisMonth => new(Today.Year, Today.Month, 1);

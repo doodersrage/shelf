@@ -302,7 +302,7 @@ public static class Asking
             return new Reminders(0, 0, 0, 0);
         }
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = db.Today;
         var days = await db.Readers.AsNoTracking().Where(reader => reader.Id == me).Select(reader => reader.DueSoonDays).FirstOrDefaultAsync(cancellationToken);
         days = days is >= 1 and <= 30 ? days : Reader.DefaultDueSoonDays;
         var soon = today.AddDays(days);

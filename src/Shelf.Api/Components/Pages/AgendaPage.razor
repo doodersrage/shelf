@@ -1,5 +1,6 @@
 @page "/agenda"
 @inject IDbContextFactory<ShelfDb> DbFactory
+@inject ReaderTime Clock
 
 <PageTitle>@T("Calendar") · Shelf</PageTitle>
 
@@ -48,7 +49,7 @@ else
 }
 
 @code {
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+    private DateOnly Today => Clock.Today;
 
     private List<CalendarItem>? items;
 

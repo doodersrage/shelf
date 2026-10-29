@@ -78,7 +78,7 @@ public static class HouseholdCalendar
     public static void Map(RouteGroupBuilder books) =>
         books.MapGet("/agenda", async (DateOnly? from, DateOnly? until, ShelfDb db, CancellationToken cancellationToken) =>
         {
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = db.Today;
             var start = from ?? today.AddDays(-14);
             var end = until is DateOnly last && last >= start && last <= start.AddYears(2) ? last : start.AddYears(1);
             return TypedResults.Ok(await ItemsAsync(db, db.ReaderId, start, end, cancellationToken));

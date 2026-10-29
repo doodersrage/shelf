@@ -346,7 +346,7 @@ public static class Scanning
             BookRules.FillEmpty(book, match, tags);
             if (status == BookStatus.Finished)
             {
-                book.FinishedOn = DateOnly.FromDateTime(DateTime.UtcNow);
+                book.FinishedOn = db.Today;
             }
 
             db.Books.Add(book);

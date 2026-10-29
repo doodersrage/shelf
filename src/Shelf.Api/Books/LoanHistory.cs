@@ -65,7 +65,7 @@ public static class LoanHistory
             return;
         }
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = db.Today;
         foreach (var entry in db.ChangeTracker.Entries<Book>().Where(item => item.State == EntityState.Added && item.Entity.LoanedTo is not null).ToList())
         {
             var book = entry.Entity;
@@ -137,7 +137,7 @@ public static class LoanHistory
             return null;
         }
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = db.Today;
         var length = days is >= 1 and <= 365 ? days.Value
             : book is { LoanedOn: { } lent, DueOn: { } was } && was.DayNumber - lent.DayNumber is >= 1 and <= 365 and var first ? first
             : DefaultRenewDays;

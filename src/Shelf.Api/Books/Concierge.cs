@@ -65,7 +65,7 @@ public static partial class Concierge
     {
         var asked = question.Trim();
         asked = asked.Length > MaxQuestionLength ? asked[..MaxQuestionLength] : asked;
-        var now = today ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var now = today ?? db.Today;
         var series = await db.Books.AsNoTracking().Where(book => book.Series != null).Select(book => book.Series!).Distinct().ToListAsync(cancellationToken);
         AskQuery? query = null;
         var usedAi = false;

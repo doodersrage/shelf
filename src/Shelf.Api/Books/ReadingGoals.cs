@@ -133,7 +133,7 @@ public static class ReadingGoals
             ? await db.Books.AsNoTracking().Where(book => book.LeftOn >= new DateOnly(year, 1, 1) && book.LeftOn <= new DateOnly(year, 12, 31))
                 .OrderBy(book => book.LeftOn).Select(book => book.Title).ToListAsync(cancellationToken)
             : [];
-        var now = today ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var now = today ?? db.Today;
         return goals.Select(goal =>
         {
             List<string> counted;

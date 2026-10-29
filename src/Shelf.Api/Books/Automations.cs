@@ -501,12 +501,13 @@ public static class Automations
 
         var conditions = ConditionsOf(rule);
         var query = db.Books.AsNoTracking();
+        var today = db.Today;
         query = rule.Trigger switch
         {
             RuleTrigger.Finished or RuleTrigger.Reread => query.Where(book => book.Status == BookStatus.Finished),
             RuleTrigger.Started => query.Where(book => book.Status == BookStatus.Reading),
             RuleTrigger.Lent => query.Where(book => book.LoanedTo != null),
-            RuleTrigger.Overdue => query.Where(book => book.LoanedTo != null && book.DueOn < DateOnly.FromDateTime(DateTime.UtcNow)),
+            RuleTrigger.Overdue => query.Where(book => book.LoanedTo != null && book.DueOn < today),
             _ => query,
         };
         if (conditions.Tag is { } tag)
@@ -598,7 +599,8 @@ public sealed class AutomationRunner(IServiceScopeFactory scopes, Notices notice
     // Each loan overdue sets off a reader's overdue rules once.
     public async Task<int> OverdueAsync(CancellationToken cancellationToken)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        // Across every reader at once, so by the server's day.
+        var today = ReaderClock.Today(null);
         List<int> owners;
         await using (var scope = scopes.CreateAsyncScope())
         {

@@ -25,6 +25,9 @@ public sealed class Reader
 
     // The language of the pages for this reader (en, es, fr, de); without one, the browser's languages decide.
     public string? Language { get; set; }
+
+    // Where the reader is, as an IANA time zone, for the days they read on; without one, the server's (see ReaderClock).
+    public string? TimeZone { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 
     // An admin can reset passwords and remove readers. The first reader is one.

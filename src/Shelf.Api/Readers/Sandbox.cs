@@ -114,7 +114,7 @@ public sealed class Sandbox(IServiceScopeFactory scopes, EbookStore ebooks, Audi
         await using var scope = scopes.CreateAsyncScope();
         scope.ServiceProvider.GetRequiredService<ShelfReader>().Use(sandboxId);
         var db = scope.ServiceProvider.GetRequiredService<ShelfDb>();
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = db.Today;
         var made = new List<Book>();
         for (var at = 0; at < Samples.Length; at++)
         {

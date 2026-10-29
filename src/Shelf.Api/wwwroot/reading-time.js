@@ -24,7 +24,7 @@ function send(leaving) {
   fetch(`/books/${bookId}/reading-time`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ day: new Date().toISOString().slice(0, 10), seconds }),
+    body: JSON.stringify({ day: new Date().toLocaleDateString("en-CA"), seconds }),
     credentials: "same-origin",
     keepalive: leaving,
   }).catch(() => {});

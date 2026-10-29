@@ -307,7 +307,7 @@ public static class Collections
             return null;
         }
 
-        var now = today ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var now = today ?? db.Today;
         var yearAgo = now.AddDays(-365);
         var finished = await db.Books.AsNoTracking()
             .Where(book => book.Status == BookStatus.Finished && book.FinishedOn >= yearAgo && book.Pages > 0)

@@ -16,6 +16,7 @@
 @inject Fetcher Fetcher
 @inject FreeBooks Free
 @inject IConfiguration Configuration
+@inject ReaderTime Clock
 @implements IAsyncDisposable
 
 <PageTitle>@(book?.Title ?? "Shelf")</PageTitle>
@@ -1563,7 +1564,7 @@ else if (book is not null)
         }
     }
 
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+    private DateOnly Today => Clock.Today;
 
     private Book? book;
     private bool missing;
@@ -2300,7 +2301,7 @@ else if (book is not null)
             return;
         }
 
-        BookRules.Apply(existing, write);
+        BookRules.Apply(existing, write, today: db.Today);
         await BookRules.SyncTagsAsync(db, existing, write.Tags, CancellationToken.None);
         await db.SaveChangesAsync();
         await BookRules.RemoveUnusedTagsAsync(db, CancellationToken.None);
@@ -2453,7 +2454,7 @@ else if (book is not null)
         db.Sessions.Add(new ReadingSession
         {
             BookId = Id,
-            Date = request.Date ?? DateOnly.FromDateTime(DateTime.UtcNow),
+            Date = request.Date ?? Clock.Today,
             FromPage = request.FromPage,
             ToPage = request.ToPage,
             Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
@@ -2478,7 +2479,7 @@ else if (book is not null)
             return;
         }
 
-        BookRules.ChangeStatus(existing, status);
+        BookRules.ChangeStatus(existing, status, db.Today);
         await db.SaveChangesAsync();
         saved = false;
         if (status == BookStatus.Finished)
@@ -2486,7 +2487,7 @@ else if (book is not null)
             // A few to choose from next: the next in its series, then the queue in its order, else what the shelf would pick.
             var queue = await ReadingQueue.UpNextAsync(db, existing);
             nextChoices = queue.Count > 0 ? queue
-                : BookRules.Pick(await db.Books.AsNoTracking().Where(item => item.Status == BookStatus.Want && item.LeftOn == null && item.Id != Id).ToListAsync(), BookStatus.Want, DateOnly.FromDateTime(DateTime.UtcNow)) is { } pick ? [pick] : [];
+                : BookRules.Pick(await db.Books.AsNoTracking().Where(item => item.Status == BookStatus.Want && item.LeftOn == null && item.Id != Id).ToListAsync(), BookStatus.Want, Clock.Today) is { } pick ? [pick] : [];
             justFinished = true;
         }
         else
@@ -2517,7 +2518,7 @@ else if (book is not null)
         await using var db = await DbFactory.CreateDbContextAsync();
         if (await db.Books.FirstOrDefaultAsync(item => item.Id == id) is { } next)
         {
-            BookRules.ChangeStatus(next, BookStatus.Reading);
+            BookRules.ChangeStatus(next, BookStatus.Reading, db.Today);
             await db.SaveChangesAsync();
         }
 

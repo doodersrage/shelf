@@ -95,7 +95,7 @@ public static class Journal
             return (null, null);
         }
 
-        entry.Date = date ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        entry.Date = date ?? db.Today;
         entry.Text = text;
         entry.BookId = bookId;
         if (id is null)

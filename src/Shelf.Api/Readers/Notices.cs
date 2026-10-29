@@ -795,7 +795,8 @@ public sealed class Notices(IServiceScopeFactory scopes, INoticeChannels channel
 
     public async Task<int> RemindDueAsync(CancellationToken cancellationToken)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        // Across every reader at once, so by the server's day.
+        var today = ReaderClock.Today(null);
         List<int> due;
         await using (var scope = scopes.CreateAsyncScope())
         {

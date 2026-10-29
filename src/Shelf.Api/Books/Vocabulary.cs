@@ -70,7 +70,7 @@ public static class Vocabulary
     // Days until the next review after knowing a word, by how well it is known.
     private static readonly int[] Intervals = [1, 2, 4, 9, 21, 60];
 
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+    private static DateOnly Today(ShelfDb db) => db.Today;
 
     public static Dictionary<string, string[]>? Validate(WordRequest request) =>
         string.IsNullOrWhiteSpace(request.Word) || request.Word.Trim().Length > VocabularyWord.MaxWordLength
@@ -99,7 +99,7 @@ public static class Vocabulary
         var kept = await db.VocabularyWords.FirstOrDefaultAsync(item => item.Word == word && item.Language == language, cancellationToken);
         if (kept is null)
         {
-            kept = new VocabularyWord { OwnerId = db.ReaderId, Word = word, Language = language, AddedAt = DateTimeOffset.UtcNow, DueOn = Today };
+            kept = new VocabularyWord { OwnerId = db.ReaderId, Word = word, Language = language, AddedAt = DateTimeOffset.UtcNow, DueOn = Today(db) };
             db.VocabularyWords.Add(kept);
         }
 
@@ -135,7 +135,7 @@ public static class Vocabulary
         }
 
         word.Box = knew ? Math.Min(Learned, word.Box + 1) : 0;
-        word.DueOn = Today.AddDays(knew ? Intervals[word.Box] : 1);
+        word.DueOn = Today(db).AddDays(knew ? Intervals[word.Box] : 1);
         await db.SaveChangesAsync(cancellationToken);
         return View(word, word.Book?.Title);
     }
@@ -155,7 +155,7 @@ public static class Vocabulary
 
         if (dueOnly)
         {
-            var today = Today;
+            var today = Today(db);
             query = query.Where(word => word.Box < Learned && word.DueOn <= today).OrderBy(word => word.DueOn).ThenBy(word => word.Box);
         }
         else
@@ -168,7 +168,7 @@ public static class Vocabulary
 
     public static async Task<LanguageCount[]> LanguagesAsync(ShelfDb db, CancellationToken cancellationToken = default)
     {
-        var today = Today;
+        var today = Today(db);
         return [.. (await db.VocabularyWords.AsNoTracking()
                 .GroupBy(word => word.Language)
                 .Select(group => new { group.Key, Words = group.Count(), Learned = group.Count(word => word.Box >= Learned), Due = group.Count(word => word.Box < Learned && word.DueOn <= today) })

@@ -1,6 +1,7 @@
 @page "/sessions"
 @rendermode InteractiveServer
 @inject IDbContextFactory<ShelfDb> DbFactory
+@inject ReaderTime Clock
 
 <PageTitle>@T("Listening sessions") · Shelf</PageTitle>
 
@@ -34,7 +35,7 @@ else
             @foreach (var session in sessions)
             {
                 <tr>
-                    <td>@session.StartedAt.ShortStamp()</td>
+                    <td>@Clock.Local(session.StartedAt).ShortStamp()</td>
                     @if (Book is null)
                     {
                         <td><a href="/sessions?book=@session.BookId">@session.Title</a></td>

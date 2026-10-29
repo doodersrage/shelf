@@ -3,6 +3,7 @@
 @inject IDbContextFactory<ShelfDb> DbFactory
 @using Microsoft.JSInterop
 @inject IJSRuntime Js
+@inject ReaderTime Clock
 
 <PageTitle>@T("Journal") · Shelf</PageTitle>
 
@@ -142,7 +143,7 @@ else
     private int year = DateTime.UtcNow.Year;
     private string query = "";
     private List<(int Id, string Title)> recent = [];
-    private DateOnly entryDate = DateOnly.FromDateTime(DateTime.UtcNow);
+    private DateOnly entryDate;
     private int entryBook;
     private string entryText = "";
     private int? editing;
@@ -166,6 +167,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        entryDate = Clock.Today;
         await using var db = await DbFactory.CreateDbContextAsync();
         years = await Journal.YearsAsync(db);
 
@@ -237,7 +239,7 @@ else
         editing = null;
         entryText = "";
         entryBook = 0;
-        entryDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        entryDate = Clock.Today;
     }
 
     private async Task Delete(int id)
