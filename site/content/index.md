@@ -21,11 +21,11 @@ description: Shelf is a personal library you run yourself: your books, e-books, 
 ## What it does
 
 <ul class="features">
-<li><strong>A real catalog</strong><span>Series, translators, editions, where each copy sits, its condition, who recommended it, ratings, reviews, and tags. Fill it from an ISBN, or scan the barcode. Saved searches, and reading lists shared by link.</span></li>
+<li><strong>A real catalog</strong><span>Series, translators, editions, where each copy sits, its condition, who recommended it, ratings, reviews, and tags. Fill it from an ISBN, or scan the barcode. Saved searches, reading lists shared by link, fields of your own, and several formats of one e-book.</span></li>
 <li><strong>Read in the browser</strong><span>EPUBs, PDFs, and comics, at your text size, back where you stopped, with highlights, notes, and read aloud. Scanned PDFs are read with OCR.</span></li>
-<li><strong>Listen to audiobooks</strong><span>One file or a folder of tracks, with chapters, bookmarks, a speed of your own, a sleep timer, and lock-screen controls. Details and chapter names from Audible, and podcasts in the same player.</span></li>
+<li><strong>Listen to audiobooks</strong><span>One file or a folder of tracks, with chapters, bookmarks, a speed of your own, a sleep timer, and lock-screen controls. Details and chapter names from Audible, podcasts in the same player, playlists, casting, and a book shared by link or opened in a podcast app.</span></li>
 <li><strong>Switch formats, or read along</strong><span>Own the audiobook and the e-book? Carry on in one where you stopped in the other, or listen while each word is marked as it's read.</span></li>
-<li><strong>Lend to each other</strong><span>Every reader has a shelf of their own, children too. Lend a book and the borrower reads or listens with their own place and notes; link a friend's Shelf to borrow across.</span></li>
+<li><strong>Lend to each other</strong><span>Every reader has a shelf of their own, children too. Lend a book and the borrower reads or listens with their own place and notes; share a household library with the readers you choose; link a friend's Shelf to borrow across.</span></li>
 <li><strong>Bring a library in</strong><span>Drop in a folder of files, import from Audiobookshelf, Goodreads, or StoryGraph, or add free public-domain books.</span></li>
 <li><strong>Keep in step with devices</strong><span>A Kobo syncs as with its own store; KOReader downloads from Shelf's catalog and syncs its place and reading time back. Notifications on your phone, and webhooks for Home Assistant.</span></li>
 <li><strong>Know your reading</strong><span>Goals for books, pages, and hours, a review of each year, a calendar of reading days, a streak, every quote in one place, a note when a series you read has a new book, and what to read next.</span></li>

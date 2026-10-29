@@ -39,7 +39,7 @@ EPUBs, PDFs, and comics open in the browser, at your text size and in your typef
 
 ## Listen to audiobooks
 
-One file or a folder of tracks plays as one book, with chapters, bookmarks, your own speed, and a sleep timer that fades the sound out rather than cutting it off. Coming back after a pause, it starts a few seconds before where it stopped, more the longer you were away, and a skip to the wrong chapter can be taken back with one button. The book plays on in a small player while you move around the shelf, and on the lock screen. Own the e-book too? Carry on in it where you stopped listening, or listen while each word is marked as it's read.
+One file or a folder of tracks plays as one book, with chapters, bookmarks, your own speed, and a sleep timer that fades the sound out rather than cutting it off. Coming back after a pause, it starts a few seconds before where it stopped, more the longer you were away, and a skip to the wrong chapter can be taken back with one button. The book plays on in a small player while you move around the shelf, and on the lock screen. Own the e-book too? Carry on in it where you stopped listening, or listen while each word is marked as it's read. Put books and podcast episodes in a playlist that plays straight through, cast to a Chromecast or AirPlay, share a book by link or open it in any podcast app, and look back over each listening session.
 
 <div class="feature-shots">
 <figure><a href="assets/images/listen-undo.png"><img src="assets/images/listen-undo.png" alt="The player just after skipping a chapter, with a Back to button" loading="lazy" /></a><figcaption>A skip taken back with <strong>Back to</strong>.</figcaption></figure>
@@ -61,7 +61,7 @@ Every page works on a phone, with the places you go most along the bottom. Add S
 
 ## Lend, borrow, and read together
 
-Everyone on the shelf has a shelf of their own, children too. Lend a book with a due date, and the borrower reads or listens with their own place and notes. Open your shelf so others can ask to borrow, wait in line for a book that's out, or link a friend's Shelf to borrow across. Start a book club: pick the book, arrange meetings, send questions ahead, and talk about it with spoilers folded away. Members hear of each meeting a day and an hour before.
+Everyone on the shelf has a shelf of their own, children too. Lend a book with a due date, and the borrower reads or listens with their own place and notes. Share a collection as a household library with the readers you choose, deciding for each whether they may download. Open your shelf so others can ask to borrow, wait in line for a book that's out, or link a friend's Shelf to borrow across. Start a book club: pick the book, arrange meetings, send questions ahead, and talk about it with spoilers folded away. Members hear of each meeting a day and an hour before.
 
 <div class="feature-shots">
 <figure><a href="assets/images/loans.png"><img src="assets/images/loans.png" alt="Loans: a book lent out with its due date, and a reader asking to borrow" loading="lazy" /></a><figcaption>Loans, and asks to borrow.</figcaption></figure>
@@ -72,7 +72,7 @@ Everyone on the shelf has a shelf of their own, children too. Lend a book with a
 
 ## Bring a library in
 
-Drop in a folder of files, import from Audiobookshelf, Calibre, Goodreads, StoryGraph, or any spreadsheet, scan a pile of books by their barcodes, photograph the spines on a shelf, or add free public-domain books. Shelf skips books it already has, and every import can be undone at once.
+Drop in a folder of files, import from Audiobookshelf, Calibre, Goodreads, StoryGraph, or any spreadsheet, scan a pile of books by their barcodes, photograph the spines on a shelf, or add free public-domain books. Shelf skips books it already has, and every import can be undone at once. Coming from Calibre? Keep fields of your own and several formats of each e-book, have Calibre make more on the server, and take everything out again as Calibre-style folders, with each book's details written into its files.
 
 <div class="feature-shots single">
 <figure><a href="assets/images/add.png"><img src="assets/images/add.png" alt="Add & import: every way of bringing books in" loading="lazy" /></a></figure>
