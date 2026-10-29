@@ -551,7 +551,7 @@ The user asked for what Audiobookshelf has and Shelf lacks, all of it, one at a 
   - *Reviewed 2026-10-28 by reading the code; the findings were checked and the fixes tested (`dotnet test`, 446 passed).*
     - **Fixed:** an earlier read with no finish date counted the same sessions as the next read (P3): `ReadingLifeTests.An_earlier_read_with_no_end_ends_where_the_next_began`.
     - **Open:**
-      - P2, needs a decision: every day is a UTC day. Finishes, sessions, and highlights after about 19:00 in the Americas land on the next day, or the next year. Proposed: the browser sends its local date, or a per-reader time zone.
+      - **Fixed 2026-10-29 (P2, 2.21.0):** every day was a UTC day. Each reader now keeps a time zone (from the browser, or set on Account), and days, streaks, goals, finishes, loans, and the journal follow it.
       - P3: the journal leaves out listening and reader time.
       - Unsure: trashing a book removes a former borrower's own listening days and highlights on it.
 - [~] Check yearly goals and summaries for consistency when records are edited, deleted, imported, or synced.
