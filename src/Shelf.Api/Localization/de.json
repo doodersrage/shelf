@@ -3403,7 +3403,6 @@
   "Not said": "Keine Angabe",
   "Number": "Zahl",
   "Remove {0} and what {1} hold in it?": "{0} entfernen und was {1} darin enthalten?",
-  "Renamed.": "Umbenannt.",
   "Text": "Text",
   "That field is not one of yours.": "Dieses Feld gehört nicht zu Ihren.",
   "Want to keep something Shelf doesn't ask for?": "Möchten Sie etwas festhalten, nach dem Shelf nicht fragt?",
@@ -3565,5 +3564,9 @@
   "Could not bring the {0} of {1}.": "Das {0} von {1} konnte nicht geholt werden.",
   "Brought the {0} of {1}.": "Das {0} von {1} wurde geholt.",
   "Sent the {0} of {1}.": "Das {0} von {1} wurde gesendet.",
-  "Could not send the {0} of {1}.": "Das {0} von {1} konnte nicht gesendet werden."
+  "Could not send the {0} of {1}.": "Das {0} von {1} konnte nicht gesendet werden.",
+  "1 book holds something in {0} that isn't a {1}. Change it anyway to clear it, or keep the field as it is.": "1 Buch enthält in {0} etwas, das kein {1} ist. Ändern Sie es trotzdem, um es zu leeren, oder lassen Sie das Feld, wie es ist.",
+  "{0} books hold something in {1} that isn't a {2}. Change it anyway to clear them, or keep the field as it is.": "{0} Bücher enthalten in {1} etwas, das kein {2} ist. Ändern Sie es trotzdem, um sie zu leeren, oder lassen Sie das Feld, wie es ist.",
+  "Change it anyway": "Trotzdem ändern",
+  "Kind": "Art"
 }

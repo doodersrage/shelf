@@ -79,7 +79,8 @@ public sealed class RestoreTests(ShelfApiFactory factory) : IClassFixture<ShelfA
             // Two-step sign-in still works, since the keys that seal its secret came back too.
             var device = restored.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
             Assert.Equal("/signin/code", (await PasswordAsync(device, "Careful Restorer")).Headers.Location?.OriginalString);
-            Assert.Equal("/", (await ShelfApiFactory.PostFormAsync(device, "/signin/code", "/account/signin/code", new() { ["code"] = TwoFactor.Code(start.Secret, DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 30) })).Headers.Location?.OriginalString);
+            // Each code works once, and the one that turned it on is taken: the authenticator's next one.
+            Assert.Equal("/", (await ShelfApiFactory.PostFormAsync(device, "/signin/code", "/account/signin/code", new() { ["code"] = TwoFactor.Code(start.Secret, DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 30 + 1) })).Headers.Location?.OriginalString);
         }
 
         // Restored without the keys folder, as the docs warn: passwords still work, and a reader with two-step

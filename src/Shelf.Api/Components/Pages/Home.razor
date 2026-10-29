@@ -93,6 +93,10 @@
                 <option value="year">@T("Year")</option>
                 <option value="rating">@T("Rating")</option>
                 <option value="added">@T("Recently added")</option>
+                @foreach (var (fieldId, info) in fieldNames.OrderBy(pair => pair.Value.Name, StringComparer.CurrentCultureIgnoreCase))
+                {
+                    <option value="field:@fieldId">@info.Name</option>
+                }
             </select>
         </label>
     </div>
@@ -768,6 +772,23 @@ else if (visible.Count > 0)
     public int? Saved { get; set; }
 
     private static readonly string[] Sorts = ["title", "author", "series", "year", "rating", "added"];
+
+    // A sort by one of the reader's own fields, as "field:12"; which field it is gets checked once the fields are known.
+    private static int? FieldSort(string? sort) =>
+        sort is not null && sort.StartsWith("field:", StringComparison.Ordinal) && int.TryParse(sort.AsSpan(6), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var id) ? id : null;
+
+    private static bool IsSort(string? sort) => Sorts.Contains(sort) || FieldSort(sort) is not null;
+
+    // Books by what they hold in the field: numbers as numbers, dates and yes/no as written (2026-10-29 sorts by
+    // itself), words as words; books with nothing in it after the rest.
+    private IOrderedEnumerable<Book> ByField(IEnumerable<Book> result, int fieldId, FieldKind kind)
+    {
+        string? Of(Book book) => bookValues[book.Id].FirstOrDefault(item => item.FieldId == fieldId).Value;
+        var withValue = result.OrderBy(book => Of(book) is null);
+        return kind == FieldKind.Number
+            ? withValue.ThenBy(book => double.TryParse(Of(book), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number) ? number : double.MaxValue)
+            : withValue.ThenBy(book => Of(book), kind == FieldKind.Text ? StringComparer.CurrentCultureIgnoreCase : StringComparer.Ordinal);
+    }
     private SavedSearch? saved;
     private string savedName = "";
     private bool naming;
@@ -869,14 +890,14 @@ else if (visible.Count > 0)
         narratorFilter = string.IsNullOrWhiteSpace(Narrator) ? null : Narrator.Trim();
         query = Query?.Trim() ?? "";
         statusFilter = Enum.TryParse<BookStatus>(Status, ignoreCase: true, out var status) ? status.ToString() : "";
-        if (Sorts.Contains(Sort))
+        if (IsSort(Sort))
         {
             sort = Sort!;
         }
         else
         {
             await using var sortDb = await DbFactory.CreateDbContextAsync();
-            sort = await BookRules.GetLibrarySortAsync(sortDb) is { } kept && Sorts.Contains(kept) ? kept : "title";
+            sort = await BookRules.GetLibrarySortAsync(sortDb) is { } kept && IsSort(kept) ? kept : "title";
         }
         lovedOnly = Loved == "1";
         loanedOnly = Loaned == "1";
@@ -942,7 +963,7 @@ else if (visible.Count > 0)
     // The order chosen is the order the library opens in next time.
     private async Task SortBy(string chosen)
     {
-        sort = Sorts.Contains(chosen) ? chosen : "title";
+        sort = IsSort(chosen) ? chosen : "title";
         await using var db = await DbFactory.CreateDbContextAsync();
         await BookRules.SetLibrarySortAsync(db, sort);
     }
@@ -1228,6 +1249,7 @@ else if (visible.Count > 0)
                 "year" => result.OrderByDescending(book => book.Year ?? 0).ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase),
                 "rating" => result.OrderByDescending(book => book.Rating ?? 0).ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase),
                 "added" => result.OrderByDescending(book => book.AddedAt).ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase),
+                _ when FieldSort(sort) is int fieldId && fieldNames.TryGetValue(fieldId, out var sortField) => ByField(result, fieldId, sortField.Kind).ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase),
                 _ => result.OrderBy(book => book.Title, StringComparer.OrdinalIgnoreCase),
             };
         }

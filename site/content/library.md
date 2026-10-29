@@ -67,7 +67,7 @@ Tags are kept in lowercase, and an ISBN can be typed with or without hyphens.
 
 When Shelf doesn't ask for something you want to keep, such as where a book came from or which box it's packed in, add a field for it under **Your fields**, in the menu's **Your copies**. A field holds text, a number, a date, or yes or no. Fill it in on a book's **Edit the catalog** form, under **Your fields**.
 
-A filled-in field shows with the book's details. Its value links to the other books holding the same, and the library's search finds what's in your fields. A field can be renamed but not changed to another kind. Removing one removes what every book held in it, after asking.
+A filled-in field shows with the book's details. Its value links to the other books holding the same, and the library's search finds what's in your fields. Each field is in the library's **Sort** menu: numbers sort as numbers, dates by date, and books with nothing in it come last. **Change** renames a field or changes its kind; the values that fit are rewritten for the new kind, and if some don't (words in a field made a number), Shelf says how many and changes it only if you choose **Change it anyway**, which clears them. Removing a field removes what every book held in it, after asking.
 
 Your fields are yours alone: no other reader on the shelf sees them, even on a book you lend them. They go out in the export, as a column each in `books.csv` and in `shelf.json`, and come back in when it's restored.
 

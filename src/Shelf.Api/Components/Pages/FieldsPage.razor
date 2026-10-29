@@ -23,8 +23,21 @@
                             <span class="visually-hidden">@T("New name for {0}", field.Name)</span>
                             <input maxlength="@CustomField.MaxNameLength" @bind="newName" />
                         </label>
+                        <label>
+                            @T("Kind")
+                            <select @bind="newKind">
+                                @foreach (var choice in Enum.GetValues<FieldKind>())
+                                {
+                                    <option value="@choice">@CustomFields.KindLabel(choice)</option>
+                                }
+                            </select>
+                        </label>
                         <button type="button" @onclick="() => Rename(field.Id)">@T("Save")</button>
-                        <button type="button" class="quiet" @onclick="() => renaming = null">@T("Cancel")</button>
+                        @if (unfitFor == field.Id)
+                        {
+                            <button type="button" class="danger" @onclick="() => Rename(field.Id, clearUnfit: true)">@T("Change it anyway")</button>
+                        }
+                        <button type="button" class="quiet" @onclick="() => (renaming, unfitFor) = (null, null)">@T("Cancel")</button>
                     }
                     else
                     {
@@ -32,7 +45,7 @@
                             <strong>@field.Name</strong> <span class="hint">@CustomFields.KindLabel(field.Kind) · @Localization.Counts.Books(counts.GetValueOrDefault(field.Id))</span>
                         </div>
                         <a class="quiet" href="/library?field=@field.Id">@T("Books with it")</a>
-                        <button type="button" class="quiet" @onclick="() => StartRename(field)">@T("Rename")</button>
+                        <button type="button" class="quiet" @onclick="() => StartRename(field)">@T("Change")</button>
                         @if (removing == field.Id)
                         {
                             <span role="alert">@T("Remove {0} and what {1} hold in it?", field.Name, Localization.Counts.Books(counts.GetValueOrDefault(field.Id)))</span>
@@ -100,13 +113,23 @@
         await LoadAsync();
     }
 
-    private void StartRename(CustomFieldResponse field) => (renaming, newName, removing) = (field.Id, field.Name, null);
+    // The field being changed: its new name and kind; unfitFor, when the kind wouldn't take some of its values.
+    private FieldKind newKind;
+    private int? unfitFor;
 
-    private async Task Rename(int id)
+    private void StartRename(CustomFieldResponse field) => (renaming, newName, newKind, removing, unfitFor) = (field.Id, field.Name, field.Kind, null, null);
+
+    private async Task Rename(int id, bool clearUnfit = false)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         var (_, trouble) = await CustomFields.RenameAsync(db, id, newName);
-        (note, problem) = trouble is null ? (T("Renamed."), false) : (trouble, true);
+        if (trouble is null)
+        {
+            (_, _, trouble) = await CustomFields.ChangeKindAsync(db, id, newKind, clearUnfit);
+            unfitFor = trouble is null ? null : id;
+        }
+
+        (note, problem) = trouble is null ? (T("Saved."), false) : (trouble, true);
         if (trouble is null)
         {
             renaming = null;

@@ -20,7 +20,7 @@ public sealed class CustomFieldsTests(ShelfApiFactory factory) : IClassFixture<S
         return (await response.Content.ReadFromJsonAsync<CustomFieldResponse>(JsonOptions))!;
     }
 
-    // A reader's fields: named once each in any case, renamed but not changed in kind, and seen by no one else.
+    // A reader's fields: named once each in any case, renamed, and seen by no one else.
     [Fact]
     public async Task A_reader_makes_names_and_removes_fields_of_their_own()
     {
@@ -41,6 +41,34 @@ public sealed class CustomFieldsTests(ShelfApiFactory factory) : IClassFixture<S
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.DeleteAsync($"/books/fields/{box.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await reader.DeleteAsync($"/books/fields/{box.Id}")).StatusCode);
         Assert.Equal(["Price"], (await reader.GetFromJsonAsync<CustomFieldResponse[]>("/books/fields", JsonOptions))!.Select(field => field.Name));
+    }
+
+    // A field's kind can change: values that fit are rewritten for it; ones that don't stop the change, counted, until
+    // the reader says to clear them.
+    [Fact]
+    public async Task A_fields_kind_changes_keeping_what_fits()
+    {
+        var reader = await factory.SignUpAsync("Kind Changer");
+        var edition = await FieldAsync(reader, "Edition", FieldKind.Text);
+        var first = await CreateAsync(reader, "Printed Once");
+        var second = await CreateAsync(reader, "Printed Oddly");
+        await reader.PutAsJsonAsync($"/books/{first.Id}/fields", new CustomValuesRequest(new() { [edition.Id] = "2" }), JsonOptions);
+        await reader.PutAsJsonAsync($"/books/{second.Id}/fields", new CustomValuesRequest(new() { [edition.Id] = "first, signed" }), JsonOptions);
+
+        var refused = await reader.PutAsJsonAsync($"/books/fields/{edition.Id}", new CustomFieldRequest("Edition", FieldKind.Number), JsonOptions);
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Contains("1 book holds something in Edition", await refused.Content.ReadAsStringAsync());
+        Assert.Equal(FieldKind.Text, Assert.Single((await reader.GetFromJsonAsync<CustomFieldResponse[]>("/books/fields", JsonOptions))!).Kind);
+        Assert.Equal("first, signed", (await reader.GetFromJsonAsync<CustomValueResponse[]>($"/books/{second.Id}/fields", JsonOptions))!.Single().Value);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await reader.PutAsJsonAsync($"/books/fields/{edition.Id}", new CustomFieldRequest("Edition", FieldKind.Number, ClearUnfit: true), JsonOptions)).StatusCode);
+        Assert.Equal(FieldKind.Number, Assert.Single((await reader.GetFromJsonAsync<CustomFieldResponse[]>("/books/fields", JsonOptions))!).Kind);
+        Assert.Equal("2", (await reader.GetFromJsonAsync<CustomValueResponse[]>($"/books/{first.Id}/fields", JsonOptions))!.Single().Value);
+        Assert.Null((await reader.GetFromJsonAsync<CustomValueResponse[]>($"/books/{second.Id}/fields", JsonOptions))!.Single().Value);
+
+        // Back to text, every value fits.
+        Assert.Equal(HttpStatusCode.NoContent, (await reader.PutAsJsonAsync($"/books/fields/{edition.Id}", new CustomFieldRequest("Edition", FieldKind.Text), JsonOptions)).StatusCode);
+        Assert.Equal("2", (await reader.GetFromJsonAsync<CustomValueResponse[]>($"/books/{first.Id}/fields", JsonOptions))!.Single().Value);
     }
 
     // Values are checked against their field's kind and kept one way; one wrong keeps none of them. A blank clears.

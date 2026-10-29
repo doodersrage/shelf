@@ -43,7 +43,9 @@ public sealed class CustomValue
 
 public sealed record CustomFieldResponse(int Id, string Name, FieldKind Kind);
 
-public sealed record CustomFieldRequest(string? Name, FieldKind? Kind = null);
+// On a change: Kind, when given and different, changes the field's kind; ClearUnfit says to clear the values that
+// don't fit the new kind, which otherwise stops the change and says how many there are.
+public sealed record CustomFieldRequest(string? Name, FieldKind? Kind = null, bool ClearUnfit = false);
 
 public sealed record CustomValueResponse(int FieldId, string Name, FieldKind Kind, string? Value);
 
@@ -112,6 +114,47 @@ public static class CustomFields
         field.Name = name!.Trim();
         await db.SaveChangesAsync(cancellationToken);
         return (true, null);
+    }
+
+    // A field's kind changed, each value rewritten for it: a number kept as text, text that is a date made a date. A
+    // value that doesn't fit is never dropped unasked: the change stops and says how many, unless clearUnfit.
+    public static async Task<(bool Found, int Unfit, string? Problem)> ChangeKindAsync(ShelfDb db, int id, FieldKind kind, bool clearUnfit, CancellationToken cancellationToken = default)
+    {
+        if (await db.CustomFields.FirstOrDefaultAsync(item => item.Id == id, cancellationToken) is not { } field)
+        {
+            return (false, 0, null);
+        }
+
+        if (field.Kind == kind)
+        {
+            return (true, 0, null);
+        }
+
+        var values = await db.CustomValues.Where(value => value.FieldId == id).ToListAsync(cancellationToken);
+        var rewritten = values.Select(value => (Row: value, New: Normalize(kind, field.Kind == FieldKind.YesNo && kind == FieldKind.Text ? Show(field.Kind, value.Value) : value.Value).Value)).ToList();
+        var unfit = rewritten.Count(item => item.New is null);
+        if (unfit > 0 && !clearUnfit)
+        {
+            return (true, unfit, unfit == 1
+                ? T("1 book holds something in {0} that isn't a {1}. Change it anyway to clear it, or keep the field as it is.", field.Name, KindLabel(kind).ToLowerInvariant())
+                : T("{0} books hold something in {1} that isn't a {2}. Change it anyway to clear them, or keep the field as it is.", unfit, field.Name, KindLabel(kind).ToLowerInvariant()));
+        }
+
+        foreach (var (row, value) in rewritten)
+        {
+            if (value is null)
+            {
+                db.CustomValues.Remove(row);
+            }
+            else
+            {
+                row.Value = value;
+            }
+        }
+
+        field.Kind = kind;
+        await db.SaveChangesAsync(cancellationToken);
+        return (true, unfit, null);
     }
 
     // A field and every value in it.
@@ -271,6 +314,15 @@ public static class CustomFields
     private static async Task<Results<NoContent, NotFound, ValidationProblem>> Rename(int id, CustomFieldRequest request, ShelfDb db, CancellationToken cancellationToken)
     {
         var (found, problem) = await RenameAsync(db, id, request.Name, cancellationToken);
+        if (found && problem is null && request.Kind is { } kind)
+        {
+            var (_, _, unfit) = await ChangeKindAsync(db, id, kind, request.ClearUnfit, cancellationToken);
+            if (unfit is not null)
+            {
+                return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Kind"] = [unfit] });
+            }
+        }
+
         return !found ? TypedResults.NotFound()
             : problem is not null ? TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["Name"] = [problem] })
             : TypedResults.NoContent();

@@ -4,6 +4,11 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Added
+
+- **Sort the library by a field of your own**: each field is in the Sort menu; numbers sort as numbers, and books with nothing in it come last.
+- **A field's kind can change**: values that fit are rewritten for the new kind; if some don't, Shelf says how many and changes it only when you choose to clear them.
+
 ### Fixed
 
 - **A book's other formats travel with it**: a copy lent from a linked shelf brings them and gives them back with the book, and Shelf-to-Shelf brings a format the other shelf has and sends one it lacks, never replacing one already there.

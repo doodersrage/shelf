@@ -286,3 +286,19 @@ test("a book's page left open saves only what was changed on it, and asks when t
   noProblems(page);
 });
 
+
+test("the library sorts by a field of the reader's own, numbers as numbers and empty ones last", async ({ browser }) => {
+  const page = await signUp(browser, unique("Field Sorter"));
+  const field = await (await page.request.post("/books/fields", { data: { name: "Shelf number", kind: "Number" } })).json();
+  const ten = await createBook(page, { title: "A Tenth", author: "Someone", status: "Want" });
+  const nine = await createBook(page, { title: "B Ninth", author: "Someone", status: "Want" });
+  await createBook(page, { title: "C Unnumbered", author: "Someone", status: "Want" });
+  await page.request.put(`/books/${ten.id}/fields`, { data: { values: { [field.id]: "10" } } });
+  await page.request.put(`/books/${nine.id}/fields`, { data: { values: { [field.id]: "9" } } });
+
+  await page.goto("/library?view=list");
+  await ready(page);
+  await page.getByLabel("Sort").selectOption(`field:${field.id}`);
+  await expect.poll(async () => (await page.locator(".book-list > li").allInnerTexts()).map((text) => text.match(/[ABC] \w+/)?.[0])).toEqual(["B Ninth", "A Tenth", "C Unnumbered"]);
+  noProblems(page);
+});
