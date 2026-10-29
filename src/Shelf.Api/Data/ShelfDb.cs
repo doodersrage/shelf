@@ -63,6 +63,8 @@ public class ShelfDb : DbContext
     public DbSet<CustomField> CustomFields => Set<CustomField>();
     public DbSet<CustomValue> CustomValues => Set<CustomValue>();
     public DbSet<EbookFormat> EbookFormats => Set<EbookFormat>();
+    public DbSet<Playlist> Playlists => Set<Playlist>();
+    public DbSet<PlaylistItem> PlaylistItems => Set<PlaylistItem>();
     public DbSet<AbsLink> AbsLinks => Set<AbsLink>();
     public DbSet<AbsSyncSetting> AbsSyncs => Set<AbsSyncSetting>();
     public DbSet<FetchSetting> FetchSettings => Set<FetchSetting>();
@@ -527,6 +529,24 @@ public class ShelfDb : DbContext
             format.HasIndex(item => item.StoredName);
             format.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
             format.HasQueryFilter(item => item.Book!.OwnerId == ReaderId);
+        });
+
+        // A reader's playlists, and what's in them: books and podcast episodes, in order.
+        modelBuilder.Entity<Playlist>(list =>
+        {
+            list.Property(item => item.Name).HasMaxLength(Playlist.MaxNameLength).IsRequired();
+            list.HasIndex(item => item.OwnerId);
+            list.HasOne<Reader>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Cascade);
+            list.HasQueryFilter(item => item.OwnerId == ReaderId);
+        });
+
+        modelBuilder.Entity<PlaylistItem>(entry =>
+        {
+            entry.HasIndex(item => item.PlaylistId);
+            entry.HasOne(item => item.Playlist).WithMany(list => list.Items).HasForeignKey(item => item.PlaylistId).OnDelete(DeleteBehavior.Cascade);
+            entry.HasOne(item => item.Book).WithMany().HasForeignKey(item => item.BookId).OnDelete(DeleteBehavior.Cascade);
+            entry.HasOne(item => item.Episode).WithMany().HasForeignKey(item => item.EpisodeId).OnDelete(DeleteBehavior.Cascade);
+            entry.HasQueryFilter(item => item.Playlist!.OwnerId == ReaderId);
         });
 
         // A setting row belongs to the reader with the same id.

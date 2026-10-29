@@ -1,0 +1,55 @@
+@page "/playlists"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+<PageTitle>@T("Playlists") · Shelf</PageTitle>
+
+<h1>@T("Playlists")</h1>
+<p class="hint">@T("Things to listen to, in the order you choose: audiobooks and podcast episodes together. Played, each goes on into the next. Add to one from a book's page or a podcast's.")</p>
+
+<form class="save-search" @onsubmit="Make">
+    <label>
+        @T("New playlist")
+        <input @bind="name" maxlength="@Playlist.MaxNameLength" placeholder="@T("The long drive")" required />
+    </label>
+    <button type="submit" class="primary">@T("Make it")</button>
+</form>
+<StatusNote Text="@problem" Problem="true" />
+
+@if (lists.Length == 0)
+{
+    <EmptyState Title="@T("No playlists yet")" Text="@T("Make one above, then add audiobooks and episodes to it.")" ActionHref="/podcasts" ActionLabel="@T("Podcasts")" />
+}
+else
+{
+    <ul class="plain-list playlist-list">
+        @foreach (var list in lists)
+        {
+            <li><a href="/playlists/@list.Id">@list.Name</a> <span class="hint">@T("{0} to listen to", list.Count)</span></li>
+        }
+    </ul>
+}
+
+@code {
+    private PlaylistSummary[] lists = [];
+    private string name = "";
+    private string? problem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        lists = await Playlists.ListAsync(db);
+    }
+
+    private async Task Make()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var (made, trouble) = await Playlists.CreateAsync(db, name);
+        problem = trouble;
+        if (made is not null)
+        {
+            name = "";
+            lists = await Playlists.ListAsync(db);
+        }
+    }
+}

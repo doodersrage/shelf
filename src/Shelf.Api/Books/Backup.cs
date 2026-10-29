@@ -141,6 +141,7 @@ public static class Backup
         var onShelf = await OnShelfAsync(db, export, cancellationToken);
         var collections = await RestoreCollectionsAsync(db, zip, onShelf, cancellationToken);
         var loans = await RestoreLoansAsync(db, zip, onShelf, cancellationToken);
+        await RestorePlaylistsAsync(db, zip, onShelf, cancellationToken);
 
         // A download with a manifest is held up against it, and what doesn't match is said.
         var check = Preservation.Check(zipPath);
@@ -247,6 +248,39 @@ public static class Backup
 
     // Each collection comes back by its name, made if there is none, with its books in order, their notes, and its
     // day to read by; one already here keeps what it has and gains what it lacks. How many came back or grew.
+    // Playlists come back by name, with the books here they held, and the episodes of podcasts followed here.
+    private static async Task RestorePlaylistsAsync(ShelfDb db, ZipArchive zip, int?[] onShelf, CancellationToken cancellationToken)
+    {
+        foreach (var kept in await ReadEntryAsync<PlaylistExport[]>(zip, "playlists.json", cancellationToken) ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(kept.Name))
+            {
+                continue;
+            }
+
+            var name = kept.Name.Trim();
+            var id = (await db.Playlists.ToListAsync(cancellationToken)).FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase))?.Id
+                ?? (await Playlists.CreateAsync(db, name, cancellationToken)).Made?.Id;
+            if (id is not int playlist)
+            {
+                continue;
+            }
+
+            foreach (var entry in kept.Items ?? [])
+            {
+                if (entry.Book is int at && at >= 0 && at < onShelf.Length && onShelf[at] is int bookId)
+                {
+                    await Playlists.AddAsync(db, playlist, bookId, null, cancellationToken);
+                }
+                else if (entry.Feed is { } feed && entry.Episode is { } guid
+                    && await db.PodcastEpisodes.Where(item => item.Guid == guid && item.Podcast!.FeedUrl == feed).Select(item => (int?)item.Id).FirstOrDefaultAsync(cancellationToken) is int episodeId)
+                {
+                    await Playlists.AddAsync(db, playlist, null, episodeId, cancellationToken);
+                }
+            }
+        }
+    }
+
     private static async Task<int> RestoreCollectionsAsync(ShelfDb db, ZipArchive zip, int?[] onShelf, CancellationToken cancellationToken)
     {
         var restored = 0;

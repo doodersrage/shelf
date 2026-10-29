@@ -1,0 +1,89 @@
+@inject IDbContextFactory<ShelfDb> DbFactory
+
+@* A book's recording or a podcast episode put at the end of one of the reader's playlists, or a new one. *@
+<span class="add-to-playlist">
+    <label>
+        <span class="visually-hidden">@T("Playlist for {0}", Title)</span>
+        <select @bind="chosen">
+            <option value="0">@T("Add to a playlist…")</option>
+            @foreach (var list in lists)
+            {
+                <option value="@list.Id">@list.Name</option>
+            }
+            <option value="-1">@T("A new playlist")</option>
+        </select>
+    </label>
+    @if (chosen == -1)
+    {
+        <label><span class="visually-hidden">@T("New playlist")</span><input @bind="newName" maxlength="@Playlist.MaxNameLength" placeholder="@T("New playlist")" /></label>
+    }
+    @if (chosen != 0)
+    {
+        <button type="button" class="quiet" @onclick="Add" aria-label="@T("Add {0} to the playlist", Title)">@T("Add")</button>
+    }
+    @if (note is not null)
+    {
+        <span class="@(ok ? "saved" : "validation-message")" role="status">@note</span>
+    }
+</span>
+
+@code {
+    [Parameter]
+    public int? BookId { get; set; }
+
+    [Parameter]
+    public int? EpisodeId { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = "";
+
+    // The reader's playlists, when the page has them already: a podcast's page with many episodes asks once.
+    [Parameter]
+    public PlaylistSummary[]? Lists { get; set; }
+
+    private PlaylistSummary[] lists = [];
+    private int chosen;
+    private string newName = "";
+    private string? note;
+    private bool ok;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Lists is not null)
+        {
+            lists = Lists;
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        lists = await Playlists.ListAsync(db);
+    }
+
+    private async Task Add()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var id = chosen;
+        if (id == -1)
+        {
+            var (made, trouble) = await Playlists.CreateAsync(db, newName);
+            if (made is null)
+            {
+                (note, ok) = (trouble, false);
+                return;
+            }
+
+            id = made.Id;
+        }
+
+        var problem = await Playlists.AddAsync(db, id, BookId, EpisodeId);
+        lists = await Playlists.ListAsync(db);
+        var name = lists.FirstOrDefault(list => list.Id == id)?.Name ?? "";
+        (note, ok) = problem switch
+        {
+            null => (T("Added to {0}.", name), true),
+            "" => (T("That playlist is not here."), false),
+            _ => (problem, false),
+        };
+        (chosen, newName) = (0, "");
+    }
+}

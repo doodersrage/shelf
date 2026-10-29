@@ -6,6 +6,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Added
 
+- **Playlists**, as Audiobookshelf has them: audiobooks and podcast episodes together, in the order you choose, played one into the next. Add from a book's page or an episode's; reorder, take out, play from any one; things gone since are passed over. Private to you, and in the full export.
 - **A recording downloads with the book's details in its files**, as Audiobookshelf embeds them: **Download the recording** writes the title, author, narrator, year, series, and cover into the files, and the chapters into a single file, by ffmpeg without re-encoding. Tracks come as a zip, numbered and named. The stored files never change.
 - **A download of your books as folders**, as Calibre lays out its library: **download as folders**, on **Backup & restore**, gives `Author/Title (id)/` folders with each format, the cover, the audiobook, and a `metadata.opf` Calibre reads when adding books from folders.
 - **Other formats made by Calibre**: with Calibre's `ebook-convert` on the server, **Make AZW3** (or EPUB, MOBI, PDF) under **Other formats** converts the book, from its EPUB where it has one, and keeps the result as another format. One book is made at a time.
@@ -15,6 +16,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Fixed
 
+- **Saving a place no longer fails now and then when two saves of a new book arrive at once**, as a player sends when a book ends: the second hit the first's row and answered with an error. It now fills the row in.
+- **A book that plays to its end no longer has its old place sent over its new start**: marked finished, its place starts over, and the player knew neither that nor to drop the save it had waiting.
 - **A reader or player left open no longer sends your place back**: a tab open since yesterday saved its old place over the one read since on another device, as soon as it was resized or played. The reader now asks, with **Go there** and **Keep my place here**; the player goes to the newer place as it starts, with **Back to** for a minute.
 
 ## [2.19.1] - 2026-10-28

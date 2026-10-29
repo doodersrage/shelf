@@ -2015,6 +2015,59 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("PastReads");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.Playlist", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("Playlists");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.PlaylistItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("BookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("EpisodeId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PlaylistId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId");
+
+                    b.HasIndex("EpisodeId");
+
+                    b.HasIndex("PlaylistId");
+
+                    b.ToTable("PlaylistItems");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.Podcast", b =>
                 {
                     b.Property<int>("Id")
@@ -4214,6 +4267,40 @@ namespace Shelf.Api.Data.Migrations
                     b.Navigation("Book");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.Playlist", b =>
+                {
+                    b.HasOne("Shelf.Api.Readers.Reader", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.PlaylistItem", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Shelf.Api.Books.PodcastEpisode", "Episode")
+                        .WithMany()
+                        .HasForeignKey("EpisodeId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Shelf.Api.Books.Playlist", "Playlist")
+                        .WithMany("Items")
+                        .HasForeignKey("PlaylistId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Book");
+
+                    b.Navigation("Episode");
+
+                    b.Navigation("Playlist");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.Podcast", b =>
                 {
                     b.HasOne("Shelf.Api.Readers.Reader", null)
@@ -4582,6 +4669,11 @@ namespace Shelf.Api.Data.Migrations
             modelBuilder.Entity("Shelf.Api.Books.Collection", b =>
                 {
                     b.Navigation("Books");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.Playlist", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("Shelf.Api.Books.Podcast", b =>

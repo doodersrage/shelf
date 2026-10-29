@@ -309,6 +309,12 @@ public static partial class Merging
         await db.Highlights.IgnoreQueryFilters().Where(mark => mark.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(mark => mark.BookId, keepId), cancellationToken);
         await db.Sessions.IgnoreQueryFilters().Where(session => session.BookId == otherId).ExecuteUpdateAsync(set => set.SetProperty(session => session.BookId, keepId), cancellationToken);
 
+        // Its places in playlists, where the kept book isn't in that playlist already.
+        var keptLists = await db.PlaylistItems.Where(item => item.BookId == keepId).Select(item => item.PlaylistId).ToListAsync(cancellationToken);
+        var movedItems = await db.PlaylistItems.Where(item => item.BookId == otherId && !keptLists.Contains(item.PlaylistId)).Select(item => item.Id).ToListAsync(cancellationToken);
+        Unmerging.Moved(receipt, nameof(ShelfDb.PlaylistItems), movedItems);
+        await db.PlaylistItems.Where(item => movedItems.Contains(item.Id)).ExecuteUpdateAsync(set => set.SetProperty(item => item.BookId, keepId), cancellationToken);
+
         // The reader's own fields: a value the kept book has no value for comes across.
         var keptFields = await db.CustomValues.Where(value => value.BookId == keepId).Select(value => value.FieldId).ToListAsync(cancellationToken);
         var movedValues = await db.CustomValues.Where(value => value.BookId == otherId && !keptFields.Contains(value.FieldId)).Select(value => value.Id).ToListAsync(cancellationToken);

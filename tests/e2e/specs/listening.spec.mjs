@@ -311,3 +311,28 @@ test("chapters edited by hand replace the tracks' names in the player", async ({
   await expect(page.locator(".chapter-list li")).toHaveCount(3);
   noProblems(page);
 });
+
+test("a playlist plays its audiobooks one into the next", async ({ browser }) => {
+  const page = await signUp(browser, unique("Queuer"));
+  const first = await createBook(page, { title: "First in Line", author: "Someone", status: "Reading" });
+  const second = await createBook(page, { title: "Second in Line", author: "Someone", status: "Reading" });
+  await upload(page, first.id, "audio", "chapters.m4b", "audio/mp4");
+  await upload(page, second.id, "audio", "three-tracks.zip", "application/zip");
+  const list = await (await page.request.post("/books/playlists", { data: { name: unique("Road Trip") } })).json();
+  for (const book of [first, second]) {
+    expect((await page.request.post(`/books/playlists/${list.id}/items`, { data: { bookId: book.id } })).ok()).toBe(true);
+  }
+
+  await page.goto(`/playlists/${list.id}`);
+  await ready(page);
+  await expect(page.locator("ol.playlist-items li")).toHaveCount(2);
+  await page.getByRole("button", { name: "Play the playlist" }).click();
+  await expect.poll(async () => (await player(page)).bookId).toBe(first.id);
+
+  // Near the end of the first, it plays on into the second.
+  await page.evaluate(() => window.shelfPlayer.seek(window.shelfPlayer.now().bookSeconds + 1e6));
+  await expect.poll(async () => (await player(page)).bookId, { timeout: 15_000 }).toBe(second.id);
+  expect((await page.evaluate(() => window.shelfPlayer.queue())).index).toBe(1);
+  noProblems(page);
+});
+

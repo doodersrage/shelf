@@ -94,6 +94,12 @@ Shelf uses any service with OpenAI's transcription API and word times. Set `Read
 
 When ffmpeg is there, Shelf always cuts tracks into ten-minute pieces, which shows progress as it goes and loses less if something fails. The recording goes to the service you choose and nowhere else.
 
+## Playlists
+
+A playlist is things to listen to in the order you choose, audiobooks and podcast episodes together, as Audiobookshelf has them. Make one on **Playlists**, under **Discover**, and add to it from a book's page (under its recording) or from an episode on its podcast's page. On the playlist's page, move things up and down or take them out, and **Play the playlist**, or **Play from here** on any one of them: each goes on into the next as it ends, in the mini player as you move around the shelf. Starting something else by hand ends the playlist.
+
+A book that loses its recording, or an episode its feed drops, stays in its place, marked, and is passed over. Removing a playlist leaves the books and episodes in it as they are. Playlists are your own, and go out in the full export as `playlists.json` and come back with it.
+
 ## Podcasts
 
 **Podcasts**, under **Discover** in the sidebar, follows podcasts by their feeds. Search by name (Apple's podcast directory finds most), or paste a feed's address. To bring the podcasts you follow in another app, export them from it as an OPML file and choose it under **Bring podcasts from another app**; **Save the podcasts you follow as OPML** takes them the other way.

@@ -62,6 +62,7 @@ public static class NavMap
             new("/next", T("What to read next"), "recommend suggestions"),
             new("/free", T("Free books"), "gutenberg librivox public domain"),
             new("/podcasts", T("Podcasts"), "rss feeds episodes"),
+            new("/playlists", T("Playlists"), "queue listen audiobooks episodes"),
             new("/ask", T("Ask your shelf"), "question ai concierge"),
             new("/search", T("Search inside books"), "full text"),
             new("/wanted", T("Wanted"), "indexers download fetch", NavNeed.Fetching),

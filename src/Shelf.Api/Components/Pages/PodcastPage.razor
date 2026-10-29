@@ -73,6 +73,7 @@ else
                 </div>
                 <div class="episode-actions">
                     <button type="button" class="primary" data-play-plan="/books/podcasts/episodes/@episode.Id/plan" aria-label="@T("Play {0}", episode.Title)">@T("Play")</button>
+                    <AddToPlaylist EpisodeId="episode.Id" Title="@episode.Title" Lists="playlists" />
                     <button type="button" class="quiet" @onclick="() => SetPlayed(episode.Id, !episode.Played)">@(episode.Played ? T("Mark as new") : T("Mark as played"))</button>
                     @if (episode.Downloaded)
                     {
@@ -107,7 +108,10 @@ else
         podcast = await db.Podcasts.AsNoTracking().FirstOrDefaultAsync(item => item.Id == Id);
         episodes = await PodcastService.EpisodesAsync(db, Id) ?? [];
         keep = podcast?.KeepLatest ?? 0;
+        playlists ??= await Playlists.ListAsync(db);
     }
+
+    private PlaylistSummary[]? playlists;
 
     private async Task Refresh()
     {

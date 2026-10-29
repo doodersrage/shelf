@@ -195,7 +195,8 @@
       write("shelf-paused-at", { key: keyOf(plan), at: Date.now() });
     }
     fade();
-    save();
+    // At the end, the ended handler saves; saving here too would send the place twice at once.
+    if (!audio.ended) save();
     render();
   });
 
@@ -204,8 +205,15 @@
       setTrack(track + 1, 0, true);
     } else {
       wantPlay = false;
-      // The place first, so marking the book finished (which starts the place over) comes after it.
-      save().finally(finished);
+      // A save waiting since a seek would land after the book is marked finished and started over; the end is
+      // saved here instead.
+      clearTimeout(saveSoon);
+      // The place first, so marking the book finished (which starts the place over) comes after it; then the next
+      // thing in the playlist, if this came from one.
+      save().finally(() => {
+        finished();
+        playNext();
+      });
       render();
     }
   });
@@ -222,6 +230,9 @@
       .then((response) => (response.ok ? response.json() : null))
       .then((answer) => {
         if (keyOf(plan) !== key) return;
+        // Marked finished, the book's place starts over on the shelf: the player knows it, so its next save isn't
+        // taken for a place moved elsewhere.
+        if (answer?.marked) known = confirmed = { track: 0, seconds: 0 };
         note = answer?.marked ? "finished" : "ended";
         render();
       })
@@ -627,7 +638,8 @@
     }
 
     if (plan) {
-      save();
+      // A book played to its end was saved there already, and may since have been marked finished and started over.
+      if (!audio.ended) save();
       audio.pause();
     }
 
@@ -676,17 +688,48 @@
     render();
   }
 
-  // A Play button on a book's page or card: the book starts in the mini player, and the page stays.
+  // A Play button on a book's page or card: the book starts in the mini player, and the page stays. True when it
+  // started.
   async function playPlan(url) {
     try {
       const response = await fetch(url, { credentials: "same-origin" });
-      if (!response.ok) return;
+      if (!response.ok) return false;
       const next = await response.json();
       if (plan && keyOf(plan) === keyOf(next) && track >= 0) play();
       else await open(next, { play: true });
+      return true;
     } catch {
       // The shelf is out of reach.
+      return false;
     }
+  }
+
+  // A playlist being played: its things' plans in order, and which is playing. Kept on this device, so it goes on
+  // after a reload; anything else started by hand ends it.
+  const QUEUE = "shelf-queue";
+
+  async function playFrom(queue) {
+    for (let index = queue.index; index < queue.urls.length; index++) {
+      // A thing gone since (a book let go, an episode its feed dropped) is passed over.
+      if (await playPlan(queue.urls[index])) {
+        write(QUEUE, { ...queue, index, key: keyOf(plan) });
+        render();
+        return;
+      }
+    }
+
+    write(QUEUE, null);
+  }
+
+  function playNext() {
+    const queue = read(QUEUE, null);
+    if (!queue || !plan || queue.key !== keyOf(plan)) return;
+    if (queue.index + 1 >= queue.urls.length) {
+      write(QUEUE, null);
+      return;
+    }
+
+    playFrom({ ...queue, index: queue.index + 1 });
   }
 
   async function playBook(bookId) {
@@ -708,6 +751,19 @@
     if (starter) {
       event.preventDefault();
       playBook(Number(starter.dataset.playBook));
+      return;
+    }
+
+    // A playlist, from its start or from one thing in it.
+    const list = event.target.closest?.("[data-play-queue]");
+    if (list) {
+      event.preventDefault();
+      try {
+        const urls = JSON.parse(list.dataset.playQueue);
+        if (Array.isArray(urls) && urls.length > 0) playFrom({ urls, index: Math.max(0, Number(list.dataset.start) || 0), name: list.dataset.queueName || "" });
+      } catch {
+        // Not a list after all.
+      }
       return;
     }
 
@@ -814,6 +870,8 @@
 
   window.shelfPlayer = {
     open,
+    // The playlist playing, if any: its name, and which of its things is on.
+    queue: () => read(QUEUE, null),
     close,
     play,
     pause: () => audio.pause(),

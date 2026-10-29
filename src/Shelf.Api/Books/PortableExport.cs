@@ -11,6 +11,11 @@ public sealed record CollectionExport(string Name, string? Description, DateOnly
 
 public sealed record CollectionEntryExport(int Book, string Title, string Author, string? Note);
 
+// A playlist, in order: a book by its place in shelf.json, or a podcast episode by its feed and the feed's id for it.
+public sealed record PlaylistExport(string Name, PlaylistEntryExport[] Items);
+
+public sealed record PlaylistEntryExport(int? Book, string? Feed, string? Episode, string Title);
+
 public sealed record BorrowedHighlightExport(string Title, string Author, string Owner, int ChapterIndex, string Text, string? Note, DateTimeOffset NotedAt);
 
 // The rest of a reader's own records, beside shelf.json in their download, in plain formats described by the README
@@ -33,6 +38,24 @@ public static class PortableExport
         await WriteJsonAsync(manifest, zip, "collections.json", collections.Select(collection => new CollectionExport(collection.Name, collection.Description, collection.ReadBy,
             [.. collection.Books.Where(entry => entry.Book is not null && place.ContainsKey(entry.BookId)).OrderBy(entry => entry.Position)
                 .Select(entry => new CollectionEntryExport(place[entry.BookId], entry.Book!.Title, entry.Book.Author, entry.Note))])).ToArray(), json, cancellationToken);
+
+        var playlists = await db.Playlists.AsNoTracking().OrderBy(list => list.Name).Select(list => new
+        {
+            list.Name,
+            Items = list.Items.OrderBy(item => item.Position).ThenBy(item => item.Id).Select(item => new
+            {
+                item.BookId,
+                BookTitle = item.Book == null ? null : item.Book.Title,
+                Feed = item.Episode == null ? null : item.Episode.Podcast!.FeedUrl,
+                Guid = item.Episode == null ? null : item.Episode.Guid,
+                EpisodeTitle = item.Episode == null ? null : item.Episode.Title,
+            }).ToList(),
+        }).ToListAsync(cancellationToken);
+        await WriteJsonAsync(manifest, zip, "playlists.json", playlists.Select(list => new PlaylistExport(list.Name,
+            [.. list.Items.Where(item => (item.BookId is int id && place.ContainsKey(id)) || item.Guid is not null)
+                .Select(item => item.BookId is int id && place.TryGetValue(id, out var at)
+                    ? new PlaylistEntryExport(at, null, null, item.BookTitle ?? "")
+                    : new PlaylistEntryExport(null, item.Feed, item.Guid, item.EpisodeTitle ?? ""))])).ToArray(), json, cancellationToken);
 
         var loans = await db.LoanRecords.AsNoTracking().OrderBy(loan => loan.LentOn).ThenBy(loan => loan.Id)
             .Select(loan => new { Loan = loan, loan.Book!.Title }).ToListAsync(cancellationToken);
@@ -123,6 +146,8 @@ public static class PortableExport
         - `books.csv` — the books again as a spreadsheet, a row each. Dates are written year-month-day. "Number" is the
           book's place in `shelf.json`, counting from 1. Your own fields come last, a column each.
         - `collections.json` — your collections, with the note on each book. `book` counts from 0 in `shelf.json`.
+        - `playlists.json` — your playlists, in order: a book by its place in `shelf.json` (from 0), or a podcast episode
+          by its feed's address and the feed's own id for it.
         - `loans.json` — each time one of your books was lent: to whom, when, how often renewed, and the state it went out
           and came back in.
         - `borrowed-highlights.json` — what you marked in books you borrowed from others. It is yours to keep, but is not

@@ -1,0 +1,122 @@
+@page "/playlists/{Id:int}"
+@rendermode InteractiveServer
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject NavigationManager Navigation
+
+<PageTitle>@(view?.Name ?? T("Playlist")) · Shelf</PageTitle>
+
+@if (missing)
+{
+    <h1>@T("Not on the shelf")</h1>
+    <p>@T("That playlist is not here.") <a href="/playlists">@T("Playlists")</a></p>
+}
+else if (view is not null)
+{
+    <p class="hint"><a href="/playlists">@T("Playlists")</a></p>
+    <h1>@view.Name</h1>
+    var urls = System.Text.Json.JsonSerializer.Serialize(view.Items.Select(item => item.PlanUrl));
+    @if (view.Items.Length > 0)
+    {
+        <p><button type="button" class="primary" data-play-queue="@urls" data-start="0" data-queue-name="@view.Name">@T("Play the playlist")</button></p>
+        <ol class="plain-list playlist-items">
+            @for (var index = 0; index < view.Items.Length; index++)
+            {
+                var item = view.Items[index];
+                var at = index;
+                <li class="@(item.Gone ? "gone" : null)">
+                    @if (item.Cover is { } cover)
+                    {
+                        <img class="cover-thumb" src="@cover" alt="" loading="lazy" />
+                    }
+                    <div>
+                        <a href="@item.Link">@item.Title</a> <span class="hint">@item.Detail</span>
+                        @if (item.Gone)
+                        {
+                            <span class="hint">· @T("can't be played, and is passed over")</span>
+                        }
+                    </div>
+                    @if (!item.Gone)
+                    {
+                        <button type="button" class="quiet" data-play-queue="@urls" data-start="@at" data-queue-name="@view.Name" aria-label="@T("Play from {0}", item.Title)">@T("Play from here")</button>
+                    }
+                    <button type="button" class="quiet" disabled="@(at == 0)" @onclick="() => Move(item.Id, -1)" aria-label="@T("Move {0} up", item.Title)">↑</button>
+                    <button type="button" class="quiet" disabled="@(at == view.Items.Length - 1)" @onclick="() => Move(item.Id, 1)" aria-label="@T("Move {0} down", item.Title)">↓</button>
+                    <button type="button" class="quiet danger" @onclick="() => Remove(item.Id)" aria-label="@T("Take {0} out of the playlist", item.Title)">@T("Take out")</button>
+                </li>
+            }
+        </ol>
+    }
+    else
+    {
+        <EmptyState Title="@T("Nothing in it yet")" Text="@T("Add audiobooks from their pages, and episodes from their podcast's page.")" ActionHref="/podcasts" ActionLabel="@T("Podcasts")" />
+    }
+
+    <details class="panel">
+        <summary>@T("Rename or remove the playlist")</summary>
+        <label>@T("Name") <input @bind="name" maxlength="@Playlist.MaxNameLength" /></label>
+        <button type="button" @onclick="Rename">@T("Rename")</button>
+        <StatusNote Text="@problem" Problem="true" />
+        @if (removing)
+        {
+            <p role="alert">@T("Remove the playlist? The books and episodes in it stay where they are.")</p>
+            <button type="button" class="danger" @onclick="RemoveList">@T("Remove it")</button>
+            <button type="button" class="quiet" @onclick="() => removing = false">@T("Keep it")</button>
+        }
+        else
+        {
+            <button type="button" class="quiet danger" @onclick="() => removing = true">@T("Remove the playlist")</button>
+        }
+    </details>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private PlaylistView? view;
+    private bool missing;
+    private string name = "";
+    private string? problem;
+    private bool removing;
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        view = await Playlists.ViewAsync(db, Id);
+        missing = view is null;
+        if (view is not null && name.Length == 0)
+        {
+            name = view.Name;
+        }
+    }
+
+    private async Task Move(int itemId, int step)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Playlists.MoveAsync(db, Id, itemId, step);
+        await LoadAsync();
+    }
+
+    private async Task Remove(int itemId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await Playlists.RemoveAsync(db, Id, itemId);
+        await LoadAsync();
+    }
+
+    private async Task Rename()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        problem = await Playlists.RenameAsync(db, Id, name) == false ? T("Give the playlist a name of up to {0} characters.", Playlist.MaxNameLength) : null;
+        await LoadAsync();
+    }
+
+    private async Task RemoveList()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.Playlists.Where(item => item.Id == Id).ExecuteDeleteAsync();
+        Navigation.NavigateTo("/playlists");
+    }
+}

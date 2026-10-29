@@ -101,6 +101,8 @@ public static class Unmerging
         await db.ListeningDays.IgnoreQueryFilters().Where(row => listened.Contains(row.Id) && row.BookId == keptId).ExecuteUpdateAsync(set => set.SetProperty(row => row.BookId, restoredId), cancellationToken);
         var formats = Ids(nameof(ShelfDb.EbookFormats));
         await db.EbookFormats.IgnoreQueryFilters().Where(row => formats.Contains(row.Id) && row.BookId == keptId).ExecuteUpdateAsync(set => set.SetProperty(row => row.BookId, restoredId), cancellationToken);
+        var playlistItems = Ids(nameof(ShelfDb.PlaylistItems));
+        await db.PlaylistItems.IgnoreQueryFilters().Where(row => playlistItems.Contains(row.Id) && row.BookId == keptId).ExecuteUpdateAsync(set => set.SetProperty(row => row.BookId, restoredId), cancellationToken);
         var values = Ids(nameof(ShelfDb.CustomValues));
         await db.CustomValues.IgnoreQueryFilters().Where(row => values.Contains(row.Id) && row.BookId == keptId).ExecuteUpdateAsync(set => set.SetProperty(row => row.BookId, restoredId), cancellationToken);
         var readDays = Ids(nameof(ShelfDb.ReadingDays));

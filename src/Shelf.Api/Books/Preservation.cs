@@ -282,7 +282,7 @@ public static class Preservation
         ## The other files
 
         - `books.csv` — the books as a spreadsheet; `Number` counts from 1 in the order of `books`.
-        - `collections.json`, `loans.json`, `borrowed-highlights.json` — described in `README.md`.
+        - `collections.json`, `playlists.json`, `loans.json`, `borrowed-highlights.json` — described in `README.md`.
         - `books/0001/ebook/`, `books/0001/audio/`, `books/0001/cover.*` — each book's own files.
         """;
 }

@@ -501,7 +501,8 @@ The user asked for what Calibre has and Shelf lacks, in this order, one at a tim
 The user asked for what Audiobookshelf has and Shelf lacks, all of it, one at a time:
 
 - [x] **Details written into audio files** (2026-10-29). `GET /books/{id}/audio/download` (`AudioTagging`): ffmpeg `-c:a copy` writes title/album/artist/album artist/composer (narrator)/date/grouping (series)/track and the cover into temp copies (one file as itself with the player's chapters for MP4 kinds; tracks as a numbered zip). Stored files untouched; without ffmpeg the files go as stored. Also: temp downloads now send a `filename*` so any title is a safe header. Test: `AudioTaggingTests` (real ffmpeg, read back with ffprobe; CI has ffmpeg).
-- [ ] Playlists: a queue of audiobooks and podcast episodes that plays through.
+- [x] **Playlists** (2026-10-29). `Playlists`/`PlaylistItems` (additive migration, both providers), private by owner. `/playlists` and `/playlists/{id}` (reorder, take out, rename, remove with confirmation), an `AddToPlaylist` control on the book page (recordings) and podcast episodes, and the API. The player plays a queue through (`listen.js` `shelf-queue`, gone things passed over). Covered by the trash (generic), merges/unmerge, the full export (`playlists.json`) and restore. Tests: `PlaylistsTests` (2), `listening.spec` "a playlist plays…".
+  - Found and fixed on the way: two simultaneous saves of a new book's place made the second fail with a 500 (`Positions.NoteAsync` unique row; test `Places_saved_at_the_same_moment_all_go_through` fails without the fix); a book played to its end had its old place sent over the start "finished" gave it (the player now knows the reset, drops the waiting seek save, and doesn't save twice at the end).
 - [ ] A private podcast feed for an audiobook.
 - [ ] Casting to Chromecast from the web player.
 - [ ] A listening-session history.
