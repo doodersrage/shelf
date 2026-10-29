@@ -365,7 +365,7 @@ In the 2026-10-28 status pass over M1–M6, `[~]` means partly verified, with wh
       - A cut-off e-book write left a part-file (P2).
       - Restore dropped refused files without saying so (P2).
     - **Open:**
-      - P2: a slow linked shelf can hold the Shelves and Loans pages, with a 1 h timeout.
+      - **Fixed 2026-10-29 (P2):** questions to a linked shelf time out after 10 s (`LinkClient.Quick`; downloads keep the 1 h client timeout); Shelves streams, asks linked shelves in parallel, and names any that didn't answer; Loans syncs after first render. Test: `LeftoverFileTests.A_linked_shelf_that_never_answers_is_given_up_on_soon`.
       - **Fixed 2026-10-29 (P2):** failed linked-shelf and Shelf-to-Shelf downloads, and a cancelled full backup or snapshot, delete their temporary files. Test: `LeftoverFileTests`.
       - **Fixed 2026-10-29 (P2):** CSV rows with no title or author are counted and reported apart (`CsvLibrary.Unusable`); an unforeseen error fails one Audiobookshelf book, or at worst one import, never the importer (`AudiobookshelfTests.An_unforeseen_failure_fails_one_book_not_the_importer`).
       - **Fixed 2026-10-29 (P2):** a book holds up to 999 tracks (the limit of the stored `000-` names), not 200; an upload reports tracks left out (`AudioSave.LeftOut`, `?left=`), and an Audiobookshelf import fetches only the tracks it keeps and notes the rest. Tests: `FeatureTests.Tracks_past_the_most_a_book_holds_are_left_out_and_counted`, `AudiobookshelfTests.A_book_in_too_many_tracks_brings_what_fits_and_says_so`.

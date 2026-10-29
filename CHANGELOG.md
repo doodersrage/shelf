@@ -6,6 +6,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Fixed
 
+- **A slow or unreachable linked shelf no longer holds the Shelves and Loans pages**: questions to a linked shelf give up after ten seconds (file downloads still take as long as they need), linked shelves are asked together, Shelves names any that didn't answer, and Loans checks them after it has opened.
+
 - **A book holds up to 999 tracks, where it held 200**, and tracks past that are no longer dropped without a word: an upload says how many were left out, and an Audiobookshelf import fetches only the tracks it keeps and says how many stayed behind.
 
 ## [2.21.0] - 2026-10-29

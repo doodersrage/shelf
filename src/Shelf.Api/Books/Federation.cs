@@ -82,6 +82,8 @@ public sealed record ShelfLinkSummary(int Id, string Name, string Address, bool 
 
 public sealed record RemoteAskRow(int Id, int BookId, string Title, string Author, string Reader, string Server, DateTimeOffset AskedAt, bool OnLoan);
 
+public sealed record LinkedShelves(LinkedShelf[] Shelves, string[] Unreachable);
+
 public sealed record LinkedAskRow(int Id, string Title, string Author, string Owner, DateTimeOffset AskedAt);
 
 // Calls to linked shelves, each with the secret that shelf gave this one.
@@ -94,6 +96,17 @@ public sealed class LinkClient(IHttpClientFactory clients, IDataProtectionProvid
     public string Seal(string secret) => Protector.Protect(secret);
 
     private HttpClient Client => clients.CreateClient(ClientName);
+
+    // A question to a linked shelf (its shelves, a loan, an ask) is answered in this long or not at all, so a slow or
+    // gone shelf never holds a page. File downloads keep the client's own long timeout.
+    public static readonly TimeSpan Quick = TimeSpan.FromSeconds(10);
+
+    private static CancellationTokenSource Soon(CancellationToken cancellationToken)
+    {
+        var soon = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        soon.CancelAfter(Quick);
+        return soon;
+    }
 
     private HttpRequestMessage Request(ShelfLink link, HttpMethod method, string path)
     {
@@ -112,11 +125,12 @@ public sealed class LinkClient(IHttpClientFactory clients, IDataProtectionProvid
 
     public async Task<T?> GetAsync<T>(ShelfLink link, string path, CancellationToken cancellationToken)
     {
+        using var soon = Soon(cancellationToken);
         try
         {
             using var request = Request(link, HttpMethod.Get, path);
-            using var answer = await Client.SendAsync(request, cancellationToken);
-            return answer.IsSuccessStatusCode ? await answer.Content.ReadFromJsonAsync<T>(cancellationToken) : default;
+            using var answer = await Client.SendAsync(request, soon.Token);
+            return answer.IsSuccessStatusCode ? await answer.Content.ReadFromJsonAsync<T>(soon.Token) : default;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or NotSupportedException)
         {
@@ -126,11 +140,12 @@ public sealed class LinkClient(IHttpClientFactory clients, IDataProtectionProvid
 
     public async Task<bool> SendAsync(ShelfLink link, HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
+        using var soon = Soon(cancellationToken);
         try
         {
             using var request = Request(link, method, path);
             request.Content = body is null ? null : JsonContent.Create(body);
-            using var answer = await Client.SendAsync(request, cancellationToken);
+            using var answer = await Client.SendAsync(request, soon.Token);
             return answer.IsSuccessStatusCode;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
@@ -575,21 +590,22 @@ public sealed class Federation(IServiceScopeFactory scopes, LinkClient client, E
 
     // ---- The borrower's side: linked shelves, asks, and copies lent from there ----
 
-    // Every open shelf on every linked shelf, asked now; a shelf that does not answer is left out.
-    public async Task<LinkedShelf[]> ShelvesAsync(ShelfDb db, CancellationToken cancellationToken = default)
+    public async Task<LinkedShelf[]> ShelvesAsync(ShelfDb db, CancellationToken cancellationToken = default) =>
+        (await LinkedShelvesAsync(db, cancellationToken)).Shelves;
+
+    // Every open shelf on every linked shelf, all asked at once; the names of any that didn't answer in time.
+    public async Task<LinkedShelves> LinkedShelvesAsync(ShelfDb db, CancellationToken cancellationToken = default)
     {
         if (await Family.IsRestrictedAsync(db, cancellationToken: cancellationToken))
         {
-            return [];
+            return new([], []);
         }
 
-        var found = new List<LinkedShelf>();
-        foreach (var link in await db.ShelfLinks.AsNoTracking().Where(link => link.Active).ToListAsync(cancellationToken))
-        {
-            found.AddRange((await client.GetAsync<LinkedShelf[]>(link, "/federation/shelves", cancellationToken) ?? []).Select(shelf => shelf with { LinkId = link.Id, Server = link.Name }));
-        }
-
-        return [.. found];
+        var links = await db.ShelfLinks.AsNoTracking().Where(link => link.Active).OrderBy(link => link.Name).ToListAsync(cancellationToken);
+        var answers = await Task.WhenAll(links.Select(async link => (link, shelves: await client.GetAsync<LinkedShelf[]>(link, "/federation/shelves", cancellationToken))));
+        return new(
+            [.. answers.SelectMany(answer => (answer.shelves ?? []).Select(shelf => shelf with { LinkId = answer.link.Id, Server = answer.link.Name }))],
+            [.. answers.Where(answer => answer.shelves is null).Select(answer => answer.link.Name)]);
     }
 
     // A page of a reader's open shelf on a linked shelf, and whether there are more. A linked shelf from before

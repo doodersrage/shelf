@@ -28,6 +28,30 @@ public sealed class LeftoverFileTests
         File.Delete(whole!);
     }
 
+    // A linked shelf that never answers is given up on after a few seconds, not the client's hour, so it can't hold
+    // the Shelves or Loans page.
+    [Fact]
+    public async Task A_linked_shelf_that_never_answers_is_given_up_on_soon()
+    {
+        var links = new LinkClient(new Clients(new Hangs()), new EphemeralDataProtectionProvider());
+        var link = new ShelfLink { Name = "Asleep", Address = "https://asleep.example" };
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var asked = links.GetAsync<LinkedShelf[]>(link, "/federation/shelves", CancellationToken.None);
+        var sent = links.SendAsync(link, HttpMethod.Post, "/federation/asks", null, CancellationToken.None);
+        Assert.Null(await asked);
+        Assert.False(await sent);
+        Assert.InRange(clock.Elapsed, LinkClient.Quick - TimeSpan.FromSeconds(1), LinkClient.Quick + TimeSpan.FromSeconds(10));
+    }
+
+    private sealed class Hangs : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        }
+    }
+
     private sealed class Clients(HttpMessageHandler handler) : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => new(handler, disposeHandler: false);

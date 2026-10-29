@@ -229,15 +229,26 @@ else
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
+    // Loans from linked shelves are brought up to date once the page shows, so a slow shelf (or a book's files
+    // coming across) never holds it.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !synced)
+        {
+            synced = true;
+            await using (var db = await DbFactory.CreateDbContextAsync())
+            {
+                await Federation.SyncAsync(db);
+            }
+
+            await LoadAsync();
+            StateHasChanged();
+        }
+    }
+
     private async Task LoadAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        // Loans from linked shelves are brought up to date when the page opens.
-        if (!synced)
-        {
-            synced = true;
-            await Federation.SyncAsync(db);
-        }
 
         remoteAsks = await Federation.RemoteAsksAsync(db);
         linkedAsks = await Federation.LinkedAsksAsync(db);
