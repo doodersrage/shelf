@@ -83,7 +83,7 @@ public sealed class AudioTaggingTests(ShelfApiFactory factory) : IClassFixture<S
             using var downloaded = new ZipArchive(new MemoryStream(await reader.GetByteArrayAsync($"/books/{tracked.Id}/audio/download")));
             var names = downloaded.Entries.Select(entry => entry.FullName).Order(StringComparer.Ordinal).ToList();
             Assert.Equal(2, names.Count);
-            Assert.StartsWith("Ann Writer - Tracks Tagged/01 - ", names[0]);
+            Assert.Equal("Ann Writer - Tracks Tagged/01 - 01 Opening.mp3", names[0]);
             using var second = new MemoryStream();
             await using (var stream = downloaded.GetEntry(names[1])!.Open())
             {

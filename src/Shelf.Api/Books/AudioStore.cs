@@ -406,6 +406,13 @@ public sealed class AudioStore(IWebHostEnvironment environment, IConfiguration c
         return name.Length <= 80 ? name : name[^80..];
     }
 
+    // A track's name for a list or a tag: its file's name without the kind of file on the end.
+    public static string PlainTitle(string title)
+    {
+        var extension = Path.GetExtension(title);
+        return extension.Length > 1 && Extensions.Contains(extension) && title.Length > extension.Length ? title[..^extension.Length] : title;
+    }
+
     private static string TrackTitle(string path)
     {
         var name = Path.GetFileName(path);

@@ -94,6 +94,12 @@ Shelf uses any service with OpenAI's transcription API and word times. Set `Read
 
 When ffmpeg is there, Shelf always cuts tracks into ten-minute pieces, which shows progress as it goes and loses less if something fails. The recording goes to the service you choose and nowhere else.
 
+## Listening in a podcast app
+
+**Listen in a podcast app**, under the recording on a book's page, makes a private feed of the book for any podcast app, as Audiobookshelf opens one: each track an episode, in order, with its cover, and a single file's chapters where the app shows them. Paste the address it shows into the app; it's shown only once, so copy it then. **Make a new address** stops the old one, and **Stop the feed** stops it altogether.
+
+Anyone with the address can listen to the book, so keep it to yourself. The podcast app keeps its own place, which isn't kept in step with Shelf. The feed stops if the book's recording goes, and only a book's owner can make one; a child's account can't.
+
 ## Playlists
 
 A playlist is things to listen to in the order you choose, audiobooks and podcast episodes together, as Audiobookshelf has them. Make one on **Playlists**, under **Discover**, and add to it from a book's page (under its recording) or from an episode on its podcast's page. On the playlist's page, move things up and down or take them out, and **Play the playlist**, or **Play from here** on any one of them: each goes on into the next as it ends, in the mini player as you move around the shelf. Starting something else by hand ends the playlist.

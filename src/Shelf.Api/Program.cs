@@ -539,6 +539,7 @@ app.MapGet("/version", () => TypedResults.Ok(ShelfVersion.Response)).WithTags("S
 app.MapBooks();
 SharedLists.Map(app);
 Feeds.Map(app);
+AudioFeeds.MapPublic(app);
 ReleaseWatch.Map(app);
 Kobo.Map(app);
 PodcastService.Map(app);

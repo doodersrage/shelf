@@ -1,0 +1,58 @@
+@inject IDbContextFactory<ShelfDb> DbFactory
+@inject NavigationManager Navigation
+
+@* The book as a private podcast: an address made and shown once, and a way to stop it. *@
+<details class="audio-feed">
+    <summary>@T("Listen in a podcast app")</summary>
+    <p class="hint">@T("A private feed of this recording for any podcast app, a track an episode. Anyone with its address can listen to the book, so keep it to yourself. The podcast app keeps its own place; it isn't kept in step with Shelf.")</p>
+    @if (made is not null)
+    {
+        <p role="status">@T("Copy this address into your podcast app now; it's shown only this once:")</p>
+        <p><code class="key">@made</code></p>
+    }
+    else if (state?.On == true)
+    {
+        <p>@T("A feed has been on since {0}.", state.Since?.ToLocalTime().ToString("d", System.Globalization.CultureInfo.CurrentCulture) ?? "")</p>
+    }
+    <button type="button" @onclick="Make">@(state?.On == true ? T("Make a new address (the old one stops)") : T("Make a feed"))</button>
+    @if (state?.On == true)
+    {
+        <button type="button" class="quiet danger" @onclick="Stop">@T("Stop the feed")</button>
+    }
+    @if (problem is not null)
+    {
+        <p class="validation-message" role="alert">@problem</p>
+    }
+</details>
+
+@code {
+    [Parameter]
+    public int BookId { get; set; }
+
+    private AudioFeedState? state;
+    private string? made;
+    private string? problem;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        state = await AudioFeeds.StateAsync(db, BookId);
+    }
+
+    private async Task Make()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var (token, trouble) = await AudioFeeds.MakeAsync(db, BookId);
+        problem = trouble;
+        made = token is null ? null : $"{Navigation.BaseUri.TrimEnd('/')}/listen-feed/{token}/feed.xml";
+        state = await AudioFeeds.StateAsync(db, BookId);
+    }
+
+    private async Task Stop()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await AudioFeeds.StopAsync(db, BookId);
+        (made, problem) = (null, null);
+        state = await AudioFeeds.StateAsync(db, BookId);
+    }
+}

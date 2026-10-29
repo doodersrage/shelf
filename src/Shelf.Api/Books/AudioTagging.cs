@@ -64,7 +64,7 @@ public static class AudioTagging
                     var source = audio.TrackPath(stored, track.Index)!;
                     var extension = Path.GetExtension(source).ToLowerInvariant();
                     var tagged = Path.Combine(folder, "track" + extension);
-                    var entry = $"{baseName}/{(track.Index + 1).ToString(new string('0', Math.Max(2, width)), CultureInfo.InvariantCulture)} - {Safe(track.Title)}{extension}";
+                    var entry = $"{baseName}/{(track.Index + 1).ToString(new string('0', Math.Max(2, width)), CultureInfo.InvariantCulture)} - {Safe(AudioStore.PlainTitle(track.Title))}{extension}";
                     if (ffmpeg is not null && await TagAsync(ffmpeg, source, tagged, folder, Tags(book, track, tracks.Count), [], coverPath, cancellationToken))
                     {
                         zip.CreateEntryFromFile(tagged, entry, CompressionLevel.NoCompression);
@@ -91,7 +91,7 @@ public static class AudioTagging
     {
         var tags = new Dictionary<string, string>
         {
-            ["title"] = track is null ? book.Title : track.Title,
+            ["title"] = track is null ? book.Title : AudioStore.PlainTitle(track.Title),
             ["album"] = book.Title,
             ["artist"] = book.Author,
             ["album_artist"] = book.Author,

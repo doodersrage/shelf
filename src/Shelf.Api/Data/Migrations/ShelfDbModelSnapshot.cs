@@ -154,6 +154,37 @@ namespace Shelf.Api.Data.Migrations
                     b.ToTable("AudioBookmarks");
                 });
 
+            modelBuilder.Entity("Shelf.Api.Books.AudioFeed", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookId")
+                        .IsUnique();
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("AudioFeeds");
+                });
+
             modelBuilder.Entity("Shelf.Api.Books.AuthorAlert", b =>
                 {
                     b.Property<int>("Id")
@@ -3682,6 +3713,17 @@ namespace Shelf.Api.Data.Migrations
                         .WithMany()
                         .HasForeignKey("ReaderId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Book");
+                });
+
+            modelBuilder.Entity("Shelf.Api.Books.AudioFeed", b =>
+                {
+                    b.HasOne("Shelf.Api.Books.Book", "Book")
+                        .WithMany()
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Book");
                 });

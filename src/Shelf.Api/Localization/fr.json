@@ -3467,5 +3467,14 @@
   "The long drive": "Le long trajet",
   "Things to listen to, in the order you choose: audiobooks and podcast episodes together. Played, each goes on into the next. Add to one from a book's page or a podcast's.": "Des choses à écouter, dans l’ordre que vous choisissez : livres audio et épisodes de podcast ensemble. À la lecture, chacun enchaîne sur le suivant. Ajoutez-y depuis la page d’un livre ou d’un podcast.",
   "can't be played, and is passed over": "ne peut pas être lu et est passé",
-  "{0} to listen to": "{0} à écouter"
+  "{0} to listen to": "{0} à écouter",
+  "Listen in a podcast app": "Écouter dans une application de podcast",
+  "A private feed of this recording for any podcast app, a track an episode. Anyone with its address can listen to the book, so keep it to yourself. The podcast app keeps its own place; it isn't kept in step with Shelf.": "Un flux privé de cet enregistrement pour n’importe quelle application de podcast, un épisode par piste. Toute personne qui a son adresse peut écouter le livre : gardez-la pour vous. L’application de podcast garde sa propre position ; elle n’est pas synchronisée avec Shelf.",
+  "Copy this address into your podcast app now; it's shown only this once:": "Copiez cette adresse dans votre application de podcast maintenant ; elle n’est affichée qu’une fois :",
+  "A feed has been on since {0}.": "Un flux est actif depuis le {0}.",
+  "Make a new address (the old one stops)": "Créer une nouvelle adresse (l’ancienne cesse de fonctionner)",
+  "Make a feed": "Créer un flux",
+  "Stop the feed": "Arrêter le flux",
+  "A podcast feed needs a recording.": "Un flux de podcast demande un enregistrement.",
+  "{0}, by {1}, from Shelf.": "{0}, de {1}, depuis Shelf."
 }

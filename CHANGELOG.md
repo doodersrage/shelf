@@ -6,6 +6,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Added
 
+- **An audiobook as a private podcast**, as Audiobookshelf opens a feed: **Listen in a podcast app**, on a book's page, makes a secret address for any podcast app, each track an episode in order, with the cover and a single file's chapters. It's shown once and only a hash of it is kept; a new address stops the old, and it can be stopped. The place isn't kept in step with Shelf.
 - **Playlists**, as Audiobookshelf has them: audiobooks and podcast episodes together, in the order you choose, played one into the next. Add from a book's page or an episode's; reorder, take out, play from any one; things gone since are passed over. Private to you, and in the full export.
 - **A recording downloads with the book's details in its files**, as Audiobookshelf embeds them: **Download the recording** writes the title, author, narrator, year, series, and cover into the files, and the chapters into a single file, by ffmpeg without re-encoding. Tracks come as a zip, numbered and named. The stored files never change.
 - **A download of your books as folders**, as Calibre lays out its library: **download as folders**, on **Backup & restore**, gives `Author/Title (id)/` folders with each format, the cover, the audiobook, and a `metadata.opf` Calibre reads when adding books from folders.
