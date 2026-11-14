@@ -3,7 +3,7 @@
 
 # The app is built once, on the builder's own processor: a framework-dependent publish runs on any, and carries
 # SQLite's native library for each. Only the final stage is made per platform (amd64 and arm64).
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /src
 COPY Directory.Build.props ./
 COPY src/Shelf.Api/Shelf.Api.csproj src/Shelf.Api/
@@ -16,7 +16,7 @@ ARG VERSION=
 # that alone, no page could become interactive. The packages restored above are reused, so this costs little.
 RUN dotnet publish src/Shelf.Api/Shelf.Api.csproj -c Release -o /app ${VERSION:+-p:Version=$VERSION}
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0
+FROM mcr.microsoft.com/dotnet/aspnet:11.0
 # Calibre turns Kindle files into EPUBs. It adds several hundred megabytes, so it is left out unless asked for:
 #   docker build --build-arg CALIBRE=true .
 # ffmpeg cuts long recordings into pieces for read-along's speech-to-text, which a service with an upload limit (such
