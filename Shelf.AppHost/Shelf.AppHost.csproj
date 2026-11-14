@@ -5,7 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Aspire.Hosting.Sqlite" Version="13.6.0" />
+    <PackageReference Include="CommunityToolkit.Aspire.Hosting.Sqlite" Version="13.6.1" />
   </ItemGroup>
 
   <PropertyGroup>
