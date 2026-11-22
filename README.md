@@ -69,7 +69,7 @@ Open [http://localhost:8080](http://localhost:8080) and make the first account; 
 
 ## Development
 
-Shelf is .NET 10: ASP.NET Core with Blazor, EF Core on SQLite, and an Aspire AppHost for local runs.
+Shelf is .NET 10: ASP.NET Core with Blazor, EF Core on SQLite, and an Aspire AppHost for local runs. `global.json` asks for the newest .NET 10 SDK on the machine, even where a newer .NET is installed too.
 
 ```bash
 dotnet run --project Shelf.AppHost --launch-profile http   # the app, with a dashboard of its logs

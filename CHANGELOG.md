@@ -4,6 +4,12 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Fixed
+
+- **Shelf builds with the .NET 10.0.114 SDK and later**, which read the return address on the account and admin pages' forms as a Razor directive and stopped the build.
+- **Shelf is built with a .NET 10 SDK where .NET 11 is installed too**: `global.json` asks for one. With the .NET 11 SDK, a development run loaded hot-reload files that weren't there, and the browser tests failed on the errors.
+- **Tests: the calendar test passes whatever day it runs on**; from late November, a plan due in 40 days fell after the year's last day, where the test expected it before.
+
 ## [2.22.0] - 2026-10-29
 
 ### Added
