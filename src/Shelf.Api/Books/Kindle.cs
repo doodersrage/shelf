@@ -55,8 +55,7 @@ public static class Kindle
                 T("{0}, sent from Shelf.", book.Title),
                 [new EmailAttachment(name, pdf ? "application/pdf" : "application/epub+zip", path)]), cancellationToken);
         }
-        catch (Exception ex) when (ex is MailKit.ServiceNotConnectedException or MailKit.Net.Smtp.SmtpCommandException or MailKit.Net.Smtp.SmtpProtocolException
-            or MailKit.Security.AuthenticationException or System.Net.Sockets.SocketException or IOException)
+        catch (Exception ex) when (SmtpEmailSender.IsRefusal(ex))
         {
             return T("The mail server did not take it: {0}", ex.Message);
         }

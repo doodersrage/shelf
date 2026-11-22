@@ -6,7 +6,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ### Security
 
-- **Dependencies updated within .NET 10**: ASP.NET Core and EF Core 10.0.15, Fido2 4.3.3, SharpCompress 0.50.10, System.Security.Cryptography.Pkcs 10.0.15, OpenTelemetry 1.21.0, and AWSSDK.S3 4.0.104.12. Development tooling: the Aspire app host 13.6.5 (CVE-2026-120006) and the test SDK 18.12.0 (CVE-2026-105544).
+- **Dependencies updated within .NET 10**: ASP.NET Core and EF Core 10.0.15, Fido2 4.3.3, SharpCompress 0.50.10, OpenTelemetry 1.21.0, and AWSSDK.S3 4.0.104.12. Development tooling: the Aspire app host 13.6.5 (CVE-2026-120006) and the test SDK 18.12.0 (CVE-2026-105544).
+- **Email goes out through MailKit 5**, which no longer brings in BouncyCastle or System.Security.Cryptography.Pkcs, so Shelf no longer pins a patched Pkcs of its own. Send to Kindle still says so when the mail server wants a sign-in it wasn't given (530), which MailKit 5 reports in a new way.
 
 ### Fixed
 
