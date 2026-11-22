@@ -4,6 +4,8 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [2.22.1] - 2026-11-22
+
 ### Security
 
 - **Dependencies updated within .NET 10**: ASP.NET Core and EF Core 10.0.15, Fido2 4.3.3, SharpCompress 0.50.10, OpenTelemetry 1.21.0, and AWSSDK.S3 4.0.104.12. Development tooling: the Aspire app host 13.6.5 (CVE-2026-120006) and the test SDK 18.12.0 (CVE-2026-105544).
@@ -862,7 +864,8 @@ The first versioned release.
 - A design system with light and dark themes, self-hosted fonts, an app icon, and a web app manifest.
 - CI on every push, and releases published from version tags.
 
-[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.22.0...HEAD
+[Unreleased]: https://github.com/doodersrage/shelf/compare/v2.22.1...HEAD
+[2.22.1]: https://github.com/doodersrage/shelf/compare/v2.22.0...v2.22.1
 [2.22.0]: https://github.com/doodersrage/shelf/compare/v2.21.0...v2.22.0
 [2.21.0]: https://github.com/doodersrage/shelf/compare/v2.20.0...v2.21.0
 [2.20.0]: https://github.com/doodersrage/shelf/compare/v2.19.1...v2.20.0
