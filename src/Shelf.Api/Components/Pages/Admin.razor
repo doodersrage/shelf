@@ -945,7 +945,7 @@ else
 
     private RenderFragment SignInAgain(string section) => @<form method="post" action="/account/signout" data-enhance="false" class="sign-in-again">
         <AntiforgeryToken />
-        <input type="hidden" name="returnUrl" value="/admin#@section" />
+        <input type="hidden" name="returnUrl" value="/admin#@(section)" />
         <button type="submit">@T("Sign in again")</button>
     </form>;
 

@@ -137,7 +137,9 @@ public sealed class ShelfLifeTests(ShelfApiFactory factory) : IClassFixture<Shel
         await reader.PostAsJsonAsync($"/books/{mine.Id}/lend", new LendRequest(friendId, today.AddDays(10)), JsonOptions);
         var collection = await (await reader.PostAsJsonAsync("/books/collections", new { name = "Winter reading" }, JsonOptions)).Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
         await reader.PutAsJsonAsync($"/books/collections/{collection.GetProperty("id").GetInt32()}/plan", new CollectionPlanRequest(today.AddDays(40)), JsonOptions);
-        await reader.PostAsJsonAsync("/books/goals", new { kind = "Tag", name = "winter", target = 3 }, JsonOptions);
+        // The goal is next year's, so its last day comes after the plan's whatever day the test is run on.
+        var goalYear = today.Year + 1;
+        await reader.PostAsJsonAsync("/books/goals", new { kind = "Tag", name = "winter", target = 3, year = goalYear }, JsonOptions);
         var club = await (await reader.PostAsJsonAsync("/books/clubs", new { name = "Calendar club" }, JsonOptions)).Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
         var clubId = club.GetProperty("id").GetInt32();
         await reader.PostAsJsonAsync($"/books/clubs/{clubId}/books", new { bookId = mine.Id }, JsonOptions);
@@ -145,7 +147,7 @@ public sealed class ShelfLifeTests(ShelfApiFactory factory) : IClassFixture<Shel
         var at = new DateTimeOffset(today.AddDays(5).ToDateTime(new TimeOnly(18, 30)), TimeSpan.Zero);
         (await reader.PostAsJsonAsync($"/books/clubs/{clubId}/meetings", new { clubBookId = clubBook, at, through = "Part one" }, JsonOptions)).EnsureSuccessStatusCode();
 
-        var items = (await reader.GetFromJsonAsync<CalendarItem[]>("/books/agenda", JsonOptions))!;
+        var items = (await reader.GetFromJsonAsync<CalendarItem[]>($"/books/agenda?from={today.AddDays(-1):yyyy-MM-dd}&until={new DateOnly(goalYear, 12, 31):yyyy-MM-dd}", JsonOptions))!;
         Assert.Equal([CalendarKind.Meeting, CalendarKind.Lent, CalendarKind.Lent, CalendarKind.Plan, CalendarKind.Goal], items.Select(item => item.Kind));
         Assert.Contains("Lent Book", items[1].Text);
         Assert.Equal(at, items[0].At);
