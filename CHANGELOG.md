@@ -13,6 +13,7 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 - **Opening an e-book no longer puts an error in Chrome's console**: Chrome doesn't let a page listen for its own unloading any more, and epub.js asked to, to tidy up a page that was going anyway. Shelf's copy of epub.js leaves that out.
 - **Shelf builds with the .NET 10.0.114 SDK and later**, which read the return address on the account and admin pages' forms as a Razor directive and stopped the build.
 - **Shelf is built with a .NET 10 SDK where .NET 11 is installed too**: `global.json` asks for one. With the .NET 11 SDK, a development run loaded hot-reload files that weren't there, and the browser tests failed on the errors.
+- **Tests: two tests that failed now and then pass every time.** The email-language test waits for a loan's own notice to be sent before it reads the reminder, where the notice could arrive in between. The tests that start a little web server take a port the system says is free, where they guessed one at random and could find it taken.
 - **Tests: the calendar test passes whatever day it runs on**; from late November, a plan due in 40 days fell after the year's last day, where the test expected it before.
 
 ## [2.22.0] - 2026-10-29
