@@ -1,11 +1,11 @@
-<Project Sdk="Aspire.AppHost.Sdk/13.6.0">
+<Project Sdk="Aspire.AppHost.Sdk/13.6.5">
 
   <ItemGroup>
     <ProjectReference Include="..\src\Shelf.Api\Shelf.Api.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Aspire.Hosting.Sqlite" Version="13.6.0" />
+    <PackageReference Include="CommunityToolkit.Aspire.Hosting.Sqlite" Version="13.6.1" />
   </ItemGroup>
 
   <PropertyGroup>
