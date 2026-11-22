@@ -71,14 +71,17 @@ public sealed class SmtpTests
         }
     }
 
-    // Just enough SMTP to take one message: no TLS, and any sign-in is accepted.
+    // Just enough SMTP to take one message: no TLS, and any sign-in is accepted. Given a reply to MAIL FROM, it gives
+    // that instead of taking the message.
     private sealed class LoopbackSmtpServer : IAsyncDisposable
     {
         private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
         private readonly Task _serving;
+        private readonly string? _mailFromReply;
 
-        public LoopbackSmtpServer()
+        public LoopbackSmtpServer(string? mailFromReply = null)
         {
+            _mailFromReply = mailFromReply;
             _listener.Start();
             _serving = ServeAsync();
         }
@@ -108,6 +111,9 @@ public sealed class SmtpTests
                         break;
                     case "AUTH":
                         await writer.WriteLineAsync("235 2.7.0 Signed in");
+                        break;
+                    case "MAIL" when _mailFromReply is not null:
+                        await writer.WriteLineAsync(_mailFromReply);
                         break;
                     case "DATA":
                         await writer.WriteLineAsync("354 Go ahead");
@@ -175,6 +181,24 @@ public sealed class SmtpTests
         await working.SendAsync(new EmailMessage("reader@example.org", "Hello", "Hello."), CancellationToken.None);
         Assert.Contains("MAIL FROM:<shelf@example.org>", (await server.Received.Task.WaitAsync(TimeSpan.FromSeconds(10))).Envelope);
         Assert.Null(working.Problem);
+    }
+
+    [Fact]
+    public async Task A_server_that_wants_a_sign_in_it_was_not_given_is_a_refusal_a_reader_is_told_of()
+    {
+        await using var server = new LoopbackSmtpServer("530 5.7.0 Authentication required");
+        var sender = new SmtpEmailSender(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Email:Host"] = "127.0.0.1",
+            ["Email:Port"] = server.Port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["Email:Security"] = "none",
+            ["Email:From"] = "shelf@example.org",
+        }).Build(), NullLogger<SmtpEmailSender>.Instance);
+
+        var refused = await Assert.ThrowsAnyAsync<Exception>(() => sender.SendAsync(new EmailMessage("someone@kindle.com", "A book", "Sent from Shelf."), CancellationToken.None));
+        Assert.True(SmtpEmailSender.IsRefusal(refused), $"{refused.GetType().Name} was not taken for the mail server's refusal.");
+        Assert.Contains("Authentication required", sender.Problem);
+        Assert.False(SmtpEmailSender.IsRefusal(new InvalidOperationException("A fault of Shelf's own.")));
     }
 
     [Fact]

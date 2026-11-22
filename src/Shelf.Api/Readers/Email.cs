@@ -47,6 +47,12 @@ public sealed class SmtpEmailSender(IConfiguration configuration, ILogger<SmtpEm
             ? string.IsNullOrWhiteSpace(parsed.Name) ? new MimeKit.MailboxAddress("Shelf", parsed.Address) : parsed
             : new MimeKit.MailboxAddress("Shelf", from.Trim());
 
+    // Whether an email didn't go because of the mail server or the way to it, which a reader can be told about, rather
+    // than a fault of Shelf's own. A server that asks for a sign-in it wasn't given (530) is one of these.
+    public static bool IsRefusal(Exception ex) =>
+        ex is MailKit.ServiceNotConnectedException or MailKit.ServiceNotAuthenticatedException or MailKit.Net.Smtp.SmtpCommandException
+            or MailKit.Net.Smtp.SmtpProtocolException or MailKit.Security.AuthenticationException or System.Net.Sockets.SocketException or IOException;
+
     public async Task SendAsync(EmailMessage message, CancellationToken cancellationToken)
     {
         try
@@ -88,7 +94,7 @@ public sealed class SmtpEmailSender(IConfiguration configuration, ILogger<SmtpEm
 
         try
         {
-            await client.SendAsync(mail, cancellationToken);
+            await client.SendAsync(new MailKit.SendRequest(mail), cancellationToken);
             await client.DisconnectAsync(quit: true, cancellationToken);
         }
         finally
