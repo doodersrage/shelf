@@ -4,6 +4,10 @@ Every release of Shelf, newest first. The format follows [Keep a Changelog](http
 
 ## [Unreleased]
 
+### Security
+
+- **Dependencies updated within .NET 10**: ASP.NET Core and EF Core 10.0.15, Fido2 4.3.3, SharpCompress 0.50.10, System.Security.Cryptography.Pkcs 10.0.15, OpenTelemetry 1.21.0, and AWSSDK.S3 4.0.104.12. Development tooling: the Aspire app host 13.6.5 (CVE-2026-120006) and the test SDK 18.12.0 (CVE-2026-105544).
+
 ### Fixed
 
 - **Shelf builds with the .NET 10.0.114 SDK and later**, which read the return address on the account and admin pages' forms as a Razor directive and stopped the build.

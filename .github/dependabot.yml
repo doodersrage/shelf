@@ -8,6 +8,17 @@ updates:
     groups:
       dotnet:
         patterns: ["*"]
+    # Shelf targets .NET 10. A new .NET (and the packages released with it) is a deliberate upgrade, not a weekly
+    # bump: the runtime image and the target framework have to move together.
+    ignore:
+      - dependency-name: "Microsoft.AspNetCore.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.EntityFrameworkCore.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.Extensions.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "System.*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
@@ -24,6 +35,10 @@ updates:
     groups:
       docker:
         patterns: ["*"]
+    # The .NET images move with the target framework; see the NuGet entry above.
+    ignore:
+      - dependency-name: "*dotnet/*"
+        update-types: ["version-update:semver-major"]
 
   # PDF.js, JSZip, the barcode reader, and the fonts are copied into wwwroot; vendor-updates.yml copies them into
   # this pull request and runs CI again.
