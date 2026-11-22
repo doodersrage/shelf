@@ -37,10 +37,8 @@ public sealed class OutboundGuardTests
     [Fact]
     public async Task A_request_to_this_machine_is_refused_before_it_connects_and_a_local_one_goes()
     {
-        using var listener = new HttpListener();
-        var port = Random.Shared.Next(20_000, 40_000);
-        listener.Prefixes.Add($"http://127.0.0.1:{port}/");
-        listener.Start();
+        using var listener = LocalListener.Start(out var address);
+        var port = new Uri(address).Port;
         var answering = Task.Run(async () =>
         {
             var context = await listener.GetContextAsync();

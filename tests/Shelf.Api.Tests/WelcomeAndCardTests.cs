@@ -104,15 +104,13 @@ public sealed class WelcomeAndCardTests(ShelfApiFactory factory) : IClassFixture
     // A little web server on this machine answering each path with the bytes chosen for it, chunked if asked.
     private sealed class CoverServer : IDisposable
     {
-        private readonly System.Net.HttpListener _listener = new();
+        private readonly System.Net.HttpListener _listener;
         private int _requests;
 
         public CoverServer(Func<string, (byte[] Body, bool Chunked)> answer)
         {
-            var port = Random.Shared.Next(20_000, 40_000);
-            Address = $"http://127.0.0.1:{port}/";
-            _listener.Prefixes.Add(Address);
-            _listener.Start();
+            _listener = LocalListener.Start(out var address);
+            Address = address;
             _ = Task.Run(async () =>
             {
                 while (_listener.IsListening)

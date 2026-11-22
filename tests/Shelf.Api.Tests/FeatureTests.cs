@@ -468,6 +468,14 @@ public sealed class FeatureTests(ShelfApiFactory factory) : IClassFixture<ShelfA
 
         var book = await CreateAsync(new CreateBookRequest("Libro Atrasado", "Alguien", BookStatus.Want, null));
         await _client.PostAsJsonAsync($"/books/{book.Id}/lend", new LendRequest(readerId, DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-3)), JsonOptions);
+        // The loan's own notice is sent in the background; it is let go first, so the last mail is the reminder.
+        var events = factory.Services.GetRequiredService<ShelfEvents>();
+        for (var i = 0; i < 100 && !events.Idle; i++)
+        {
+            await Task.Delay(50);
+        }
+
+        Assert.True(events.Idle, "The loan's notice was still being sent.");
         await factory.Services.GetRequiredService<Notices>().RemindDueAsync(CancellationToken.None);
         var reminder = factory.Mail.Sent.Last(item => item.To == "lectora@example.org");
         Assert.Equal("Tus préstamos en Shelf", reminder.Subject);
